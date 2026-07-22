@@ -10,7 +10,6 @@ import {
   NoteEditIcon,
   RankingIcon,
   Settings01Icon,
-  SplitIcon,
   UserGroupIcon,
   UserSwitchIcon,
 } from "@hugeicons/core-free-icons";
@@ -48,13 +47,6 @@ export const appNavItems: NavItem[] = [
     shortLabel: "Mock Draft",
     icon: NoteEditIcon,
     isActive: (pathname) => pathname.startsWith("/draft-room"),
-  },
-  {
-    href: "/trade-analyzer",
-    label: "Trade Analyzer",
-    shortLabel: "Trade Analyzer",
-    icon: SplitIcon,
-    isActive: (pathname) => pathname.startsWith("/trade-analyzer"),
   },
   {
     href: "/rankings",

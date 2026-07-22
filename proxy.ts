@@ -4,7 +4,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { safeNextPath } from "@/lib/auth/safe-next";
 import { getSupabaseAnonKey, getSupabaseUrl } from "@/lib/supabase/env";
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const url = getSupabaseUrl();
   const anonKey = getSupabaseAnonKey();
 

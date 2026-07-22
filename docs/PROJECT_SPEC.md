@@ -91,7 +91,6 @@ Two navigation contexts: **app-level** (user account) and **league-level** (insi
 | `/dashboard` | Dashboard | Home — league picker, quick summary cards |
 | `/leagues` | Leagues | List, create, join via shareable link |
 | `/draft-room` | Mock Draft | Practice draft settings + live mock vs ADP bots |
-| `/trade-analyzer` | Trade Analyzer | Compare trade value across players (placeholder) |
 | `/rankings` | Rankings | Player rankings (offense-first, DB-backed) |
 | `/scores` | NFL Scores | **Real NFL** game scores (ESPN scoreboard) |
 | `/scores/[gameId]` | Game | NFL game dashboard from ESPN summary (pre / live) |
@@ -273,7 +272,7 @@ Both contexts have "Scores" and "Draft Room". Use distinct labels in the UI:
 | 1.4 | Rankings **(wired to DB — D.2)** |
 | 1.5 | Scores (NFL) |
 | 1.6 | Draft Room (mock) |
-| 1.7 | Trade Analyzer |
+| ~~1.7~~ | ~~Trade Analyzer~~ — **removed** (deferred; not in nav) |
 
 ### Phase 2 — League-level UI
 
@@ -367,7 +366,7 @@ lib/
 | # | Question | Status |
 |---|---|---|
 | 1 | Mock draft room — solo vs ADP bots, or friends in a lobby together? | **Resolved (MVP)** — solo vs need-aware ADP bots; friends lobby deferred |
-| 2 | Trade Analyzer — standalone tool or connected to league trade proposals? | **Open** (assume standalone for MVP) |
+| 2 | Trade Analyzer — standalone tool or connected to league trade proposals? | **Deferred** — route + nav removed; revisit later |
 | 3 | Rankings source — Sleeper projections/stats scored with league/preset rules | **Resolved** |
 | 4 | Shareable invite link — commissioner approval required, or open join? | **Resolved** — invite link/code opens recruiting page; Claim Team assigns a specific open slot; leagues private (no public discovery) |
 | 5 | League home — standings + matchup only, or commissioner settings on same page? | **Resolved** — settings under `/league/[slug]/settings` |
@@ -403,7 +402,7 @@ lib/
 - [x] Rankings (DB-backed; SQL position/team/rookie filters)
 - [x] Scores (NFL) — schedule list + game dashboard (ESPN summary, no mocks)
 - [x] Draft Room (mock) — settings + live vs need-aware ADP bots
-- [ ] Trade Analyzer — placeholder
+- [x] Trade Analyzer — **removed** from app (route + nav); deferred
 
 ### Phase 2 — League-level UI
 
@@ -457,7 +456,7 @@ lib/
 - [ ] **Dynasty draft-pick trades** — player-only trades first; Draft Picks tab inventory later
 - [x] **Counter-offers** — receiver can open composer prefilled from a pending trade; sending rejects the original
 - [x] **Trade history** — collapsed section on Transactions tab + Trades page
-- [ ] **Trade Analyzer** — remains standalone tool; not wired to league proposals (Open Question #2)
+- [x] **Trade Analyzer** — removed from product for now (Open Question #2 deferred)
 
 ---
 
@@ -506,4 +505,5 @@ lib/
 | 2026-07-22 | Draft polish: per-team autopick toggle, pause-safe clock, open-slot autopick, post-draft season-live CTAs |
 | 2026-07-22 | Email provider → Brevo; locked v1 email set (draft start/end/on-deck/on-clock for live + email draft; live T-24h/T-15m; trade proposal / accepted-for-veto / vetoed) |
 | 2026-07-22 | Brevo wired: `lib/email/*`, `email_sends` dedupe, draft/trade hooks, `/api/cron/draft-reminders` |
+| 2026-07-22 | Removed Trade Analyzer from nav and deleted `/trade-analyzer` route |
 | 2026-07-16 | Trades: initial implementation started; follow-up items documented (vetoes, limits, cron, email) |
