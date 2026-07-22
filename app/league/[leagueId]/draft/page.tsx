@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 import { DraftRoom } from "@/components/leagues/draft/draft-room";
 import { getSessionUser } from "@/lib/auth/session";
+import { resolveDraftSettings } from "@/lib/leagues/draft-settings";
 import {
   resolveScoringRuleDefinitions,
   type ScoringPreset,
@@ -10,12 +11,14 @@ import {
 import {
   getDraftedRosterForTeam,
   getDraftRoomData,
+  getSeasonDraftTeams,
   getTeamDraftQueue,
 } from "@/lib/queries/draft";
 import {
   getLeagueBySlug,
   getLeagueMembership,
   getLeagueSeason,
+  isLeagueCommissioner,
 } from "@/lib/queries/leagues";
 import { getNflTeams, getRankedPlayers } from "@/lib/queries/players";
 import { getNflState } from "@/lib/sleeper/api";
@@ -51,19 +54,20 @@ export default async function LeagueDraftRoomPage({
     redirect("/leagues");
   }
 
-  const isCommissioner = membership.role === "commissioner";
+  const isCommissioner = await isLeagueCommissioner(league.id, user.id);
   const scoringRules = resolveScoringRuleDefinitions(
     season.scoringPreset as ScoringPreset,
     season.settings.scoringRules,
   );
 
-  const [room, nflState] = await Promise.all([
+  const [room, nflState, seasonTeams] = await Promise.all([
     getDraftRoomData({
       leagueSeasonId: season.id,
       settings: season.settings,
       benchSlots: season.benchSlots,
     }),
     getNflState(),
+    getSeasonDraftTeams(season.id),
   ]);
 
   const myTeam =
@@ -82,16 +86,13 @@ export default async function LeagueDraftRoomPage({
       myTeam ? getDraftedRosterForTeam(myTeam.id) : Promise.resolve([]),
     ]);
 
-  const canStart =
-    room.teams.length >= season.teamCount &&
-    room.teams.every((team) => team.draftSlot != null) &&
-    room.schedule.length > 0;
-
-  let startBlockedReason: string | null = null;
-  if (room.teams.length < season.teamCount) {
-    startBlockedReason = `League is not full (${room.teams.length}/${season.teamCount}).`;
-  } else if (room.teams.some((team) => team.draftSlot == null)) {
-    startBlockedReason = "Set draft order for every team first.";
+  // Soft hints only — commissioner can always start (server auto-assigns slots).
+  let startHint: string | null = null;
+  if (seasonTeams.length < season.teamCount) {
+    startHint = `League is not full (${seasonTeams.length}/${season.teamCount}) — you can still start.`;
+  } else if (seasonTeams.some((team) => team.draftSlot == null)) {
+    startHint =
+      "Some teams are missing draft order — starting will assign remaining slots.";
   }
 
   const slimPool = poolPlayers.map(toDraftPoolPlayer);
@@ -106,10 +107,12 @@ export default async function LeagueDraftRoomPage({
     }
   }
 
+  const draftSettings = resolveDraftSettings(season.settings.draft);
+  const onTheClockTeam =
+    room.teams.find((team) => team.id === room.onTheClock?.teamId) ?? null;
+
   return (
     <div className="flex flex-1 flex-col gap-6 p-6">
-      <h1 className="text-2xl font-semibold tracking-tight">League Draft</h1>
-
       <DraftRoom
         slug={slug}
         isCommissioner={isCommissioner}
@@ -117,8 +120,7 @@ export default async function LeagueDraftRoomPage({
         status={room.draft?.status ?? null}
         currentPickIndex={room.draft?.currentPickIndex ?? 0}
         onTheClock={room.onTheClock}
-        canStart={canStart}
-        startBlockedReason={startBlockedReason}
+        startHint={startHint}
         schedule={room.schedule}
         picks={room.picks}
         teams={room.teams}
@@ -129,9 +131,23 @@ export default async function LeagueDraftRoomPage({
         draftedPlayerIds={[...room.draftedPlayerIds]}
         myDraftedPlayers={myDraftedRanked}
         pickByPlayerId={pickByPlayerId}
+        draftType={season.draftType}
+        pickTimeLimitSeconds={season.pickTimeLimitSeconds}
+        pickTimeLimitEnabled={draftSettings.pickTimeLimitEnabled !== false}
+        autoPickEnabled={draftSettings.autoPickEnabled}
+        onTheClockTeamAutoPick={Boolean(onTheClockTeam?.autoPickEnabled)}
+        draftStartAt={toIso(season.draftStartAt)}
+        turnExpiresAt={toIso(room.draft?.turnExpiresAt)}
+        pausedSecondsRemaining={room.draft?.pausedSecondsRemaining ?? null}
       />
     </div>
   );
+}
+
+function toIso(value: Date | string | null | undefined): string | null {
+  if (!value) return null;
+  if (value instanceof Date) return value.toISOString();
+  return value;
 }
 
 /** Drop league-only / unused fields before shipping the pool to the client. */

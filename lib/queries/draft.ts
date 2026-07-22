@@ -53,9 +53,16 @@ export type DraftRoomData = {
     currentPickIndex: number;
     startedAt: Date | null;
     pausedAt: Date | null;
+    turnExpiresAt: Date | null;
+    pausedSecondsRemaining: number | null;
     completedAt: Date | null;
   } | null;
-  teams: Array<DraftTeamSlot & { userId: string | null; autoPickEnabled: boolean }>;
+  teams: Array<
+    DraftTeamSlot & {
+      userId: string | null;
+      autoPickEnabled: boolean;
+    }
+  >;
   schedule: DraftScheduleSlot[];
   picks: DraftPickRow[];
   draftedPlayerIds: Set<string>;
@@ -223,6 +230,8 @@ export async function getDraftRoomData(input: {
           currentPickIndex: draft.currentPickIndex,
           startedAt: draft.startedAt,
           pausedAt: draft.pausedAt,
+          turnExpiresAt: draft.turnExpiresAt,
+          pausedSecondsRemaining: draft.pausedSecondsRemaining,
           completedAt: draft.completedAt,
         }
       : null,

@@ -92,11 +92,11 @@ export function FillBotTeamsMenuItem({ slug }: FillBotTeamsMenuItemProps) {
               <>
                 Added{" "}
                 <span className="tabular-nums">{filledCount}</span> bot team
-                {filledCount === 1 ? "" : "s"}. You can set draft order and
-                pick for them.
+                {filledCount === 1 ? "" : "s"} with autopick on. You can set
+                draft order and pick for them.
               </>
             ) : (
-              "Creates placeholder managers and teams for every open slot. Use this to test draft order and commissioner picks."
+              "Creates placeholder managers and teams for every open slot. Bot teams draft with autopick (queue / ADP). Use this to test a full draft."
             )}
           </AlertDialogDescription>
         </AlertDialogHeader>

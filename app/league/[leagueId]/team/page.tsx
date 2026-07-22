@@ -489,6 +489,7 @@ export default async function MyTeamPage({
             <TeamSettingsSection
               leagueSlug={slug}
               initialLogoUrl={team.logoUrl ?? null}
+              initialAutoPickEnabled={team.autoPickEnabled}
               initialValues={{
                 name: team.name,
                 logoMode: "keep",

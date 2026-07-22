@@ -32,13 +32,16 @@ import {
 } from "@/components/ui/card";
 import {
   Field,
+  FieldDescription,
   FieldError,
   FieldGroup,
   FieldLabel,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import {
   dropOutOfLeague,
+  updateTeamAutoPick,
   updateTeamIdentity,
 } from "@/lib/actions/team-settings";
 import type { TeamIdentityFormValues } from "@/lib/leagues/team-identity";
@@ -47,6 +50,7 @@ type TeamSettingsSectionProps = {
   leagueSlug: string;
   initialValues: TeamIdentityFormValues;
   initialLogoUrl: string | null;
+  initialAutoPickEnabled: boolean;
 };
 
 function valuesEqual(a: TeamIdentityFormValues, b: TeamIdentityFormValues) {
@@ -57,9 +61,13 @@ export function TeamSettingsSection({
   leagueSlug,
   initialValues,
   initialLogoUrl,
+  initialAutoPickEnabled,
 }: TeamSettingsSectionProps) {
   const router = useRouter();
   const [values, setValues] = useState(initialValues);
+  const [autoPickEnabled, setAutoPickEnabled] = useState(
+    initialAutoPickEnabled,
+  );
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<
     Partial<Record<"name" | "logoUrl", string>>
@@ -93,6 +101,21 @@ export function TeamSettingsSection({
         return;
       }
       toast.success("Team settings saved");
+      router.refresh();
+    });
+  };
+
+  const handleAutoPickChange = (next: boolean) => {
+    const previous = autoPickEnabled;
+    setAutoPickEnabled(next);
+    startTransition(async () => {
+      const result = await updateTeamAutoPick(leagueSlug, next);
+      if (!result.success) {
+        setAutoPickEnabled(previous);
+        toast.error(result.error ?? "Could not update autopick.");
+        return;
+      }
+      toast.success(next ? "Autopick enabled" : "Autopick disabled");
       router.refresh();
     });
   };
@@ -174,6 +197,31 @@ export function TeamSettingsSection({
       </Card>
 
       <Card size="sm" className="gap-0 py-0">
+        <CardHeader className="border-b bg-muted/40 py-3">
+          <CardTitle className="text-base text-balance">Draft</CardTitle>
+        </CardHeader>
+        <CardContent className="py-4">
+          <Field>
+            <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
+              <div className="min-w-0">
+                <FieldLabel htmlFor="teamAutoPick">Autopick</FieldLabel>
+                <FieldDescription>
+                  When on, your team drafts from your queue (then best available)
+                  if the pick clock expires.
+                </FieldDescription>
+              </div>
+              <Switch
+                id="teamAutoPick"
+                checked={autoPickEnabled}
+                disabled={isPending}
+                onCheckedChange={handleAutoPickChange}
+              />
+            </div>
+          </Field>
+        </CardContent>
+      </Card>
+
+      <Card size="sm" className="gap-0 py-0">
         <CardHeader className="border-b bg-destructive/5 py-3 [.border-b]:pb-3">
           <CardTitle className="text-balance text-destructive">
             Leave League
@@ -208,7 +256,7 @@ export function TeamSettingsSection({
               Leave League
             </AlertDialogTrigger>
             <AlertDialogContent>
-                            <AlertDialogHeader>
+              <AlertDialogHeader>
                 <AlertDialogTitle className="text-balance">
                   Leave this league?
                 </AlertDialogTitle>
@@ -222,7 +270,7 @@ export function TeamSettingsSection({
                   {leaveError}
                 </p>
               ) : null}
-                            <AlertDialogFooter>
+              <AlertDialogFooter>
                 <AlertDialogCancel disabled={isPending}>
                   <HugeiconsIcon
                     icon={Cancel01Icon}

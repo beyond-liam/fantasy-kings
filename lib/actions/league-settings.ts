@@ -849,7 +849,7 @@ export async function fillEmptySlotsWithBotTeams(
           userId,
           name: teamName,
           slug: teamSlug,
-          autoPickEnabled: draftDefaults.autoPickEnabled,
+          autoPickEnabled: true,
         })
         .where(eq(teams.id, openTeam.id));
     }
@@ -887,7 +887,7 @@ export async function fillEmptySlotsWithBotTeams(
                 ]!.id
               : null,
           draftSlot: maxDraftSlot + i + 1,
-          autoPickEnabled: draftDefaults.autoPickEnabled,
+          autoPickEnabled: true,
           waiverPriority: maxWaiverPriority + i + 1,
           faabRemaining,
         })

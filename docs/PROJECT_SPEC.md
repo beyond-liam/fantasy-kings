@@ -52,7 +52,7 @@ Do not substitute without explicit approval.
 | Live stats | ESPN unofficial public API | Free, no key — deferred |
 | Live-poll scheduler | cron-job.org (external, free) | Every 2–5 min on game days → `/api/cron/sync-scores` |
 | Player metadata | Sleeper `/v1/players/nfl` | Player pool + external IDs; daily refresh via seed script |
-| Email | Resend (free tier: 3,000/mo, 100/day) | Deferred |
+| Email | Brevo (free: 300/day) | Deferred — transactional draft + trade alerts |
 | Styling | Tailwind CSS | |
 | Components | shadcn/ui | Copied into codebase, full styling ownership |
 | Icons | Hugeicons free tier | `@hugeicons/react` + `@hugeicons/core-free-icons`, Stroke Rounded only |
@@ -169,9 +169,15 @@ Both contexts have "Scores" and "Draft Room". Use distinct labels in the UI:
 
 ### Draft
 
-- Two engines: live draft room (real-time) and slow/async draft **(both deferred — UI placeholders)**
+- Two engines: live draft room (real-time) and slow/async draft **(live room shipped; email/slow draft deferred)**
 - Mock draft room at app level (practice)
-- Fully customizable: snake vs linear, manual order edits **(deferred)**
+- Fully customizable: snake vs linear, manual order edits **(snake/linear + pick clock + autopick honored in live room)**
+- Auto-start at scheduled `draftStartAt` **(cron + draft-room client trigger)**
+- Per-team autopick toggle (My Team → Settings); open/unclaimed slots forced onto autopick
+- Pause preserves remaining pick-clock time (`turnExpiresAt` / `pausedSecondsRemaining`)
+- **Email alerts (deferred / Brevo)** — see Notifications for the full set; draft-specific:
+  - Live draft: tomorrow + 15 minutes before start (cron)
+  - Live **and** email/slow draft: draft starts, on deck, on the clock, draft ends
 
 ### Roster construction
 
@@ -202,7 +208,22 @@ Both contexts have "Scores" and "Draft Room". Use distinct labels in the UI:
 ### Notifications & activity
 
 - Chronological activity log of league events **(placeholder UI)**
-- Email via Resend, push optional **(deferred)**
+- In-app bell dropdown shipped (trade + waiver producers)
+- Email via **Brevo** **(deferred)**; push optional later
+- Auth OTP remains Supabase (not Brevo)
+- **Email v1 scope (locked):**
+  | Event | Recipients | Notes |
+  |---|---|---|
+  | Live draft tomorrow | League | Cron |
+  | Live draft in 15 minutes | League | Cron |
+  | Draft starts | League | Live + email/slow draft |
+  | On deck | That manager | Live + email/slow draft |
+  | On the clock | That manager | Live + email/slow draft |
+  | Draft ends | League | Live + email/slow draft |
+  | Trade proposal | Counterparty | |
+  | Trade accepted (review/veto window) | League | So managers can veto |
+  | Trade vetoed | Both sides | |
+- Out of email v1 (in-app only for now): waiver results, matchup W/L, adds/drops, injuries, every pick broadcast
 - No built-in chat/social layer
 
 ### Historical data
@@ -262,7 +283,7 @@ Both contexts have "Scores" and "Draft Room". Use distinct labels in the UI:
 | 2.4 | Scores (fantasy matchups) — placeholder |
 | 2.5 | Trades — placeholder |
 | 2.6 | Activity — placeholder |
-| 2.7 | Draft Room (league) — placeholder |
+| 2.7 | Draft Room (league) — live (clock + autopick) |
 | 2.8 | Settings + scoring rules |
 
 ### Phase 3 — Backend wiring (per approved screen)
@@ -334,7 +355,7 @@ lib/
 |---|---|
 | ESPN live API is unofficial, no SLA | Graceful degradation UI, not hard failure |
 | Vercel free tier only allows daily cron | cron-job.org triggers secured API route |
-| Resend 100 emails/day cap | Fine at current scale; digest batching if needed |
+| Brevo 300 emails/day free cap | Draft/trade-only targeting; no league-wide pick spam; throttle if needed |
 | Live ESPN vs finalized nflverse data may disagree | Label "live" vs "final" in UI |
 | Draft room is highest-complexity feature | Ship slow draft before live draft if needed |
 
@@ -396,7 +417,7 @@ lib/
 - [x] Scores (fantasy Matchups) — week matchup board
 - [x] Trades — composer, transactions tab, processing, vetoes, history
 - [x] Activity — league event log (waivers + trades)
-- [ ] Draft Room (league) — placeholder
+- [x] Draft Room (league) — live room (mock layout, pick clock, queue→ADP autopick)
 
 ### Phase 3 — Backend wiring
 
@@ -418,7 +439,8 @@ lib/
 - [x] Near-live Sleeper stats cron (`sync-scores`); nflverse / ESPN player-stat pipeline still deferred
 - [ ] Waivers (FAAB + rolling) runtime
 - [ ] Playoffs + tiebreakers engines
-- [ ] Email notifications (Resend)
+- [ ] Email notifications (Brevo) — draft + trade set in §5 Notifications
+- [ ] **Draft email alerts** — tomorrow + 15 mins (live); start / on deck / on clock / end (live + email draft)
 - [ ] Injury / matchup-result notification producers
 - [ ] Dynasty picks
 - [ ] Branding / custom theme
@@ -429,7 +451,7 @@ lib/
 - [ ] **Transaction limits** — `transactionLimits` enum exists but numeric weekly/season caps not in schema; count trades when implemented
 - [ ] **Configurable review duration** — settings only support fixed `review_24h`; Yahoo-style “keep open for N days” picker deferred
 - [x] **Trade activity feed** — `league_activity` trade types; Activity page labels
-- [ ] **Email on trade proposal** — Resend integration deferred (in-app badges/toasts only for now)
+- [ ] **Trade emails (Brevo)** — proposal → counterparty; accepted (veto window) → league; vetoed → both sides
 - [x] **Scheduled trade processor** — `/api/cron/process-trades` daily on Hobby + page-load fallback; use cron-job.org for frequent runs
 - [ ] **Dynasty draft-pick trades** — player-only trades first; Draft Picks tab inventory later
 - [x] **Counter-offers** — receiver can open composer prefilled from a pending trade; sending rejects the original
@@ -477,4 +499,9 @@ lib/
 | 2026-07-22 | Matchup Game Centre URLs use 6-char `publicId` (UUID bookmarks redirect) |
 | 2026-07-22 | Waivers: single process day (default Wed); claims lock 1h before 10:00 UTC |
 | 2026-07-22 | Waivers: hard-lock players whose NFL game has started until next fantasy week |
+| 2026-07-22 | League draft room: mock-style on-the-clock Card, server-aligned pick clock, queue→ADP autopick on expiry |
+| 2026-07-22 | Draft auto-start at `draftStartAt` (`/api/cron/start-drafts` + room trigger); shared `DraftClockCard` |
+| 2026-07-22 | Spec note: need Resend email alerts for live draft tomorrow + 15 mins before start |
+| 2026-07-22 | Draft polish: per-team autopick toggle, pause-safe clock, open-slot autopick, post-draft season-live CTAs |
+| 2026-07-22 | Email provider → Brevo; locked v1 email set (draft start/end/on-deck/on-clock for live + email draft; live T-24h/T-15m; trade proposal / accepted-for-veto / vetoed) |
 | 2026-07-16 | Trades: initial implementation started; follow-up items documented (vetoes, limits, cron, email) |

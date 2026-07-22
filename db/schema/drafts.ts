@@ -37,6 +37,13 @@ export const drafts = pgTable(
     currentPickIndex: integer("current_pick_index").notNull().default(0),
     startedAt: timestamp("started_at", { withTimezone: true }),
     pausedAt: timestamp("paused_at", { withTimezone: true }),
+    /**
+     * Absolute deadline for the current pick clock while live.
+     * Null when unlimited, paused, or draft not live.
+     */
+    turnExpiresAt: timestamp("turn_expires_at", { withTimezone: true }),
+    /** Remaining pick-clock seconds frozen while status is paused. */
+    pausedSecondsRemaining: integer("paused_seconds_remaining"),
     completedAt: timestamp("completed_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()

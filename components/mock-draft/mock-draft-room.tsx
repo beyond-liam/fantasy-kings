@@ -5,22 +5,19 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft01Icon,
-  StopWatchIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { toast } from "sonner";
 
+import {
+  DraftClockCard,
+  DraftClockSeconds,
+} from "@/components/draft/draft-clock-card";
 import { DraftBoard } from "@/components/leagues/draft/draft-board";
 import { DraftPlayerPool } from "@/components/leagues/draft/draft-player-pool";
 import { DraftRosterTab } from "@/components/leagues/draft/draft-roster-tab";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import {
   Tabs,
   TabsContent,
@@ -37,7 +34,6 @@ import {
 } from "@/lib/mock-draft/settings";
 import type { DraftPickRow } from "@/lib/queries/draft";
 import type { RankedPlayerRow } from "@/lib/queries/players";
-import { cn } from "@/lib/utils";
 
 function playDraftSound(src: string) {
   try {
@@ -334,59 +330,43 @@ export function MockDraftRoom({ players }: MockDraftRoomProps) {
           </h1>
         </div>
 
-        <Card size="sm" className="min-w-[16rem] gap-0 py-0">
-          <CardHeader className="border-b bg-muted/40 py-3">
-            <CardTitle className="flex items-center gap-2 text-base text-balance">
-              {status !== "complete" ? (
-                <HugeiconsIcon
-                  icon={StopWatchIcon}
-                  strokeWidth={2}
-                  className="size-4 shrink-0"
-                />
-              ) : null}
-              {status === "complete"
-                ? "Draft complete"
-                : isUserTurn
-                  ? "On the clock"
-                  : "Up next"}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="py-3">
-            {status === "complete" ? (
-              <p className="text-sm text-muted-foreground">
-                All {schedule.length} picks are in.
+        <DraftClockCard
+          title={
+            status === "complete"
+              ? "Draft complete"
+              : isUserTurn
+                ? "On the clock"
+                : "Up next"
+          }
+          showStopwatch={status !== "complete"}
+        >
+          {status === "complete" ? (
+            <p className="text-sm text-muted-foreground">
+              All {schedule.length} picks are in.
+            </p>
+          ) : isUserTurn && onTheClock ? (
+            <div className="flex flex-col gap-1">
+              <p className="text-sm font-medium">
+                You - Pick #{onTheClock.overall}
               </p>
-            ) : isUserTurn && onTheClock ? (
-              <div className="flex flex-col gap-1">
-                <p className="text-sm font-medium">
-                  You - Pick #{onTheClock.overall}
-                </p>
-                <p
-                  className={cn(
-                    "text-2xl font-semibold tabular-nums",
-                    secondsLeft <= 20 && "text-orange-500",
-                  )}
-                >
-                  {secondsLeft}s
-                </p>
-              </div>
-            ) : picksUntilUser != null && picksUntilUser > 0 ? (
-              <div className="flex flex-col gap-1">
-                <p className="text-sm text-muted-foreground">You&apos;re up in</p>
-                <p className="text-2xl font-semibold tabular-nums">
-                  {picksUntilUser}{" "}
-                  <span className="text-base font-medium text-muted-foreground">
-                    {picksUntilUser === 1 ? "pick" : "picks"}
-                  </span>
-                </p>
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                No more picks for you.
+              <DraftClockSeconds seconds={secondsLeft} />
+            </div>
+          ) : picksUntilUser != null && picksUntilUser > 0 ? (
+            <div className="flex flex-col gap-1">
+              <p className="text-sm text-muted-foreground">You&apos;re up in</p>
+              <p className="text-2xl font-semibold tabular-nums">
+                {picksUntilUser}{" "}
+                <span className="text-base font-medium text-muted-foreground">
+                  {picksUntilUser === 1 ? "pick" : "picks"}
+                </span>
               </p>
-            )}
-          </CardContent>
-        </Card>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              No more picks for you.
+            </p>
+          )}
+        </DraftClockCard>
       </div>
 
       <Tabs value={tab} onValueChange={(value) => setTab(String(value))}>

@@ -121,6 +121,37 @@ export async function updateTeamIdentity(
   return { success: true };
 }
 
+/** Toggle this team's draft autopick preference. */
+export async function updateTeamAutoPick(
+  slug: string,
+  autoPickEnabled: boolean,
+): Promise<ActionResult> {
+  const user = await requireSessionUser();
+  const league = await getLeagueBySlug(slug);
+  if (!league) {
+    return { success: false, error: "League not found." };
+  }
+
+  const season = await getLeagueSeason(league.id);
+  if (!season) {
+    return { success: false, error: "League season not found." };
+  }
+
+  const team = await getUserTeamForSeason(season.id, user.id);
+  if (!team) {
+    return { success: false, error: "Team not found." };
+  }
+
+  await db
+    .update(teams)
+    .set({ autoPickEnabled: Boolean(autoPickEnabled) })
+    .where(eq(teams.id, team.id));
+
+  revalidateTeamSettingsPaths(league.publicId);
+  revalidatePath(`/league/${league.publicId}/draft`);
+  return { success: true };
+}
+
 /**
  * Owner leaves the league. Vacates their team slot (same as commissioner remove).
  * If they are primary commissioner, commissionership transfers to another member.
@@ -195,7 +226,7 @@ export async function dropOutOfLeague(slug: string): Promise<ActionResult> {
     if (team) {
       await tx
         .update(teams)
-        .set({ userId: null })
+        .set({ userId: null, autoPickEnabled: true })
         .where(eq(teams.id, team.id));
     }
 
