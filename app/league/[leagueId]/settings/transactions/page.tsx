@@ -1,0 +1,88 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import { ArrowLeft01Icon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { settingsHref } from "@/lib/leagues/settings-tabs";
+
+import { TransactionRulesSettings } from "@/components/leagues/transactions/transaction-rules-settings";
+import { Button } from "@/components/ui/button";
+import { getSessionUser } from "@/lib/auth/session";
+import { toTransactionRulesFormValues } from "@/lib/leagues/transaction-rules";
+import {
+  getLeagueHomeData,
+  isLeagueCommissioner,
+} from "@/lib/queries/leagues";
+
+type TransactionRulesPageProps = {
+  params: Promise<{ leagueId: string }>;
+};
+
+export const metadata: Metadata = {
+  title: "Transaction settings",
+};
+
+export default async function TransactionRulesPage({
+  params,
+}: TransactionRulesPageProps) {
+  const { leagueId: slug } = await params;
+  const user = await getSessionUser();
+  if (!user) {
+    redirect(`/login?next=/league/${slug}/settings/transactions`);
+  }
+
+  const data = await getLeagueHomeData(slug, user.id);
+  if (!data) {
+    redirect("/leagues");
+  }
+
+  if (!data.isMember) {
+    redirect("/leagues");
+  }
+
+  const isCommissioner = await isLeagueCommissioner(data.league.id, user.id);
+  if (!isCommissioner) {
+    redirect(`/league/${slug}`);
+  }
+
+  if (!data.season) {
+    redirect(settingsHref(slug, "rules"));
+  }
+
+  const season = data.season;
+  const initialValues = toTransactionRulesFormValues({
+    tradesEnabled: season.tradesEnabled,
+    tradeProcessing: season.tradeProcessing,
+    tradeDeadlineWeek: season.tradeDeadlineWeek,
+    transactionRules: season.settings.transactionRules,
+  });
+
+  return (
+    <div className="flex flex-1 flex-col gap-6 p-6">
+      <div className="flex flex-col gap-4">
+        <Button
+          nativeButton={false}
+          variant="ghost"
+          size="sm"
+          className="-ml-2 w-fit px-2"
+          render={<Link href={settingsHref(slug, "rules")} />}
+        >
+          <HugeiconsIcon
+            icon={ArrowLeft01Icon}
+            strokeWidth={2}
+            data-icon="inline-start"
+          />
+          Back to Settings
+        </Button>
+      </div>
+
+      <TransactionRulesSettings
+        slug={slug}
+        leagueName={data.league.name}
+        seasonStatus={season.status}
+        maxWeek={season.regularSeasonEndWeek}
+        initialValues={initialValues}
+      />
+    </div>
+  );
+}

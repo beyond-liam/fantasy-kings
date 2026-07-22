@@ -1,36 +1,67 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Fantasy Kings
 
-## Getting Started
+Private friend-group fantasy football app (offense-first redraft MVP). Next.js App Router, Supabase Auth + Postgres, Drizzle, shadcn/ui, Figtree.
 
-First, run the development server:
+Canonical product/tech decisions live in [`docs/PROJECT_SPEC.md`](docs/PROJECT_SPEC.md).
+
+## Prerequisites
+
+- Node 20+
+- **pnpm** only (do not use npm/yarn for this repo)
+- A Supabase project (free tier)
+
+## Setup
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+pnpm install
+cp .env.example .env.local
+# Fill in values in .env.local (never commit secrets)
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Environment variables
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+| Name | Purpose |
+|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon/publishable key (or `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`) |
+| `DATABASE_URL` | Postgres connection string (pooled OK for app) |
+| `DIRECT_URL` | Direct Postgres URL for Drizzle push/migrate (preferred when set) |
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Database
 
-## Learn More
+```bash
+pnpm db:push
+pnpm db:seed:positions
+pnpm db:seed:players
+pnpm db:seed:scores
+```
 
-To learn more about Next.js, take a look at the following resources:
+Optional: `pnpm db:seed:scores:stats` for stats-mode scores.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Develop
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+pnpm dev
+```
 
-## Deploy on Vercel
+Open [http://localhost:3000](http://localhost:3000).
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Useful scripts
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| Script | Purpose |
+|---|---|
+| `pnpm lint` | ESLint |
+| `pnpm exec tsc --noEmit` | Typecheck |
+| `pnpm test` | Unit tests (ownership map today; expands with Vitest later) |
+| `pnpm db:studio` | Drizzle Studio |
+
+## Stack notes
+
+- **Fonts:** Figtree via `next/font`
+- **Icons:** Hugeicons free (Stroke Rounded)
+- **Auth:** magic link / OTP
+- **Free tier only** — see operating rules in the project spec
+
+## Agent / contributor guidance
+
+See [`AGENTS.md`](AGENTS.md) and Section 2 of the project spec (smallest increments, stop for approval).

@@ -1,0 +1,110 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import { ArrowLeft01Icon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { count, eq } from "drizzle-orm";
+import { settingsHref } from "@/lib/leagues/settings-tabs";
+
+import { PlayoffSettingsForm } from "@/components/leagues/playoffs/playoff-settings-form";
+import { Button } from "@/components/ui/button";
+import { matchups, teams } from "@/db/schema";
+import { getSessionUser } from "@/lib/auth/session";
+import { db } from "@/lib/db";
+import {
+  clampPlayoffTeamCount,
+  resolvePlayoffSettings,
+} from "@/lib/leagues/playoff-settings";
+import { CHAMPIONSHIP_WEEKS, isScheduleEditable } from "@/lib/leagues/season-calendar";
+import {
+  getLeagueHomeData,
+  isLeagueCommissioner,
+} from "@/lib/queries/leagues";
+import { getNflState } from "@/lib/sleeper/api";
+
+type PlayoffSettingsPageProps = {
+  params: Promise<{ leagueId: string }>;
+};
+
+export const metadata: Metadata = {
+  title: "Playoffs",
+};
+
+export default async function PlayoffSettingsPage({
+  params,
+}: PlayoffSettingsPageProps) {
+  const { leagueId: slug } = await params;
+  const user = await getSessionUser();
+  if (!user) {
+    redirect(`/login?next=/league/${slug}/settings/playoffs`);
+  }
+
+  const data = await getLeagueHomeData(slug, user.id);
+  if (!data || !data.isMember || !data.season) {
+    redirect("/leagues");
+  }
+
+  const isCommissioner = await isLeagueCommissioner(data.league.id, user.id);
+  if (!isCommissioner) {
+    redirect(`/league/${slug}`);
+  }
+
+  const season = data.season;
+  const [teamCountRow] = await db
+    .select({ value: count() })
+    .from(teams)
+    .where(eq(teams.leagueSeasonId, season.id));
+  const [matchupCountRow] = await db
+    .select({ value: count() })
+    .from(matchups)
+    .where(eq(matchups.leagueSeasonId, season.id));
+
+  const filledTeams = Number(teamCountRow?.value ?? 0);
+  const playoffs = resolvePlayoffSettings(season.settings.playoffs);
+  const championshipWeek = CHAMPIONSHIP_WEEKS.includes(
+    season.championshipWeek as (typeof CHAMPIONSHIP_WEEKS)[number],
+  )
+    ? (season.championshipWeek as (typeof CHAMPIONSHIP_WEEKS)[number])
+    : 17;
+  const nfl = await getNflState();
+  const editable = isScheduleEditable(season.seasonYear, nfl);
+
+  return (
+    <div className="flex flex-1 flex-col gap-6 p-6">
+      <Button
+        nativeButton={false}
+        variant="ghost"
+        size="sm"
+        className="-ml-2 w-fit px-2"
+        render={<Link href={settingsHref(slug, "schedule")} />}
+      >
+        <HugeiconsIcon
+          icon={ArrowLeft01Icon}
+          strokeWidth={2}
+          data-icon="inline-start"
+        />
+        Back to Settings
+      </Button>
+
+      <PlayoffSettingsForm
+        slug={slug}
+        leagueName={data.league.name}
+        seasonStatus={season.status}
+        teamCount={season.teamCount}
+        isLeagueFull={filledTeams >= season.teamCount}
+        matchupCount={Number(matchupCountRow?.value ?? 0)}
+        editable={editable}
+        initialValues={{
+          enabled: playoffs.enabled,
+          playoffTeamCount: clampPlayoffTeamCount(
+            season.playoffTeamCount,
+            season.teamCount,
+          ),
+          championshipWeek,
+          reSeedAfterEachRound: playoffs.reSeedAfterEachRound,
+          twoWeekChampionship: playoffs.twoWeekChampionship,
+        }}
+      />
+    </div>
+  );
+}

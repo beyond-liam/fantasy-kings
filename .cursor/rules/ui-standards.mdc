@@ -1,0 +1,41 @@
+---
+description: Always apply shadcn/ui and interface polish standards for UI work
+alwaysApply: true
+---
+
+# UI standards
+
+For any UI, component, layout, styling, or frontend interaction work in this project:
+
+1. Follow the **shadcn** skill (`.agents/skills/shadcn/SKILL.md`):
+   - Prefer existing `components/ui` primitives and CLI-added components
+   - Use semantic tokens (`bg-primary`, `text-muted-foreground`), not raw colors
+   - Compose with registry components; don't reinvent forms, dialogs, empty states, toasts, etc.
+   - Add missing components via the project package runner (`pnpm dlx shadcn@latest`, etc.)
+
+2. Follow **make-interfaces-feel-better** (`.agents/skills/make-interfaces-feel-better/SKILL.md`):
+   - Concentric border radii, tabular nums, scale on press `0.96`, no `transition: all`
+   - Adequate hit areas, font smoothing, text-wrap on headings/body where relevant
+   - When reviewing or polishing UI, use that skill's Before/After markdown table format
+
+3. **Buttons always include an icon** (Hugeicons via `@hugeicons/core-free-icons` + `HugeiconsIcon`):
+   - Every user-facing `Button` with a visible label must include a leading icon
+   - Use `data-icon="inline-start"` (or `inline-end` when the icon trails the label)
+   - Do not ship text-only action buttons (primary, outline, ghost destructive, dialog footers, etc.)
+   - Icon-only buttons (`size="icon"` / `icon-sm` / etc.) still count — the icon is the control
+   - Prefer existing project icon choices for the same action (e.g. `Cancel01Icon` for Cancel, `Tick02Icon` / check icons for confirm, `ArrowLeftRightIcon` for trade)
+
+```tsx
+// BAD — text-only action
+<Button type="button" variant="outline" onClick={onCancel}>
+  Cancel
+</Button>
+
+// GOOD — icon + label
+<Button type="button" variant="outline" onClick={onCancel}>
+  <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} data-icon="inline-start" />
+  Cancel
+</Button>
+```
+
+If shadcn and polish conflict, prefer project/shadcn component APIs and variants first, then apply polish on top without breaking built-in styling.
