@@ -62,6 +62,7 @@ type TeamWaiversSectionProps = {
   isCommissioner: boolean;
   pendingSeasonCount: number;
   nextProcessLabel: string | null;
+  claimDeadlineLabel: string | null;
   lastProcessLabel: string | null;
   resetOrderWeekly: boolean;
   fcfsMode: "after_process" | "never";
@@ -173,6 +174,7 @@ export function TeamWaiversSection({
   isCommissioner,
   pendingSeasonCount,
   nextProcessLabel,
+  claimDeadlineLabel,
 }: TeamWaiversSectionProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -273,7 +275,11 @@ export function TeamWaiversSection({
           </h2>
           <p className="text-sm text-muted-foreground">
             {nextProcessLabel
-              ? `Waivers will next process at ${nextProcessLabel} UTC`
+              ? `Next process ${nextProcessLabel} UTC${
+                  claimDeadlineLabel
+                    ? ` · submit claims by ${claimDeadlineLabel} UTC`
+                    : ""
+                }`
               : "No upcoming waiver process scheduled"}
           </p>
         </div>

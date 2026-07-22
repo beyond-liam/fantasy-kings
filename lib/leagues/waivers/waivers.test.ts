@@ -2,9 +2,12 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import {
+  getClaimDeadlineForProcess,
   getFantasyWeekStartUtc,
   getFcfsOpensAtUtc,
   getLastProcessInstantUtc,
+  getNextEligibleProcessInstantUtc,
+  isClaimEligibleForProcess,
   isFcfsWindowOpen,
   isWaiverProcessDue,
 } from "@/lib/leagues/waivers/calendar";
@@ -73,6 +76,48 @@ describe("waiver calendar", () => {
         now: new Date(Date.UTC(2026, 6, 15, 11, 5, 0)),
       }),
       false,
+    );
+  });
+
+  it("sets claim deadline one hour before process", () => {
+    const processAt = new Date(Date.UTC(2026, 6, 16, 10, 0, 0)); // Thu
+    assert.equal(
+      getClaimDeadlineForProcess(processAt).toISOString(),
+      "2026-07-16T09:00:00.000Z",
+    );
+  });
+
+  it("includes claims at or before the deadline only", () => {
+    const processAt = new Date(Date.UTC(2026, 6, 16, 10, 0, 0));
+    assert.equal(
+      isClaimEligibleForProcess(
+        new Date(Date.UTC(2026, 6, 16, 9, 0, 0)),
+        processAt,
+      ),
+      true,
+    );
+    assert.equal(
+      isClaimEligibleForProcess(
+        new Date(Date.UTC(2026, 6, 16, 9, 0, 1)),
+        processAt,
+      ),
+      false,
+    );
+  });
+
+  it("rolls late claims to the next eligible process day", () => {
+    const days = ["wed", "thu", "fri", "sat", "sun", "mon"] as const;
+    // After Thu 09:00 deadline → next eligible is Fri 10:00
+    const afterThuDeadline = new Date(Date.UTC(2026, 6, 16, 9, 30, 0));
+    assert.equal(
+      getNextEligibleProcessInstantUtc([...days], afterThuDeadline)?.toISOString(),
+      "2026-07-17T10:00:00.000Z",
+    );
+    // Before Thu 09:00 → still Thursday process
+    const beforeThuDeadline = new Date(Date.UTC(2026, 6, 16, 8, 45, 0));
+    assert.equal(
+      getNextEligibleProcessInstantUtc([...days], beforeThuDeadline)?.toISOString(),
+      "2026-07-16T10:00:00.000Z",
     );
   });
 });

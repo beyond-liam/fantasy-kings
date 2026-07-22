@@ -22,7 +22,7 @@ import {
   resolveWaiverWireSettings,
   WAIVER_PROCESS_DAY_OPTIONS,
 } from "@/lib/leagues/waiver-wire";
-import { WAIVER_FCFS_OFFSET_HOURS, WAIVER_PROCESS_HOUR_UTC } from "@/lib/leagues/waivers/calendar";
+import { WAIVER_CLAIM_DEADLINE_OFFSET_HOURS, WAIVER_FCFS_OFFSET_HOURS, WAIVER_PROCESS_HOUR_UTC } from "@/lib/leagues/waivers/calendar";
 
 export type LeagueRulesRow = {
   label: string;
@@ -307,8 +307,8 @@ export function buildLeagueRulesSummary(input: {
           value: churnPreventionLabel(waiverWire.churnPrevention),
         },
         {
-          label: "Process Game-Start Waivers On",
-          value: `${processDaysLabel(waiverWire.processDays)}, locking at ${String(WAIVER_PROCESS_HOUR_UTC).padStart(2, "0")}:00 UTC`,
+          label: "Process Claims On",
+          value: `${processDaysLabel(waiverWire.processDays)} at ${String(WAIVER_PROCESS_HOUR_UTC).padStart(2, "0")}:00 UTC (claims lock ${String(WAIVER_PROCESS_HOUR_UTC - WAIVER_CLAIM_DEADLINE_OFFSET_HOURS).padStart(2, "0")}:00 UTC)`,
         },
         {
           label: "First-Come-First-Served",

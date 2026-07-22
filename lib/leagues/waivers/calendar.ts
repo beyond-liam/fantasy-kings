@@ -1,6 +1,8 @@
 import type { WaiverProcessDay } from "@/db/schema/league-seasons";
 
 const PROCESS_HOUR_UTC = 10;
+/** Claims must be submitted by this many hours before process (e.g. 09:00 for 10:00). */
+const CLAIM_DEADLINE_OFFSET_HOURS = 1;
 const FCFS_OFFSET_HOURS = 2;
 /** Week rolls at Wednesday 00:01 UTC. */
 const WEEK_START_DOW = 3; // Wednesday
@@ -101,6 +103,48 @@ export function getFcfsOpensAtUtc(processInstant: Date): Date {
   const opens = new Date(processInstant);
   opens.setUTCHours(opens.getUTCHours() + FCFS_OFFSET_HOURS);
   return opens;
+}
+
+/** Claim cutoff for a given process instant (process − 1h). */
+export function getClaimDeadlineForProcess(processInstant: Date): Date {
+  const deadline = new Date(processInstant);
+  deadline.setUTCHours(deadline.getUTCHours() - CLAIM_DEADLINE_OFFSET_HOURS);
+  return deadline;
+}
+
+/**
+ * True when a claim submitted at `createdAt` is eligible for `processInstant`
+ * (at or before that run's deadline).
+ */
+export function isClaimEligibleForProcess(
+  createdAt: Date,
+  processInstant: Date,
+): boolean {
+  return (
+    createdAt.getTime() <= getClaimDeadlineForProcess(processInstant).getTime()
+  );
+}
+
+/**
+ * Next process run that would include a claim submitted at `now`
+ * (skips today's run if past the claim deadline).
+ */
+export function getNextEligibleProcessInstantUtc(
+  processDays: WaiverProcessDay[],
+  now: Date = new Date(),
+): Date | null {
+  let cursor = now;
+  for (let attempt = 0; attempt < 14; attempt++) {
+    const process = getNextProcessInstantUtc(processDays, cursor);
+    if (!process) {
+      return null;
+    }
+    if (now < getClaimDeadlineForProcess(process)) {
+      return process;
+    }
+    cursor = new Date(process.getTime() + 1000);
+  }
+  return null;
 }
 
 /**
@@ -209,4 +253,5 @@ function nextWeekdayAtHourUtc(
 }
 
 export const WAIVER_PROCESS_HOUR_UTC = PROCESS_HOUR_UTC;
+export const WAIVER_CLAIM_DEADLINE_OFFSET_HOURS = CLAIM_DEADLINE_OFFSET_HOURS;
 export const WAIVER_FCFS_OFFSET_HOURS = FCFS_OFFSET_HOURS;

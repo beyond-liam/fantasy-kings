@@ -36,8 +36,9 @@ import { resolveFaabRemaining } from "@/lib/leagues/waivers/faab";
 import { resolveWaiverWireSettings } from "@/lib/leagues/waiver-wire";
 import { resolveTransactionRules } from "@/lib/leagues/transaction-rules";
 import {
+  getClaimDeadlineForProcess,
   getLastProcessInstantUtc,
-  getNextProcessInstantUtc,
+  getNextEligibleProcessInstantUtc,
 } from "@/lib/leagues/waivers/calendar";
 import { getStartedNflTeamAbbreviations } from "@/lib/leagues/waivers/game-lock";
 import { resolvePlayerAcquisitionKind } from "@/lib/leagues/waivers/resolve-kind";
@@ -335,9 +336,15 @@ export default async function MyTeamPage({
     ? formatIrLockMessage(irViolations)
     : IR_ACQUISITION_LOCK_REASON;
 
-  const nextProcess = getNextProcessInstantUtc(wire.processDays);
+  const nextProcess = getNextEligibleProcessInstantUtc(wire.processDays);
   const nextProcessLabel = nextProcess
     ? nextProcess.toISOString().replace("T", " ").replace(/\.\d{3}Z$/, "")
+    : null;
+  const claimDeadline = nextProcess
+    ? getClaimDeadlineForProcess(nextProcess)
+    : null;
+  const claimDeadlineLabel = claimDeadline
+    ? claimDeadline.toISOString().replace("T", " ").replace(/\.\d{3}Z$/, "")
     : null;
   const lastProcess = getLastProcessInstantUtc(wire.processDays);
   const lastProcessLabel = lastProcess
@@ -459,6 +466,7 @@ export default async function MyTeamPage({
               allowZeroBids={wire.allowZeroBids}
               pendingSeasonCount={pendingSeasonCount}
               nextProcessLabel={nextProcessLabel}
+              claimDeadlineLabel={claimDeadlineLabel}
               lastProcessLabel={lastProcessLabel}
               resetOrderWeekly={wire.resetOrderWeekly}
               fcfsMode={wire.fcfsMode}

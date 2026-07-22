@@ -475,4 +475,5 @@ lib/
 | 2026-07-22 | Matchups: “Scores updated” + LiveRefresh; persist final H2H pts; league standings from finals |
 | 2026-07-22 | Leagues list: W/L/T/%/Strk/Rank from final matchups |
 | 2026-07-22 | Matchup Game Centre URLs use 6-char `publicId` (UUID bookmarks redirect) |
+| 2026-07-22 | Waivers: single process day (default Wed); claims lock 1h before 10:00 UTC |
 | 2026-07-16 | Trades: initial implementation started; follow-up items documented (vetoes, limits, cron, email) |

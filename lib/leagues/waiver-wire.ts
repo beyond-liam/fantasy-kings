@@ -36,6 +36,7 @@ export const DEFAULT_WAIVER_WIRE_SETTINGS: WaiverWireSettings = {
   dropWaiverHours: 24,
   churnPrevention: "return_to_fa",
   fcfsMode: "after_process",
+  /** Single weekly process day (default Wednesday). */
   processDays: ["wed"],
   resetOrderWeekly: true,
 };
@@ -73,12 +74,9 @@ export const waiverWireFormSchema = z
     },
   )
   .refine(
-    (data) =>
-      !data.waiversEnabled ||
-      data.waiverPool !== "drops_and_free_agents" ||
-      data.processDays.length > 0,
+    (data) => !data.waiversEnabled || data.processDays.length === 1,
     {
-      message: "Select at least one processing day",
+      message: "Select one day for waiver processing",
       path: ["processDays"],
     },
   );
@@ -99,9 +97,11 @@ export function resolveWaiverWireSettings(
       stored.churnPrevention ?? DEFAULT_WAIVER_WIRE_SETTINGS.churnPrevention,
     fcfsMode: stored.fcfsMode ?? DEFAULT_WAIVER_WIRE_SETTINGS.fcfsMode,
     processDays:
-      stored.processDays?.length
+      stored.processDays?.length === 1
         ? stored.processDays
-        : DEFAULT_WAIVER_WIRE_SETTINGS.processDays,
+        : stored.processDays?.length
+          ? [stored.processDays[0]!]
+          : DEFAULT_WAIVER_WIRE_SETTINGS.processDays,
     resetOrderWeekly:
       stored.resetOrderWeekly ?? DEFAULT_WAIVER_WIRE_SETTINGS.resetOrderWeekly,
   };

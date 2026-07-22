@@ -30,6 +30,7 @@ type TeamTransactionsSectionProps = {
   allowZeroBids: boolean;
   pendingSeasonCount: number;
   nextProcessLabel: string | null;
+  claimDeadlineLabel: string | null;
   lastProcessLabel: string | null;
   resetOrderWeekly: boolean;
   fcfsMode: "after_process" | "never";
@@ -58,6 +59,7 @@ export function TeamTransactionsSection({
   allowZeroBids,
   pendingSeasonCount,
   nextProcessLabel,
+  claimDeadlineLabel,
   lastProcessLabel,
   resetOrderWeekly,
   fcfsMode,
@@ -105,6 +107,7 @@ export function TeamTransactionsSection({
             isCommissioner={isCommissioner}
             pendingSeasonCount={pendingSeasonCount}
             nextProcessLabel={nextProcessLabel}
+            claimDeadlineLabel={claimDeadlineLabel}
             lastProcessLabel={lastProcessLabel}
             resetOrderWeekly={resetOrderWeekly}
             fcfsMode={fcfsMode}

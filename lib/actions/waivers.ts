@@ -49,6 +49,8 @@ import {
 } from "@/lib/leagues/waivers/activity";
 import {
   getFantasyWeekStartUtc,
+  getLastProcessInstantUtc,
+  isClaimEligibleForProcess,
   isWaiverProcessDue,
 } from "@/lib/leagues/waivers/calendar";
 import {
@@ -1034,7 +1036,7 @@ async function processSeasonWaivers(input: {
     }
   }
 
-  const pending = await db
+  const pendingRows = await db
     .select({
       id: waiverClaims.id,
       teamId: waiverClaims.teamId,
@@ -1054,6 +1056,13 @@ async function processSeasonWaivers(input: {
         eq(waiverClaims.status, "pending"),
       ),
     );
+
+  // Only claims submitted by this run's deadline (process − 1h). Later claims wait.
+  const processInstant =
+    getLastProcessInstantUtc(wire.processDays, now) ?? now;
+  const pending = pendingRows.filter((row) =>
+    isClaimEligibleForProcess(row.createdAt, processInstant),
+  );
 
   let awarded = 0;
   let failed = 0;

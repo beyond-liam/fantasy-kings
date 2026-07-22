@@ -8,7 +8,6 @@ import { useRouter } from "next/navigation";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { PageFormActions } from "@/components/layout/page-form-actions";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Field,
   FieldDescription,
@@ -25,7 +24,6 @@ import {
   WAIVER_PROCESS_DAY_OPTIONS,
   type WaiverWireFormValues,
 } from "@/lib/leagues/waiver-wire";
-import type { WaiverProcessDay } from "@/db/schema/league-seasons";
 import { cn } from "@/lib/utils";
 
 type WaiverWireSettingsProps = {
@@ -74,15 +72,6 @@ export function WaiverWireSettings({
 
   const patch = (next: Partial<WaiverWireFormValues>) => {
     setValues((current) => ({ ...current, ...next }));
-  };
-
-  const toggleProcessDay = (day: WaiverProcessDay, checked: boolean) => {
-    setValues((current) => {
-      const processDays = checked
-        ? [...new Set([...current.processDays, day])]
-        : current.processDays.filter((value) => value !== day);
-      return { ...current, processDays };
-    });
   };
 
   const handleReset = () => {
@@ -345,7 +334,7 @@ export function WaiverWireSettings({
                 <OptionLabel>
                   <RadioGroupItem value="after_process" className="mt-0.5" />
                   <span className="text-sm font-medium">
-                    After weekly waiver processing
+                    After weekly waiver processing (+2 hours)
                   </span>
                 </OptionLabel>
                 <OptionLabel>
@@ -357,34 +346,37 @@ export function WaiverWireSettings({
               </RadioGroup>
             </Field>
 
-            {values.waiverPool === "drops_and_free_agents" ? (
-              <Field>
-                <FieldLabel>Process game-start waivers on</FieldLabel>
-                <FieldDescription>
-                  Days when unowned players lock to waivers after games begin.
-                </FieldDescription>
-                <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                  {WAIVER_PROCESS_DAY_OPTIONS.map((day) => {
-                    const checked = values.processDays.includes(day.value);
-                    return (
-                      <Label
-                        key={day.value}
-                        className="flex cursor-pointer items-center gap-3 rounded-lg border p-4 has-data-checked:border-primary"
-                      >
-                        <Checkbox
-                          checked={checked}
-                          onCheckedChange={(next) =>
-                            toggleProcessDay(day.value, next === true)
-                          }
-                        />
-                        <span className="text-sm font-medium">{day.label}</span>
-                      </Label>
-                    );
-                  })}
-                </div>
-                {fieldError ? <FieldError>{fieldError}</FieldError> : null}
-              </Field>
-            ) : null}
+            <Field>
+              <FieldLabel>Process claims on</FieldLabel>
+              <FieldDescription>
+                Claims run at 10:00 UTC. Submit by 09:00 UTC that day — later
+                claims wait until the following week&apos;s process.
+              </FieldDescription>
+              <RadioGroup
+                value={values.processDays[0] ?? "wed"}
+                onValueChange={(value) => {
+                  if (
+                    value === "wed" ||
+                    value === "thu" ||
+                    value === "fri" ||
+                    value === "sat" ||
+                    value === "sun" ||
+                    value === "mon"
+                  ) {
+                    patch({ processDays: [value] });
+                  }
+                }}
+                className="mt-3 grid gap-3 sm:grid-cols-2"
+              >
+                {WAIVER_PROCESS_DAY_OPTIONS.map((day) => (
+                  <OptionLabel key={day.value}>
+                    <RadioGroupItem value={day.value} className="mt-0.5" />
+                    <span className="text-sm font-medium">{day.label}</span>
+                  </OptionLabel>
+                ))}
+              </RadioGroup>
+              {fieldError ? <FieldError>{fieldError}</FieldError> : null}
+            </Field>
           </>
         ) : null}
       </FieldGroup>

@@ -9,10 +9,15 @@ const globalForDb = globalThis as unknown as {
   connectionString: string | undefined;
 };
 
+/**
+ * Supabase free tier session pool is small (~15). Default postgres.js
+ * `max: 10` plus Next HMR / parallel RSC queries exhausts it fast.
+ */
 const client =
   globalForDb.connectionString === connectionString && globalForDb.client
     ? globalForDb.client
     : postgres(connectionString, {
+        max: 1,
         prepare: false,
         ssl: "require",
       });
