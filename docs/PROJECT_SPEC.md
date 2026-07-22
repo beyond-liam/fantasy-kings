@@ -160,7 +160,7 @@ Both contexts have "Scores" and "Draft Room". Use distinct labels in the UI:
   - Bio fields: age, height, weight, college, jersey number (from Sleeper players payload)
   - Rankings/Players: fantasy points from league (or preset) scoring rules; filters (position/team/rookies) applied in SQL
   - Refresh players: `pnpm db:seed:players` · bulk scores: `pnpm db:seed:scores`
-  - **Near-live week stats:** `/api/cron/sync-scores` (secured) upserts current-week Sleeper `stats` into `player_scores`; Vercel hourly + cron-job.org every 2–5 min on game days
+  - **Near-live week stats:** `/api/cron/sync-scores` (secured) upserts current-week Sleeper `stats` into `player_scores`; Vercel daily (Hobby) + cron-job.org every 2–5 min on game days
 - nflverse for historical/weekly stats **(deferred)**
 - ESPN unofficial API for live in-game **player** stats **(deferred)** — scoreboard/clock already used for win% progress
 - cron-job.org as external scheduler for live score polling **(in use for sync-scores)**

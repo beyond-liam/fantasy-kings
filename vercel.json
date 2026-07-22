@@ -6,11 +6,11 @@
     },
     {
       "path": "/api/cron/process-trades",
-      "schedule": "0 * * * *"
+      "schedule": "15 10 * * *"
     },
     {
       "path": "/api/cron/sync-scores",
-      "schedule": "0 * * * *"
+      "schedule": "25 10 * * *"
     }
   ]
 }

@@ -69,7 +69,7 @@ async function handle(request: Request) {
 
 /**
  * Near-live Sleeper stats → `player_scores`.
- * Vercel Cron (hourly) + cron-job.org every 2–5 min on game days.
+ * Vercel Cron (daily on Hobby) + cron-job.org every 2–5 min on game days.
  */
 export async function GET(request: Request) {
   return handle(request);
