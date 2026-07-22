@@ -52,7 +52,7 @@ Do not substitute without explicit approval.
 | Live stats | ESPN unofficial public API | Free, no key — deferred |
 | Live-poll scheduler | cron-job.org (external, free) | Every 2–5 min on game days → `/api/cron/sync-scores` |
 | Player metadata | Sleeper `/v1/players/nfl` | Player pool + external IDs; daily refresh via seed script |
-| Email | Brevo (free: 300/day) | Deferred — transactional draft + trade alerts |
+| Email | Brevo (free: 300/day) | Wired — draft + trade transactional alerts |
 | Styling | Tailwind CSS | |
 | Components | shadcn/ui | Copied into codebase, full styling ownership |
 | Icons | Hugeicons free tier | `@hugeicons/react` + `@hugeicons/core-free-icons`, Stroke Rounded only |
@@ -175,8 +175,8 @@ Both contexts have "Scores" and "Draft Room". Use distinct labels in the UI:
 - Auto-start at scheduled `draftStartAt` **(cron + draft-room client trigger)**
 - Per-team autopick toggle (My Team → Settings); open/unclaimed slots forced onto autopick
 - Pause preserves remaining pick-clock time (`turnExpiresAt` / `pausedSecondsRemaining`)
-- **Email alerts (deferred / Brevo)** — see Notifications for the full set; draft-specific:
-  - Live draft: tomorrow + 15 minutes before start (cron)
+- **Email alerts (Brevo):** see Notifications; draft-specific:
+  - Live draft: tomorrow + 15 minutes before start (`/api/cron/draft-reminders`)
   - Live **and** email/slow draft: draft starts, on deck, on the clock, draft ends
 
 ### Roster construction
@@ -209,8 +209,10 @@ Both contexts have "Scores" and "Draft Room". Use distinct labels in the UI:
 
 - Chronological activity log of league events **(placeholder UI)**
 - In-app bell dropdown shipped (trade + waiver producers)
-- Email via **Brevo** **(deferred)**; push optional later
+- Email via **Brevo** **(wired)** — `lib/email/*`; push optional later
 - Auth OTP remains Supabase (not Brevo)
+- Dedupe via `email_sends` table; sends scheduled with `after()` where possible
+- Live draft reminders: `/api/cron/draft-reminders` (use cron-job.org every ~5 min; Vercel Hobby daily backup only)
 - **Email v1 scope (locked):**
   | Event | Recipients | Notes |
   |---|---|---|
@@ -344,7 +346,6 @@ lib/
 - Contracts / salary-cap system
 - **IDP** scoring and positions (current phase)
 - nflverse / ESPN live data pipeline (current phase)
-- Email notifications (current phase)
 - Installing TanStack Query / Zustand before draft-room need
 
 ---
@@ -439,8 +440,8 @@ lib/
 - [x] Near-live Sleeper stats cron (`sync-scores`); nflverse / ESPN player-stat pipeline still deferred
 - [ ] Waivers (FAAB + rolling) runtime
 - [ ] Playoffs + tiebreakers engines
-- [ ] Email notifications (Brevo) — draft + trade set in §5 Notifications
-- [ ] **Draft email alerts** — tomorrow + 15 mins (live); start / on deck / on clock / end (live + email draft)
+- [x] Email notifications (Brevo) — draft + trade set in §5 Notifications
+- [x] **Draft email alerts** — tomorrow + 15 mins (live); start / on deck / on clock / end (live + email draft)
 - [ ] Injury / matchup-result notification producers
 - [ ] Dynasty picks
 - [ ] Branding / custom theme
@@ -451,7 +452,7 @@ lib/
 - [ ] **Transaction limits** — `transactionLimits` enum exists but numeric weekly/season caps not in schema; count trades when implemented
 - [ ] **Configurable review duration** — settings only support fixed `review_24h`; Yahoo-style “keep open for N days” picker deferred
 - [x] **Trade activity feed** — `league_activity` trade types; Activity page labels
-- [ ] **Trade emails (Brevo)** — proposal → counterparty; accepted (veto window) → league; vetoed → both sides
+- [x] **Trade emails (Brevo)** — proposal → counterparty; accepted (veto window) → league; vetoed → both sides
 - [x] **Scheduled trade processor** — `/api/cron/process-trades` daily on Hobby + page-load fallback; use cron-job.org for frequent runs
 - [ ] **Dynasty draft-pick trades** — player-only trades first; Draft Picks tab inventory later
 - [x] **Counter-offers** — receiver can open composer prefilled from a pending trade; sending rejects the original
@@ -504,4 +505,5 @@ lib/
 | 2026-07-22 | Spec note: need Resend email alerts for live draft tomorrow + 15 mins before start |
 | 2026-07-22 | Draft polish: per-team autopick toggle, pause-safe clock, open-slot autopick, post-draft season-live CTAs |
 | 2026-07-22 | Email provider → Brevo; locked v1 email set (draft start/end/on-deck/on-clock for live + email draft; live T-24h/T-15m; trade proposal / accepted-for-veto / vetoed) |
+| 2026-07-22 | Brevo wired: `lib/email/*`, `email_sends` dedupe, draft/trade hooks, `/api/cron/draft-reminders` |
 | 2026-07-16 | Trades: initial implementation started; follow-up items documented (vetoes, limits, cron, email) |

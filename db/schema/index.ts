@@ -16,4 +16,5 @@ export * from "./player-external-ids";
 export * from "./player-scores";
 export * from "./matchups";
 export * from "./notifications";
+export * from "./email-sends";
 

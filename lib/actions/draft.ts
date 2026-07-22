@@ -116,6 +116,16 @@ export async function startDraft(slug: string): Promise<ActionResult> {
     return { success: false, error: activated.error };
   }
 
+  if (!activated.resumed) {
+    const { queueDraftStartedEmails } = await import("@/lib/email/draft");
+    await queueDraftStartedEmails({
+      seasonId: season.id,
+      leaguePublicId: league.publicId,
+      leagueName: league.name,
+      resumed: false,
+    });
+  }
+
   revalidateDraftPaths(league.publicId);
   return { success: true };
 }
@@ -164,6 +174,14 @@ export async function tryAutoStartDraft(slug: string): Promise<ActionResult> {
   if (!activated.ok) {
     return { success: false, error: activated.error };
   }
+
+  const { queueDraftStartedEmails } = await import("@/lib/email/draft");
+  await queueDraftStartedEmails({
+    seasonId: season.id,
+    leaguePublicId: league.publicId,
+    leagueName: league.name,
+    resumed: false,
+  });
 
   revalidateDraftPaths(league.publicId);
   return { success: true, started: true };
@@ -488,6 +506,17 @@ export async function makeDraftPick(
       error: "Could not save this pick. Refresh and try again.",
     };
   }
+
+  const { queueDraftAfterPickEmails } = await import("@/lib/email/draft");
+  await queueDraftAfterPickEmails({
+    seasonId: season.id,
+    leaguePublicId: league.publicId,
+    leagueName: league.name,
+    draftId: draft.id,
+    nextPickIndex: nextIndex,
+    scheduleLength: schedule.length,
+    seasonTeams,
+  });
 
   revalidateDraftPaths(league.publicId);
   return {

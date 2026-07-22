@@ -26,6 +26,7 @@ export async function autoStartDueDrafts(
       seasonStatus: leagueSeasons.status,
       pickTimeLimitSeconds: leagueSeasons.pickTimeLimitSeconds,
       leaguePublicId: leagues.publicId,
+      leagueName: leagues.name,
       draftId: drafts.id,
       draftStatus: drafts.status,
     })
@@ -77,6 +78,18 @@ export async function autoStartDueDrafts(
     result.started += 1;
     revalidatePath(`/league/${row.leaguePublicId}/draft`);
     revalidatePath(`/league/${row.leaguePublicId}`);
+
+    try {
+      const { queueDraftStartedEmails } = await import("@/lib/email/draft");
+      await queueDraftStartedEmails({
+        seasonId: row.seasonId,
+        leaguePublicId: row.leaguePublicId,
+        leagueName: row.leagueName,
+        resumed: false,
+      });
+    } catch (error) {
+      console.error("[email] draft started queue failed", row.seasonId, error);
+    }
   }
 
   return result;

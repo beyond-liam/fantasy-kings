@@ -557,6 +557,15 @@ export async function proposeTrade(
     tradeId: trade.id,
   });
 
+  const { queueTradeProposalEmail } = await import("@/lib/email/trades");
+  queueTradeProposalEmail({
+    tradeId: trade.id,
+    leaguePublicId: league.publicId,
+    leagueName: league.name,
+    recipientUserId: partner.userId,
+    proposingTeamName: team.name,
+  });
+
   revalidateTradePaths(league.publicId);
   return { success: true };
 }
@@ -726,6 +735,22 @@ export async function acceptTrade(
     body: acceptBody,
     tradeId,
   });
+
+  if (nextStatus === "review") {
+    const { queueTradeAcceptedReviewEmails } = await import(
+      "@/lib/email/trades"
+    );
+    await queueTradeAcceptedReviewEmails({
+      tradeId,
+      leagueSeasonId: season.id,
+      leaguePublicId: league.publicId,
+      leagueName: league.name,
+      proposingTeamName: proposingTeam?.name ?? "Proposing team",
+      receivingTeamName: team.name,
+      reviewEndsAt,
+      excludeUserIds: [proposingTeam?.userId, user.id],
+    });
+  }
 
   revalidateTradePaths(slug);
   return { success: true };
@@ -1037,6 +1062,17 @@ export async function vetoTrade(
       title: "Trade vetoed",
       body: "Your trade was vetoed by the league.",
       tradeId,
+    });
+
+    const { queueTradeVetoedEmails } = await import("@/lib/email/trades");
+    queueTradeVetoedEmails({
+      tradeId,
+      leaguePublicId: context.league.publicId,
+      leagueName: context.league.name,
+      userIds: [
+        owners.get(trade.proposingTeamId),
+        owners.get(trade.receivingTeamId),
+      ],
     });
   }
 
