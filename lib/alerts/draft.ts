@@ -2,13 +2,11 @@ import "server-only";
 
 import { and, eq, gt, inArray, isNull, lte, or } from "drizzle-orm";
 
-import { drafts, leagueSeasons, leagues, teams } from "@/db/schema";
+import { drafts, leagueSeasons, leagues } from "@/db/schema";
+import { deliverAlert } from "@/lib/alerts/deliver";
+import { getSeasonOwnerUserIds } from "@/lib/alerts/recipients";
 import { db } from "@/lib/db";
-import { sendBrevoEmail } from "@/lib/email/brevo";
-import { claimEmailSend } from "@/lib/email/dedupe";
 import { draftRoomUrl } from "@/lib/email/env";
-import { getEmailsForUserIds } from "@/lib/email/recipients";
-import { buildSimpleEmail, queueEmailsToUsers } from "@/lib/email/send";
 import {
   buildDraftSchedule,
   getDraftRounds,
@@ -16,25 +14,17 @@ import {
 import { resolveDraftSettings } from "@/lib/leagues/draft-settings";
 import { getDraftBySeasonId, getSeasonDraftTeams } from "@/lib/queries/draft";
 
-async function getLeagueOwnerUserIds(seasonId: string) {
-  const rows = await db
-    .select({ userId: teams.userId })
-    .from(teams)
-    .where(eq(teams.leagueSeasonId, seasonId));
-  return rows.map((row) => row.userId);
-}
-
 function teamUserIdMap(
   seasonTeams: Array<{ id: string; userId: string | null }>,
 ) {
   return new Map(seasonTeams.map((team) => [team.id, team.userId]));
 }
 
-export async function queueDraftStartedEmails(input: {
+/** Draft went live — league email + on-clock / on-deck. */
+export async function announceDraftStarted(input: {
   seasonId: string;
   leaguePublicId: string;
   leagueName: string;
-  /** Skip "draft started" blast when resuming from pause. */
   resumed?: boolean;
 }) {
   const draft = await getDraftBySeasonId(input.seasonId);
@@ -46,19 +36,21 @@ export async function queueDraftStartedEmails(input: {
   const href = draftRoomUrl(input.leaguePublicId);
 
   if (!input.resumed) {
-    queueEmailsToUsers({
-      userIds: await getLeagueOwnerUserIds(input.seasonId),
-      dedupeKeyForUser: (userId) => `draft:start:${draft.id}:${userId}`,
-      subject: `${input.leagueName}: Draft has started`,
-      title: "Draft has started",
-      body: `The ${input.leagueName} draft is live. Open the draft room to pick when you're on the clock.`,
-      ctaLabel: "Open draft room",
-      ctaUrl: href,
-      tags: ["draft", "draft-start"],
+    await deliverAlert({
+      userIds: await getSeasonOwnerUserIds(input.seasonId),
+      email: {
+        subject: `${input.leagueName}: Draft has started`,
+        title: "Draft has started",
+        body: `The ${input.leagueName} draft is live. Open the draft room to pick when you're on the clock.`,
+        ctaLabel: "Open draft room",
+        ctaUrl: href,
+        dedupeKeyForUser: (userId) => `draft:start:${draft.id}:${userId}`,
+        tags: ["draft", "draft-start"],
+      },
     });
   }
 
-  await queueOnClockAndOnDeckEmails({
+  await announceOnClockAndOnDeck({
     seasonId: input.seasonId,
     leaguePublicId: input.leaguePublicId,
     leagueName: input.leagueName,
@@ -68,12 +60,12 @@ export async function queueDraftStartedEmails(input: {
   });
 }
 
-export async function queueDraftAfterPickEmails(input: {
+/** After a successful pick — end emails, or next on-clock / on-deck. */
+export async function announceDraftAfterPick(input: {
   seasonId: string;
   leaguePublicId: string;
   leagueName: string;
   draftId: string;
-  /** Pick index after the successful pick (next on-clock index, or length if complete). */
   nextPickIndex: number;
   scheduleLength: number;
   seasonTeams: Array<{
@@ -86,20 +78,23 @@ export async function queueDraftAfterPickEmails(input: {
   const href = draftRoomUrl(input.leaguePublicId);
 
   if (input.nextPickIndex >= input.scheduleLength) {
-    queueEmailsToUsers({
+    await deliverAlert({
       userIds: input.seasonTeams.map((team) => team.userId),
-      dedupeKeyForUser: (userId) => `draft:end:${input.draftId}:${userId}`,
-      subject: `${input.leagueName}: Draft is complete`,
-      title: "Draft is complete",
-      body: `The ${input.leagueName} draft has finished. Your season is live — set your lineup and check matchups.`,
-      ctaLabel: "Open draft room",
-      ctaUrl: href,
-      tags: ["draft", "draft-end"],
+      email: {
+        subject: `${input.leagueName}: Draft is complete`,
+        title: "Draft is complete",
+        body: `The ${input.leagueName} draft has finished. Your season is live — set your lineup and check matchups.`,
+        ctaLabel: "Open draft room",
+        ctaUrl: href,
+        dedupeKeyForUser: (userId) =>
+          `draft:end:${input.draftId}:${userId}`,
+        tags: ["draft", "draft-end"],
+      },
     });
     return;
   }
 
-  await queueOnClockAndOnDeckEmails({
+  await announceOnClockAndOnDeck({
     seasonId: input.seasonId,
     leaguePublicId: input.leaguePublicId,
     leagueName: input.leagueName,
@@ -109,7 +104,7 @@ export async function queueDraftAfterPickEmails(input: {
   });
 }
 
-async function queueOnClockAndOnDeckEmails(input: {
+async function announceOnClockAndOnDeck(input: {
   seasonId: string;
   leaguePublicId: string;
   leagueName: string;
@@ -159,16 +154,18 @@ async function queueOnClockAndOnDeckEmails(input: {
   if (onClock) {
     const userId = byTeam.get(onClock.teamId);
     if (userId) {
-      queueEmailsToUsers({
+      await deliverAlert({
         userIds: [userId],
-        dedupeKeyForUser: () =>
-          `draft:on_clock:${input.draftId}:${input.currentPickIndex}`,
-        subject: `${input.leagueName}: You're on the clock`,
-        title: "You're on the clock",
-        body: `It's your turn to pick in ${input.leagueName} (pick ${onClock.overall}, round ${onClock.round}).`,
-        ctaLabel: "Make your pick",
-        ctaUrl: href,
-        tags: ["draft", "draft-on-clock"],
+        email: {
+          subject: `${input.leagueName}: You're on the clock`,
+          title: "You're on the clock",
+          body: `It's your turn to pick in ${input.leagueName} (pick ${onClock.overall}, round ${onClock.round}).`,
+          ctaLabel: "Make your pick",
+          ctaUrl: href,
+          dedupeKeyForUser: () =>
+            `draft:on_clock:${input.draftId}:${input.currentPickIndex}`,
+          tags: ["draft", "draft-on-clock"],
+        },
       });
     }
   }
@@ -177,16 +174,18 @@ async function queueOnClockAndOnDeckEmails(input: {
     const userId = byTeam.get(onDeck.teamId);
     if (userId) {
       const onDeckIndex = input.currentPickIndex + 1;
-      queueEmailsToUsers({
+      await deliverAlert({
         userIds: [userId],
-        dedupeKeyForUser: () =>
-          `draft:on_deck:${input.draftId}:${onDeckIndex}`,
-        subject: `${input.leagueName}: You're on deck`,
-        title: "You're on deck",
-        body: `You're up next in ${input.leagueName} (pick ${onDeck.overall}). Get ready.`,
-        ctaLabel: "Open draft room",
-        ctaUrl: href,
-        tags: ["draft", "draft-on-deck"],
+        email: {
+          subject: `${input.leagueName}: You're on deck`,
+          title: "You're on deck",
+          body: `You're up next in ${input.leagueName} (pick ${onDeck.overall}). Get ready.`,
+          ctaLabel: "Open draft room",
+          ctaUrl: href,
+          dedupeKeyForUser: () =>
+            `draft:on_deck:${input.draftId}:${onDeckIndex}`,
+          tags: ["draft", "draft-on-deck"],
+        },
       });
     }
   }
@@ -199,10 +198,7 @@ export type DraftReminderResult = {
   sent15m: number;
 };
 
-/**
- * Live drafts only: remind league when start is ~24h or ~15m away.
- * Designed to run every few minutes via cron-job.org.
- */
+/** Live drafts only — cron entry for T-24h / T-15m emails. */
 export async function sendDueDraftReminders(
   now = new Date(),
 ): Promise<DraftReminderResult> {
@@ -224,8 +220,6 @@ export async function sendDueDraftReminders(
       draftStartAt: leagueSeasons.draftStartAt,
       leaguePublicId: leagues.publicId,
       leagueName: leagues.name,
-      draftId: drafts.id,
-      draftStatus: drafts.status,
     })
     .from(leagueSeasons)
     .innerJoin(leagues, eq(leagues.id, leagueSeasons.leagueId))
@@ -243,81 +237,50 @@ export async function sendDueDraftReminders(
   for (const row of upcoming) {
     const start = row.draftStartAt.getTime();
     const href = draftRoomUrl(row.leaguePublicId);
-    const userIds = await getLeagueOwnerUserIds(row.seasonId);
+    const userIds = await getSeasonOwnerUserIds(row.seasonId);
 
     if (start >= in23h.getTime() && start <= in25h.getTime()) {
       result.checked24h += 1;
-      // Use queue with after — but cron handlers need synchronous send.
-      // Fall through to sync helper below.
-      const sent = await sendReminderNow({
+      const { emailed } = await deliverAlert({
         userIds,
-        dedupePrefix: `draft:remind:24h:${row.seasonId}`,
-        subject: `${row.leagueName}: Draft is tomorrow`,
-        title: "Draft is tomorrow",
-        body: `Your ${row.leagueName} live draft starts around ${row.draftStartAt.toUTCString()}.`,
-        ctaUrl: href,
-        tags: ["draft", "draft-remind-24h"],
+        email: {
+          subject: `${row.leagueName}: Draft is tomorrow`,
+          title: "Draft is tomorrow",
+          body: `Your ${row.leagueName} live draft starts around ${row.draftStartAt.toUTCString()}.`,
+          ctaLabel: "Open draft room",
+          ctaUrl: href,
+          dedupeKeyForUser: (userId) =>
+            `draft:remind:24h:${row.seasonId}:${userId}`,
+          tags: ["draft", "draft-remind-24h"],
+          sync: true,
+        },
       });
-      if (sent > 0) {
+      if (emailed > 0) {
         result.sent24h += 1;
       }
     }
 
     if (start >= in10m.getTime() && start <= in20m.getTime()) {
       result.checked15m += 1;
-      const sent = await sendReminderNow({
+      const { emailed } = await deliverAlert({
         userIds,
-        dedupePrefix: `draft:remind:15m:${row.seasonId}`,
-        subject: `${row.leagueName}: Draft starts in 15 minutes`,
-        title: "Draft starts soon",
-        body: `Your ${row.leagueName} live draft starts in about 15 minutes. Be ready in the draft room.`,
-        ctaUrl: href,
-        tags: ["draft", "draft-remind-15m"],
+        email: {
+          subject: `${row.leagueName}: Draft starts in 15 minutes`,
+          title: "Draft starts soon",
+          body: `Your ${row.leagueName} live draft starts in about 15 minutes. Be ready in the draft room.`,
+          ctaLabel: "Open draft room",
+          ctaUrl: href,
+          dedupeKeyForUser: (userId) =>
+            `draft:remind:15m:${row.seasonId}:${userId}`,
+          tags: ["draft", "draft-remind-15m"],
+          sync: true,
+        },
       });
-      if (sent > 0) {
+      if (emailed > 0) {
         result.sent15m += 1;
       }
     }
   }
 
   return result;
-}
-
-async function sendReminderNow(input: {
-  userIds: Array<string | null | undefined>;
-  dedupePrefix: string;
-  subject: string;
-  title: string;
-  body: string;
-  ctaUrl: string;
-  tags: string[];
-}) {
-  const recipients = await getEmailsForUserIds(input.userIds);
-  const content = buildSimpleEmail({
-    title: input.title,
-    body: input.body,
-    ctaLabel: "Open draft room",
-    ctaUrl: input.ctaUrl,
-  });
-
-  let sent = 0;
-  for (const recipient of recipients) {
-    const claimed = await claimEmailSend(
-      `${input.dedupePrefix}:${recipient.userId}`,
-    );
-    if (!claimed) {
-      continue;
-    }
-    const result = await sendBrevoEmail({
-      to: { email: recipient.email },
-      subject: input.subject,
-      text: content.text,
-      html: content.html,
-      tags: input.tags,
-    });
-    if (result.ok) {
-      sent += 1;
-    }
-  }
-  return sent;
 }

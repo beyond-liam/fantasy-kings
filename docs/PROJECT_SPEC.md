@@ -208,9 +208,10 @@ Both contexts have "Scores" and "Draft Room". Use distinct labels in the UI:
 
 - Chronological activity log of league events **(placeholder UI)**
 - In-app bell dropdown shipped (trade + waiver producers)
-- Email via **Brevo** **(wired)** — `lib/email/*`; push optional later
+- Email via **Brevo** **(wired)** — `lib/email/*` adapters; push optional later
+- **League Alert** fan-out (`lib/alerts/`): Trade + Draft announce helpers resolve recipients once, then in-app + email adapters (`CONTEXT.md`)
 - Auth OTP remains Supabase (not Brevo)
-- Dedupe via `email_sends` table; sends scheduled with `after()` where possible
+- Dedupe via `email_sends` table; email sends use `after()` except draft-reminder cron (sync)
 - Live draft reminders: `/api/cron/draft-reminders` (use cron-job.org every ~5 min; Vercel Hobby daily backup only)
 - **Email v1 scope (locked):**
   | Event | Recipients | Notes |
@@ -506,4 +507,5 @@ lib/
 | 2026-07-22 | Email provider → Brevo; locked v1 email set (draft start/end/on-deck/on-clock for live + email draft; live T-24h/T-15m; trade proposal / accepted-for-veto / vetoed) |
 | 2026-07-22 | Brevo wired: `lib/email/*`, `email_sends` dedupe, draft/trade hooks, `/api/cron/draft-reminders` |
 | 2026-07-22 | Removed Trade Analyzer from nav and deleted `/trade-analyzer` route |
+| 2026-07-22 | League Alert module (`lib/alerts/`): dual-channel fan-out for trades + draft; `CONTEXT.md` |
 | 2026-07-16 | Trades: initial implementation started; follow-up items documented (vetoes, limits, cron, email) |

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { assertCronAuthorized } from "@/lib/cron/auth";
-import { sendDueDraftReminders } from "@/lib/email/draft";
+import { sendDueDraftReminders } from "@/lib/alerts/draft";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

@@ -1,32 +1,14 @@
-import { inArray } from "drizzle-orm";
+import "server-only";
 
-import { teams } from "@/db/schema";
-import { db } from "@/lib/db";
-import {
-  createNotifications,
-  tradesHref,
-  type CreateNotificationInput,
-} from "@/lib/notifications/create";
+import { deliverAlert } from "@/lib/alerts/deliver";
 import type { NotificationType } from "@/db/schema/notifications";
 
-export async function getTeamOwnerUserIds(teamIds: string[]) {
-  const unique = [...new Set(teamIds.filter(Boolean))];
-  if (unique.length === 0) {
-    return new Map<string, string>();
-  }
+export {
+  getTeamOwnerUserIds,
+  getSeasonOwnerUserIds,
+} from "@/lib/alerts/recipients";
 
-  const rows = await db
-    .select({ id: teams.id, userId: teams.userId })
-    .from(teams)
-    .where(inArray(teams.id, unique));
-
-  return new Map(
-    rows
-      .filter((row): row is { id: string; userId: string } => Boolean(row.userId))
-      .map((row) => [row.id, row.userId]),
-  );
-}
-
+/** In-app-only helper for call sites that do not need email. */
 export async function notifyUsers(input: {
   userIds: Array<string | null | undefined>;
   excludeUserId?: string | null;
@@ -40,30 +22,19 @@ export async function notifyUsers(input: {
   claimId?: string | null;
   playerId?: string | null;
 }) {
-  const exclude = input.excludeUserId ?? null;
-  const recipients = [
-    ...new Set(
-      input.userIds.filter(
-        (id): id is string => Boolean(id) && id !== exclude,
-      ),
-    ),
-  ];
-  if (recipients.length === 0) {
-    return;
-  }
-
-  const href = input.href ?? tradesHref(input.leaguePublicId);
-  const rows: CreateNotificationInput[] = recipients.map((recipientUserId) => ({
-    recipientUserId,
-    leagueSeasonId: input.leagueSeasonId,
-    type: input.type,
-    title: input.title,
-    body: input.body,
-    href,
-    tradeId: input.tradeId ?? null,
-    claimId: input.claimId ?? null,
-    playerId: input.playerId ?? null,
-  }));
-
-  await createNotifications(rows);
+  await deliverAlert({
+    userIds: input.userIds,
+    excludeUserIds: input.excludeUserId ? [input.excludeUserId] : undefined,
+    inApp: {
+      leagueSeasonId: input.leagueSeasonId,
+      leaguePublicId: input.leaguePublicId,
+      type: input.type,
+      title: input.title,
+      body: input.body,
+      href: input.href,
+      tradeId: input.tradeId,
+      claimId: input.claimId,
+      playerId: input.playerId,
+    },
+  });
 }

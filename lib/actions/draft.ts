@@ -117,8 +117,8 @@ export async function startDraft(slug: string): Promise<ActionResult> {
   }
 
   if (!activated.resumed) {
-    const { queueDraftStartedEmails } = await import("@/lib/email/draft");
-    await queueDraftStartedEmails({
+    const { announceDraftStarted } = await import("@/lib/alerts/draft");
+    await announceDraftStarted({
       seasonId: season.id,
       leaguePublicId: league.publicId,
       leagueName: league.name,
@@ -175,8 +175,8 @@ export async function tryAutoStartDraft(slug: string): Promise<ActionResult> {
     return { success: false, error: activated.error };
   }
 
-  const { queueDraftStartedEmails } = await import("@/lib/email/draft");
-  await queueDraftStartedEmails({
+  const { announceDraftStarted } = await import("@/lib/alerts/draft");
+  await announceDraftStarted({
     seasonId: season.id,
     leaguePublicId: league.publicId,
     leagueName: league.name,
@@ -507,8 +507,8 @@ export async function makeDraftPick(
     };
   }
 
-  const { queueDraftAfterPickEmails } = await import("@/lib/email/draft");
-  await queueDraftAfterPickEmails({
+  const { announceDraftAfterPick } = await import("@/lib/alerts/draft");
+  await announceDraftAfterPick({
     seasonId: season.id,
     leaguePublicId: league.publicId,
     leagueName: league.name,

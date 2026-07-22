@@ -80,8 +80,8 @@ export async function autoStartDueDrafts(
     revalidatePath(`/league/${row.leaguePublicId}`);
 
     try {
-      const { queueDraftStartedEmails } = await import("@/lib/email/draft");
-      await queueDraftStartedEmails({
+      const { announceDraftStarted } = await import("@/lib/alerts/draft");
+      await announceDraftStarted({
         seasonId: row.seasonId,
         leaguePublicId: row.leaguePublicId,
         leagueName: row.leagueName,

@@ -50,6 +50,11 @@ import {
   getTeamOwnerUserIds,
   notifyUsers,
 } from "@/lib/notifications/notify";
+import {
+  announceTradeAcceptedReview,
+  announceTradeProposed,
+  announceTradeVetoed,
+} from "@/lib/alerts/trades";
 
 export type TradeActionResult = {
   success: boolean;
@@ -545,25 +550,14 @@ export async function proposeTrade(
     });
   }
 
-  await notifyUsers({
-    userIds: [partner.userId],
+  await announceTradeProposed({
+    tradeId: trade.id,
     leagueSeasonId: season.id,
-    leaguePublicId: league.publicId,
-    type: "trade_offer",
-    title: counterOfTradeId ? "Counter-offer received" : "Trade offer received",
-    body: counterOfTradeId
-      ? `${team.name} sent you a counter-offer.`
-      : `${team.name} proposed a trade with you.`,
-    tradeId: trade.id,
-  });
-
-  const { queueTradeProposalEmail } = await import("@/lib/email/trades");
-  queueTradeProposalEmail({
-    tradeId: trade.id,
     leaguePublicId: league.publicId,
     leagueName: league.name,
     recipientUserId: partner.userId,
     proposingTeamName: team.name,
+    isCounter: Boolean(counterOfTradeId),
   });
 
   revalidateTradePaths(league.publicId);
@@ -725,30 +719,29 @@ export async function acceptTrade(
         ? `${team.name} accepted your trade. It is under league review.`
         : `${team.name} accepted your trade. It awaits commissioner approval.`;
 
-  await notifyUsers({
-    userIds: [proposingTeam?.userId],
-    leagueSeasonId: season.id,
-    leaguePublicId: league.publicId,
-    type: "trade_update",
-    title:
-      nextStatus === "completed" ? "Trade completed" : "Trade offer accepted",
-    body: acceptBody,
-    tradeId,
-  });
-
   if (nextStatus === "review") {
-    const { queueTradeAcceptedReviewEmails } = await import(
-      "@/lib/email/trades"
-    );
-    await queueTradeAcceptedReviewEmails({
+    await announceTradeAcceptedReview({
       tradeId,
       leagueSeasonId: season.id,
       leaguePublicId: league.publicId,
       leagueName: league.name,
       proposingTeamName: proposingTeam?.name ?? "Proposing team",
       receivingTeamName: team.name,
+      proposingUserId: proposingTeam?.userId,
+      receivingUserId: team.userId,
       reviewEndsAt,
-      excludeUserIds: [proposingTeam?.userId, user.id],
+      acceptBody,
+    });
+  } else {
+    await notifyUsers({
+      userIds: [proposingTeam?.userId],
+      leagueSeasonId: season.id,
+      leaguePublicId: league.publicId,
+      type: "trade_update",
+      title:
+        nextStatus === "completed" ? "Trade completed" : "Trade offer accepted",
+      body: acceptBody,
+      tradeId,
     });
   }
 
@@ -1047,32 +1040,13 @@ export async function vetoTrade(
       actorUserId: context.user.id,
     });
 
-    const owners = await getTeamOwnerUserIds([
-      trade.proposingTeamId,
-      trade.receivingTeamId,
-    ]);
-    await notifyUsers({
-      userIds: [
-        owners.get(trade.proposingTeamId),
-        owners.get(trade.receivingTeamId),
-      ],
+    await announceTradeVetoed({
+      tradeId,
       leagueSeasonId: context.season.id,
       leaguePublicId: context.league.publicId,
-      type: "trade_update",
-      title: "Trade vetoed",
-      body: "Your trade was vetoed by the league.",
-      tradeId,
-    });
-
-    const { queueTradeVetoedEmails } = await import("@/lib/email/trades");
-    queueTradeVetoedEmails({
-      tradeId,
-      leaguePublicId: context.league.publicId,
       leagueName: context.league.name,
-      userIds: [
-        owners.get(trade.proposingTeamId),
-        owners.get(trade.receivingTeamId),
-      ],
+      proposingTeamId: trade.proposingTeamId,
+      receivingTeamId: trade.receivingTeamId,
     });
   }
 
