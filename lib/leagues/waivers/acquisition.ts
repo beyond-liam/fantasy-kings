@@ -32,6 +32,11 @@ export function getAcquisitionKind(input: AcquisitionInput): AcquisitionKind {
     return "owned";
   }
 
+  // Already played this fantasy week → locked until the next week.
+  if (input.gameStartedThisWeek) {
+    return "unavailable";
+  }
+
   if (!input.waiversEnabled) {
     return "add";
   }
@@ -42,18 +47,6 @@ export function getAcquisitionKind(input: AcquisitionInput): AcquisitionKind {
   // Active drop waiver period always requires a claim.
   if (input.ownership.onWaivers) {
     return "claim";
-  }
-
-  // Game-start lock for free agents when pool includes them.
-  if (
-    wire.waiverPool === "drops_and_free_agents" &&
-    input.gameStartedThisWeek
-  ) {
-    // Locked onto waivers until FCFS after process (or forever if never).
-    if (wire.fcfsMode === "never") {
-      return "claim";
-    }
-    return isFcfsWindowOpen(wire.processDays, now) ? "add" : "claim";
   }
 
   if (wire.fcfsMode === "never") {

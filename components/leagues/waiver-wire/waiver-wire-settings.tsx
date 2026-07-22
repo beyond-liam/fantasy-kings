@@ -250,7 +250,8 @@ export function WaiverWireSettings({
                     className="mt-0.5"
                   />
                   <span className="text-sm font-medium">
-                    Dropped players and all free agents after game start
+                    Dropped players and free agents (NFL game start locks until
+                    next week)
                   </span>
                 </OptionLabel>
               </RadioGroup>

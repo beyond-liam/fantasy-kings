@@ -170,6 +170,25 @@ describe("getAcquisitionKind", () => {
       "claim",
     );
   });
+
+  it("hard-locks players whose NFL game has already started this week", () => {
+    assert.equal(
+      getAcquisitionKind({
+        ...base,
+        gameStartedThisWeek: true,
+        ownership: { fantasyTeamId: null, onWaivers: false },
+      }),
+      "unavailable",
+    );
+    assert.equal(
+      getAcquisitionKind({
+        ...base,
+        gameStartedThisWeek: true,
+        ownership: { fantasyTeamId: null, onWaivers: true },
+      }),
+      "unavailable",
+    );
+  });
 });
 
 describe("adjudicateWaiverClaims", () => {

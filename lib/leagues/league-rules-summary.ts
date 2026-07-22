@@ -109,7 +109,7 @@ function waiverPoolLabel(
   if (pool === "drops_only") {
     return "Dropped players only";
   }
-  return "Dropped players and all free agents after game start";
+  return "Dropped players and free agents (game-start lock until next week)";
 }
 
 function churnPreventionLabel(
