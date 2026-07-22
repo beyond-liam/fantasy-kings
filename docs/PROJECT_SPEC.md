@@ -107,6 +107,7 @@ Entered via dashboard league picker or `/league/[leagueId]` (6-char public id). 
 | `/league/[leagueId]/team/[teamId]` | Other team | Another manager's roster (public team id) |
 | `/league/[leagueId]/players` | Players | Rankings-style pool + Team/Action columns |
 | `/league/[leagueId]/scores` | Matchups | **Fantasy** matchup scores |
+| `/league/[leagueId]/scores/[matchupId]` | Game Centre | Fantasy matchup detail (6-char public id) |
 | `/league/[leagueId]/trades` | Trades | Propose/review trades |
 | `/league/[leagueId]/activity` | Activity | Chronological event log |
 | `/league/[leagueId]/draft` | Draft Room | League draft |
@@ -429,7 +430,7 @@ lib/
 - [ ] **Configurable review duration** — settings only support fixed `review_24h`; Yahoo-style “keep open for N days” picker deferred
 - [x] **Trade activity feed** — `league_activity` trade types; Activity page labels
 - [ ] **Email on trade proposal** — Resend integration deferred (in-app badges/toasts only for now)
-- [x] **Scheduled trade processor** — `/api/cron/process-trades` hourly + page-load fallback
+- [x] **Scheduled trade processor** — `/api/cron/process-trades` daily on Hobby + page-load fallback; use cron-job.org for frequent runs
 - [ ] **Dynasty draft-pick trades** — player-only trades first; Draft Picks tab inventory later
 - [x] **Counter-offers** — receiver can open composer prefilled from a pending trade; sending rejects the original
 - [x] **Trade history** — collapsed section on Transactions tab + Trades page
@@ -473,4 +474,5 @@ lib/
 | 2026-07-22 | Near-live scoring: `/api/cron/sync-scores` upserts current-week Sleeper stats; 60s stats cache TTL |
 | 2026-07-22 | Matchups: “Scores updated” + LiveRefresh; persist final H2H pts; league standings from finals |
 | 2026-07-22 | Leagues list: W/L/T/%/Strk/Rank from final matchups |
+| 2026-07-22 | Matchup Game Centre URLs use 6-char `publicId` (UUID bookmarks redirect) |
 | 2026-07-16 | Trades: initial implementation started; follow-up items documented (vetoes, limits, cron, email) |

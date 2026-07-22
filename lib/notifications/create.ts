@@ -70,6 +70,6 @@ export function rosterHref(leaguePublicId: string) {
   return `/league/${leaguePublicId}/team`;
 }
 
-export function matchupHref(leaguePublicId: string, matchupId: string) {
-  return `/league/${leaguePublicId}/scores/${matchupId}`;
+export function matchupHref(leaguePublicId: string, matchupPublicId: string) {
+  return `/league/${leaguePublicId}/scores/${matchupPublicId}`;
 }

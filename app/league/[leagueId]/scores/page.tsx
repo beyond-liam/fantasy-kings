@@ -159,6 +159,7 @@ export default async function FantasyScoresPage({
   }).catch(() =>
     rows.map((row) => ({
       id: row.id,
+      publicId: row.publicId,
       week: row.week,
       resultFinal: false,
       away: {

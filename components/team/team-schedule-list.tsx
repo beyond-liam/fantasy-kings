@@ -26,6 +26,7 @@ import { cn } from "@/lib/utils";
 
 export type TeamScheduleDisplayRow = {
   id: string;
+  publicId: string;
   week: number;
   weekRangeLabel: string;
   opponentTeamId: string;
@@ -240,7 +241,7 @@ function getColumns(
           size="sm"
           render={
             <Link
-              href={`/league/${leagueSlug}/scores/${row.original.id}`}
+              href={`/league/${leagueSlug}/scores/${row.original.publicId || row.original.id}`}
             />
           }
         >

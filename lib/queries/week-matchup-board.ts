@@ -40,6 +40,8 @@ export type MatchupBoardSide = {
 
 export type MatchupBoardGame = {
   id: string;
+  /** Short URL segment for Game Centre links. */
+  publicId: string;
   week: number;
   /** True when both sides have final actuals for the week. */
   resultFinal: boolean;
@@ -357,6 +359,7 @@ export async function enrichWeekMatchupBoard(
   if (allStarterIds.length === 0) {
     return input.matchups.map((m) => ({
       id: m.id,
+      publicId: m.publicId,
       week: m.week,
       resultFinal: false,
       away: emptySide(
@@ -481,6 +484,7 @@ export async function enrichWeekMatchupBoard(
 
     return {
       id: m.id,
+      publicId: m.publicId,
       week: m.week,
       resultFinal:
         Boolean(resultFinal) &&

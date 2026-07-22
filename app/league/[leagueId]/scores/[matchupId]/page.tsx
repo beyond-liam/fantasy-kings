@@ -40,6 +40,14 @@ export default async function MatchupPage({ params }: MatchupPageProps) {
     notFound();
   }
 
+  // Legacy UUID bookmark → canonical short public id
+  if (
+    data.matchupPublicId &&
+    matchupId !== data.matchupPublicId
+  ) {
+    redirect(`/league/${slug}/scores/${data.matchupPublicId}`);
+  }
+
   const [freshness, resolved] = await Promise.all([
     getPlayerScoresFreshness({
       season: String(data.seasonYear),

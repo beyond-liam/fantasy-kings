@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 
 import { matchups } from "@/db/schema";
 import { db } from "@/lib/db";
+import { allocateMatchupPublicIds } from "@/lib/leagues/ensure-public-ids";
 import {
   generateRegularSeasonSchedule,
   type GeneratedMatchup,
@@ -34,9 +35,14 @@ export async function replaceSeasonMatchups(
     .where(eq(matchups.leagueSeasonId, input.leagueSeasonId));
 
   if (generated.length > 0) {
+    const publicIds = await allocateMatchupPublicIds(
+      input.leagueSeasonId,
+      generated.length,
+    );
     await executor.insert(matchups).values(
-      generated.map((row) => ({
+      generated.map((row, index) => ({
         leagueSeasonId: input.leagueSeasonId,
+        publicId: publicIds[index]!,
         week: row.week,
         homeTeamId: row.homeTeamId,
         awayTeamId: row.awayTeamId,

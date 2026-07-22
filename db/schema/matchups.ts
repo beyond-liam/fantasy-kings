@@ -3,6 +3,7 @@ import {
   integer,
   pgEnum,
   pgTable,
+  text,
   timestamp,
   uniqueIndex,
   uuid,
@@ -20,6 +21,7 @@ export const matchupStatusEnum = pgEnum("matchup_status", [
  * Head-to-head fantasy matchup for a league season week.
  * Regular-season games only for now (playoffs deferred).
  * Live points still come from player_scores; home/away pts lock when status=final.
+ * `publicId` is the short URL segment under `/league/.../scores/[matchupId]`.
  */
 export const matchups = pgTable(
   "matchups",
@@ -28,6 +30,8 @@ export const matchups = pgTable(
     leagueSeasonId: uuid("league_season_id")
       .notNull()
       .references(() => leagueSeasons.id, { onDelete: "cascade" }),
+    /** 6-char public id for URLs; unique within the season. */
+    publicId: text("public_id"),
     week: integer("week").notNull(),
     homeTeamId: uuid("home_team_id")
       .notNull()
@@ -52,6 +56,10 @@ export const matchups = pgTable(
       table.week,
       table.homeTeamId,
       table.awayTeamId,
+    ),
+    uniqueIndex("matchups_season_public_id_idx").on(
+      table.leagueSeasonId,
+      table.publicId,
     ),
   ],
 );

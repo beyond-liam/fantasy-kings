@@ -43,7 +43,7 @@ import {
   getLeagueMembership,
   getLeagueSeasonByYear,
 } from "@/lib/queries/leagues";
-import { getMatchupById } from "@/lib/queries/matchups";
+import { getMatchupByKey } from "@/lib/queries/matchups";
 import { getRankedPlayers, type RankedPlayerRow } from "@/lib/queries/players";
 import {
   getLeaguePlayerOwnershipMap,
@@ -111,6 +111,8 @@ export type GameCentreChartPoint = {
 
 export type GameCentreData = {
   matchupId: string;
+  /** Short URL segment; preferred over matchupId in links. */
+  matchupPublicId: string;
   week: number;
   seasonYear: number;
   leagueSlug: string;
@@ -299,8 +301,11 @@ export async function getGameCentreData(input: {
   const membership = await getLeagueMembership(league.id, input.userId);
   if (!membership) return null;
 
-  const matchup = await getMatchupById(input.matchupId);
-  if (!matchup || matchup.leagueId !== league.id) return null;
+  const matchup = await getMatchupByKey({
+    leagueId: league.id,
+    matchupKey: input.matchupId,
+  });
+  if (!matchup) return null;
 
   const season = await getLeagueSeasonByYear(league.id, matchup.seasonYear);
   if (!season) return null;
@@ -572,6 +577,7 @@ export async function getGameCentreData(input: {
 
   return {
     matchupId: matchup.id,
+    matchupPublicId: matchup.publicId,
     week: matchup.week,
     seasonYear: matchup.seasonYear,
     leagueSlug: input.leagueSlug,

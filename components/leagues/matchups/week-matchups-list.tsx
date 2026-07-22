@@ -237,7 +237,7 @@ function MatchupBoardRow({
 }) {
   return (
     <Link
-      href={leagueMatchupPath(leagueSlug, game.id)}
+      href={leagueMatchupPath(leagueSlug, game.publicId || game.id)}
       aria-label={`View matchup: ${game.away.teamName} vs ${game.home.teamName}`}
       className="relative flex min-w-0 items-stretch overflow-hidden rounded-xl border bg-card transition-colors outline-none hover:bg-muted/40 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
     >
