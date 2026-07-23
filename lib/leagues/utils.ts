@@ -29,7 +29,7 @@ export function allocateUniqueTeamSlug(
   fallbackId?: string,
 ): string {
   const base = slugifyTeamName(name) || "team";
-  let candidate = RESERVED_LEAGUE_PATH_SEGMENTS.has(base)
+  const candidate = RESERVED_LEAGUE_PATH_SEGMENTS.has(base)
     ? `${base}-team`
     : base;
   if (!taken.has(candidate)) {

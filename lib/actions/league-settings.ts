@@ -1,6 +1,6 @@
 "use server";
 
-import { and, asc, count, eq, inArray, isNull, notInArray } from "drizzle-orm";
+import { and, asc, count, eq, inArray, isNull } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 import {
@@ -57,6 +57,7 @@ import {
   type ScoringPreset,
   type ScoringRuleDefinition,
 } from "@/lib/leagues/scoring";
+import { scoringRulesPayloadSchema } from "@/lib/leagues/scoring/schema";
 import { slugifyLeagueName } from "@/lib/leagues/utils";
 import { allocateUniqueTeamSlug } from "@/lib/leagues/utils";
 import { generatePublicId } from "@/lib/leagues/public-id";
@@ -180,7 +181,7 @@ function revalidateSettingsPaths(slug: string) {
 }
 
 async function generateUniqueSlug(baseSlug: string, excludeLeagueId: string) {
-  let slug = baseSlug || "league";
+  const slug = baseSlug || "league";
   let suffix = 0;
 
   while (true) {
@@ -422,6 +423,11 @@ export async function updateScoringRules(
   slug: string,
   scoringRules: ScoringRuleDefinition[],
 ): Promise<ActionResult> {
+  const parsed = scoringRulesPayloadSchema.safeParse(scoringRules);
+  if (!parsed.success) {
+    return { success: false, error: "Invalid scoring rules payload." };
+  }
+
   const result = await getCommissionerSeason(slug);
   if ("error" in result) {
     return { success: false, error: result.error };
@@ -434,7 +440,7 @@ export async function updateScoringRules(
     .set({
       settings: {
         ...season.settings,
-        scoringRules,
+        scoringRules: parsed.data as ScoringRuleDefinition[],
       },
     })
     .where(eq(leagueSeasons.id, season.id));

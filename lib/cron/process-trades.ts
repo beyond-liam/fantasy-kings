@@ -34,6 +34,7 @@ export async function processAllReadyTrades(_now: Date = new Date()) {
       id: leagueSeasons.id,
       waiversEnabled: leagueSeasons.waiversEnabled,
       settings: leagueSeasons.settings,
+      benchSlots: leagueSeasons.benchSlots,
       slug: leagues.slug,
       publicId: leagues.publicId,
       name: leagues.name,
@@ -63,6 +64,9 @@ export async function processAllReadyTrades(_now: Date = new Date()) {
       },
       waiversEnabled: season.waiversEnabled,
       waiverWire: wire,
+      rosterSlots: (season.settings as LeagueSeasonSettings | null)
+        ?.rosterSlots,
+      benchSlots: season.benchSlots,
     });
     if (result.ok) {
       results.push({ tradeId: row.id, slug: season.publicId });

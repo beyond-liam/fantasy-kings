@@ -50,6 +50,7 @@ function useChanceEntrance(targetPct: number | null) {
 
   useEffect(() => {
     if (targetPct == null) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- resets the rAF-driven animation state before (re)starting the entrance animation loop below.
       setProgress(0);
       return;
     }

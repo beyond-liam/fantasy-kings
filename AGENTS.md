@@ -17,11 +17,9 @@ TanStack Query and Zustand are **not** installed — defer until draft room / cl
 
 ```bash
 pnpm lint
-pnpm exec tsc --noEmit
+pnpm typecheck
 pnpm test
 ```
-
-After broader test scaffold lands, prefer `pnpm typecheck` / `pnpm test` as documented in the spec checklist.
 
 ## Docs
 

@@ -103,16 +103,7 @@ export function PlayersDataTable({
   }));
 
   // Keep client filters in sync after server navigations (season/week/kind).
-  useEffect(() => {
-    setClientView({
-      position: serverView.position,
-      team: serverView.team,
-      rookiesOnly: serverView.rookiesOnly,
-      freeAgentsOnly: serverView.freeAgentsOnly,
-      sort: serverView.sort,
-      sortDesc: serverView.sortDesc,
-    });
-  }, [
+  const serverViewKey = [
     serverView.season,
     serverView.week,
     serverView.kind,
@@ -123,7 +114,20 @@ export function PlayersDataTable({
     serverView.freeAgentsOnly,
     serverView.sort,
     serverView.sortDesc,
-  ]);
+  ].join("|");
+  const [syncedServerViewKey, setSyncedServerViewKey] =
+    useState(serverViewKey);
+  if (serverViewKey !== syncedServerViewKey) {
+    setSyncedServerViewKey(serverViewKey);
+    setClientView({
+      position: serverView.position,
+      team: serverView.team,
+      rookiesOnly: serverView.rookiesOnly,
+      freeAgentsOnly: serverView.freeAgentsOnly,
+      sort: serverView.sort,
+      sortDesc: serverView.sortDesc,
+    });
+  }
 
   useEffect(() => {
     const syncFromUrl = () => {

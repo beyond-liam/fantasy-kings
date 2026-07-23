@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   DndContext,
@@ -181,11 +181,12 @@ export function TeamWaiversSection({
   const [editClaim, setEditClaim] = useState<EditClaimDialogState | null>(null);
   const [orderedClaims, setOrderedClaims] = useState(claims);
   const [page, setPage] = useState(0);
-
-  useEffect(() => {
+  const [syncedClaims, setSyncedClaims] = useState(claims);
+  if (claims !== syncedClaims) {
+    setSyncedClaims(claims);
     setOrderedClaims(claims);
     setPage(0);
-  }, [claims]);
+  }
 
   const isFaab = waiverType === "faab";
   const spendableFaab = faabRemaining ?? 0;

@@ -33,4 +33,9 @@ if (process.env.NODE_ENV !== "production") {
   globalForDb.connectionString = connectionString;
 }
 
-export const db = drizzle(client, { schema });
+export let db = drizzle(client, { schema });
+
+/** Test-only: swap the db instance (PGlite harness). Never call from app code. */
+export function __setDbForTest(next: typeof db) {
+  db = next;
+}

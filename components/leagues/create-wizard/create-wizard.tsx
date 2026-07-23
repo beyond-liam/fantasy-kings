@@ -53,6 +53,7 @@ export function CreateLeagueWizard() {
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- sessionStorage is unavailable during SSR; restores saved wizard progress post-hydration.
     setValues(loadWizardValues());
   }, []);
 

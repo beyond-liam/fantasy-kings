@@ -66,7 +66,7 @@ async function generateUniqueInviteCode() {
 }
 
 async function generateUniqueSlug(baseSlug: string) {
-  let slug = baseSlug || "league";
+  const slug = baseSlug || "league";
   let suffix = 0;
 
   while (true) {

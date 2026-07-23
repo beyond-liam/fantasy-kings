@@ -1,6 +1,6 @@
 "use server";
 
-import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 import {
@@ -8,9 +8,7 @@ import {
   drafts,
   draftQueue,
   leagueSeasons,
-  players,
   rosterPlayers,
-  teams,
 } from "@/db/schema";
 import { db } from "@/lib/db";
 import {
@@ -18,10 +16,7 @@ import {
   getDraftRounds,
 } from "@/lib/leagues/draft/board";
 import { activateDraftLive } from "@/lib/leagues/draft/activate";
-import {
-  computeTurnExpiresAt,
-  secondsUntil,
-} from "@/lib/leagues/draft/clock";
+import { secondsUntil } from "@/lib/leagues/draft/clock";
 import { commitDraftPick } from "@/lib/leagues/draft/pick";
 import { resolveDraftSettings } from "@/lib/leagues/draft-settings";
 import { loadDraftActionContext } from "@/lib/leagues/action-context";
@@ -340,6 +335,31 @@ export async function autoDraftCurrentPick(
   const slot = schedule[draft.currentPickIndex];
   if (!slot) {
     return { success: true };
+  }
+
+  const onClockSeasonTeam = seasonTeams.find((team) => team.id === slot.teamId);
+  const isOpenSlot = onClockSeasonTeam?.userId == null;
+  const clockExpired =
+    draft.turnExpiresAt != null && draft.turnExpiresAt.getTime() <= Date.now();
+
+  if (!isCommissioner) {
+    if (draft.turnExpiresAt != null) {
+      // Timed draft: members may only trigger once the clock has hit zero.
+      if (!clockExpired) {
+        return {
+          success: false,
+          error: "The pick clock has not expired yet.",
+        };
+      }
+    } else if (!isOpenSlot) {
+      // Untimed draft: members may only autopick open/unclaimed slots
+      // (draft-room.tsx open-slot effect). Claimed seats need commissioner.
+      return {
+        success: false,
+        error:
+          "Only the commissioner can force an autopick on a claimed seat when there is no pick clock.",
+      };
+    }
   }
 
   const onClockTeam = teamsWithSlots.find((team) => team.id === slot.teamId);

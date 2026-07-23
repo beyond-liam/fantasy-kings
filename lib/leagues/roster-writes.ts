@@ -10,6 +10,12 @@ import {
 } from "@/lib/leagues/ir-lock";
 import { seasonUsesFaab } from "@/lib/leagues/waivers/faab";
 
+/** Query surface shared by the root db and a transaction client. */
+export type DbClient = Pick<
+  typeof db,
+  "select" | "insert" | "update" | "delete" | "transaction"
+>;
+
 export async function listRosteredPlayers(teamId: string) {
   return db
     .select({
@@ -72,13 +78,15 @@ export async function insertOrRestoreRosteredPlayer(input: {
   slotPositionId: string;
   seasonRows: Awaited<ReturnType<typeof findSeasonRosterRows>>;
   now: number;
+  client?: DbClient;
 }) {
+  const dbc = input.client ?? db;
   const acquiredAt = new Date();
   const ownWaived = input.seasonRows.find(
     (row) => row.teamId === input.teamId && row.status === "waived",
   );
 
-  await db.transaction(async (tx) => {
+  await dbc.transaction(async (tx) => {
     for (const row of input.seasonRows) {
       if (row.status !== "waived") continue;
       const expired =
@@ -121,9 +129,11 @@ export async function waiveOrDeleteRosterRow(input: {
   waiversEnabled: boolean;
   dropWaiverHours: number;
   skipWaivers?: boolean;
+  client?: DbClient;
 }) {
+  const dbc = input.client ?? db;
   if (!input.waiversEnabled || input.skipWaivers) {
-    await db.delete(rosterPlayers).where(eq(rosterPlayers.id, input.rowId));
+    await dbc.delete(rosterPlayers).where(eq(rosterPlayers.id, input.rowId));
     return;
   }
 
@@ -131,7 +141,7 @@ export async function waiveOrDeleteRosterRow(input: {
     Date.now() + input.dropWaiverHours * 60 * 60 * 1000,
   );
 
-  await db
+  await dbc
     .update(rosterPlayers)
     .set({
       status: "waived",

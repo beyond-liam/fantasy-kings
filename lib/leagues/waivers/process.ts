@@ -471,16 +471,12 @@ async function applyAwardedClaim(input: {
 
   let rosteredOnTeam = await listRosteredPlayers(claim.teamId);
 
+  let dropRow: (typeof rosteredOnTeam)[number] | null = null;
   if (claim.dropPlayerId) {
-    const dropRow = rosteredOnTeam.find((row) => row.id === claim.dropPlayerId);
+    dropRow = rosteredOnTeam.find((row) => row.id === claim.dropPlayerId) ?? null;
     if (!dropRow) {
       return "Required drop is no longer on the roster.";
     }
-    await waiveOrDeleteRosterRow({
-      rowId: dropRow.rosterRowId,
-      waiversEnabled: season.waiversEnabled,
-      dropWaiverHours: wire.dropWaiverHours,
-    });
     rosteredOnTeam = rosteredOnTeam.filter(
       (row) => row.id !== claim.dropPlayerId,
     );
@@ -509,24 +505,37 @@ async function applyAwardedClaim(input: {
     return `At max ${player.primaryPositionId}s — choose a different drop.`;
   }
 
-  await insertOrRestoreRosteredPlayer({
-    leagueSeasonId: season.id,
-    teamId: claim.teamId,
-    playerId: claim.playerId,
-    slotPositionId: pickDefaultSlotPosition({
-      playerPositionId: player.primaryPositionId,
-      injuryStatus: player.injuryStatus,
-      irEligibleStatuses: resolveIrEligibleStatuses(
-        season.settings.irEligibleStatuses,
-      ),
-      rosterSlots: season.settings.rosterSlots,
-      benchSlots: season.benchSlots,
-      irEnabled: season.irEnabled,
-      taxiEnabled: season.taxiEnabled,
-      occupiedBySlot: occupiedBySlot(rosteredOnTeam),
-    }),
-    seasonRows,
-    now: Date.now(),
+  const slotPositionId = pickDefaultSlotPosition({
+    playerPositionId: player.primaryPositionId,
+    injuryStatus: player.injuryStatus,
+    irEligibleStatuses: resolveIrEligibleStatuses(
+      season.settings.irEligibleStatuses,
+    ),
+    rosterSlots: season.settings.rosterSlots,
+    benchSlots: season.benchSlots,
+    irEnabled: season.irEnabled,
+    taxiEnabled: season.taxiEnabled,
+    occupiedBySlot: occupiedBySlot(rosteredOnTeam),
+  });
+
+  await db.transaction(async (tx) => {
+    if (dropRow) {
+      await waiveOrDeleteRosterRow({
+        rowId: dropRow.rosterRowId,
+        waiversEnabled: season.waiversEnabled,
+        dropWaiverHours: wire.dropWaiverHours,
+        client: tx,
+      });
+    }
+    await insertOrRestoreRosteredPlayer({
+      leagueSeasonId: season.id,
+      teamId: claim.teamId,
+      playerId: claim.playerId,
+      slotPositionId,
+      seasonRows,
+      now: Date.now(),
+      client: tx,
+    });
   });
 
   return null;
