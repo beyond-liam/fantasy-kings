@@ -1,11 +1,10 @@
 "use server";
 
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 import {
   players,
-  rosterPlayers,
   teams,
   waiverClaims,
 } from "@/db/schema";
@@ -14,24 +13,12 @@ import {
   loadLeagueActionContext,
   loadLeagueMemberTeamContext,
 } from "@/lib/leagues/action-context";
-import { resolveIrEligibleStatuses } from "@/lib/leagues/ir-eligibility";
 import {
-  countActivePositionPlayers,
   countActiveRosterPlayers,
   countsTowardRosterMax,
   getMaxRosterSize,
-  getPositionRosterMax,
 } from "@/lib/leagues/roster-capacity";
-import {
-  pickDefaultSlotPosition,
-} from "@/lib/leagues/roster-slots";
 import { getAcquisitionKind } from "@/lib/leagues/waivers/acquisition";
-import {
-  getFantasyWeekStartUtc,
-} from "@/lib/leagues/waivers/calendar";
-import {
-  seasonUsesFaab,
-} from "@/lib/leagues/waivers/faab";
 import {
   getStartedNflTeamAbbreviations,
   hasNflTeamStarted,

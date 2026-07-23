@@ -1,6 +1,6 @@
 "use server";
 
-import { and, asc, count, eq, inArray, isNull, notInArray } from "drizzle-orm";
+import { and, asc, count, eq, inArray, isNull } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 import {

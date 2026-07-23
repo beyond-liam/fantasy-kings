@@ -5,7 +5,6 @@ import {
   getFirstRoundByes,
   getPlayoffWeekCount,
   getPlayoffWeekRange,
-  getRegularSeasonEndWeek,
   isNflSeasonUnderway,
   isScheduleEditable,
 } from "./season-calendar";
