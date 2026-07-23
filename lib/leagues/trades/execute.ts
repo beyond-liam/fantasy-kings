@@ -1,4 +1,4 @@
-import { and, eq, inArray, ne } from "drizzle-orm";
+import { and, eq, inArray, isNull, ne } from "drizzle-orm";
 
 import {
   leagueActivity,
@@ -7,9 +7,15 @@ import {
   tradePlayers,
   trades,
 } from "@/db/schema";
+import type { RosterSlotConfig } from "@/db/schema/league-seasons";
 import { db } from "@/lib/db";
-import { OPEN_TRADE_STATUSES } from "@/lib/leagues/trades/guards";
+import { listRosteredPlayers } from "@/lib/leagues/roster-writes";
+import { isOpenTradeStatus, OPEN_TRADE_STATUSES } from "@/lib/leagues/trades/guards";
+import { validateTeamPostTrade } from "@/lib/leagues/trades/validate";
 import { resolveWaiverWireSettings } from "@/lib/leagues/waiver-wire";
+
+/** Thrown when another executor already claimed the trade; caught by executeTrade. */
+class TradeClaimConflict extends Error {}
 
 async function invalidateConflictingTrades(input: {
   completedTradeId: string;
@@ -57,10 +63,70 @@ async function invalidateConflictingTrades(input: {
   );
 }
 
+/** Post-trade active roster/position caps for both teams — returns an error message, or null. */
+async function checkPostTradeCapacity(input: {
+  proposingTeamId: string;
+  receivingTeamId: string;
+  proposingOffers: { playerId: string }[];
+  receivingOffers: { playerId: string }[];
+  proposingDrops: { playerId: string }[];
+  receivingDrops: { playerId: string }[];
+  rosterByPlayer: Map<string, { primaryPositionId: string }>;
+  rosterSlots: RosterSlotConfig[] | null | undefined;
+  benchSlots: number;
+}): Promise<string | null> {
+  const incomingFor = (offers: { playerId: string }[]) =>
+    offers.map((offer) => ({
+      id: offer.playerId,
+      slotPositionId: null,
+      primaryPositionId: input.rosterByPlayer.get(offer.playerId)!
+        .primaryPositionId,
+    }));
+
+  const [proposingRoster, receivingRoster] = await Promise.all([
+    listRosteredPlayers(input.proposingTeamId),
+    listRosteredPlayers(input.receivingTeamId),
+  ]);
+
+  const proposingResult = validateTeamPostTrade({
+    teamId: input.proposingTeamId,
+    teamLabel: "Proposing team",
+    roster: proposingRoster,
+    offeringIds: input.proposingOffers.map((offer) => offer.playerId),
+    receiving: incomingFor(input.receivingOffers),
+    dropIds: input.proposingDrops.map((drop) => drop.playerId),
+    rosterSlots: input.rosterSlots,
+    benchSlots: input.benchSlots,
+    enforceRosterMinimums: false,
+  });
+  if (!proposingResult.ok) {
+    return proposingResult.error;
+  }
+
+  const receivingResult = validateTeamPostTrade({
+    teamId: input.receivingTeamId,
+    teamLabel: "Receiving team",
+    roster: receivingRoster,
+    offeringIds: input.receivingOffers.map((offer) => offer.playerId),
+    receiving: incomingFor(input.proposingOffers),
+    dropIds: input.receivingDrops.map((drop) => drop.playerId),
+    rosterSlots: input.rosterSlots,
+    benchSlots: input.benchSlots,
+    enforceRosterMinimums: false,
+  });
+  if (!receivingResult.ok) {
+    return receivingResult.error;
+  }
+
+  return null;
+}
+
 export async function executeTrade(input: {
   tradeId: string;
   waiversEnabled: boolean;
   waiverWire: ReturnType<typeof resolveWaiverWireSettings>;
+  rosterSlots: RosterSlotConfig[] | null | undefined;
+  benchSlots: number;
 }) {
   const tradeRows = await db
     .select({
@@ -85,12 +151,7 @@ export async function executeTrade(input: {
     return { success: true as const };
   }
 
-  if (
-    trade.status !== "pending" &&
-    trade.status !== "review" &&
-    trade.status !== "awaiting_commissioner" &&
-    trade.status !== "completed"
-  ) {
+  if (!isOpenTradeStatus(trade.status)) {
     return { success: false as const, error: "Trade is no longer open." };
   }
 
@@ -146,18 +207,31 @@ export async function executeTrade(input: {
       return row != null && row.teamId === drop.teamId;
     });
 
-  if (!playersStillAvailable) {
-    await db
+  const invalidate = async (summary: string) => {
+    const [invalidated] = await db
       .update(trades)
       .set({ status: "invalidated", updatedAt: new Date() })
-      .where(eq(trades.id, input.tradeId));
-    await logTradeActivity({
-      leagueSeasonId: trade.leagueSeasonId,
-      tradeId: input.tradeId,
-      type: "trade_cancelled",
-      summary:
-        "Trade invalidated — a player was included in another completed trade.",
-    });
+      .where(
+        and(
+          eq(trades.id, input.tradeId),
+          inArray(trades.status, [...OPEN_TRADE_STATUSES]),
+        ),
+      )
+      .returning({ id: trades.id });
+    if (invalidated) {
+      await logTradeActivity({
+        leagueSeasonId: trade.leagueSeasonId,
+        tradeId: input.tradeId,
+        type: "trade_cancelled",
+        summary,
+      });
+    }
+  };
+
+  if (!playersStillAvailable) {
+    await invalidate(
+      "Trade invalidated — a player was included in another completed trade.",
+    );
     return {
       success: false as const,
       error: "Trade invalidated — a player is no longer available.",
@@ -165,71 +239,120 @@ export async function executeTrade(input: {
     };
   }
 
+  const capacityError = await checkPostTradeCapacity({
+    proposingTeamId,
+    receivingTeamId,
+    proposingOffers,
+    receivingOffers,
+    proposingDrops,
+    receivingDrops,
+    rosterByPlayer,
+    rosterSlots: input.rosterSlots,
+    benchSlots: input.benchSlots,
+  });
+  if (capacityError) {
+    await invalidate("Trade invalidated — a roster would exceed its size limits.");
+    return {
+      success: false as const,
+      error: capacityError,
+      invalidated: true as const,
+    };
+  }
+
   const acquiredAt = new Date();
 
-  await db.transaction(async (tx) => {
-    for (const drop of [...proposingDrops, ...receivingDrops]) {
-      const row = rosterByPlayer.get(drop.playerId)!;
-      if (!input.waiversEnabled) {
-        await tx.delete(rosterPlayers).where(eq(rosterPlayers.id, row.id));
-      } else {
-        const waiverClearsAt = new Date(
-          Date.now() + input.waiverWire.dropWaiverHours * 60 * 60 * 1000,
-        );
+  try {
+    await db.transaction(async (tx) => {
+      const [claimed] = await tx
+        .update(trades)
+        .set({
+          status: "completed",
+          completedAt: acquiredAt,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(trades.id, input.tradeId),
+            inArray(trades.status, [...OPEN_TRADE_STATUSES]),
+            isNull(trades.completedAt),
+          ),
+        )
+        .returning({ id: trades.id });
+      if (!claimed) {
+        throw new TradeClaimConflict();
+      }
+
+      for (const drop of [...proposingDrops, ...receivingDrops]) {
+        const row = rosterByPlayer.get(drop.playerId)!;
+        if (!input.waiversEnabled) {
+          await tx.delete(rosterPlayers).where(eq(rosterPlayers.id, row.id));
+        } else {
+          const waiverClearsAt = new Date(
+            Date.now() + input.waiverWire.dropWaiverHours * 60 * 60 * 1000,
+          );
+          await tx
+            .update(rosterPlayers)
+            .set({
+              status: "waived",
+              waiverClearsAt,
+              slotPositionId: null,
+              updatedAt: new Date(),
+            })
+            .where(eq(rosterPlayers.id, row.id));
+        }
+      }
+
+      for (const offer of proposingOffers) {
+        const row = rosterByPlayer.get(offer.playerId)!;
         await tx
           .update(rosterPlayers)
           .set({
-            status: "waived",
-            waiverClearsAt,
+            teamId: receivingTeamId,
             slotPositionId: null,
+            acquiredAt,
             updatedAt: new Date(),
           })
           .where(eq(rosterPlayers.id, row.id));
       }
-    }
 
-    for (const offer of proposingOffers) {
-      const row = rosterByPlayer.get(offer.playerId)!;
-      await tx
-        .update(rosterPlayers)
-        .set({
-          teamId: receivingTeamId,
-          slotPositionId: null,
-          acquiredAt,
-          updatedAt: new Date(),
-        })
-        .where(eq(rosterPlayers.id, row.id));
-    }
+      for (const offer of receivingOffers) {
+        const row = rosterByPlayer.get(offer.playerId)!;
+        await tx
+          .update(rosterPlayers)
+          .set({
+            teamId: proposingTeamId,
+            slotPositionId: null,
+            acquiredAt,
+            updatedAt: new Date(),
+          })
+          .where(eq(rosterPlayers.id, row.id));
+      }
 
-    for (const offer of receivingOffers) {
-      const row = rosterByPlayer.get(offer.playerId)!;
-      await tx
-        .update(rosterPlayers)
-        .set({
-          teamId: proposingTeamId,
-          slotPositionId: null,
-          acquiredAt,
-          updatedAt: new Date(),
-        })
-        .where(eq(rosterPlayers.id, row.id));
-    }
-
-    await tx
-      .update(trades)
-      .set({
-        status: "completed",
-        completedAt: new Date(),
-        updatedAt: new Date(),
-      })
-      .where(eq(trades.id, input.tradeId));
-
-    await invalidateConflictingTrades({
-      completedTradeId: input.tradeId,
-      leagueSeasonId: trade.leagueSeasonId,
-      playerIds: allPlayerIds,
-      tx,
+      await invalidateConflictingTrades({
+        completedTradeId: input.tradeId,
+        leagueSeasonId: trade.leagueSeasonId,
+        playerIds: allPlayerIds,
+        tx,
+      });
     });
-  });
+  } catch (error) {
+    if (error instanceof TradeClaimConflict) {
+      const [current] = await db
+        .select({ completedAt: trades.completedAt })
+        .from(trades)
+        .where(eq(trades.id, input.tradeId))
+        .limit(1);
+      if (current?.completedAt) {
+        return { success: true as const };
+      }
+      return {
+        success: false as const,
+        error: "Trade was already resolved.",
+        conflict: true as const,
+      };
+    }
+    throw error;
+  }
 
   return { success: true as const };
 }
