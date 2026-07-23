@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -104,9 +105,9 @@ export function AppTopNav({
       >
         <Link
           href="/dashboard"
-          className="relative z-10 shrink-0 text-sm font-semibold tracking-tight"
+          className="relative z-10 shrink-0"
         >
-          Fantasy Kings
+          <Image src="/fk-logo-main.svg" alt="Fantasy Kings" width={120} height={120} loading="eager" />
         </Link>
 
         <div className="pointer-events-none absolute inset-x-0 flex justify-center">
