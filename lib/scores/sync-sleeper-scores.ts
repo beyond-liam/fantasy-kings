@@ -187,7 +187,7 @@ export async function syncCurrentWeekScores(options?: {
     options?.season != null && options.season.trim() !== "";
 
   let season = hasSeasonOverride ? options.season!.trim() : state.season;
-  let week = hasWeekOverride
+  const week = hasWeekOverride
     ? options.week!
     : (state.display_week ?? state.week);
 

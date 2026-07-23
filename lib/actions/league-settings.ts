@@ -180,7 +180,7 @@ function revalidateSettingsPaths(slug: string) {
 }
 
 async function generateUniqueSlug(baseSlug: string, excludeLeagueId: string) {
-  let slug = baseSlug || "league";
+  const slug = baseSlug || "league";
   let suffix = 0;
 
   while (true) {

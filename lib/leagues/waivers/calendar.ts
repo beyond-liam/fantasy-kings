@@ -31,7 +31,7 @@ export function getFantasyWeekStartUtc(now: Date = new Date()): Date {
   );
 
   const dow = date.getUTCDay();
-  let daysSinceWed = (dow - WEEK_START_DOW + 7) % 7;
+  const daysSinceWed = (dow - WEEK_START_DOW + 7) % 7;
   date.setUTCDate(date.getUTCDate() - daysSinceWed);
 
   // If we're Wed but still before 00:01, belong to previous week.
