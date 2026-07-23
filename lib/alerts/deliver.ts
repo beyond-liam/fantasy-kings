@@ -85,11 +85,16 @@ export async function deliverAlert(input: {
 }
 
 function queueEmailsAfter(userIds: string[], email: EmailAlert) {
-  after(() => {
-    void sendEmailsNow(userIds, email).catch((error) => {
-      console.error("[alerts] email adapter failed", error);
+  try {
+    after(() => {
+      void sendEmailsNow(userIds, email).catch((error) => {
+        console.error("[alerts] email adapter failed", error);
+      });
     });
-  });
+  } catch {
+    // Outside a Next.js request (scripts, node:test) — skip deferred email.
+    // Cron/server paths that need mail should pass email.sync: true.
+  }
 }
 
 async function sendEmailsNow(userIds: string[], email: EmailAlert) {
