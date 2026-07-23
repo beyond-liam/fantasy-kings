@@ -1,8 +1,9 @@
 import "server-only";
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 
 import { teams, tradePlayers, trades, tradeVetoes } from "@/db/schema";
+import type { RosterSlotConfig } from "@/db/schema/league-seasons";
 import {
   announceTradeAcceptedReview,
   announceTradeProposed,
@@ -44,6 +45,8 @@ export async function completeExpiredTrade(input: {
   league: TradeLeagueRef;
   waiversEnabled: boolean;
   waiverWire: WaiverWire;
+  rosterSlots: RosterSlotConfig[] | null | undefined;
+  benchSlots: number;
 }): Promise<TradeLifecycleResult> {
   const trade = await db
     .select({
@@ -63,6 +66,8 @@ export async function completeExpiredTrade(input: {
     tradeId: input.tradeId,
     waiversEnabled: input.waiversEnabled,
     waiverWire: input.waiverWire,
+    rosterSlots: input.rosterSlots,
+    benchSlots: input.benchSlots,
   });
   if (!result.success) {
     return { ok: false, error: result.error };
@@ -162,19 +167,27 @@ export async function commitTradeProposal(input: {
   });
 
   if (input.counterOfTradeId) {
-    await db
+    const [countered] = await db
       .update(trades)
       .set({ status: "rejected", updatedAt: new Date() })
-      .where(eq(trades.id, input.counterOfTradeId));
+      .where(
+        and(
+          eq(trades.id, input.counterOfTradeId),
+          eq(trades.status, "pending"),
+        ),
+      )
+      .returning({ id: trades.id });
 
-    await logTradeActivity({
-      leagueSeasonId: input.league.leagueSeasonId,
-      tradeId: input.counterOfTradeId,
-      type: "trade_rejected",
-      summary: `${input.actor.teamName} countered the trade.`,
-      teamId: input.actor.teamId,
-      actorUserId: input.actor.userId,
-    });
+    if (countered) {
+      await logTradeActivity({
+        leagueSeasonId: input.league.leagueSeasonId,
+        tradeId: input.counterOfTradeId,
+        type: "trade_rejected",
+        summary: `${input.actor.teamName} countered the trade.`,
+        teamId: input.actor.teamId,
+        actorUserId: input.actor.userId,
+      });
+    }
   }
 
   await announceTradeProposed({
@@ -203,6 +216,8 @@ export async function acceptTradeOffer(input: {
   proposingTeam: { name: string; userId: string | null };
   waiversEnabled: boolean;
   waiverWire: WaiverWire;
+  rosterSlots: RosterSlotConfig[] | null | undefined;
+  benchSlots: number;
 }): Promise<TradeLifecycleResult> {
   if (input.receivingDropIds.length > 0) {
     await db.insert(tradePlayers).values(
@@ -215,23 +230,43 @@ export async function acceptTradeOffer(input: {
     );
   }
 
-  await db
-    .update(trades)
-    .set({
-      status: input.nextStatus,
-      counterpartyAcceptedAt: new Date(),
-      reviewEndsAt: input.reviewEndsAt,
-      updatedAt: new Date(),
-    })
-    .where(eq(trades.id, input.tradeId));
+  const cleanupReceivingDrops = async () => {
+    if (input.receivingDropIds.length > 0) {
+      await db
+        .delete(tradePlayers)
+        .where(
+          and(
+            eq(tradePlayers.tradeId, input.tradeId),
+            eq(tradePlayers.teamId, input.actor.teamId),
+            eq(tradePlayers.isDrop, true),
+            inArray(tradePlayers.playerId, input.receivingDropIds),
+          ),
+        );
+    }
+  };
 
   if (input.nextStatus === "completed") {
+    // Do not pre-write "completed" — executeTrade claims the trade atomically
+    // and is the only place that transitions it to completed.
+    const [claimed] = await db
+      .update(trades)
+      .set({ counterpartyAcceptedAt: new Date(), updatedAt: new Date() })
+      .where(and(eq(trades.id, input.tradeId), eq(trades.status, "pending")))
+      .returning({ id: trades.id });
+    if (!claimed) {
+      await cleanupReceivingDrops();
+      return { ok: false, error: "This trade is no longer pending." };
+    }
+
     const result = await executeTrade({
       tradeId: input.tradeId,
       waiversEnabled: input.waiversEnabled,
       waiverWire: input.waiverWire,
+      rosterSlots: input.rosterSlots,
+      benchSlots: input.benchSlots,
     });
     if (!result.success) {
+      await cleanupReceivingDrops();
       return { ok: false, error: result.error };
     }
     await logTradeActivity({
@@ -241,6 +276,21 @@ export async function acceptTradeOffer(input: {
       summary: "Trade completed.",
       actorUserId: input.actor.userId,
     });
+  } else {
+    const [claimed] = await db
+      .update(trades)
+      .set({
+        status: input.nextStatus,
+        counterpartyAcceptedAt: new Date(),
+        reviewEndsAt: input.reviewEndsAt,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(trades.id, input.tradeId), eq(trades.status, "pending")))
+      .returning({ id: trades.id });
+    if (!claimed) {
+      await cleanupReceivingDrops();
+      return { ok: false, error: "This trade is no longer pending." };
+    }
   }
 
   const acceptBody =
@@ -287,10 +337,14 @@ export async function rejectTradeOffer(input: {
   league: TradeLeagueRef;
   actor: TradeActor;
 }): Promise<TradeLifecycleResult> {
-  await db
+  const [rejected] = await db
     .update(trades)
     .set({ status: "rejected", updatedAt: new Date() })
-    .where(eq(trades.id, input.tradeId));
+    .where(and(eq(trades.id, input.tradeId), eq(trades.status, "pending")))
+    .returning({ id: trades.id });
+  if (!rejected) {
+    return { ok: false, error: "This trade is no longer pending." };
+  }
 
   await logTradeActivity({
     leagueSeasonId: input.league.leagueSeasonId,
@@ -321,10 +375,14 @@ export async function cancelTradeOffer(input: {
   league: TradeLeagueRef;
   actor: TradeActor;
 }): Promise<TradeLifecycleResult> {
-  await db
+  const [cancelled] = await db
     .update(trades)
     .set({ status: "cancelled", updatedAt: new Date() })
-    .where(eq(trades.id, input.tradeId));
+    .where(and(eq(trades.id, input.tradeId), eq(trades.status, "pending")))
+    .returning({ id: trades.id });
+  if (!cancelled) {
+    return { ok: false, error: "This trade is no longer pending." };
+  }
 
   await logTradeActivity({
     leagueSeasonId: input.league.leagueSeasonId,
@@ -357,11 +415,15 @@ export async function approveTradeByCommissioner(input: {
   actorUserId: string;
   waiversEnabled: boolean;
   waiverWire: WaiverWire;
+  rosterSlots: RosterSlotConfig[] | null | undefined;
+  benchSlots: number;
 }): Promise<TradeLifecycleResult> {
   const result = await executeTrade({
     tradeId: input.tradeId,
     waiversEnabled: input.waiversEnabled,
     waiverWire: input.waiverWire,
+    rosterSlots: input.rosterSlots,
+    benchSlots: input.benchSlots,
   });
   if (!result.success) {
     return { ok: false, error: result.error };
@@ -402,10 +464,22 @@ export async function rejectTradeByCommissioner(input: {
   league: TradeLeagueRef;
   actorUserId: string;
 }): Promise<TradeLifecycleResult> {
-  await db
+  const [rejected] = await db
     .update(trades)
     .set({ status: "commissioner_rejected", updatedAt: new Date() })
-    .where(eq(trades.id, input.tradeId));
+    .where(
+      and(
+        eq(trades.id, input.tradeId),
+        eq(trades.status, "awaiting_commissioner"),
+      ),
+    )
+    .returning({ id: trades.id });
+  if (!rejected) {
+    return {
+      ok: false,
+      error: "Trade is not awaiting commissioner approval.",
+    };
+  }
 
   await logTradeActivity({
     leagueSeasonId: input.league.leagueSeasonId,
@@ -459,28 +533,31 @@ export async function castTradeVeto(input: {
     .where(eq(tradeVetoes.tradeId, input.tradeId));
 
   if (vetoCountRows.length >= threshold) {
-    await db
+    const [vetoed] = await db
       .update(trades)
       .set({ status: "vetoed", updatedAt: new Date() })
-      .where(eq(trades.id, input.tradeId));
+      .where(and(eq(trades.id, input.tradeId), eq(trades.status, "review")))
+      .returning({ id: trades.id });
 
-    await logTradeActivity({
-      leagueSeasonId: input.league.leagueSeasonId,
-      tradeId: input.tradeId,
-      type: "trade_vetoed",
-      summary: `Trade vetoed (${vetoCountRows.length} of ${threshold} required).`,
-      teamId: input.actor.teamId,
-      actorUserId: input.actor.userId,
-    });
+    if (vetoed) {
+      await logTradeActivity({
+        leagueSeasonId: input.league.leagueSeasonId,
+        tradeId: input.tradeId,
+        type: "trade_vetoed",
+        summary: `Trade vetoed (${vetoCountRows.length} of ${threshold} required).`,
+        teamId: input.actor.teamId,
+        actorUserId: input.actor.userId,
+      });
 
-    await announceTradeVetoed({
-      tradeId: input.tradeId,
-      leagueSeasonId: input.league.leagueSeasonId,
-      leaguePublicId: input.league.leaguePublicId,
-      leagueName: input.league.leagueName,
-      proposingTeamId: input.proposingTeamId,
-      receivingTeamId: input.receivingTeamId,
-    });
+      await announceTradeVetoed({
+        tradeId: input.tradeId,
+        leagueSeasonId: input.league.leagueSeasonId,
+        leaguePublicId: input.league.leaguePublicId,
+        leagueName: input.league.leagueName,
+        proposingTeamId: input.proposingTeamId,
+        receivingTeamId: input.receivingTeamId,
+      });
+    }
   }
 
   return { ok: true, tradeId: input.tradeId };

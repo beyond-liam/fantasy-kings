@@ -226,6 +226,8 @@ export async function processReadyTrades(slug: string) {
       league,
       waiversEnabled: context.season.waiversEnabled,
       waiverWire: wire,
+      rosterSlots: context.season.settings.rosterSlots,
+      benchSlots: context.season.benchSlots,
     }).catch(() => undefined);
   }
 
@@ -505,6 +507,8 @@ export async function acceptTrade(
     },
     waiversEnabled: season.waiversEnabled,
     waiverWire: wire,
+    rosterSlots: season.settings.rosterSlots,
+    benchSlots: season.benchSlots,
   });
 
   if (!result.ok) {
@@ -635,6 +639,8 @@ export async function approveTrade(
     actorUserId: context.user.id,
     waiversEnabled: context.season.waiversEnabled,
     waiverWire: wire,
+    rosterSlots: context.season.settings.rosterSlots,
+    benchSlots: context.season.benchSlots,
   });
 
   if (!result.ok) {
