@@ -35,6 +35,7 @@ export function InviteLinkCard({ inviteCode }: InviteLinkCardProps) {
   const displayInviteUrl = fullInviteUrl ?? invitePath;
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- window.location is unavailable during SSR; this fills in the full URL post-hydration to avoid a mismatch.
     setFullInviteUrl(`${window.location.origin}${invitePath}`);
   }, [invitePath]);
 

@@ -157,12 +157,14 @@ export function DraftRoom({
   const [tab, setTab] = useState("board");
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [optimisticStatus, setOptimisticStatus] = useState(status);
+  const [prevStatus, setPrevStatus] = useState(status);
   const autopickRef = useRef(false);
   const lastTurnCueRef = useRef<number | null>(null);
 
-  useEffect(() => {
+  if (status !== prevStatus) {
+    setPrevStatus(status);
     setOptimisticStatus(status);
-  }, [status]);
+  }
 
   const effectiveStatus = optimisticStatus;
   const draftLive = effectiveStatus === "live";

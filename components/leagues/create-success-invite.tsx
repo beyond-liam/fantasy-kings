@@ -32,6 +32,7 @@ export function CreateSuccessInvite({
   const [fullInviteUrl, setFullInviteUrl] = useState<string | null>(null);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- window.location is unavailable during SSR; this fills in the full URL post-hydration to avoid a mismatch.
     setFullInviteUrl(`${window.location.origin}${invitePath}`);
   }, [invitePath]);
 
