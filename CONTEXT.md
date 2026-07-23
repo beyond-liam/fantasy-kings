@@ -9,10 +9,10 @@ Shared vocabulary for product and architecture. Prefer these names over file-lev
 | **League** | Private fantasy competition; addressed by `publicId` in URLs |
 | **League Season** | One season’s settings, roster rules, draft, and standings for a League |
 | **Team** | A manager’s entry in a League Season (`userId` null = open/bot slot) |
-| **Pick** | One turn in a Draft: validate eligibility, write roster, advance the board |
+| **Pick** | One turn in a Draft: validate eligibility, write roster, advance the board (`lib/leagues/draft/pick.ts` → `commitDraftPick`) |
 | **Draft** | Live or email/slow board for a League Season (schedule, clock, autopick) |
 | **Trade** | Proposal between two Teams; may enter review/veto before execute |
-| **Waiver** | Claim on a free agent; adjudicated then applied on process day |
+| **Waiver** | Claim on a free agent; adjudicated then applied on process day (`lib/leagues/waivers/process.ts` → `processSeasonWaivers`) |
 | **League Alert** | Domain event fan-out: resolve recipients once, then in-app + email adapters |
 
 ## League Alert

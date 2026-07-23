@@ -11,8 +11,7 @@ export async function LeagueLayoutGuard({
   children: React.ReactNode;
   params: Promise<{ leagueId: string }>;
 }>) {
-  const { leagueId } = await params;
-  const user = await getSessionUser();
+  const [{ leagueId }, user] = await Promise.all([params, getSessionUser()]);
   if (!user) {
     redirect(`/login?next=/league/${leagueId}`);
   }

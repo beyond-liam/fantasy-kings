@@ -390,22 +390,24 @@ export async function getTradeVetoSummaries(input: {
     return new Map<string, TradeVetoSummary>();
   }
 
-  const [teamCountRow] = await db
-    .select({ count: sql<number>`count(*)::int` })
-    .from(teams)
-    .where(eq(teams.leagueSeasonId, input.leagueSeasonId));
+  const [teamCountRow, vetoRows] = await Promise.all([
+    db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(teams)
+      .where(eq(teams.leagueSeasonId, input.leagueSeasonId))
+      .then((rows) => rows[0]),
+    db
+      .select({
+        tradeId: tradeVetoes.tradeId,
+        teamId: tradeVetoes.teamId,
+      })
+      .from(tradeVetoes)
+      .where(inArray(tradeVetoes.tradeId, input.tradeIds)),
+  ]);
 
   const totalTeams = teamCountRow?.count ?? 0;
   const eligible = Math.max(0, totalTeams - 2);
   const threshold = eligible <= 0 ? 1 : Math.floor(eligible / 2) + 1;
-
-  const vetoRows = await db
-    .select({
-      tradeId: tradeVetoes.tradeId,
-      teamId: tradeVetoes.teamId,
-    })
-    .from(tradeVetoes)
-    .where(inArray(tradeVetoes.tradeId, input.tradeIds));
 
   const counts = new Map<string, number>();
   const myVetoes = new Set<string>();

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
+import dynamic from "next/dynamic";
 import { redirect } from "next/navigation";
 
-import { DraftRoom } from "@/components/leagues/draft/draft-room";
 import { getSessionUser } from "@/lib/auth/session";
 import { resolveDraftSettings } from "@/lib/leagues/draft-settings";
 import {
@@ -18,10 +18,16 @@ import {
   getLeagueBySlug,
   getLeagueMembership,
   getLeagueSeason,
-  isLeagueCommissioner,
 } from "@/lib/queries/leagues";
 import { getNflTeams, getRankedPlayers } from "@/lib/queries/players";
 import { getNflState } from "@/lib/sleeper/api";
+import { Spinner } from "@/components/ui/spinner";
+
+const DraftRoom = dynamic(
+  () =>
+    import("@/components/leagues/draft/draft-room").then((m) => m.DraftRoom),
+  { loading: () => <Spinner className="mx-auto mt-12" /> },
+);
 
 type LeagueDraftRoomPageProps = {
   params: Promise<{ leagueId: string }>;
@@ -54,7 +60,9 @@ export default async function LeagueDraftRoomPage({
     redirect("/leagues");
   }
 
-  const isCommissioner = await isLeagueCommissioner(league.id, user.id);
+  const isCommissioner =
+    membership.role === "commissioner" ||
+    membership.role === "co_commissioner";
   const scoringRules = resolveScoringRuleDefinitions(
     season.scoringPreset as ScoringPreset,
     season.settings.scoringRules,

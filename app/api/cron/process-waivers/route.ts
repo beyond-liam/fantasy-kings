@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { processAllDueWaivers } from "@/lib/actions/waivers";
+import { processAllDueWaivers } from "@/lib/cron/process-waivers";
 import { assertCronAuthorized } from "@/lib/cron/auth";
 
 export const runtime = "nodejs";

@@ -3,20 +3,32 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
-import { leagues, leagueSeasons, teams, tradePlayers, tradeVetoes, trades, waiverClaims } from "@/db/schema";
-import { requireSessionUser } from "@/lib/auth/session";
+import { teams, tradePlayers, waiverClaims } from "@/db/schema";
 import { db } from "@/lib/db";
 import {
   formatIrLockMessage,
   getIrLockViolations,
 } from "@/lib/leagues/ir-lock";
+import { loadLeagueMemberTeamContext } from "@/lib/leagues/action-context";
+import type { LeagueMemberTeamContext } from "@/lib/leagues/action-context";
 import { resolveTransactionRules } from "@/lib/leagues/transaction-rules";
 import {
   canProposeTrades,
   isTradeDeadlinePassed,
   tradeDeadlineError,
 } from "@/lib/leagues/trades/guards";
-import { executeTrade, logTradeActivity } from "@/lib/leagues/trades/execute";
+import {
+  acceptTradeOffer,
+  approveTradeByCommissioner,
+  cancelTradeOffer,
+  castTradeVeto,
+  completeExpiredTrade,
+  commitTradeProposal,
+  countSeasonTeams,
+  hasTeamVotedVeto,
+  rejectTradeByCommissioner,
+  rejectTradeOffer,
+} from "@/lib/leagues/trades/lifecycle";
 import {
   resolveNextStatusOnAccept,
   reviewEndsAtFromNow,
@@ -26,16 +38,7 @@ import {
   listDropCandidates,
   validateTradeProposal,
 } from "@/lib/leagues/trades/validate";
-import {
-  countEligibleVetoVoters,
-  vetoThreshold,
-} from "@/lib/leagues/trades/vetoes";
 import { resolveWaiverWireSettings } from "@/lib/leagues/waiver-wire";
-import {
-  getLeagueBySlug,
-  getLeagueMembership,
-  getLeagueSeason,
-} from "@/lib/queries/leagues";
 import {
   getExpiredReviewTrades,
   getTradeById,
@@ -43,18 +46,7 @@ import {
   toTradeRosterPlayers,
 } from "@/lib/queries/trades";
 import { getTeamRosterPlayers } from "@/lib/queries/team-roster";
-import { getUserTeamForSeason } from "@/lib/queries/watchlist";
 import { getNflState } from "@/lib/sleeper/api";
-import type { LeagueSeasonSettings } from "@/db/schema/league-seasons";
-import {
-  getTeamOwnerUserIds,
-  notifyUsers,
-} from "@/lib/notifications/notify";
-import {
-  announceTradeAcceptedReview,
-  announceTradeProposed,
-  announceTradeVetoed,
-} from "@/lib/alerts/trades";
 
 export type TradeActionResult = {
   success: boolean;
@@ -62,39 +54,10 @@ export type TradeActionResult = {
   errors?: string[];
 };
 
-type TradeContext =
-  | { error: string }
-  | {
-      user: Awaited<ReturnType<typeof requireSessionUser>>;
-      league: NonNullable<Awaited<ReturnType<typeof getLeagueBySlug>>>;
-      season: NonNullable<Awaited<ReturnType<typeof getLeagueSeason>>>;
-      team: NonNullable<Awaited<ReturnType<typeof getUserTeamForSeason>>>;
-      membership: NonNullable<Awaited<ReturnType<typeof getLeagueMembership>>>;
-    };
+type TradeContext = Awaited<ReturnType<typeof loadLeagueMemberTeamContext>>;
 
 async function getTradeContext(slug: string): Promise<TradeContext> {
-  const user = await requireSessionUser();
-  const league = await getLeagueBySlug(slug);
-  if (!league) {
-    return { error: "League not found." };
-  }
-
-  const membership = await getLeagueMembership(league.id, user.id);
-  if (!membership) {
-    return { error: "You are not a member of this league." };
-  }
-
-  const season = await getLeagueSeason(league.id);
-  if (!season) {
-    return { error: "League season not found." };
-  }
-
-  const team = await getUserTeamForSeason(season.id, user.id);
-  if (!team) {
-    return { error: "Team not found." };
-  }
-
-  return { user, league, season, team, membership };
+  return loadLeagueMemberTeamContext(slug);
 }
 
 function revalidateTradePaths(slug: string) {
@@ -104,9 +67,7 @@ function revalidateTradePaths(slug: string) {
   revalidatePath(`/league/${slug}/activity`);
 }
 
-async function assertCanPropose(
-  season: NonNullable<Awaited<ReturnType<typeof getLeagueSeason>>>,
-) {
+async function assertCanPropose(season: LeagueMemberTeamContext["season"]) {
   const gate = canProposeTrades(season);
   if (!gate.ok) {
     return gate.error;
@@ -245,54 +206,6 @@ export async function getTradeAcceptPreview(
   };
 }
 
-async function completeExpiredTrade(
-  tradeId: string,
-  leagueSeasonId: string,
-  leaguePublicId: string,
-  waiversEnabled: boolean,
-  waiverWire: ReturnType<typeof resolveWaiverWireSettings>,
-) {
-  const trade = await getTradeById(tradeId);
-  if (!trade) {
-    return { success: false as const, error: "Trade not found." };
-  }
-
-  const result = await executeTrade({
-    tradeId,
-    waiversEnabled,
-    waiverWire,
-  });
-  if (!result.success) {
-    return { success: false as const, error: result.error };
-  }
-
-  await logTradeActivity({
-    leagueSeasonId,
-    tradeId,
-    type: "trade_completed",
-    summary: "Trade completed after review period.",
-  });
-
-  const owners = await getTeamOwnerUserIds([
-    trade.proposingTeamId,
-    trade.receivingTeamId,
-  ]);
-  await notifyUsers({
-    userIds: [
-      owners.get(trade.proposingTeamId),
-      owners.get(trade.receivingTeamId),
-    ],
-    leagueSeasonId,
-    leaguePublicId,
-    type: "trade_update",
-    title: "Trade completed",
-    body: "Your trade completed after the review period.",
-    tradeId,
-  });
-
-  return { success: true as const };
-}
-
 export async function processReadyTrades(slug: string) {
   const context = await getTradeContext(slug);
   if ("error" in context) {
@@ -301,71 +214,24 @@ export async function processReadyTrades(slug: string) {
 
   const expired = await getExpiredReviewTrades(context.season.id);
   const wire = resolveWaiverWireSettings(context.season.settings.waiverWire);
+  const league = {
+    leagueSeasonId: context.season.id,
+    leaguePublicId: context.league.publicId,
+    leagueName: context.league.name,
+  };
 
   for (const row of expired) {
-    await completeExpiredTrade(
-      row.id,
-      context.season.id,
-      context.league.publicId,
-      context.season.waiversEnabled,
-      wire,
-    ).catch(() => undefined);
+    await completeExpiredTrade({
+      tradeId: row.id,
+      league,
+      waiversEnabled: context.season.waiversEnabled,
+      waiverWire: wire,
+    }).catch(() => undefined);
   }
 
   if (expired.length > 0) {
     revalidateTradePaths(slug);
   }
-}
-
-export async function processAllReadyTrades(_now: Date = new Date()) {
-  const expired = await getExpiredReviewTrades();
-  if (expired.length === 0) {
-    return { checked: 0, processed: 0, results: [] as Array<{ tradeId: string; slug: string }> };
-  }
-
-  const seasonIds = [...new Set(expired.map((row) => row.leagueSeasonId))];
-  const seasons = await db
-    .select({
-      id: leagueSeasons.id,
-      waiversEnabled: leagueSeasons.waiversEnabled,
-      settings: leagueSeasons.settings,
-      slug: leagues.slug,
-      publicId: leagues.publicId,
-    })
-    .from(leagueSeasons)
-    .innerJoin(leagues, eq(leagueSeasons.leagueId, leagues.id))
-    .where(inArray(leagueSeasons.id, seasonIds));
-
-  const seasonById = new Map(seasons.map((season) => [season.id, season]));
-  const results: Array<{ tradeId: string; slug: string }> = [];
-
-  for (const row of expired) {
-    const season = seasonById.get(row.leagueSeasonId);
-    if (!season) {
-      continue;
-    }
-
-    const wire = resolveWaiverWireSettings(
-      (season.settings as LeagueSeasonSettings | null)?.waiverWire,
-    );
-    const result = await completeExpiredTrade(
-      row.id,
-      season.id,
-      season.publicId,
-      season.waiversEnabled,
-      wire,
-    );
-    if (result.success) {
-      results.push({ tradeId: row.id, slug: season.publicId });
-      revalidateTradePaths(season.publicId);
-    }
-  }
-
-  return {
-    checked: expired.length,
-    processed: results.length,
-    results,
-  };
 }
 
 export async function proposeTrade(
@@ -480,85 +346,29 @@ export async function proposeTrade(
     return { success: false, errors: validation.errors };
   }
 
-  const [trade] = await db
-    .insert(trades)
-    .values({
+  const result = await commitTradeProposal({
+    league: {
       leagueSeasonId: season.id,
-      proposingTeamId: team.id,
-      receivingTeamId: partner.id,
-      status: "pending",
-      comment: input.comment?.trim() || null,
-      createdByUserId: user.id,
-    })
-    .returning({ id: trades.id });
-
-  const rows = [
-    ...input.proposingOfferIds.map((playerId) => ({
-      tradeId: trade.id,
+      leaguePublicId: league.publicId,
+      leagueName: league.name,
+    },
+    actor: {
+      userId: user.id,
       teamId: team.id,
-      playerId,
-      isDrop: false,
-    })),
-    ...input.receivingOfferIds.map((playerId) => ({
-      tradeId: trade.id,
-      teamId: partner.id,
-      playerId,
-      isDrop: false,
-    })),
-    ...input.proposingDropIds.map((playerId) => ({
-      tradeId: trade.id,
-      teamId: team.id,
-      playerId,
-      isDrop: true,
-    })),
-    ...input.receivingDropIds.map((playerId) => ({
-      tradeId: trade.id,
-      teamId: partner.id,
-      playerId,
-      isDrop: true,
-    })),
-  ];
-
-  if (rows.length > 0) {
-    await db.insert(tradePlayers).values(rows);
-  }
-
-  await logTradeActivity({
-    leagueSeasonId: season.id,
-    tradeId: trade.id,
-    type: "trade_proposed",
-    summary: counterOfTradeId
-      ? `${team.name} sent a counter-offer to ${partner.name}.`
-      : `${team.name} proposed a trade with ${partner.name}.`,
-    teamId: team.id,
-    actorUserId: user.id,
+      teamName: team.name,
+    },
+    receivingTeam: partner,
+    proposingOfferIds: input.proposingOfferIds,
+    receivingOfferIds: input.receivingOfferIds,
+    proposingDropIds: input.proposingDropIds,
+    receivingDropIds: input.receivingDropIds,
+    comment: input.comment?.trim() || null,
+    counterOfTradeId,
   });
 
-  if (counterOfTradeId) {
-    await db
-      .update(trades)
-      .set({ status: "rejected", updatedAt: new Date() })
-      .where(eq(trades.id, counterOfTradeId));
-
-    await logTradeActivity({
-      leagueSeasonId: season.id,
-      tradeId: counterOfTradeId,
-      type: "trade_rejected",
-      summary: `${team.name} countered the trade.`,
-      teamId: team.id,
-      actorUserId: user.id,
-    });
+  if (!result.ok) {
+    return { success: false, error: result.error };
   }
-
-  await announceTradeProposed({
-    tradeId: trade.id,
-    leagueSeasonId: season.id,
-    leaguePublicId: league.publicId,
-    leagueName: league.name,
-    recipientUserId: partner.userId,
-    proposingTeamName: team.name,
-    isCounter: Boolean(counterOfTradeId),
-  });
 
   revalidateTradePaths(league.publicId);
   return { success: true };
@@ -659,17 +469,6 @@ export async function acceptTrade(
     return { success: false, errors: validation.errors };
   }
 
-  if (receivingDropIds.length > 0) {
-    await db.insert(tradePlayers).values(
-      receivingDropIds.map((playerId) => ({
-        tradeId,
-        teamId: team.id,
-        playerId,
-        isDrop: true,
-      })),
-    );
-  }
-
   const irError = await assertNoIrLock(
     team.id,
     season.settings.irEligibleStatuses,
@@ -681,68 +480,35 @@ export async function acceptTrade(
   const nextStatus = resolveNextStatusOnAccept(season.tradeProcessing);
   const reviewEndsAt =
     nextStatus === "review" ? reviewEndsAtFromNow(24) : null;
-
-  await db
-    .update(trades)
-    .set({
-      status: nextStatus,
-      counterpartyAcceptedAt: new Date(),
-      reviewEndsAt,
-      updatedAt: new Date(),
-    })
-    .where(eq(trades.id, tradeId));
-
   const wire = resolveWaiverWireSettings(season.settings.waiverWire);
 
-  if (nextStatus === "completed") {
-    const result = await executeTrade({
-      tradeId,
-      waiversEnabled: season.waiversEnabled,
-      waiverWire: wire,
-    });
-    if (!result.success) {
-      return { success: false, error: result.error };
-    }
-    await logTradeActivity({
-      leagueSeasonId: season.id,
-      tradeId,
-      type: "trade_completed",
-      summary: "Trade completed.",
-      actorUserId: user.id,
-    });
-  }
-
-  const acceptBody =
-    nextStatus === "completed"
-      ? `${team.name} accepted your trade. It is now complete.`
-      : nextStatus === "review"
-        ? `${team.name} accepted your trade. It is under league review.`
-        : `${team.name} accepted your trade. It awaits commissioner approval.`;
-
-  if (nextStatus === "review") {
-    await announceTradeAcceptedReview({
-      tradeId,
+  const result = await acceptTradeOffer({
+    tradeId,
+    proposingTeamId: trade.proposingTeamId,
+    receivingTeamId: trade.receivingTeamId,
+    receivingDropIds,
+    nextStatus,
+    reviewEndsAt,
+    league: {
       leagueSeasonId: season.id,
       leaguePublicId: league.publicId,
       leagueName: league.name,
-      proposingTeamName: proposingTeam?.name ?? "Proposing team",
-      receivingTeamName: team.name,
-      proposingUserId: proposingTeam?.userId,
-      receivingUserId: team.userId,
-      reviewEndsAt,
-      acceptBody,
-    });
-  } else {
-    await notifyUsers({
-      userIds: [proposingTeam?.userId],
-      leagueSeasonId: season.id,
-      leaguePublicId: league.publicId,
-      type: "trade_update",
-      title:
-        nextStatus === "completed" ? "Trade completed" : "Trade offer accepted",
-      body: acceptBody,
-      tradeId,
-    });
+    },
+    actor: {
+      userId: user.id,
+      teamId: team.id,
+      teamName: team.name,
+    },
+    proposingTeam: {
+      name: proposingTeam?.name ?? "Proposing team",
+      userId: proposingTeam?.userId ?? null,
+    },
+    waiversEnabled: season.waiversEnabled,
+    waiverWire: wire,
+  });
+
+  if (!result.ok) {
+    return { success: false, error: result.error };
   }
 
   revalidateTradePaths(slug);
@@ -768,30 +534,24 @@ export async function rejectTrade(
     return { success: false, error: "Only the receiving team can reject." };
   }
 
-  await db
-    .update(trades)
-    .set({ status: "rejected", updatedAt: new Date() })
-    .where(eq(trades.id, tradeId));
-
-  await logTradeActivity({
-    leagueSeasonId: context.season.id,
+  const result = await rejectTradeOffer({
     tradeId,
-    type: "trade_rejected",
-    summary: `${context.team.name} rejected the trade.`,
-    teamId: context.team.id,
-    actorUserId: context.user.id,
+    proposingTeamId: trade.proposingTeamId,
+    league: {
+      leagueSeasonId: context.season.id,
+      leaguePublicId: context.league.publicId,
+      leagueName: context.league.name,
+    },
+    actor: {
+      userId: context.user.id,
+      teamId: context.team.id,
+      teamName: context.team.name,
+    },
   });
 
-  const owners = await getTeamOwnerUserIds([trade.proposingTeamId]);
-  await notifyUsers({
-    userIds: [owners.get(trade.proposingTeamId)],
-    leagueSeasonId: context.season.id,
-    leaguePublicId: context.league.publicId,
-    type: "trade_update",
-    title: "Trade offer rejected",
-    body: `${context.team.name} rejected your trade offer.`,
-    tradeId,
-  });
+  if (!result.ok) {
+    return { success: false, error: result.error };
+  }
 
   revalidateTradePaths(slug);
   return { success: true };
@@ -816,30 +576,24 @@ export async function cancelTrade(
     return { success: false, error: "Only the proposing team can cancel." };
   }
 
-  await db
-    .update(trades)
-    .set({ status: "cancelled", updatedAt: new Date() })
-    .where(eq(trades.id, tradeId));
-
-  await logTradeActivity({
-    leagueSeasonId: context.season.id,
+  const result = await cancelTradeOffer({
     tradeId,
-    type: "trade_cancelled",
-    summary: `${context.team.name} cancelled the trade.`,
-    teamId: context.team.id,
-    actorUserId: context.user.id,
+    receivingTeamId: trade.receivingTeamId,
+    league: {
+      leagueSeasonId: context.season.id,
+      leaguePublicId: context.league.publicId,
+      leagueName: context.league.name,
+    },
+    actor: {
+      userId: context.user.id,
+      teamId: context.team.id,
+      teamName: context.team.name,
+    },
   });
 
-  const owners = await getTeamOwnerUserIds([trade.receivingTeamId]);
-  await notifyUsers({
-    userIds: [owners.get(trade.receivingTeamId)],
-    leagueSeasonId: context.season.id,
-    leaguePublicId: context.league.publicId,
-    type: "trade_update",
-    title: "Trade offer cancelled",
-    body: `${context.team.name} cancelled their trade offer.`,
-    tradeId,
-  });
+  if (!result.ok) {
+    return { success: false, error: result.error };
+  }
 
   revalidateTradePaths(slug);
   return { success: true };
@@ -869,40 +623,23 @@ export async function approveTrade(
   }
 
   const wire = resolveWaiverWireSettings(context.season.settings.waiverWire);
-  const result = await executeTrade({
+  const result = await approveTradeByCommissioner({
     tradeId,
+    proposingTeamId: trade.proposingTeamId,
+    receivingTeamId: trade.receivingTeamId,
+    league: {
+      leagueSeasonId: context.season.id,
+      leaguePublicId: context.league.publicId,
+      leagueName: context.league.name,
+    },
+    actorUserId: context.user.id,
     waiversEnabled: context.season.waiversEnabled,
     waiverWire: wire,
   });
 
-  if (!result.success) {
+  if (!result.ok) {
     return { success: false, error: result.error };
   }
-
-  await logTradeActivity({
-    leagueSeasonId: context.season.id,
-    tradeId,
-    type: "trade_completed",
-    summary: "Commissioner approved the trade.",
-    actorUserId: context.user.id,
-  });
-
-  const owners = await getTeamOwnerUserIds([
-    trade.proposingTeamId,
-    trade.receivingTeamId,
-  ]);
-  await notifyUsers({
-    userIds: [
-      owners.get(trade.proposingTeamId),
-      owners.get(trade.receivingTeamId),
-    ],
-    leagueSeasonId: context.season.id,
-    leaguePublicId: context.league.publicId,
-    type: "trade_update",
-    title: "Trade completed",
-    body: "The commissioner approved your trade.",
-    tradeId,
-  });
 
   revalidateTradePaths(slug);
   return { success: true };
@@ -927,35 +664,21 @@ export async function commissionerRejectTrade(
     return { success: false, error: "Trade is not awaiting commissioner approval." };
   }
 
-  await db
-    .update(trades)
-    .set({ status: "commissioner_rejected", updatedAt: new Date() })
-    .where(eq(trades.id, tradeId));
-
-  await logTradeActivity({
-    leagueSeasonId: context.season.id,
+  const result = await rejectTradeByCommissioner({
     tradeId,
-    type: "trade_rejected",
-    summary: "Commissioner rejected the trade.",
+    proposingTeamId: trade.proposingTeamId,
+    receivingTeamId: trade.receivingTeamId,
+    league: {
+      leagueSeasonId: context.season.id,
+      leaguePublicId: context.league.publicId,
+      leagueName: context.league.name,
+    },
     actorUserId: context.user.id,
   });
 
-  const owners = await getTeamOwnerUserIds([
-    trade.proposingTeamId,
-    trade.receivingTeamId,
-  ]);
-  await notifyUsers({
-    userIds: [
-      owners.get(trade.proposingTeamId),
-      owners.get(trade.receivingTeamId),
-    ],
-    leagueSeasonId: context.season.id,
-    leaguePublicId: context.league.publicId,
-    type: "trade_update",
-    title: "Trade rejected",
-    body: "The commissioner rejected your trade.",
-    tradeId,
-  });
+  if (!result.ok) {
+    return { success: false, error: result.error };
+  }
 
   revalidateTradePaths(slug);
   return { success: true };
@@ -991,63 +714,30 @@ export async function vetoTrade(
     };
   }
 
-  const existing = await db
-    .select({ id: tradeVetoes.id })
-    .from(tradeVetoes)
-    .where(
-      and(
-        eq(tradeVetoes.tradeId, tradeId),
-        eq(tradeVetoes.teamId, context.team.id),
-      ),
-    )
-    .limit(1);
-
-  if (existing.length > 0) {
+  if (await hasTeamVotedVeto(tradeId, context.team.id)) {
     return { success: false, error: "Your team already voted to veto." };
   }
 
-  await db.insert(tradeVetoes).values({
+  const teamCount = await countSeasonTeams(context.season.id);
+  const result = await castTradeVeto({
     tradeId,
-    teamId: context.team.id,
-    userId: context.user.id,
-  });
-
-  const teamCountRows = await db
-    .select({ id: teams.id })
-    .from(teams)
-    .where(eq(teams.leagueSeasonId, context.season.id));
-
-  const eligible = countEligibleVetoVoters(teamCountRows.length);
-  const threshold = vetoThreshold(eligible);
-
-  const vetoCountRows = await db
-    .select({ id: tradeVetoes.id })
-    .from(tradeVetoes)
-    .where(eq(tradeVetoes.tradeId, tradeId));
-
-  if (vetoCountRows.length >= threshold) {
-    await db
-      .update(trades)
-      .set({ status: "vetoed", updatedAt: new Date() })
-      .where(eq(trades.id, tradeId));
-
-    await logTradeActivity({
-      leagueSeasonId: context.season.id,
-      tradeId,
-      type: "trade_vetoed",
-      summary: `Trade vetoed (${vetoCountRows.length} of ${threshold} required).`,
-      teamId: context.team.id,
-      actorUserId: context.user.id,
-    });
-
-    await announceTradeVetoed({
-      tradeId,
+    proposingTeamId: trade.proposingTeamId,
+    receivingTeamId: trade.receivingTeamId,
+    league: {
       leagueSeasonId: context.season.id,
       leaguePublicId: context.league.publicId,
       leagueName: context.league.name,
-      proposingTeamId: trade.proposingTeamId,
-      receivingTeamId: trade.receivingTeamId,
-    });
+    },
+    actor: {
+      userId: context.user.id,
+      teamId: context.team.id,
+      teamName: context.team.name,
+    },
+    teamCount,
+  });
+
+  if (!result.ok) {
+    return { success: false, error: result.error };
   }
 
   revalidateTradePaths(slug);

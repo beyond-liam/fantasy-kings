@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { usePathname, useRouter } from "next/navigation";
 
 import { Badge } from "@/components/ui/badge";
 import {
@@ -14,26 +15,10 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
-
-const MY_TEAM_TABS = [
-  { value: "roster", label: "Roster" },
-  { value: "stats", label: "Stats" },
-  { value: "watchlist", label: "Watchlist" },
-  { value: "schedule", label: "Schedule" },
-  { value: "transactions", label: "Transactions" },
-  { value: "draft-picks", label: "Draft Picks" },
-  { value: "settings", label: "Settings" },
-] as const;
-
-const OTHER_TEAM_TABS = [
-  { value: "roster", label: "Roster" },
-  { value: "stats", label: "Stats" },
-  { value: "schedule", label: "Schedule" },
-  { value: "draft-picks", label: "Draft Picks" },
-] as const;
-
-type MyTeamTabValue = (typeof MY_TEAM_TABS)[number]["value"];
-type OtherTeamTabValue = (typeof OTHER_TEAM_TABS)[number]["value"];
+import {
+  MY_TEAM_TABS,
+  OTHER_TEAM_TABS,
+} from "@/components/team/team-tab-config";
 
 type BaseTeamTabsProps = {
   roster: ReactNode;
@@ -71,38 +56,75 @@ function ComingSoon({ description }: { description: string }) {
   );
 }
 
+function TabLoading() {
+  return (
+    <Empty>
+      <EmptyHeader>
+        <EmptyDescription>Loading…</EmptyDescription>
+      </EmptyHeader>
+    </Empty>
+  );
+}
+
+function resolvePanel(node: ReactNode | undefined, fallback: ReactNode) {
+  if (node === undefined) {
+    return fallback;
+  }
+  if (node == null) {
+    return <TabLoading />;
+  }
+  return node;
+}
+
 export function TeamTabs(props: TeamTabsProps) {
+  const router = useRouter();
+  const pathname = usePathname();
   const isOther = props.variant === "other";
   const tabs = isOther ? OTHER_TEAM_TABS : MY_TEAM_TABS;
-  const defaultTab =
+  const activeTab =
     props.defaultTab &&
     tabs.some((tab) => tab.value === props.defaultTab)
       ? props.defaultTab
       : "roster";
 
   const content: Record<string, ReactNode> = {
-    roster: props.roster,
-    stats: props.stats,
-    schedule: props.schedule ?? (
-      <ComingSoon description="Team schedule will show matchups week by week." />
+    roster: resolvePanel(props.roster, <TabLoading />),
+    stats: resolvePanel(props.stats, <TabLoading />),
+    schedule: resolvePanel(
+      props.schedule,
+      <ComingSoon description="Team schedule will show matchups week by week." />,
     ),
-    "draft-picks": props["draft-picks"] ?? (
-      <ComingSoon description="Draft pick inventory and trades will show up here." />
+    "draft-picks": resolvePanel(
+      props["draft-picks"],
+      <ComingSoon description="Draft pick inventory and trades will show up here." />,
     ),
   };
 
   if (!isOther) {
-    content.watchlist = props.watchlist;
-    content.transactions = props.transactions ?? (
-      <ComingSoon description="Waiver claims and trades will show up here." />
+    content.watchlist = resolvePanel(props.watchlist, <TabLoading />);
+    content.transactions = resolvePanel(
+      props.transactions,
+      <ComingSoon description="Waiver claims and trades will show up here." />,
     );
-    content.settings = props.settings ?? (
-      <ComingSoon description="Team name, logo, and manager settings will show up here." />
+    content.settings = resolvePanel(
+      props.settings,
+      <ComingSoon description="Team name, logo, and manager settings will show up here." />,
     );
   }
 
   return (
-    <Tabs defaultValue={defaultTab} className="gap-6">
+    <Tabs
+      value={activeTab}
+      onValueChange={(value) => {
+        const params = new URLSearchParams();
+        if (value !== "roster") {
+          params.set("tab", value);
+        }
+        const qs = params.toString();
+        router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+      }}
+      className="gap-6"
+    >
       <TabsList>
         {tabs.map((tab) => (
           <TabsTrigger key={tab.value} value={tab.value} className="gap-2">
@@ -124,7 +146,7 @@ export function TeamTabs(props: TeamTabsProps) {
             <h2 className="text-lg font-semibold tracking-tight">
               {tab.label}
             </h2>
-            {content[tab.value]}
+            <div className="contents">{content[tab.value]}</div>
           </div>
         </TabsContent>
       ))}
@@ -132,4 +154,4 @@ export function TeamTabs(props: TeamTabsProps) {
   );
 }
 
-export type { MyTeamTabValue, OtherTeamTabValue };
+export type { MyTeamTabValue, OtherTeamTabValue } from "@/components/team/team-tab-config";

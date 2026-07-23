@@ -4,10 +4,12 @@ import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 import { players, rosterPlayers, teams } from "@/db/schema";
-import { requireSessionUser } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { logLeagueActivity } from "@/lib/leagues/activity-log";
-import { isRosterTransactionsEnabled } from "@/lib/leagues/free-agency";
+import {
+  loadLeagueActionContext,
+  loadLeagueMemberTeamContext,
+} from "@/lib/leagues/action-context";
 import {
   countActivePositionPlayers,
   countActiveRosterPlayers,
@@ -19,14 +21,18 @@ import {
 import {
   applyLocalSlotAssignment,
   getSlotCapacity,
+  occupiedBySlot,
   pickDefaultSlotPosition,
   slotAcceptsPlayer,
 } from "@/lib/leagues/roster-slots";
-import { resolveIrEligibleStatuses } from "@/lib/leagues/ir-eligibility";
 import {
-  formatIrLockMessage,
-  getIrLockViolations,
-} from "@/lib/leagues/ir-lock";
+  assertIrAcquisitionsAllowed,
+  findSeasonRosterRows,
+  insertOrRestoreRosteredPlayer,
+  listRosteredPlayers,
+  waiveOrDeleteRosterRow,
+} from "@/lib/leagues/roster-writes";
+import { resolveIrEligibleStatuses } from "@/lib/leagues/ir-eligibility";
 import { getAcquisitionKind } from "@/lib/leagues/waivers/acquisition";
 import { resolveChurnCut } from "@/lib/leagues/waivers/churn";
 import {
@@ -36,25 +42,12 @@ import {
 import { resolveWaiverWireSettings } from "@/lib/leagues/waiver-wire";
 import { getNflScoreboard } from "@/lib/espn/scoreboard";
 import { getNflState } from "@/lib/sleeper/api";
-import {
-  getLeagueBySlug,
-  getLeagueMembership,
-  getLeagueSeason,
-  isLeagueCommissioner,
-} from "@/lib/queries/leagues";
-import { getUserTeamForSeason } from "@/lib/queries/watchlist";
 
 export type RosterCutCandidate = {
   id: string;
   fullName: string;
   nflTeam: string | null;
   primaryPositionId: string;
-};
-
-type RosteredPlayerRow = RosterCutCandidate & {
-  rosterRowId: string;
-  slotPositionId: string | null;
-  injuryStatus: string | null;
 };
 
 export type RosterActionResult = {
@@ -70,32 +63,9 @@ export type RosterActionResult = {
 };
 
 async function getRosterActionContext(slug: string) {
-  const user = await requireSessionUser();
-  const league = await getLeagueBySlug(slug);
-  if (!league) {
-    return { error: "League not found." as const };
-  }
-
-  const membership = await getLeagueMembership(league.id, user.id);
-  if (!membership) {
-    return { error: "You are not a member of this league." as const };
-  }
-
-  const season = await getLeagueSeason(league.id);
-  if (!season) {
-    return { error: "League season not found." as const };
-  }
-
-  if (!isRosterTransactionsEnabled(season)) {
-    return { error: "Free agency is closed." as const };
-  }
-
-  const team = await getUserTeamForSeason(season.id, user.id);
-  if (!team) {
-    return { error: "Team not found." as const };
-  }
-
-  return { user, league, season, team };
+  return loadLeagueMemberTeamContext(slug, {
+    requireFreeAgencyOpen: true,
+  });
 }
 
 function revalidateRosterPaths(slug: string) {
@@ -104,140 +74,6 @@ function revalidateRosterPaths(slug: string) {
   revalidatePath(`/league/${slug}/team`);
   revalidatePath(`/league/${slug}/settings/lineups`);
   revalidatePath(`/league/${slug}/activity`);
-}
-
-/** Block free-agent adds (and later claims/trades) while IR lock violations exist. */
-async function assertIrAcquisitionsAllowed(
-  teamId: string,
-  irEligibleStatuses: readonly string[] | null | undefined,
-): Promise<{ error: string } | null> {
-  const rostered = await listRosteredPlayers(teamId);
-  const violations = getIrLockViolations(rostered, irEligibleStatuses);
-  if (violations.length === 0) {
-    return null;
-  }
-  return { error: formatIrLockMessage(violations) };
-}
-
-async function findSeasonRosterRows(leagueSeasonId: string, playerId: string) {
-  return db
-    .select({
-      id: rosterPlayers.id,
-      teamId: rosterPlayers.teamId,
-      status: rosterPlayers.status,
-      waiverClearsAt: rosterPlayers.waiverClearsAt,
-    })
-    .from(rosterPlayers)
-    .innerJoin(teams, eq(rosterPlayers.teamId, teams.id))
-    .where(
-      and(
-        eq(teams.leagueSeasonId, leagueSeasonId),
-        eq(rosterPlayers.playerId, playerId),
-      ),
-    );
-}
-
-async function listRosteredPlayers(teamId: string): Promise<RosteredPlayerRow[]> {
-  return db
-    .select({
-      id: players.id,
-      fullName: players.fullName,
-      nflTeam: players.nflTeam,
-      primaryPositionId: players.primaryPositionId,
-      injuryStatus: players.injuryStatus,
-      rosterRowId: rosterPlayers.id,
-      slotPositionId: rosterPlayers.slotPositionId,
-    })
-    .from(rosterPlayers)
-    .innerJoin(players, eq(rosterPlayers.playerId, players.id))
-    .where(
-      and(
-        eq(rosterPlayers.teamId, teamId),
-        eq(rosterPlayers.status, "rostered"),
-      ),
-    );
-}
-
-function occupiedBySlot(rows: RosteredPlayerRow[]) {
-  const map = new Map<string, number>();
-  for (const row of rows) {
-    const slot = row.slotPositionId ?? row.primaryPositionId;
-    map.set(slot, (map.get(slot) ?? 0) + 1);
-  }
-  return map;
-}
-
-async function waiveOrDeleteRosterRow(input: {
-  rowId: string;
-  waiversEnabled: boolean;
-  dropWaiverHours: number;
-  skipWaivers?: boolean;
-}) {
-  if (!input.waiversEnabled || input.skipWaivers) {
-    await db.delete(rosterPlayers).where(eq(rosterPlayers.id, input.rowId));
-    return;
-  }
-
-  const waiverClearsAt = new Date(
-    Date.now() + input.dropWaiverHours * 60 * 60 * 1000,
-  );
-
-  await db
-    .update(rosterPlayers)
-    .set({
-      status: "waived",
-      waiverClearsAt,
-      slotPositionId: null,
-      updatedAt: new Date(),
-    })
-    .where(eq(rosterPlayers.id, input.rowId));
-}
-
-async function insertOrRestoreRosteredPlayer(input: {
-  teamId: string;
-  playerId: string;
-  slotPositionId: string;
-  seasonRows: Awaited<ReturnType<typeof findSeasonRosterRows>>;
-  now: number;
-}) {
-  const acquiredAt = new Date();
-  const ownWaived = input.seasonRows.find(
-    (row) => row.teamId === input.teamId && row.status === "waived",
-  );
-
-  await db.transaction(async (tx) => {
-    for (const row of input.seasonRows) {
-      if (row.status !== "waived") continue;
-      const expired =
-        row.waiverClearsAt === null || row.waiverClearsAt.getTime() <= input.now;
-      if (!expired) continue;
-      if (ownWaived && row.id === ownWaived.id) continue;
-      await tx.delete(rosterPlayers).where(eq(rosterPlayers.id, row.id));
-    }
-
-    if (ownWaived) {
-      await tx
-        .update(rosterPlayers)
-        .set({
-          status: "rostered",
-          waiverClearsAt: null,
-          slotPositionId: input.slotPositionId,
-          acquiredAt,
-          updatedAt: new Date(),
-        })
-        .where(eq(rosterPlayers.id, ownWaived.id));
-      return;
-    }
-
-    await tx.insert(rosterPlayers).values({
-      teamId: input.teamId,
-      playerId: input.playerId,
-      status: "rostered",
-      slotPositionId: input.slotPositionId,
-      waiverClearsAt: null,
-      acquiredAt,
-    });
-  });
 }
 
 export async function addPlayerToRoster(
@@ -382,6 +218,7 @@ export async function addPlayerToRoster(
   }
 
   await insertOrRestoreRosteredPlayer({
+    leagueSeasonId: season.id,
     teamId: team.id,
     playerId,
     slotPositionId: pickDefaultSlotPosition({
@@ -604,20 +441,15 @@ export async function commissionerUpdateRosterSlots(
     return { success: false, error: "Team is required." };
   }
 
-  const user = await requireSessionUser();
-  const league = await getLeagueBySlug(slug);
-  if (!league) {
-    return { success: false, error: "League not found." };
+  const context = await loadLeagueActionContext(slug, {
+    requireCommissioner: true,
+    commissionerError: "Only the commissioner can edit lineups.",
+  });
+  if ("error" in context) {
+    return { success: false, error: context.error };
   }
 
-  if (!(await isLeagueCommissioner(league.id, user.id))) {
-    return { success: false, error: "Only the commissioner can edit lineups." };
-  }
-
-  const season = await getLeagueSeason(league.id);
-  if (!season) {
-    return { success: false, error: "League season not found." };
-  }
+  const { user, league, season } = context;
 
   const [team] = await db
     .select({ id: teams.id, name: teams.name })

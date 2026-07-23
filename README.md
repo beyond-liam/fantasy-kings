@@ -24,8 +24,8 @@ cp .env.example .env.local
 |---|---|
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon/publishable key (or `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`) |
-| `DATABASE_URL` | Postgres connection string (pooled OK for app) |
-| `DIRECT_URL` | Direct Postgres URL for Drizzle push/migrate (preferred when set) |
+| `DATABASE_URL` | **App runtime** Postgres via Supabase pooler (port `6543`, transaction mode; `?pgbouncer=true` OK) |
+| `DIRECT_URL` | **Drizzle Kit only** — direct Postgres (port `5432`) for `db:migrate` / `db:push` / studio |
 
 ### Database
 

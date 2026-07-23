@@ -6,6 +6,18 @@ import {
 } from "@/lib/leagues/roster-capacity";
 import type { RosterAssignmentOption } from "@/lib/leagues/roster-display";
 
+/** Count rostered players by effective slot (explicit slot or primary position). */
+export function occupiedBySlot(
+  rows: Array<{ slotPositionId: string | null; primaryPositionId: string }>,
+) {
+  const map = new Map<string, number>();
+  for (const row of rows) {
+    const slot = row.slotPositionId ?? row.primaryPositionId;
+    map.set(slot, (map.get(slot) ?? 0) + 1);
+  }
+  return map;
+}
+
 export function isReserveSlot(slotPositionId: string) {
   return (
     slotPositionId === "BN" ||

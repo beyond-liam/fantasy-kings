@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { playerExternalIds, playerScores, players } from "@/db/schema";
 import { db } from "@/lib/db";
 import { calculatePlayerPoints } from "@/lib/leagues/scoring/calculate";
@@ -65,14 +65,19 @@ export async function getNflTeams(): Promise<string[]> {
 type BaseScoreRow = Omit<RankedPlayerRow, "fantasyPts" | "positionRank">;
 
 /**
- * Cross-request cache for raw score rows keyed by season/week/kind.
- * Projections change slowly; live `stats` refresh via cron during games.
+ * Cross-request cache for raw score rows keyed by season/week/kind
+ * (and optional player-id set hash).
+ *
+ * Size fits one NFL season of weekly proj+stats (~34) plus season-long
+ * and a few extras so schedule enrichment / multi-week pages do not
+ * thrash mid-request. Projections TTL is long; live stats refresh often.
  */
 const SCORE_CACHE_TTL_MS = {
   projection: 15 * 60 * 1000,
   stats: 60 * 1000,
 } as const;
-const SCORE_CACHE_MAX_ENTRIES = 8;
+/** ~17 weeks × 2 kinds + season row + headroom across warm instances. */
+const SCORE_CACHE_MAX_ENTRIES = 48;
 const scoreRowsCache = new Map<
   string,
   { rows: BaseScoreRow[]; loadedAt: number }
@@ -83,12 +88,35 @@ export function clearScoreRowsCache() {
   scoreRowsCache.clear();
 }
 
+function scoreRowsCacheKey(
+  season: string,
+  week: number,
+  kind: "projection" | "stats",
+  playerIds?: string[],
+) {
+  if (playerIds == null) {
+    return `${season}|${week}|${kind}`;
+  }
+  // Stable short fingerprint — full UUID lists are too large as map keys.
+  const fingerprint = [...playerIds].sort().join(",");
+  let hash = 0;
+  for (let i = 0; i < fingerprint.length; i++) {
+    hash = (hash * 31 + fingerprint.charCodeAt(i)) | 0;
+  }
+  return `${season}|${week}|${kind}|ids:${playerIds.length}:${hash.toString(36)}`;
+}
+
 async function loadScoreRows(
   season: string,
   week: number,
   kind: "projection" | "stats",
+  playerIds?: string[],
 ): Promise<BaseScoreRow[]> {
-  const key = `${season}|${week}|${kind}`;
+  if (playerIds != null && playerIds.length === 0) {
+    return [];
+  }
+
+  const key = scoreRowsCacheKey(season, week, kind, playerIds);
   const cached = scoreRowsCache.get(key);
   if (cached && Date.now() - cached.loadedAt < SCORE_CACHE_TTL_MS[kind]) {
     return cached.rows;
@@ -118,6 +146,9 @@ async function loadScoreRows(
         eq(playerScores.week, week),
         eq(playerScores.kind, kind),
         eq(playerScores.seasonType, "regular"),
+        ...(playerIds != null
+          ? [inArray(playerScores.playerId, playerIds)]
+          : []),
       ),
     )
     .leftJoin(
@@ -169,15 +200,10 @@ export async function getRankedPlayers(
     filters.season,
     filters.week,
     filters.kind,
+    filters.playerIds,
   );
 
-  const playerIdSet =
-    filters.playerIds != null ? new Set(filters.playerIds) : null;
-
   const filtered = baseRows.filter((row) => {
-    if (playerIdSet && !playerIdSet.has(row.id)) {
-      return false;
-    }
     if (filters.position && row.primaryPositionId !== filters.position) {
       return false;
     }

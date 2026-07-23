@@ -2,7 +2,12 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import * as schema from "@/db/schema";
 
-const connectionString = process.env.DIRECT_URL ?? process.env.DATABASE_URL!;
+/**
+ * Runtime must use the Supabase **transaction pooler** (`DATABASE_URL`,
+ * port 6543). `DIRECT_URL` (port 5432) is for drizzle-kit migrate/push only.
+ */
+const connectionString =
+  process.env.DATABASE_URL ?? process.env.DIRECT_URL!;
 
 const globalForDb = globalThis as unknown as {
   client: ReturnType<typeof postgres> | undefined;
@@ -12,6 +17,7 @@ const globalForDb = globalThis as unknown as {
 /**
  * Supabase free tier session pool is small (~15). Default postgres.js
  * `max: 10` plus Next HMR / parallel RSC queries exhausts it fast.
+ * Transaction pooler + `max: 1` + `prepare: false` is the safe free-tier shape.
  */
 const client =
   globalForDb.connectionString === connectionString && globalForDb.client

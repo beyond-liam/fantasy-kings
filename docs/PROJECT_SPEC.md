@@ -1,7 +1,7 @@
 # Fantasy Kings — Project Specification
 
 > Living document. Update this file as requirements, decisions, and scope change.
-> Last updated: 2026-07-21
+> Last updated: 2026-07-23
 
 ---
 
@@ -386,6 +386,7 @@ lib/
 - [x] Core dependency install (Drizzle, postgres, drizzle-kit, dotenv, tsx)
 - [x] Supabase project setup + env vars
 - [x] Drizzle config + initial schema
+- [x] Postgres hardening: pooler runtime URL, hot-path indexes, roster season unique, RLS deny-by-default for Data API
 - [x] App shell (dual nav: app-level + league-level)
 - [x] Schema: profiles, leagues, league_members, positions, players
 - [x] Schema: `player_external_ids`, `sleeper_search_rank` on players
@@ -444,7 +445,6 @@ lib/
 - [x] **Draft email alerts** — tomorrow + 15 mins (live); start / on deck / on clock / end (live + email draft)
 - [ ] Injury / matchup-result notification producers
 - [ ] Dynasty picks
-- [ ] Branding / custom theme
 
 ### Trades — follow-up (after initial ship)
 
@@ -507,5 +507,9 @@ lib/
 | 2026-07-22 | Email provider → Brevo; locked v1 email set (draft start/end/on-deck/on-clock for live + email draft; live T-24h/T-15m; trade proposal / accepted-for-veto / vetoed) |
 | 2026-07-22 | Brevo wired: `lib/email/*`, `email_sends` dedupe, draft/trade hooks, `/api/cron/draft-reminders` |
 | 2026-07-22 | Removed Trade Analyzer from nav and deleted `/trade-analyzer` route |
+| 2026-07-23 | React perf: cron processAll* out of Server Actions; draft membership gate; dynamic DraftRoom/GameCentre/Recharts; parallel scores/home fetches |
+| 2026-07-23 | Postgres hardening: runtime uses pooler `DATABASE_URL`; hot-path indexes; `roster_players.league_season_id` + rostered unique; RLS enabled (no Data API policies) |
 | 2026-07-22 | League Alert module (`lib/alerts/`): dual-channel fan-out for trades + draft; `CONTEXT.md` |
+| 2026-07-22 | Extract Pick domain module: `commitDraftPick` in `lib/leagues/draft/pick.ts`; action stays thin adapter |
+| 2026-07-22 | Extract Waiver Process: `processSeasonWaivers` + roster-writes helpers under `lib/leagues/waivers/` |
 | 2026-07-16 | Trades: initial implementation started; follow-up items documented (vetoes, limits, cron, email) |

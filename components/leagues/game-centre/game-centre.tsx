@@ -1,12 +1,12 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useState } from "react";
 
 import { BoxScoreTable } from "@/components/leagues/game-centre/box-score-table";
 import { MatchupHeader } from "@/components/leagues/game-centre/matchup-header";
 import { OptimumLineupDialog } from "@/components/leagues/game-centre/optimum-lineup-dialog";
-import { ScoreLineChart } from "@/components/leagues/game-centre/score-line-chart";
 import { ScoringBreakdownDialog } from "@/components/leagues/game-centre/scoring-breakdown-dialog";
 import { MatchupRosterList } from "@/components/leagues/game-centre/starter-duel-list";
 import { WaiverTips } from "@/components/leagues/game-centre/waiver-tips";
@@ -15,6 +15,14 @@ import type {
   GameCentreData,
   GameCentrePlayer,
 } from "@/lib/queries/game-centre";
+
+const ScoreLineChart = dynamic(
+  () =>
+    import("@/components/leagues/game-centre/score-line-chart").then(
+      (m) => m.ScoreLineChart,
+    ),
+  { ssr: false },
+);
 
 type GameCentreProps = {
   data: GameCentreData;

@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
-import { Suspense } from "react";
+import dynamic from "next/dynamic";
 import { notFound, redirect } from "next/navigation";
 
-import { GameCentre } from "@/components/leagues/game-centre/game-centre";
 import { LiveRefresh } from "@/components/scores/live-refresh";
 import { ScoresUpdatedLabel } from "@/components/scores/scores-updated-label";
 import { Spinner } from "@/components/ui/spinner";
@@ -11,6 +10,14 @@ import { getDefaultScheduleWeek } from "@/lib/nfl/schedule-week";
 import { resolveFantasyMatchupWeek } from "@/lib/leagues/matchup-week";
 import { getGameCentreData } from "@/lib/queries/game-centre";
 import { getPlayerScoresFreshness } from "@/lib/queries/score-freshness";
+
+const GameCentre = dynamic(
+  () =>
+    import("@/components/leagues/game-centre/game-centre").then(
+      (m) => m.GameCentre,
+    ),
+  { loading: () => <Spinner className="mx-auto mt-8" /> },
+);
 
 type MatchupPageProps = {
   params: Promise<{ leagueId: string; matchupId: string }>;
@@ -83,9 +90,7 @@ export default async function MatchupPage({ params }: MatchupPageProps) {
 
       <LiveRefresh enabled={liveRefresh} intervalMs={30_000} />
 
-      <Suspense fallback={<Spinner />}>
-        <GameCentre data={data} />
-      </Suspense>
+      <GameCentre data={data} />
     </div>
   );
 }

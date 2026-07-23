@@ -392,12 +392,14 @@ export const getLeagueHomeData = cache(async (slug: string, userId: string) => {
     return null;
   }
 
-  const membership = await getLeagueMembership(league.id, userId);
+  const [membership, season] = await Promise.all([
+    getLeagueMembership(league.id, userId),
+    getLeagueSeason(league.id),
+  ]);
   if (!membership) {
     return { league, isMember: false as const };
   }
 
-  const season = await getLeagueSeason(league.id);
   if (season) {
     await ensureSeasonTeamSlots(season.id, season.teamCount, {
       waiversEnabled: season.waiversEnabled,

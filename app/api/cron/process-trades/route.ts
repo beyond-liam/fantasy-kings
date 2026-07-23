@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { processAllReadyTrades } from "@/lib/actions/trades";
+import { processAllReadyTrades } from "@/lib/cron/process-trades";
 import { assertCronAuthorized } from "@/lib/cron/auth";
 
 export const runtime = "nodejs";

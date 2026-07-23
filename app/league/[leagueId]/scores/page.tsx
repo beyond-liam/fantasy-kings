@@ -102,7 +102,7 @@ export default async function FantasyScoresPage({
       season.regularSeasonEndWeek,
     );
 
-    const [matchups, scoreboard, freshness] = await Promise.all([
+    const [matchups, scoreboard, freshness, finals] = await Promise.all([
       getWeekMatchups(season.id, week),
       getNflScoreboard({
         season: season.seasonYear,
@@ -113,10 +113,109 @@ export default async function FantasyScoresPage({
         week,
         kind: "stats",
       }).catch(() => null),
+      getFinalMatchupsForSeason(season.id).catch(() => []),
     ]);
     rows = matchups;
     scoreboardGames = scoreboard?.games ?? [];
     scoresUpdatedAt = freshness?.toISOString() ?? null;
+
+    const scoringPreset = season.scoringPreset as ScoringPreset;
+    const scoringRules = resolveScoringRuleDefinitions(
+      scoringPreset,
+      season.settings.scoringRules,
+    );
+
+    const recordsByTeamId = recordsFromFinalMatchups(finals);
+
+    const games = await enrichWeekMatchupBoard({
+      matchups: rows,
+      week,
+      currentWeek,
+      seasonYear: String(season.seasonYear),
+      scoringRules,
+      rosterSlots: season.settings.rosterSlots,
+      benchSlots: season.benchSlots,
+      irEnabled: season.irEnabled,
+      irSlots: season.irSlots,
+      irEligibleStatuses: season.settings.irEligibleStatuses,
+      taxiEnabled: season.taxiEnabled,
+      taxiSlots: season.taxiSlots,
+      scoreboardGames,
+      recordsByTeamId,
+    }).catch(() =>
+      rows.map((row) => ({
+        id: row.id,
+        publicId: row.publicId,
+        week: row.week,
+        resultFinal: false,
+        away: {
+          teamId: row.awayTeamId,
+          teamName: row.awayTeamName,
+          teamSlug: row.awayTeamSlug,
+          logoUrl: row.awayTeamLogoUrl,
+          wins: 0,
+          losses: 0,
+          ties: 0,
+          winChance: null,
+          projectedPts: null,
+          actualPts: null,
+          isLoser: false,
+        },
+        home: {
+          teamId: row.homeTeamId,
+          teamName: row.homeTeamName,
+          teamSlug: row.homeTeamSlug,
+          logoUrl: row.homeTeamLogoUrl,
+          wins: 0,
+          losses: 0,
+          ties: 0,
+          winChance: null,
+          projectedPts: null,
+          actualPts: null,
+          isLoser: false,
+        },
+      })),
+    );
+
+    if (games.length > 0 && week <= currentWeek) {
+      await persistEnrichedMatchups(games).catch(() => null);
+    }
+
+    const myTeamSlug =
+      data.members.find((member) => member.userId === user.id)?.teamPublicId ??
+      null;
+
+    const liveRefresh = week === currentWeek;
+
+    return (
+      <div className="flex flex-1 flex-col gap-6 p-6">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <h1 className="text-2xl font-semibold tracking-tight text-balance">
+            Matchups
+          </h1>
+          <ScoresUpdatedLabel updatedAt={scoresUpdatedAt} />
+        </div>
+
+        {weekError ? (
+          <Alert variant="destructive">
+            <AlertTitle>Could not load NFL week calendar</AlertTitle>
+            <AlertDescription>{weekError}</AlertDescription>
+          </Alert>
+        ) : null}
+
+        <LiveRefresh enabled={liveRefresh} intervalMs={30_000} />
+
+        <WeekMatchupsList
+          games={games}
+          week={week}
+          weeks={weeks}
+          year={year}
+          years={years.length > 0 ? years : [year]}
+          leagueSlug={slug}
+          myTeamSlug={myTeamSlug}
+        />
+      </div>
+    );
   } catch (caught) {
     weekError =
       caught instanceof Error
@@ -132,6 +231,7 @@ export default async function FantasyScoresPage({
     rows = await getWeekMatchups(season.id, week).catch(() => []);
   }
 
+  // Fallback path when week calendar failed — still render board with defaults.
   const scoringPreset = season.scoringPreset as ScoringPreset;
   const scoringRules = resolveScoringRuleDefinitions(
     scoringPreset,

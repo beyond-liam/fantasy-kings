@@ -1,4 +1,5 @@
 import {
+  index,
   pgEnum,
   pgTable,
   text,
@@ -50,5 +51,6 @@ export const leagueMembers = pgTable(
       table.leagueId,
       table.userId,
     ),
+    index("league_members_user_id_idx").on(table.userId),
   ],
 );

@@ -1,4 +1,6 @@
+import { sql } from "drizzle-orm";
 import {
+  index,
   pgEnum,
   pgTable,
   text,
@@ -6,6 +8,7 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
+import { leagueSeasons } from "./league-seasons";
 import { players } from "./players";
 import { teams } from "./teams";
 
@@ -16,15 +19,16 @@ export const rosterPlayerStatusEnum = pgEnum("roster_player_status", [
 
 /** Players currently on a fantasy team roster, or temporarily on waivers after a cut.
  *
- * Write invariants (enforced in app code until a season-scoped partial unique index exists):
- * - At most one `rostered` row per player per league season across all teams.
- * - Waive/cut should update the existing row to `waived` (or clear expired waived) rather than
- *   inserting a duplicate `(team_id, player_id)` when reclaiming a free agent.
+ * DB enforces at most one `rostered` row per player per league season
+ * (`roster_players_season_player_rostered_uidx`).
  */
 export const rosterPlayers = pgTable(
   "roster_players",
   {
     id: uuid("id").primaryKey().defaultRandom(),
+    leagueSeasonId: uuid("league_season_id")
+      .notNull()
+      .references(() => leagueSeasons.id, { onDelete: "cascade" }),
     teamId: uuid("team_id")
       .notNull()
       .references(() => teams.id, { onDelete: "cascade" }),
@@ -53,5 +57,15 @@ export const rosterPlayers = pgTable(
       table.teamId,
       table.playerId,
     ),
+    uniqueIndex("roster_players_season_player_rostered_uidx")
+      .on(table.leagueSeasonId, table.playerId)
+      .where(sql`${table.status} = 'rostered'`),
+    index("roster_players_player_status_idx").on(table.playerId, table.status),
+    index("roster_players_season_id_idx").on(table.leagueSeasonId),
+    index("roster_players_waiver_clear_idx")
+      .on(table.waiverClearsAt)
+      .where(
+        sql`${table.status} = 'waived' AND ${table.waiverClearsAt} IS NOT NULL`,
+      ),
   ],
 );

@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  index,
   integer,
   pgTable,
   text,
@@ -48,5 +49,9 @@ export const waiverClaims = pgTable(
     uniqueIndex("waiver_claims_pending_team_player_idx")
       .on(table.teamId, table.playerId)
       .where(sql`${table.status} = 'pending'`),
+    index("waiver_claims_season_pending_idx")
+      .on(table.leagueSeasonId, table.sortOrder, table.createdAt)
+      .where(sql`${table.status} = 'pending'`),
+    index("waiver_claims_team_status_idx").on(table.teamId, table.status),
   ],
 );
