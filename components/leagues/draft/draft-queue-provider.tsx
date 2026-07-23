@@ -31,10 +31,11 @@ export function DraftQueueProvider({
 }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
+  const initialQueuedIdsKey = initialQueuedIds.join(",");
   const baseline = useMemo(
     () => new Set(initialQueuedIds),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- sync on membership change
-    [initialQueuedIds.join(",")],
+    [initialQueuedIdsKey],
   );
   const [queuedIds, setQueuedIds] = useOptimistic(
     baseline,

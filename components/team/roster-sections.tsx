@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { IterationCwIcon, TickDouble02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -70,11 +70,12 @@ export function TeamRosterSections({
   const resolvedIrEligible = resolveIrEligibleStatuses(irEligibleStatuses);
   const showRowActions = rowActionsEnabled ?? actionsEnabled;
 
-  useEffect(() => {
+  // Only reset the draft when persisted slot assignments change.
+  const [syncedServerKey, setSyncedServerKey] = useState(serverKey);
+  if (serverKey !== syncedServerKey) {
+    setSyncedServerKey(serverKey);
     setDraftPlayers(players);
-    // Only reset the draft when persisted slot assignments change.
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- players identity changes often; fingerprint is the source of truth
-  }, [serverKey]);
+  }
 
   const serverSlots = new Map(
     players.map((player) => [player.id, player.slotPositionId ?? ""]),

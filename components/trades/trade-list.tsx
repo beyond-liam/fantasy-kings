@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -94,14 +94,17 @@ export function TradeList({
     TradeAcceptCandidate[]
   >([]);
   const [page, setPage] = useState(0);
-
-  useEffect(() => {
+  const [syncedTrades, setSyncedTrades] = useState(trades);
+  if (trades !== syncedTrades) {
+    setSyncedTrades(trades);
     setLocalTrades(trades);
-  }, [trades]);
+  }
 
-  useEffect(() => {
+  const [syncedVetos, setSyncedVetos] = useState(vetoSummaries);
+  if (vetoSummaries !== syncedVetos) {
+    setSyncedVetos(vetoSummaries);
     setLocalVetos(vetoSummaries ?? {});
-  }, [vetoSummaries]);
+  }
 
   async function openAcceptDialog(tradeId: string) {
     setAcceptTradeId(tradeId);

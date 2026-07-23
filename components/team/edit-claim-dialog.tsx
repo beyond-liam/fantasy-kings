@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Cancel01Icon, TickDouble02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -51,12 +51,14 @@ export function EditClaimDialog({
 
   const open = Boolean(state?.open);
 
-  useEffect(() => {
-    if (!open || !state) {
-      return;
+  const openKey = open ? state?.claimId : null;
+  const [resetKey, setResetKey] = useState<string | undefined | null>(null);
+  if (openKey !== resetKey) {
+    setResetKey(openKey);
+    if (openKey && state) {
+      setBid(String(state.bid));
     }
-    setBid(String(state.bid));
-  }, [open, state]);
+  }
 
   const handleSave = () => {
     if (!state) {

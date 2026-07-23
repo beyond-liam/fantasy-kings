@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { TickDouble02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -29,12 +29,16 @@ export function WaiverResultsDialog({
   waiverType,
 }: WaiverResultsDialogProps) {
   const router = useRouter();
-  const [open, setOpen] = useState(results.length > 0);
+  const [dismissed, setDismissed] = useState(false);
+  const [prevResults, setPrevResults] = useState(results);
   const [isPending, startTransition] = useTransition();
 
-  useEffect(() => {
-    setOpen(results.length > 0);
-  }, [results]);
+  if (results !== prevResults) {
+    setPrevResults(results);
+    setDismissed(false);
+  }
+
+  const open = !dismissed && results.length > 0;
 
   if (results.length === 0) {
     return null;
@@ -46,7 +50,7 @@ export function WaiverResultsDialog({
   const dismiss = () => {
     startTransition(async () => {
       await markWaiverResultsSeen(leagueSlug);
-      setOpen(false);
+      setDismissed(true);
       router.refresh();
     });
   };
@@ -57,9 +61,7 @@ export function WaiverResultsDialog({
       onOpenChange={(next) => {
         if (!next) {
           dismiss();
-          return;
         }
-        setOpen(next);
       }}
     >
       <DialogContent>

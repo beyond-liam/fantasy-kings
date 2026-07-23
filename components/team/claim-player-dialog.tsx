@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Cancel01Icon, TickDouble02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -67,11 +67,15 @@ export function ClaimPlayerDialog({
     candidates.find((player) => player.id === dropPlayerId) ?? null;
   const isFaab = state?.waiverType === "faab";
 
-  useEffect(() => {
-    if (!open) return;
-    setDropPlayerId(null);
-    setBid("0");
-  }, [open, state?.playerId]);
+  const openKey = open ? `${state?.playerId}` : null;
+  const [resetKey, setResetKey] = useState<string | null>(null);
+  if (openKey !== resetKey) {
+    setResetKey(openKey);
+    if (openKey) {
+      setDropPlayerId(null);
+      setBid("0");
+    }
+  }
 
   const handleConfirm = () => {
     if (!state) return;

@@ -2,7 +2,7 @@
 
 import { Cancel01Icon, TickDouble02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
 import { ScoringRuleText } from "@/components/leagues/scoring/scoring-rule-text";
 import { Button } from "@/components/ui/button";
@@ -147,8 +147,10 @@ export function ScoringRuleDialog({
   onSave,
 }: ScoringRuleDialogProps) {
   const [draft, setDraft] = useState<ScoringRuleDefinition | null>(rule);
+  const [wasOpen, setWasOpen] = useState(open);
 
-  useEffect(() => {
+  if (open !== wasOpen) {
+    setWasOpen(open);
     if (open && rule) {
       setDraft({
         ...rule,
@@ -157,7 +159,7 @@ export function ScoringRuleDialog({
         stat: normalizeRuleToCatalogStat(rule),
       });
     }
-  }, [open, rule]);
+  }
 
   const categoryLabel = draft
     ? SCORING_CATEGORY_LABELS[draft.category]
