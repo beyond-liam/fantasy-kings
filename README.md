@@ -51,8 +51,8 @@ Open [http://localhost:3000](http://localhost:3000).
 | Script | Purpose |
 |---|---|
 | `pnpm lint` | ESLint |
-| `pnpm exec tsc --noEmit` | Typecheck |
-| `pnpm test` | Unit tests (ownership map today; expands with Vitest later) |
+| `pnpm typecheck` | Typecheck |
+| `pnpm test` | Unit tests — `node:test` via `tsx --test 'lib/**/*.test.ts'` |
 | `pnpm db:studio` | Drizzle Studio |
 
 ## Stack notes
