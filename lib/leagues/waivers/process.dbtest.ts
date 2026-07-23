@@ -160,7 +160,7 @@ describe("processSeasonWaivers", () => {
     assert.equal(seasonRow?.lastWaiverProcessedAt?.getTime(), NOW.getTime());
   });
 
-  it("CHARACTERIZATION OF KNOWN BUG — plan 010 flips this: a failed claim must leave the roster untouched.", async () => {
+  it("leaves the roster untouched when a failed claim's position-max check trips after the would-be drop", async () => {
     const { season } = await seedLeagueSeason(testDb, {
       teamCount: 1,
       benchSlots: 1,
@@ -214,19 +214,76 @@ describe("processSeasonWaivers", () => {
     assert.equal(claimRow?.status, "failed");
     assert.equal(claimRow?.failReason, "At max QBs — choose a different drop.");
 
-    // CHARACTERIZATION OF KNOWN BUG — plan 010 flips this: a failed claim must leave the roster untouched.
-    // applyAwardedClaim() waives the drop before checking roster/position caps, so the
-    // requested drop is applied even though the claim itself fails.
+    // applyAwardedClaim() now validates roster/position caps before writing anything,
+    // and commits the drop + add in one transaction — a failed claim must not touch
+    // the roster at all.
     const [droppedRow] = await testDb
       .select()
       .from(rosterPlayers)
       .where(eq(rosterPlayers.playerId, rbToDrop!.id));
-    assert.equal(droppedRow?.status, "waived");
+    assert.equal(droppedRow?.status, "rostered");
 
     const [incomingRow] = await testDb
       .select()
       .from(rosterPlayers)
       .where(eq(rosterPlayers.playerId, incomingQb!.id));
     assert.equal(incomingRow, undefined);
+  });
+
+  it("leaves the requested drop untouched when the claimed player is rostered elsewhere before processing", async () => {
+    const { season } = await seedLeagueSeason(testDb, { teamCount: 2 });
+    const seasonTeams = await seedTeams(testDb, {
+      leagueSeasonId: season.id,
+      count: 2,
+    });
+    const [rbToDrop, contestedWr] = await seedPlayers(testDb, [
+      { fullName: "Race RB To Drop", primaryPositionId: "RB" },
+      { fullName: "Race Contested WR", primaryPositionId: "WR" },
+    ]);
+    await seedRosterPlayer(testDb, {
+      leagueSeasonId: season.id,
+      teamId: seasonTeams[0]!.id,
+      playerId: rbToDrop!.id,
+    });
+    // Simulates another manager rostering the same free agent between claim
+    // creation and processing (e.g. a direct add on a non-waiver pool).
+    await seedRosterPlayer(testDb, {
+      leagueSeasonId: season.id,
+      teamId: seasonTeams[1]!.id,
+      playerId: contestedWr!.id,
+    });
+
+    await testDb.insert(waiverClaims).values({
+      leagueSeasonId: season.id,
+      teamId: seasonTeams[0]!.id,
+      playerId: contestedWr!.id,
+      dropPlayerId: rbToDrop!.id,
+      bid: null,
+      createdAt: ELIGIBLE_CLAIM_CREATED_AT,
+    });
+
+    const result = await processSeasonWaivers({
+      season,
+      leagueSlug: "test-league",
+      now: NOW,
+    });
+    assert.deepEqual(result, { awarded: 0, failed: 1 });
+
+    const [claimRow] = await testDb
+      .select()
+      .from(waiverClaims)
+      .where(eq(waiverClaims.playerId, contestedWr!.id));
+    assert.equal(claimRow?.status, "failed");
+    assert.equal(
+      claimRow?.failReason,
+      "Player was already claimed or rostered by another team.",
+    );
+
+    const [droppedRow] = await testDb
+      .select()
+      .from(rosterPlayers)
+      .where(eq(rosterPlayers.playerId, rbToDrop!.id));
+    assert.equal(droppedRow?.status, "rostered");
+    assert.equal(droppedRow?.teamId, seasonTeams[0]!.id);
   });
 });
