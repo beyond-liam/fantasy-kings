@@ -9,6 +9,7 @@ import { logLeagueActivity } from "@/lib/leagues/activity-log";
 import {
   loadLeagueActionContext,
   loadLeagueMemberTeamContext,
+  type LeagueMemberTeamContext,
 } from "@/lib/leagues/action-context";
 import {
   countActivePositionPlayers,
@@ -76,27 +77,34 @@ function revalidateRosterPaths(slug: string) {
   revalidatePath(`/league/${slug}/activity`);
 }
 
-export async function addPlayerToRoster(
-  slug: string,
+type PrepareAddSuccess = {
+  ok: true;
+  player: {
+    id: string;
+    fullName: string;
+    primaryPositionId: string;
+    injuryStatus: string | null;
+  };
+  seasonRows: Awaited<ReturnType<typeof findSeasonRosterRows>>;
+  slotPositionId: string;
+  now: number;
+};
+type PrepareAddFailure = { ok: false; result: RosterActionResult };
+
+/** Validate that a player can be added — no writes. Caps can exclude an in-flight cut. */
+async function prepareAdd(
+  context: LeagueMemberTeamContext,
   playerId: string,
-): Promise<RosterActionResult> {
-  if (!playerId) {
-    return { success: false, error: "Missing player." };
-  }
-
-  const context = await getRosterActionContext(slug);
-  if ("error" in context) {
-    return { success: false, error: context.error };
-  }
-
-  const { season, team, league, user } = context;
+  opts: { excludeRosterRowId?: string } = {},
+): Promise<PrepareAddSuccess | PrepareAddFailure> {
+  const { season, team } = context;
 
   const irLock = await assertIrAcquisitionsAllowed(
     team.id,
     season.settings.irEligibleStatuses,
   );
   if (irLock) {
-    return { success: false, error: irLock.error };
+    return { ok: false, result: { success: false, error: irLock.error } };
   }
 
   const [player] = await db
@@ -112,7 +120,7 @@ export async function addPlayerToRoster(
     .limit(1);
 
   if (!player) {
-    return { success: false, error: "Player not found." };
+    return { ok: false, result: { success: false, error: "Player not found." } };
   }
 
   const now = Date.now();
@@ -120,11 +128,14 @@ export async function addPlayerToRoster(
   const rostered = seasonRows.find((row) => row.status === "rostered");
   if (rostered) {
     return {
-      success: false,
-      error:
-        rostered.teamId === team.id
-          ? "Player is already on your roster."
-          : "Player is already on another team.",
+      ok: false,
+      result: {
+        success: false,
+        error:
+          rostered.teamId === team.id
+            ? "Player is already on your roster."
+            : "Player is already on another team.",
+      },
     };
   }
 
@@ -164,15 +175,26 @@ export async function addPlayerToRoster(
   });
   if (acquisitionKind === "claim") {
     return {
-      success: false,
-      error: "Player requires a waiver claim. Use Claim instead of Add.",
+      ok: false,
+      result: {
+        success: false,
+        error: "Player requires a waiver claim. Use Claim instead of Add.",
+      },
     };
   }
   if (acquisitionKind !== "add") {
-    return { success: false, error: "Player is not available to add." };
+    return {
+      ok: false,
+      result: { success: false, error: "Player is not available to add." },
+    };
   }
 
-  const rosteredOnTeam = await listRosteredPlayers(team.id);
+  const fullRosteredOnTeam = await listRosteredPlayers(team.id);
+  const rosteredOnTeam = opts.excludeRosterRowId
+    ? fullRosteredOnTeam.filter(
+        (row) => row.rosterRowId !== opts.excludeRosterRowId,
+      )
+    : fullRosteredOnTeam;
 
   const maxRoster = getMaxRosterSize(
     season.settings.rosterSlots,
@@ -205,87 +227,49 @@ export async function addPlayerToRoster(
     ).sort((a, b) => a.fullName.localeCompare(b.fullName));
 
     return {
-      success: false,
-      requiresCut: true,
-      reason: positionFull ? "position_max" : "roster_full",
-      error: positionFull
-        ? `At max ${player.primaryPositionId}s (${positionMax}). Cut one first.`
-        : `Roster is full (${maxRoster} players). Cut someone first.`,
-      cutCandidates,
-      pendingPlayerId: player.id,
-      pendingPlayerName: player.fullName,
+      ok: false,
+      result: {
+        success: false,
+        requiresCut: true,
+        reason: positionFull ? "position_max" : "roster_full",
+        error: positionFull
+          ? `At max ${player.primaryPositionId}s (${positionMax}). Cut one first.`
+          : `Roster is full (${maxRoster} players). Cut someone first.`,
+        cutCandidates,
+        pendingPlayerId: player.id,
+        pendingPlayerName: player.fullName,
+      },
     };
   }
 
-  await insertOrRestoreRosteredPlayer({
-    leagueSeasonId: season.id,
-    teamId: team.id,
-    playerId,
-    slotPositionId: pickDefaultSlotPosition({
-      playerPositionId: player.primaryPositionId,
-      injuryStatus: player.injuryStatus,
-      irEligibleStatuses: resolveIrEligibleStatuses(
-        season.settings.irEligibleStatuses,
-      ),
-      rosterSlots: season.settings.rosterSlots,
-      benchSlots: season.benchSlots,
-      irEnabled: season.irEnabled,
-      taxiEnabled: season.taxiEnabled,
-      occupiedBySlot: occupiedBySlot(rosteredOnTeam),
-    }),
-    seasonRows,
-    now,
+  const slotPositionId = pickDefaultSlotPosition({
+    playerPositionId: player.primaryPositionId,
+    injuryStatus: player.injuryStatus,
+    irEligibleStatuses: resolveIrEligibleStatuses(
+      season.settings.irEligibleStatuses,
+    ),
+    rosterSlots: season.settings.rosterSlots,
+    benchSlots: season.benchSlots,
+    irEnabled: season.irEnabled,
+    taxiEnabled: season.taxiEnabled,
+    occupiedBySlot: occupiedBySlot(rosteredOnTeam),
   });
-
-  await logLeagueActivity({
-    leagueSeasonId: season.id,
-    type: "player_added",
-    teamId: team.id,
-    actorUserId: user.id,
-    playerId: player.id,
-    summary: `${team.name} added ${player.fullName}`,
-    metadata: { playerName: player.fullName, teamName: team.name },
-  });
-
-  revalidateRosterPaths(league.publicId);
-  return { success: true, playerName: player.fullName };
-}
-
-/** Cut one rostered player, then add the pending free agent. */
-export async function cutAndAddPlayer(
-  slug: string,
-  cutPlayerId: string,
-  addPlayerId: string,
-): Promise<RosterActionResult> {
-  if (!cutPlayerId || !addPlayerId) {
-    return { success: false, error: "Missing player." };
-  }
-  if (cutPlayerId === addPlayerId) {
-    return { success: false, error: "Choose a different player to cut." };
-  }
-
-  const cutResult = await cutPlayerFromRoster(slug, cutPlayerId);
-  if (!cutResult.success) {
-    return cutResult;
-  }
-
-  const addResult = await addPlayerToRoster(slug, addPlayerId);
-  if (!addResult.success) {
-    return {
-      ...addResult,
-      error:
-        addResult.error ??
-        "Player was cut, but the add failed. Try adding again.",
-    };
-  }
 
   return {
-    success: true,
-    playerName: addResult.playerName,
+    ok: true,
+    player: {
+      id: player.id,
+      fullName: player.fullName,
+      primaryPositionId: player.primaryPositionId,
+      injuryStatus: player.injuryStatus,
+    },
+    seasonRows,
+    slotPositionId,
+    now,
   };
 }
 
-export async function cutPlayerFromRoster(
+export async function addPlayerToRoster(
   slug: string,
   playerId: string,
 ): Promise<RosterActionResult> {
@@ -299,6 +283,48 @@ export async function cutPlayerFromRoster(
   }
 
   const { season, team, league, user } = context;
+
+  const prepared = await prepareAdd(context, playerId);
+  if (!prepared.ok) {
+    return prepared.result;
+  }
+
+  await insertOrRestoreRosteredPlayer({
+    leagueSeasonId: season.id,
+    teamId: team.id,
+    playerId,
+    slotPositionId: prepared.slotPositionId,
+    seasonRows: prepared.seasonRows,
+    now: prepared.now,
+  });
+
+  await logLeagueActivity({
+    leagueSeasonId: season.id,
+    type: "player_added",
+    teamId: team.id,
+    actorUserId: user.id,
+    playerId: prepared.player.id,
+    summary: `${team.name} added ${prepared.player.fullName}`,
+    metadata: { playerName: prepared.player.fullName, teamName: team.name },
+  });
+
+  revalidateRosterPaths(league.publicId);
+  return { success: true, playerName: prepared.player.fullName };
+}
+
+type PrepareCutSuccess = {
+  row: { id: string; fullName: string };
+  skipWaivers: boolean;
+  wire: ReturnType<typeof resolveWaiverWireSettings>;
+};
+type PrepareCutResult = PrepareCutSuccess | { error: string };
+
+/** Validate that a rostered player can be cut — no writes. */
+async function prepareCut(
+  context: LeagueMemberTeamContext,
+  playerId: string,
+): Promise<PrepareCutResult> {
+  const { season, team } = context;
 
   const [row] = await db
     .select({
@@ -319,7 +345,7 @@ export async function cutPlayerFromRoster(
     .limit(1);
 
   if (!row) {
-    return { success: false, error: "Player is not on your roster." };
+    return { error: "Player is not on your roster." };
   }
 
   const wire = resolveWaiverWireSettings(season.settings.waiverWire);
@@ -330,14 +356,41 @@ export async function cutPlayerFromRoster(
     acquiredAt: row.acquiredAt,
   });
   if (!churn.allow) {
-    return { success: false, error: churn.error };
+    return { error: churn.error };
+  }
+
+  return {
+    row: { id: row.id, fullName: row.fullName },
+    skipWaivers: churn.skipWaivers,
+    wire,
+  };
+}
+
+export async function cutPlayerFromRoster(
+  slug: string,
+  playerId: string,
+): Promise<RosterActionResult> {
+  if (!playerId) {
+    return { success: false, error: "Missing player." };
+  }
+
+  const context = await getRosterActionContext(slug);
+  if ("error" in context) {
+    return { success: false, error: context.error };
+  }
+
+  const { season, team, league, user } = context;
+
+  const prepared = await prepareCut(context, playerId);
+  if ("error" in prepared) {
+    return { success: false, error: prepared.error };
   }
 
   await waiveOrDeleteRosterRow({
-    rowId: row.id,
+    rowId: prepared.row.id,
     waiversEnabled: season.waiversEnabled,
-    dropWaiverHours: wire.dropWaiverHours,
-    skipWaivers: churn.skipWaivers,
+    dropWaiverHours: prepared.wire.dropWaiverHours,
+    skipWaivers: prepared.skipWaivers,
   });
 
   await logLeagueActivity({
@@ -346,12 +399,86 @@ export async function cutPlayerFromRoster(
     teamId: team.id,
     actorUserId: user.id,
     playerId,
-    summary: `${team.name} dropped ${row.fullName}`,
-    metadata: { playerName: row.fullName, teamName: team.name },
+    summary: `${team.name} dropped ${prepared.row.fullName}`,
+    metadata: { playerName: prepared.row.fullName, teamName: team.name },
   });
 
   revalidateRosterPaths(league.publicId);
-  return { success: true, playerName: row.fullName };
+  return { success: true, playerName: prepared.row.fullName };
+}
+
+/** Cut one rostered player and add the pending free agent in a single transaction. */
+export async function cutAndAddPlayer(
+  slug: string,
+  cutPlayerId: string,
+  addPlayerId: string,
+): Promise<RosterActionResult> {
+  if (!cutPlayerId || !addPlayerId) {
+    return { success: false, error: "Missing player." };
+  }
+  if (cutPlayerId === addPlayerId) {
+    return { success: false, error: "Choose a different player to cut." };
+  }
+
+  const context = await getRosterActionContext(slug);
+  if ("error" in context) {
+    return { success: false, error: context.error };
+  }
+
+  const { season, team, league, user } = context;
+
+  const cutPrepared = await prepareCut(context, cutPlayerId);
+  if ("error" in cutPrepared) {
+    return { success: false, error: cutPrepared.error };
+  }
+
+  const addPrepared = await prepareAdd(context, addPlayerId, {
+    excludeRosterRowId: cutPrepared.row.id,
+  });
+  if (!addPrepared.ok) {
+    return addPrepared.result;
+  }
+
+  await db.transaction(async (tx) => {
+    await waiveOrDeleteRosterRow({
+      rowId: cutPrepared.row.id,
+      waiversEnabled: season.waiversEnabled,
+      dropWaiverHours: cutPrepared.wire.dropWaiverHours,
+      skipWaivers: cutPrepared.skipWaivers,
+      client: tx,
+    });
+    await insertOrRestoreRosteredPlayer({
+      leagueSeasonId: season.id,
+      teamId: team.id,
+      playerId: addPlayerId,
+      slotPositionId: addPrepared.slotPositionId,
+      seasonRows: addPrepared.seasonRows,
+      now: addPrepared.now,
+      client: tx,
+    });
+  });
+
+  await logLeagueActivity({
+    leagueSeasonId: season.id,
+    type: "player_dropped",
+    teamId: team.id,
+    actorUserId: user.id,
+    playerId: cutPlayerId,
+    summary: `${team.name} dropped ${cutPrepared.row.fullName}`,
+    metadata: { playerName: cutPrepared.row.fullName, teamName: team.name },
+  });
+  await logLeagueActivity({
+    leagueSeasonId: season.id,
+    type: "player_added",
+    teamId: team.id,
+    actorUserId: user.id,
+    playerId: addPrepared.player.id,
+    summary: `${team.name} added ${addPrepared.player.fullName}`,
+    metadata: { playerName: addPrepared.player.fullName, teamName: team.name },
+  });
+
+  revalidateRosterPaths(league.publicId);
+  return { success: true, playerName: addPrepared.player.fullName };
 }
 
 export async function assignPlayerSlot(
