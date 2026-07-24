@@ -186,19 +186,29 @@ export function hydratePlayoffBracket(
     const nextRound = rounds[roundIndex + 1];
     if (!nextRound) continue;
 
+    // Two-week championship: Game 2 is a rematch of Game 1 finalists, not a winner advance.
+    if (round.id === "championship" && nextRound.id === "championship-g2") {
+      const nextMatchups = nextRound.matchups.map((matchup, index) => {
+        const source = filled[index];
+        if (!source) return matchup;
+        const topId = slotTeamId(source.top);
+        const bottomId = slotTeamId(source.bottom);
+        if (!topId || !bottomId) return matchup;
+        return {
+          ...matchup,
+          top: teamFromId(topId, teamsById, null),
+          bottom: teamFromId(bottomId, teamsById, null),
+        };
+      });
+      rounds[roundIndex + 1] = { ...nextRound, matchups: nextMatchups };
+      continue;
+    }
+
     const winners: Array<{ teamId: string; score: number | null }> = [];
     for (const matchup of filled) {
       const topId = slotTeamId(matchup.top);
       const bottomId = slotTeamId(matchup.bottom);
       if (!topId || !bottomId) continue;
-      const topScore =
-        matchup.top.type === "team" || matchup.top.type === "bye"
-          ? (matchup.top.team.score ?? null)
-          : null;
-      const bottomScore =
-        matchup.bottom.type === "team" || matchup.bottom.type === "bye"
-          ? (matchup.bottom.team.score ?? null)
-          : null;
       // Infer home/away from scores when we have a final pairing in DB.
       const row = weekRows.find(
         (candidate) =>
@@ -219,8 +229,6 @@ export function hydratePlayoffBracket(
       const score =
         winnerId === row.homeTeamId ? row.homePts : row.awayPts;
       winners.push({ teamId: winnerId, score });
-      void topScore;
-      void bottomScore;
     }
 
     if (winners.length === 0) continue;

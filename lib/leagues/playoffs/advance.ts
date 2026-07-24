@@ -171,3 +171,68 @@ export function nextRoundPairings(input: {
   }
   return pairings;
 }
+
+/** Championship Game 1 / Game 2 weeks when two-week finals are enabled. */
+export function championshipLegs(input: {
+  endWeek: number;
+  twoWeekChampionship: boolean;
+}): { leg1Week: number; leg2Week: number } | null {
+  if (!input.twoWeekChampionship) return null;
+  return {
+    leg1Week: input.endWeek - 1,
+    leg2Week: input.endWeek,
+  };
+}
+
+/** Same home/away pairing on a different week (championship Game 2). */
+export function duplicatePairingsForWeek(
+  rows: Array<{ homeTeamId: string; awayTeamId: string }>,
+  week: number,
+): PlayoffPairing[] {
+  return rows.map((row) => ({
+    week,
+    homeTeamId: row.homeTeamId,
+    awayTeamId: row.awayTeamId,
+  }));
+}
+
+/**
+ * Combined two-week championship winner (sum of both legs' points).
+ * Both legs must be final with scores; ties use game tiebreakers on leg-2
+ * metrics when provided, else higher seed (home).
+ */
+export function winnerOfTwoWeekSeries(input: {
+  homeTeamId: string;
+  awayTeamId: string;
+  leg1: { homePts: number | null; awayPts: number | null; status: string };
+  leg2: { homePts: number | null; awayPts: number | null; status: string };
+  gameTiebreakers?: GameTiebreakerId[];
+  homeMetrics?: TeamGameTieMetrics | null;
+  awayMetrics?: TeamGameTieMetrics | null;
+}): string | null {
+  if (input.leg1.status !== "final" || input.leg2.status !== "final") {
+    return null;
+  }
+  if (
+    input.leg1.homePts == null ||
+    input.leg1.awayPts == null ||
+    input.leg2.homePts == null ||
+    input.leg2.awayPts == null
+  ) {
+    return null;
+  }
+
+  const homePts = input.leg1.homePts + input.leg2.homePts;
+  const awayPts = input.leg1.awayPts + input.leg2.awayPts;
+  return winnerOfFinalMatchup({
+    homeTeamId: input.homeTeamId,
+    awayTeamId: input.awayTeamId,
+    homePts,
+    awayPts,
+    status: "final",
+    gameTiebreakers: input.gameTiebreakers,
+    homeMetrics: input.homeMetrics,
+    awayMetrics: input.awayMetrics,
+  });
+}
+

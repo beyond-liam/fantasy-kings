@@ -2,9 +2,12 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import {
+  championshipLegs,
+  duplicatePairingsForWeek,
   firstRoundPairings,
   nextRoundPairings,
   winnerOfFinalMatchup,
+  winnerOfTwoWeekSeries,
 } from "@/lib/leagues/playoffs/advance";
 import { scheduleMatchupResult } from "@/lib/leagues/schedule-display";
 
@@ -132,6 +135,40 @@ describe("nextRoundPairings", () => {
       { week: 18, homeTeamId: "w1", awayTeamId: "w2" },
       { week: 18, homeTeamId: "w3", awayTeamId: "w4" },
     ]);
+  });
+});
+
+describe("championshipLegs + duplicatePairingsForWeek", () => {
+  it("maps end week to game 1 / game 2", () => {
+    assert.equal(championshipLegs({ endWeek: 17, twoWeekChampionship: false }), null);
+    assert.deepEqual(championshipLegs({ endWeek: 17, twoWeekChampionship: true }), {
+      leg1Week: 16,
+      leg2Week: 17,
+    });
+  });
+
+  it("duplicates home/away onto the next week", () => {
+    assert.deepEqual(
+      duplicatePairingsForWeek(
+        [{ homeTeamId: "h", awayTeamId: "a" }],
+        17,
+      ),
+      [{ week: 17, homeTeamId: "h", awayTeamId: "a" }],
+    );
+  });
+});
+
+describe("winnerOfTwoWeekSeries", () => {
+  it("sums both legs and picks the higher total", () => {
+    assert.equal(
+      winnerOfTwoWeekSeries({
+        homeTeamId: "h",
+        awayTeamId: "a",
+        leg1: { homePts: 100, awayPts: 110, status: "final" },
+        leg2: { homePts: 120, awayPts: 100, status: "final" },
+      }),
+      "h", // 220 vs 210
+    );
   });
 });
 

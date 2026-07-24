@@ -8,6 +8,8 @@ import { allocateMatchupPublicIds } from "@/lib/leagues/ensure-public-ids";
 import { getFinalMatchupsForSeason } from "@/lib/leagues/matchups/finalize";
 import { resolvePlayoffSettings } from "@/lib/leagues/playoff-settings";
 import {
+  championshipLegs,
+  duplicatePairingsForWeek,
   firstRoundPairings,
   nextRoundPairings,
   winnerOfFinalMatchup,
@@ -166,12 +168,44 @@ export async function ensurePlayoffMatchupsAdvanced(input: {
     playoffSeeds.map((seed) => [seed.teamId, seed.seed]),
   );
 
+  const legs = championshipLegs({
+    endWeek: range.endWeek,
+    twoWeekChampionship: playoffs.twoWeekChampionship,
+  });
+
+  // Backfill championship Game 2 if Game 1 exists without a matching leg.
+  if (legs) {
+    const leg1Rows = existingPlayoff.filter((row) => row.week === legs.leg1Week);
+    const leg2Rows = existingPlayoff.filter((row) => row.week === legs.leg2Week);
+    if (leg1Rows.length > 0 && leg2Rows.length === 0) {
+      const copies = duplicatePairingsForWeek(leg1Rows, legs.leg2Week);
+      inserted += await insertPairings(season.id, copies);
+      for (const pairing of copies) {
+        existingPlayoff.push({
+          id: "",
+          week: pairing.week,
+          homeTeamId: pairing.homeTeamId,
+          awayTeamId: pairing.awayTeamId,
+          homePts: null,
+          awayPts: null,
+          status: "scheduled",
+        });
+      }
+    }
+  }
+
   for (let i = 0; i < weeks.length - 1; i++) {
     const week = weeks[i]!;
     const nextWeek = weeks[i + 1]!;
     const weekRows = existingPlayoff.filter((row) => row.week === week);
     const nextRows = existingPlayoff.filter((row) => row.week === nextWeek);
     if (weekRows.length === 0 || nextRows.length > 0) continue;
+
+    // Championship Game 2 is a rematch, not an advance from Game 1 winners.
+    if (legs && week === legs.leg1Week && nextWeek === legs.leg2Week) {
+      continue;
+    }
+
     if (!weekRows.every((row) => row.status === "final")) continue;
 
     const teamIds = [
@@ -219,6 +253,38 @@ export async function ensurePlayoffMatchupsAdvanced(input: {
     });
 
     inserted += await insertPairings(season.id, pairings);
+    for (const pairing of pairings) {
+      existingPlayoff.push({
+        id: "",
+        week: pairing.week,
+        homeTeamId: pairing.homeTeamId,
+        awayTeamId: pairing.awayTeamId,
+        homePts: null,
+        awayPts: null,
+        status: "scheduled",
+      });
+    }
+
+    // When creating championship Game 1 under two-week finals, also schedule Game 2.
+    if (
+      legs &&
+      nextWeek === legs.leg1Week &&
+      !existingPlayoff.some((row) => row.week === legs.leg2Week)
+    ) {
+      const copies = duplicatePairingsForWeek(pairings, legs.leg2Week);
+      inserted += await insertPairings(season.id, copies);
+      for (const pairing of copies) {
+        existingPlayoff.push({
+          id: "",
+          week: pairing.week,
+          homeTeamId: pairing.homeTeamId,
+          awayTeamId: pairing.awayTeamId,
+          homePts: null,
+          awayPts: null,
+          status: "scheduled",
+        });
+      }
+    }
   }
 
   return { inserted };

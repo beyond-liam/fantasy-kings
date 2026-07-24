@@ -39,7 +39,7 @@ A mobile-first fantasy football web app for a private friend group (8–16 users
 
 | Item | Notes |
 |---|---|
-| **Playoff advancement completion** | Two-week championship: same finalists both weeks, combined score decides winner; harden edge cases / characterization |
+| **Playoff advancement completion** | Two-week championship: Game 2 rematch rows + combined winner helper **shipped (backend)**; remaining: show combined series score on bracket / champion crowning UX |
 | Win% σ re-fit from residuals | After enough completed weeks of `player_scores` |
 | Dynasty picks + pick trades | Explicitly deferred |
 | IDP positions + scoring | Explicitly deferred |
@@ -232,7 +232,7 @@ Both contexts have "Scores" and "Draft Room". Use distinct labels in the UI:
 - Create wizard captures team count, divisions, playoffs, draft timing **(shipped)**
 - Playoff bracket UI + first-round / advance matchup ensure on score sync **(shipped foundation)**
 - Rank tiebreakers (H2H / PPG / schedule strength) + game tiebreakers (TDs / high starter / bench) + re-seed after each round **(shipped)**
-- **Remaining:** two-week championship combined scoring + same-pairing week-2 row; further characterization of advance edge cases
+- **Remaining:** bracket UX for combined two-week championship totals / champion crowning; further characterization of advance edge cases
 
 ### Stats & analytics
 
@@ -559,4 +559,5 @@ lib/
 | 2026-07-24 | nflverse post-week official stats replace; `applyOfficialStatChanges` reopens finalized weeks for score corrections |
 | 2026-07-24 | Matchup Live / Final status badges on scores list + Game Centre |
 | 2026-07-24 | Score corrections: activity feed + owner notifications when finalized matchup pts change |
+| 2026-07-24 | Spec status snapshot: shipped vs remaining; ESPN/nflverse marked wired; playoff two-week championship called out as next gap |
 | 2026-07-16 | Trades: initial implementation started; follow-up items documented (vetoes, limits, cron, email) |
