@@ -479,7 +479,8 @@ lib/
 
 ### Deferred / remaining
 
-- [ ] **Playoff two-week championship** — insert leg-2 pairing; combined score decides champion
+- [x] **Playoff two-week championship (backend)** — schedule Game 2 rematch; combined pts helper; hydrate copies both finalists
+- [ ] **Playoff two-week championship (UI)** — combined series score / champion crowning on bracket (needs approval)
 - [ ] Win% σ re-fit from `player_scores` residuals (needs completed weeks)
 - [ ] IDP positions + scoring
 - [ ] TanStack Query / Zustand (when draft room needs them)
@@ -560,4 +561,5 @@ lib/
 | 2026-07-24 | Matchup Live / Final status badges on scores list + Game Centre |
 | 2026-07-24 | Score corrections: activity feed + owner notifications when finalized matchup pts change |
 | 2026-07-24 | Spec status snapshot: shipped vs remaining; ESPN/nflverse marked wired; playoff two-week championship called out as next gap |
+| 2026-07-24 | Playoff two-week championship backend: rematch Game 2 rows on ensure; hydrate keeps both finalists; combined winner helper |
 | 2026-07-16 | Trades: initial implementation started; follow-up items documented (vetoes, limits, cron, email) |
