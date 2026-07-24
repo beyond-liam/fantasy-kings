@@ -12,6 +12,8 @@ export type BracketTeam = {
   logoUrl: string | null;
   /** Actual matchup points when scored; null before/during. */
   score?: number | null;
+  /** Combined two-week championship total (both legs). */
+  seriesScore?: number | null;
   /** Projected points for the matchup week. */
   projection?: number | null;
 };
@@ -34,11 +36,23 @@ export type BracketRound = {
   matchups: BracketMatchup[];
 };
 
+export type BracketChampion = {
+  teamId: string;
+  teamPublicId: string | null;
+  teamName: string;
+  logoUrl: string | null;
+  seed: number;
+  /** Single-game pts or two-week series total. */
+  seriesPts: number | null;
+};
+
 export type PlayoffBracket = {
   rounds: BracketRound[];
   playoffTeamCount: number;
   firstRoundByes: number;
   championshipWeekLabel: string;
+  /** Set when the championship (or two-week series) is final. */
+  champion?: BracketChampion | null;
 };
 
 function teamSlot(team: BracketTeam): BracketSlot {

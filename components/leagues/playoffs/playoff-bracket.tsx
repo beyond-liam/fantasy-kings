@@ -5,6 +5,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import type {
+  BracketChampion,
   BracketMatchup,
   BracketRound,
   BracketSlot,
@@ -88,17 +89,30 @@ function buildMergeFeeds(
 function PointsStack({
   score,
   projection,
+  seriesScore,
 }: {
   score?: number | null;
   projection?: number | null;
+  seriesScore?: number | null;
 }) {
+  const secondary =
+    seriesScore != null ? seriesScore : projection;
+  const secondaryTitle =
+    seriesScore != null ? "Series total" : "Projection";
+
   return (
     <div className="flex shrink-0 flex-col items-end leading-tight tabular-nums">
-      <span className="text-xs text-muted-foreground">
+      <span className="text-xs text-muted-foreground" title="Week score">
         {formatBracketPoints(score)}
       </span>
-      <span className="text-xs text-muted-foreground">
-        {formatBracketPoints(projection)}
+      <span
+        className={cn(
+          "text-xs text-muted-foreground",
+          seriesScore != null && "font-medium text-foreground",
+        )}
+        title={secondaryTitle}
+      >
+        {formatBracketPoints(secondary)}
       </span>
     </div>
   );
@@ -156,6 +170,7 @@ function TeamCard({
           <PointsStack
             score={slot.team.score}
             projection={slot.team.projection}
+            seriesScore={slot.team.seriesScore}
           />
         </div>
       )}
@@ -318,16 +333,35 @@ function ConnectorColumn({
 function ChampionColumn({
   rowCount,
   bodyHeight,
+  champion,
+  myTeamPublicId,
 }: {
   rowCount: number;
   bodyHeight: string;
+  champion?: BracketChampion | null;
+  myTeamPublicId?: string | null;
 }) {
+  const isMine =
+    champion != null &&
+    myTeamPublicId != null &&
+    champion.teamPublicId === myTeamPublicId;
+
   return (
     <div
       className="playoff-round flex shrink-0 flex-col"
       style={{ width: MATCH_WIDTH, animationDelay: "280ms" }}
     >
-      <div style={{ height: ROUND_HEADER_HEIGHT }} />
+      <div
+        className="flex flex-col justify-center gap-0.5 px-1"
+        style={{ height: ROUND_HEADER_HEIGHT }}
+      >
+        <h3 className="text-sm font-semibold tracking-tight text-balance">
+          Champion
+        </h3>
+        <p className="text-xs text-muted-foreground">
+          {champion ? "Crowned" : "Pending"}
+        </p>
+      </div>
       <div
         className="grid"
         style={{
@@ -339,20 +373,57 @@ function ChampionColumn({
           className="flex items-center px-0.5"
           style={{ gridRow: `1 / ${rowCount + 1}` }}
         >
-          <div className="playoff-match w-full overflow-hidden rounded-lg border bg-card shadow-sm">
-            <div className="flex min-h-9 items-center gap-2.5 px-3 py-2">
-              <span className="flex size-6 shrink-0 items-center justify-center">
-                <HugeiconsIcon
-                  icon={ChampionIcon}
-                  strokeWidth={2}
-                  className="size-5 text-warning"
-                />
-              </span>
-              <span className="min-w-0 flex-1 truncate text-sm font-medium text-muted-foreground">
-                TBD
-              </span>
-              <PointsStack />
-            </div>
+          <div
+            className={cn(
+              "playoff-match w-full overflow-hidden rounded-lg border bg-card shadow-sm",
+              isMine && "ring-1 ring-primary/40",
+            )}
+          >
+            {champion ? (
+              <div
+                className={cn(
+                  "flex min-h-9 items-center gap-2.5 px-3 py-2",
+                  isMine && "bg-primary/10",
+                )}
+              >
+                <span className="flex size-6 shrink-0 items-center justify-center">
+                  <HugeiconsIcon
+                    icon={ChampionIcon}
+                    strokeWidth={2}
+                    className="size-5 text-warning"
+                  />
+                </span>
+                <Avatar
+                  size="sm"
+                  className="outline outline-black/10 dark:outline-white/10"
+                >
+                  {champion.logoUrl ? (
+                    <AvatarImage src={champion.logoUrl} alt="" />
+                  ) : null}
+                  <AvatarFallback>
+                    {teamInitials(champion.teamName)}
+                  </AvatarFallback>
+                </Avatar>
+                <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                  {champion.teamName}
+                </span>
+                <PointsStack score={champion.seriesPts} />
+              </div>
+            ) : (
+              <div className="flex min-h-9 items-center gap-2.5 px-3 py-2">
+                <span className="flex size-6 shrink-0 items-center justify-center">
+                  <HugeiconsIcon
+                    icon={ChampionIcon}
+                    strokeWidth={2}
+                    className="size-5 text-warning"
+                  />
+                </span>
+                <span className="min-w-0 flex-1 truncate text-sm font-medium text-muted-foreground">
+                  TBD
+                </span>
+                <PointsStack />
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -408,6 +479,8 @@ export function PlayoffBracketView({
           <ChampionColumn
             rowCount={rowCount}
             bodyHeight={bodyHeight}
+            champion={bracket.champion}
+            myTeamPublicId={myTeamPublicId}
           />
         </div>
       </div>

@@ -1,10 +1,15 @@
 import type {
+  BracketChampion,
   BracketMatchup,
+  BracketRound,
   BracketSlot,
   BracketTeam,
   PlayoffBracket,
 } from "@/lib/leagues/playoff-bracket";
-import { winnerOfFinalMatchup } from "@/lib/leagues/playoffs/advance";
+import {
+  winnerOfFinalMatchup,
+  winnerOfTwoWeekSeries,
+} from "@/lib/leagues/playoffs/advance";
 
 export type PlayoffMatchupScore = {
   week: number;
@@ -36,6 +41,23 @@ function withScore(slot: BracketSlot, score: number | null | undefined): Bracket
   return {
     ...slot,
     team: { ...slot.team, score: score ?? null },
+  };
+}
+
+function withSeriesScore(
+  slot: BracketSlot,
+  seriesByTeamId: Map<string, number>,
+): BracketSlot {
+  if (slot.type !== "team" && slot.type !== "bye") {
+    return slot;
+  }
+  const teamId = slot.team.teamId;
+  if (!teamId || !seriesByTeamId.has(teamId)) {
+    return slot;
+  }
+  return {
+    ...slot,
+    team: { ...slot.team, seriesScore: seriesByTeamId.get(teamId) ?? null },
   };
 }
 
@@ -75,6 +97,20 @@ function matchupTeamsMatch(
   return ids.has(row.homeTeamId) && ids.has(row.awayTeamId);
 }
 
+function findRowForTeams(
+  matchups: PlayoffMatchupScore[],
+  week: number,
+  teamA: string,
+  teamB: string,
+): PlayoffMatchupScore | undefined {
+  return matchups.find(
+    (row) =>
+      row.week === week &&
+      ((row.homeTeamId === teamA && row.awayTeamId === teamB) ||
+        (row.homeTeamId === teamB && row.awayTeamId === teamA)),
+  );
+}
+
 function applyRowToMatchup(
   matchup: BracketMatchup,
   row: PlayoffMatchupScore,
@@ -100,6 +136,159 @@ function applyRowToMatchup(
     ...matchup,
     top: withScore(matchup.top, topScore),
     bottom: withScore(matchup.bottom, bottomScore),
+  };
+}
+
+function championFromTeam(
+  teamId: string,
+  teamsById: Map<string, BracketTeam>,
+  seriesPts: number | null,
+): BracketChampion {
+  const known = teamsById.get(teamId);
+  return {
+    teamId,
+    teamPublicId: known?.teamPublicId ?? null,
+    teamName: known?.teamName ?? "Champion",
+    logoUrl: known?.logoUrl ?? null,
+    seed: known?.seed ?? 0,
+    seriesPts,
+  };
+}
+
+function annotateMatchupSeries(
+  matchup: BracketMatchup,
+  seriesByTeamId: Map<string, number>,
+): BracketMatchup {
+  return {
+    ...matchup,
+    top: withSeriesScore(matchup.top, seriesByTeamId),
+    bottom: withSeriesScore(matchup.bottom, seriesByTeamId),
+  };
+}
+
+/**
+ * After scores are overlaid, attach series totals and crown a champion when
+ * the championship (or two-week series) is fully final.
+ */
+function resolveChampionshipOutcome(
+  rounds: BracketRound[],
+  matchups: PlayoffMatchupScore[],
+  teamsById: Map<string, BracketTeam>,
+): { rounds: BracketRound[]; champion: BracketChampion | null } {
+  const g1Index = rounds.findIndex((round) => round.id === "championship");
+  if (g1Index < 0) {
+    return { rounds, champion: null };
+  }
+
+  const g1 = rounds[g1Index]!;
+  const g1Week = parseWeekLabel(g1.weekLabel);
+  const g1Matchup = g1.matchups[0];
+  if (!g1Matchup || g1Week == null) {
+    return { rounds, champion: null };
+  }
+
+  const topId = slotTeamId(g1Matchup.top);
+  const bottomId = slotTeamId(g1Matchup.bottom);
+  if (!topId || !bottomId) {
+    return { rounds, champion: null };
+  }
+
+  const row1 = findRowForTeams(matchups, g1Week, topId, bottomId);
+  const g2Index = rounds.findIndex((round) => round.id === "championship-g2");
+
+  if (g2Index >= 0) {
+    const g2 = rounds[g2Index]!;
+    const g2Week = parseWeekLabel(g2.weekLabel);
+    const g2Matchup = g2.matchups[0];
+    if (!g2Matchup || g2Week == null) {
+      return { rounds, champion: null };
+    }
+
+    const row2 = findRowForTeams(matchups, g2Week, topId, bottomId);
+    if (
+      !row1 ||
+      !row2 ||
+      row1.status !== "final" ||
+      row2.status !== "final" ||
+      row1.homePts == null ||
+      row1.awayPts == null ||
+      row2.homePts == null ||
+      row2.awayPts == null
+    ) {
+      return { rounds, champion: null };
+    }
+
+    const homeTeamId = row1.homeTeamId;
+    const awayTeamId = row1.awayTeamId;
+    const seriesByTeamId = new Map<string, number>([
+      [homeTeamId, row1.homePts + row2.homePts],
+      [awayTeamId, row1.awayPts + row2.awayPts],
+    ]);
+
+    const winnerId = winnerOfTwoWeekSeries({
+      homeTeamId,
+      awayTeamId,
+      leg1: {
+        homePts: row1.homePts,
+        awayPts: row1.awayPts,
+        status: row1.status,
+      },
+      leg2: {
+        homePts: row2.homePts,
+        awayPts: row2.awayPts,
+        status: row2.status,
+      },
+    });
+    if (!winnerId) {
+      return { rounds, champion: null };
+    }
+
+    const nextRounds = rounds.map((round, index) => {
+      if (index !== g1Index && index !== g2Index) return round;
+      return {
+        ...round,
+        matchups: round.matchups.map((matchup) =>
+          annotateMatchupSeries(matchup, seriesByTeamId),
+        ),
+      };
+    });
+
+    return {
+      rounds: nextRounds,
+      champion: championFromTeam(
+        winnerId,
+        teamsById,
+        seriesByTeamId.get(winnerId) ?? null,
+      ),
+    };
+  }
+
+  if (
+    !row1 ||
+    row1.status !== "final" ||
+    row1.homePts == null ||
+    row1.awayPts == null
+  ) {
+    return { rounds, champion: null };
+  }
+
+  const winnerId = winnerOfFinalMatchup({
+    homeTeamId: row1.homeTeamId,
+    awayTeamId: row1.awayTeamId,
+    homePts: row1.homePts,
+    awayPts: row1.awayPts,
+    status: row1.status,
+  });
+  if (!winnerId) {
+    return { rounds, champion: null };
+  }
+
+  const seriesPts =
+    winnerId === row1.homeTeamId ? row1.homePts : row1.awayPts;
+
+  return {
+    rounds,
+    champion: championFromTeam(winnerId, teamsById, seriesPts),
   };
 }
 
@@ -209,7 +398,6 @@ export function hydratePlayoffBracket(
       const topId = slotTeamId(matchup.top);
       const bottomId = slotTeamId(matchup.bottom);
       if (!topId || !bottomId) continue;
-      // Infer home/away from scores when we have a final pairing in DB.
       const row = weekRows.find(
         (candidate) =>
           (candidate.homeTeamId === topId &&
@@ -250,5 +438,10 @@ export function hydratePlayoffBracket(
     rounds[roundIndex + 1] = { ...nextRound, matchups: nextMatchups };
   }
 
-  return { ...bracket, rounds };
+  const outcome = resolveChampionshipOutcome(rounds, matchups, teamsById);
+  return {
+    ...bracket,
+    rounds: outcome.rounds,
+    champion: outcome.champion,
+  };
 }

@@ -39,7 +39,7 @@ A mobile-first fantasy football web app for a private friend group (8–16 users
 
 | Item | Notes |
 |---|---|
-| **Playoff advancement completion** | Two-week championship: Game 2 rematch rows + combined winner helper **shipped (backend)**; remaining: show combined series score on bracket / champion crowning UX |
+| **Playoff advancement completion** | Two-week championship rematch + combined series / champion crowning on bracket **shipped** |
 | Win% σ re-fit from residuals | After enough completed weeks of `player_scores` |
 | Dynasty picks + pick trades | Explicitly deferred |
 | IDP positions + scoring | Explicitly deferred |
@@ -480,7 +480,7 @@ lib/
 ### Deferred / remaining
 
 - [x] **Playoff two-week championship (backend)** — schedule Game 2 rematch; combined pts helper; hydrate copies both finalists
-- [ ] **Playoff two-week championship (UI)** — combined series score / champion crowning on bracket (needs approval)
+- [x] **Playoff two-week championship (UI)** — series totals on championship cards + Champion column crowning
 - [ ] Win% σ re-fit from `player_scores` residuals (needs completed weeks)
 - [ ] IDP positions + scoring
 - [ ] TanStack Query / Zustand (when draft room needs them)
