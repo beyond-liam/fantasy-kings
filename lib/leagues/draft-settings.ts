@@ -17,6 +17,20 @@ export type DraftConfigFormValues = {
   autoPickEnabled: boolean;
 };
 
+/** Normalize stored/form draft type; defaults to live. */
+export function resolveDraftType(
+  draftType: "live" | "email" | null | undefined,
+): "live" | "email" {
+  return draftType === "email" ? "email" : "live";
+}
+
+/** @deprecated Use resolveDraftType — kept as alias during migration. */
+export function coerceSupportedDraftType(
+  draftType: "live" | "email" | null | undefined,
+): "live" | "email" {
+  return resolveDraftType(draftType);
+}
+
 export const DEFAULT_DRAFT_SETTINGS: DraftSettings = {
   style: "snake",
   autoPickEnabled: false,

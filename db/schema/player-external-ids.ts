@@ -10,7 +10,7 @@ import { players } from "./players";
 
 export const playerExternalIdProviderEnum = pgEnum(
   "player_external_id_provider",
-  ["sleeper"],
+  ["sleeper", "espn"],
 );
 
 export const playerExternalIds = pgTable(

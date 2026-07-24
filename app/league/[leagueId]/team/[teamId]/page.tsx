@@ -1,10 +1,15 @@
 import type { Metadata } from "next";
+import type { ReactNode } from "react";
 import { redirect, notFound } from "next/navigation";
 
 import { TeamDraftPicksList } from "@/components/team/team-draft-picks-list";
 import { TeamRosterSections } from "@/components/team/roster-sections";
 import { TeamScheduleList } from "@/components/team/team-schedule-list";
 import { TeamStatsSections } from "@/components/team/stats-sections";
+import {
+  OTHER_TEAM_TABS,
+  type OtherTeamTabValue,
+} from "@/components/team/team-tab-config";
 import { TeamTabs } from "@/components/team/team-tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { getSessionUser } from "@/lib/auth/session";
@@ -14,6 +19,11 @@ import {
   type ScoringPreset,
 } from "@/lib/leagues/scoring";
 import { ensureSeasonTeamPublicIds } from "@/lib/leagues/ensure-public-ids";
+import {
+  getFinalMatchupsForSeason,
+  recordsFromFinalMatchups,
+} from "@/lib/leagues/matchups/finalize";
+import { buildScheduleDisplayRows } from "@/lib/leagues/schedule-display";
 import { myTeamPath } from "@/lib/leagues/utils";
 import {
   buildOpponentByTeam,
@@ -29,18 +39,38 @@ import { getTeamRosterPlayers } from "@/lib/queries/team-roster";
 import { getLeagueTeamByPublicId } from "@/lib/queries/team";
 import { getUserTeamForLeague } from "@/lib/queries/watchlist";
 import { teamInitials } from "@/lib/leagues/standings";
+import {
+  formatWaiverPriority,
+  resolveTeamSummaryMatchups,
+  type TeamSummaryScheduleRow,
+} from "@/lib/leagues/team-summary";
 import { getNflState } from "@/lib/sleeper/api";
 
 type LeagueTeamPageProps = {
   params: Promise<{ leagueId: string; teamId: string }>;
+  searchParams: Promise<{ tab?: string }>;
 };
 
 export const metadata: Metadata = {
   title: "Team",
 };
 
-export default async function LeagueTeamPage({ params }: LeagueTeamPageProps) {
+const TAB_VALUES = new Set<string>(OTHER_TEAM_TABS.map((tab) => tab.value));
+
+function resolveActiveTab(tab: string | undefined): OtherTeamTabValue {
+  if (tab && TAB_VALUES.has(tab)) {
+    return tab as OtherTeamTabValue;
+  }
+  return "roster";
+}
+
+export default async function LeagueTeamPage({
+  params,
+  searchParams,
+}: LeagueTeamPageProps) {
   const { leagueId: slug, teamId } = await params;
+  const { tab } = await searchParams;
+  const activeTab = resolveActiveTab(tab);
 
   const user = await getSessionUser();
   if (!user) {
@@ -79,26 +109,49 @@ export default async function LeagueTeamPage({ params }: LeagueTeamPageProps) {
     season.settings.scoringRules,
   );
 
-  const nflStatePromise = getNflState();
+  const needsRosterPanel = activeTab === "roster";
+  const needsStatsPanel = activeTab === "stats";
+  const needsSchedulePanel = activeTab === "schedule";
+  const needsDraftPicksPanel = activeTab === "draft-picks";
 
-  const [rosterPlayers, scheduleRows, draftPicks, nflState, scoreboard] =
+  const needsNflState =
+    needsRosterPanel || needsStatsPanel || needsSchedulePanel;
+  const needsScoreboard = needsRosterPanel || needsSchedulePanel;
+  const needsTeamSchedule = needsRosterPanel || needsSchedulePanel;
+
+  const nflStatePromise = needsNflState ? getNflState() : null;
+
+  const [rosterPlayers, scheduleRows, draftPicks, nflState, scoreboard, finals] =
     await Promise.all([
-      getTeamRosterPlayers(team.id),
-      getTeamSchedule(season.id, team.id),
-      getDraftedRosterForTeam(team.id),
-      nflStatePromise,
-      nflStatePromise
-        .then((state) => {
-          const week = Math.max(1, Number(state.week) || 1);
-          const seasonYear =
-            Number(state.season) || new Date().getUTCFullYear();
-          return getNflScoreboard({ season: seasonYear, week });
-        })
-        .catch(() => null),
+      needsRosterPanel || needsStatsPanel
+        ? getTeamRosterPlayers(team.id)
+        : Promise.resolve([]),
+      needsTeamSchedule
+        ? getTeamSchedule(season.id, team.id)
+        : Promise.resolve([]),
+      needsDraftPicksPanel
+        ? getDraftedRosterForTeam(team.id)
+        : Promise.resolve([]),
+      nflStatePromise ?? Promise.resolve(null),
+      needsScoreboard && nflStatePromise
+        ? nflStatePromise
+            .then((state) => {
+              const week = Math.max(1, Number(state.week) || 1);
+              const seasonYear =
+                Number(state.season) || new Date().getUTCFullYear();
+              return getNflScoreboard({ season: seasonYear, week });
+            })
+            .catch(() => null)
+        : Promise.resolve(null),
+      needsSchedulePanel
+        ? getFinalMatchupsForSeason(season.id).catch(() => [])
+        : Promise.resolve([]),
     ]);
 
   const rosterPlayerIds = rosterPlayers.map((player) => player.id);
-  const nflWeek = Math.max(1, Number(nflState.week) || 1);
+  const nflWeek = Math.max(1, Number(nflState?.week) || 1);
+  const nflSeason =
+    nflState?.season ?? String(new Date().getUTCFullYear());
 
   let opponentsByTeam = new Map<string, TeamMatchup>();
   if (scoreboard) {
@@ -119,12 +172,17 @@ export default async function LeagueTeamPage({ params }: LeagueTeamPageProps) {
     }),
   });
 
-  const [rosterRates, weekProjections, weekStats, seasonProjections] =
-    await Promise.all([
+  let rosterPanel: ReactNode = null;
+  let statsPanel: ReactNode = null;
+  let schedulePanel: ReactNode = null;
+  let draftPicksPanel: ReactNode = null;
+
+  if (needsRosterPanel) {
+    const [rosterRates, weekProjections, weekStats] = await Promise.all([
       getPlayerRosterRatesMap(rosterPlayerIds),
       rosterPlayerIds.length > 0
         ? getRankedPlayers({
-            season: nflState.season,
+            season: nflSeason,
             week: nflWeek,
             kind: "projection",
             scoringRules,
@@ -133,64 +191,123 @@ export default async function LeagueTeamPage({ params }: LeagueTeamPageProps) {
         : Promise.resolve([]),
       rosterPlayerIds.length > 0
         ? getRankedPlayers({
-            season: nflState.season,
+            season: nflSeason,
             week: nflWeek,
             kind: "stats",
             scoringRules,
             playerIds: rosterPlayerIds,
           }).catch(() => [])
         : Promise.resolve([]),
+    ]);
+
+    const projectedById = new Map(
+      weekProjections.map((player) => [player.id, player.fantasyPts]),
+    );
+    const actualById = new Map(
+      weekStats.map((player) => [player.id, player.fantasyPts]),
+    );
+
+    const rosterPlayersWithRates = rosterPlayers.map((player) => {
+      const rates = rosterRates.get(player.id);
+      return withOpponent({
+        ...player,
+        ownedPct: rates?.ownedPct ?? null,
+        startPct: rates?.startPct ?? null,
+        actualPts: actualById.get(player.id) ?? null,
+        projectedPts: projectedById.get(player.id) ?? null,
+      });
+    });
+
+    const summarySchedule: TeamSummaryScheduleRow[] = scheduleRows.map(
+      (row) => ({
+        week: row.week,
+        publicId: row.publicId,
+        opponentName: row.opponentName,
+        opponentSlug: row.opponentSlug,
+        isHome: row.isHome,
+        status: row.status,
+        teamPts: row.isHome ? row.homePts : row.awayPts,
+        opponentPts: row.isHome ? row.awayPts : row.homePts,
+      }),
+    );
+    const { previous, current } = resolveTeamSummaryMatchups(
+      summarySchedule,
+      nflWeek,
+    );
+
+    rosterPanel = (
+      <TeamRosterSections
+        rosterSlots={season.settings.rosterSlots}
+        benchSlots={season.benchSlots}
+        irEnabled={season.irEnabled}
+        irSlots={season.irSlots}
+        irEligibleStatuses={season.settings.irEligibleStatuses}
+        taxiEnabled={season.taxiEnabled}
+        taxiSlots={season.taxiSlots}
+        taxiMaxYearsExp={season.settings.taxiMaxYearsExp}
+        players={rosterPlayersWithRates}
+        leagueSlug={slug}
+        actionsEnabled={false}
+        summary={{
+          waiverPriorityLabel: season.waiversEnabled
+            ? formatWaiverPriority(team.waiverPriority)
+            : null,
+          ownerName: team.ownerName,
+          previous,
+          current,
+          myTeamSlug: myTeam?.publicId ?? myTeam?.slug ?? null,
+        }}
+      />
+    );
+  }
+
+  if (needsStatsPanel) {
+    const seasonProjections =
       rosterPlayerIds.length > 0
-        ? getRankedPlayers({
-            season: nflState.season,
+        ? await getRankedPlayers({
+            season: nflSeason,
             week: 0,
             kind: "projection",
             scoringRules,
             playerIds: rosterPlayerIds,
           }).catch(() => [])
-        : Promise.resolve([]),
-    ]);
+        : [];
+    const scoredPlayers = seasonProjections.map((player) =>
+      withOpponent(player),
+    );
+    statsPanel = (
+      <TeamStatsSections players={scoredPlayers} leagueSlug={slug} />
+    );
+  }
 
-  const projectedById = new Map(
-    weekProjections.map((player) => [player.id, player.fantasyPts]),
-  );
-  const actualById = new Map(
-    weekStats.map((player) => [player.id, player.fantasyPts]),
-  );
-
-  const rosterPlayersWithRates = rosterPlayers.map((player) => {
-    const rates = rosterRates.get(player.id);
-    return withOpponent({
-      ...player,
-      ownedPct: rates?.ownedPct ?? null,
-      startPct: rates?.startPct ?? null,
-      actualPts: actualById.get(player.id) ?? null,
-      projectedPts: projectedById.get(player.id) ?? null,
+  if (needsSchedulePanel) {
+    const weekRangeByNumber = new Map(
+      (scoreboard?.weeks ?? []).map((week) => [week.number, week.rangeLabel]),
+    );
+    const records = recordsFromFinalMatchups(finals);
+    const scheduleDisplayRows = buildScheduleDisplayRows({
+      rows: scheduleRows,
+      weekRangeByNumber,
+      records,
     });
-  });
+    schedulePanel = (
+      <TeamScheduleList
+        rows={scheduleDisplayRows}
+        leagueSlug={slug}
+        myTeamSlug={myTeam?.publicId ?? null}
+      />
+    );
+  }
 
-  const scoredPlayers = seasonProjections.map((player) => withOpponent(player));
-
-  const weekRangeByNumber = new Map(
-    (scoreboard?.weeks ?? []).map((week) => [week.number, week.rangeLabel]),
-  );
-  const scheduleDisplayRows = scheduleRows.map((row) => ({
-    ...row,
-    weekRangeLabel: weekRangeByNumber.get(row.week) ?? "",
-    opponentWins: 0,
-    opponentLosses: 0,
-    opponentTies: 0,
-    result: null as "win" | "loss" | "tie" | null,
-    weeklyRank: null as number | null,
-    winChance: null as number | null,
-  }));
-
-  const draftPickRows = draftPicks.map((pick) => ({
-    overall: pick.overall,
-    playerName: pick.fullName,
-    positionId: pick.primaryPositionId,
-    nflTeam: pick.nflTeam,
-  }));
+  if (needsDraftPicksPanel) {
+    const draftPickRows = draftPicks.map((pick) => ({
+      overall: pick.overall,
+      playerName: pick.fullName,
+      positionId: pick.primaryPositionId,
+      nflTeam: pick.nflTeam,
+    }));
+    draftPicksPanel = <TeamDraftPicksList picks={draftPickRows} />;
+  }
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-6">
@@ -211,31 +328,11 @@ export default async function LeagueTeamPage({ params }: LeagueTeamPageProps) {
 
       <TeamTabs
         variant="other"
-        roster={
-          <TeamRosterSections
-            rosterSlots={season.settings.rosterSlots}
-            benchSlots={season.benchSlots}
-            irEnabled={season.irEnabled}
-            irSlots={season.irSlots}
-            irEligibleStatuses={season.settings.irEligibleStatuses}
-            taxiEnabled={season.taxiEnabled}
-            taxiSlots={season.taxiSlots}
-            players={rosterPlayersWithRates}
-            leagueSlug={slug}
-            actionsEnabled={false}
-          />
-        }
-        stats={
-          <TeamStatsSections players={scoredPlayers} leagueSlug={slug} />
-        }
-        schedule={
-          <TeamScheduleList
-            rows={scheduleDisplayRows}
-            leagueSlug={slug}
-            myTeamSlug={myTeam?.publicId ?? null}
-          />
-        }
-        draft-picks={<TeamDraftPicksList picks={draftPickRows} />}
+        defaultTab={activeTab}
+        roster={rosterPanel}
+        stats={statsPanel}
+        schedule={schedulePanel}
+        draft-picks={draftPicksPanel}
       />
     </div>
   );

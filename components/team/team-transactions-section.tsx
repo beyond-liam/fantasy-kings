@@ -82,7 +82,7 @@ export function TeamTransactionsSection({
           <TabsTrigger value="waivers" className="gap-2">
             Waivers
             {claimCount > 0 ? (
-              <Badge variant="secondary" className="h-5 min-w-5 px-1.5">
+              <Badge variant="info" className="h-5 min-w-5 px-1.5">
                 {claimCount}
               </Badge>
             ) : null}
@@ -90,7 +90,7 @@ export function TeamTransactionsSection({
           <TabsTrigger value="trades" className="gap-2">
             Trades
             {openTradeCount > 0 ? (
-              <Badge variant="secondary" className="h-5 min-w-5 px-1.5">
+              <Badge variant="info" className="h-5 min-w-5 px-1.5">
                 {openTradeCount}
               </Badge>
             ) : null}

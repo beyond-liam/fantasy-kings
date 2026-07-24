@@ -1,9 +1,10 @@
 /**
  * Live win-probability helpers.
  *
- * TODO(live-win-prob): Revisit once we have reliable live scoring during the
- * regular season — calibrate per-position σ from history, add pace blending,
- * DNP/out detection, and OT handling against real in-game feeds.
+ * Shipped: pace blend, injury/out zeroing, soft DNP, OT ≈ done, calibrated
+ * position σ priors (`calibration.ts`). Mid-game accuracy still tracks how
+ * fresh `player_scores` stats are (Sleeper sync); ESPN player box scores are
+ * the next feed upgrade.
  */
 
 /** Regulation game length used for linear remaining-projection (minutes). */
@@ -55,7 +56,9 @@ export function resolveGameProgress(input: {
 
   const period = input.period ?? 1;
   if (period > 4) {
-    return { status: "in", fractionPlayed: 1 };
+    // OT: almost complete — stop projecting remaining regulation points, but
+    // keep a tiny residual so late actuals can still move WP slightly.
+    return { status: "in", fractionPlayed: 0.98 };
   }
 
   const clockLeft = parseDisplayClockMinutes(input.displayClock);

@@ -116,6 +116,8 @@ export type GameCentreData = {
   week: number;
   seasonYear: number;
   leagueSlug: string;
+  status: "scheduled" | "in_progress" | "final";
+  finalizedAt: string | null;
   away: GameCentreTeamSide;
   home: GameCentreTeamSide;
   duelRows: GameCentreDuelRow[];
@@ -163,6 +165,7 @@ function toWinProbPlayers(
       nflTeam: player.nflTeam,
       projectedPts: projectedById.get(player.id) ?? null,
       actualPts: actualById.get(player.id) ?? null,
+      injuryStatus: player.injuryStatus,
     }));
 }
 
@@ -357,6 +360,11 @@ export async function getGameCentreData(input: {
   const rosterIds = [
     ...new Set([...awayRoster, ...homeRoster].map((p) => p.id)),
   ];
+  const viewerTeamId = viewerTeam?.id ?? null;
+  const needsFaTips =
+    viewerTeamId != null &&
+    (viewerTeamId === matchup.awayTeamId ||
+      viewerTeamId === matchup.homeTeamId);
 
   const seasonYear = String(season.seasonYear);
 
@@ -381,12 +389,16 @@ export async function getGameCentreData(input: {
           preserveStats: true,
         }).catch(() => [])
       : Promise.resolve([]),
-    getRankedPlayers({
-      season: seasonYear,
-      week: matchup.week,
-      kind: "projection",
-      scoringRules,
-    }).catch(() => []),
+    // Waiver tips only for the viewer's matchup; top projections (not full pool).
+    needsFaTips
+      ? getRankedPlayers({
+          season: seasonYear,
+          week: matchup.week,
+          kind: "projection",
+          scoringRules,
+          limit: 100,
+        }).catch(() => [])
+      : Promise.resolve([]),
   ]);
 
   const projectedById = new Map(
@@ -496,9 +508,8 @@ export async function getGameCentreData(input: {
     else homeLoser = true;
   }
 
-  const viewerTeamId = viewerTeam?.id ?? null;
-  const awayIsViewer = viewerTeamId === matchup.awayTeamId;
-  const homeIsViewer = viewerTeamId === matchup.homeTeamId;
+  const awayIsViewer = viewerTeamId != null && viewerTeamId === matchup.awayTeamId;
+  const homeIsViewer = viewerTeamId != null && viewerTeamId === matchup.homeTeamId;
 
   const chartStarters = (players: Array<GameCentrePlayer | null>) =>
     players
@@ -581,6 +592,8 @@ export async function getGameCentreData(input: {
     week: matchup.week,
     seasonYear: matchup.seasonYear,
     leagueSlug: input.leagueSlug,
+    status: matchup.status,
+    finalizedAt: matchup.finalizedAt?.toISOString() ?? null,
     away: awaySide,
     home: homeSide,
     duelRows,

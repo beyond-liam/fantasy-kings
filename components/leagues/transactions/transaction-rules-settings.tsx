@@ -2,11 +2,12 @@
 
 import { Cancel01Icon, TickDouble02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { useState, useTransition, type ReactNode } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { SettingsFormCard } from "@/components/leagues/settings/settings-form-card";
 import { PageFormActions } from "@/components/layout/page-form-actions";
 import {
   Field,
@@ -14,8 +15,7 @@ import {
   FieldGroup,
   FieldLabel,
 } from "@/components/ui/field";
-import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { NumberInput } from "@/components/ui/number-input";
 import {
   Select,
   SelectContent,
@@ -26,13 +26,11 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { updateTransactionRules } from "@/lib/actions/league-settings";
-import { formatLeagueLabel } from "@/lib/leagues/format";
 import {
   TRADE_PROCESSING_OPTIONS,
   buildWeekDeadlineOptions,
   type TransactionRulesFormValues,
 } from "@/lib/leagues/transaction-rules";
-import { cn } from "@/lib/utils";
 
 type TransactionRulesSettingsProps = {
   slug: string;
@@ -44,6 +42,23 @@ type TransactionRulesSettingsProps = {
 
 const NONE_VALUE = "none";
 
+const YES_NO_ITEMS = [
+  { value: "yes", label: "Yes" },
+  { value: "no", label: "No" },
+] as const;
+
+const PRESEASON_FA_ITEMS = [
+  { value: "always_on_waivers", label: "Always-on waivers" },
+  { value: "unlocked", label: "Unlocked" },
+] as const;
+
+const TRANSACTION_LIMIT_ITEMS = [
+  { value: "unlimited", label: "Unlimited" },
+  { value: "weekly", label: "Weekly limit only" },
+  { value: "season", label: "Season limit only" },
+  { value: "both", label: "Both weekly and season limits" },
+] as const;
+
 function valuesEqual(
   a: TransactionRulesFormValues,
   b: TransactionRulesFormValues,
@@ -51,31 +66,14 @@ function valuesEqual(
   return JSON.stringify(a) === JSON.stringify(b);
 }
 
-function OptionLabel({
-  children,
-  className,
-}: {
-  children: ReactNode;
-  className?: string;
-}) {
-  return (
-    <Label
-      className={cn(
-        "flex cursor-pointer items-start gap-3 rounded-lg border p-4 has-data-checked:border-primary",
-        className,
-      )}
-    >
-      {children}
-    </Label>
-  );
-}
-
 function YesNoField({
+  id,
   label,
   description,
   value,
   onChange,
 }: {
+  id: string;
   label: string;
   description?: string;
   value: boolean;
@@ -83,30 +81,36 @@ function YesNoField({
 }) {
   return (
     <Field>
-      <FieldLabel>{label}</FieldLabel>
+      <FieldLabel htmlFor={id}>{label}</FieldLabel>
       {description ? <FieldDescription>{description}</FieldDescription> : null}
-      <RadioGroup
+      <Select
+        items={[...YES_NO_ITEMS]}
         value={value ? "yes" : "no"}
-        onValueChange={(next) => onChange(next === "yes")}
-        className="mt-3 grid gap-3 sm:grid-cols-2"
+        onValueChange={(next) => {
+          if (next === "yes" || next === "no") {
+            onChange(next === "yes");
+          }
+        }}
       >
-        <OptionLabel>
-          <RadioGroupItem value="yes" className="mt-0.5" />
-          <span className="text-sm font-medium">Yes</span>
-        </OptionLabel>
-        <OptionLabel>
-          <RadioGroupItem value="no" className="mt-0.5" />
-          <span className="text-sm font-medium">No</span>
-        </OptionLabel>
-      </RadioGroup>
+        <SelectTrigger id={id} className="w-full">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectGroup>
+            {YES_NO_ITEMS.map((item) => (
+              <SelectItem key={item.value} value={item.value}>
+                {item.label}
+              </SelectItem>
+            ))}
+          </SelectGroup>
+        </SelectContent>
+      </Select>
     </Field>
   );
 }
 
 export function TransactionRulesSettings({
   slug,
-  leagueName,
-  seasonStatus,
   maxWeek,
   initialValues,
 }: TransactionRulesSettingsProps) {
@@ -121,6 +125,10 @@ export function TransactionRulesSettings({
     { value: NONE_VALUE, label: "None" },
     ...weekOptions,
   ];
+  const tradeProcessingItems = TRADE_PROCESSING_OPTIONS.map((option) => ({
+    value: option.value,
+    label: option.label,
+  }));
 
   const patch = (next: Partial<TransactionRulesFormValues>) => {
     setValues((current) => ({ ...current, ...next }));
@@ -145,266 +153,312 @@ export function TransactionRulesSettings({
 
   return (
     <div className="flex flex-col gap-8">
-      <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold tracking-tight text-balance">
-          Transaction rules
-        </h1>
-        <p className="text-sm text-pretty text-muted-foreground">
-          {leagueName}
-          {" · "}
-          <span className="capitalize">{formatLeagueLabel(seasonStatus)}</span>
-        </p>
-      </div>
-
       {error ? (
         <Alert variant="destructive">
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       ) : null}
 
-      <FieldGroup>
-        <Field orientation="horizontal">
-          <div className="flex flex-1 flex-col gap-1">
-            <FieldLabel htmlFor="tradesEnabled">Trades</FieldLabel>
-            <p className="text-sm text-muted-foreground">
-              Allow managers to trade players.
-            </p>
-          </div>
-          <Switch
-            id="tradesEnabled"
-            checked={values.tradesEnabled}
-            onCheckedChange={(checked) => patch({ tradesEnabled: checked })}
-          />
-        </Field>
+      <SettingsFormCard
+        title="Transaction Rules"
+        footer={
+          <PageFormActions>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={isPending || !hasChanges}
+              onClick={handleReset}
+            >
+              <HugeiconsIcon
+                icon={Cancel01Icon}
+                strokeWidth={2}
+                data-icon="inline-start"
+              />
+              Reset
+            </Button>
+            <Button
+              type="button"
+              onClick={handleSave}
+              disabled={isPending || !hasChanges}
+            >
+              <HugeiconsIcon
+                icon={TickDouble02Icon}
+                strokeWidth={2}
+                data-icon="inline-start"
+              />
+              Save
+            </Button>
+          </PageFormActions>
+        }
+      >
+        <FieldGroup>
+          <Field orientation="horizontal">
+            <div className="flex flex-1 flex-col gap-1">
+              <FieldLabel htmlFor="tradesEnabled">Trades</FieldLabel>
+              <p className="text-sm text-muted-foreground">
+                Allow managers to trade players.
+              </p>
+            </div>
+            <Switch
+              id="tradesEnabled"
+              checked={values.tradesEnabled}
+              onCheckedChange={(checked) => patch({ tradesEnabled: checked })}
+            />
+          </Field>
 
-        {values.tradesEnabled ? (
-          <>
-            <Field>
-              <FieldLabel>Trade processing</FieldLabel>
-              <FieldDescription>
-                Same options as league creation.
-              </FieldDescription>
-              <RadioGroup
-                value={values.tradeProcessing}
-                onValueChange={(value) => {
-                  if (
-                    value === "commissioner" ||
-                    value === "review_24h" ||
-                    value === "instant"
-                  ) {
-                    patch({ tradeProcessing: value });
+          {values.tradesEnabled ? (
+            <>
+              <Field>
+                <FieldLabel htmlFor="tradeProcessing">Trade processing</FieldLabel>
+                <FieldDescription>
+                  Same options as league creation.
+                </FieldDescription>
+                <Select
+                  items={tradeProcessingItems}
+                  value={values.tradeProcessing}
+                  onValueChange={(value) => {
+                    if (
+                      value === "commissioner" ||
+                      value === "review_24h" ||
+                      value === "instant"
+                    ) {
+                      patch({ tradeProcessing: value });
+                    }
+                  }}
+                >
+                  <SelectTrigger id="tradeProcessing" className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      {tradeProcessingItems.map((item) => (
+                        <SelectItem key={item.value} value={item.value}>
+                          {item.label}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              </Field>
+
+              <Field>
+                <FieldLabel htmlFor="tradeDeadlineWeek">Trade deadline</FieldLabel>
+                <FieldDescription>
+                  No trades can be proposed after this week ends.
+                </FieldDescription>
+                <Select
+                  items={deadlineItems}
+                  value={
+                    values.tradeDeadlineWeek == null
+                      ? NONE_VALUE
+                      : String(values.tradeDeadlineWeek)
                   }
-                }}
-                className="mt-3 grid gap-3"
-              >
-                {TRADE_PROCESSING_OPTIONS.map((option) => (
-                  <OptionLabel key={option.value}>
-                    <RadioGroupItem value={option.value} className="mt-0.5" />
-                    <span className="text-sm font-medium">{option.label}</span>
-                  </OptionLabel>
-                ))}
-              </RadioGroup>
-            </Field>
+                  onValueChange={(value) => {
+                    if (!value || value === NONE_VALUE) {
+                      patch({ tradeDeadlineWeek: null });
+                      return;
+                    }
+                    patch({ tradeDeadlineWeek: Number(value) });
+                  }}
+                >
+                  <SelectTrigger id="tradeDeadlineWeek" className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      {deadlineItems.map((item) => (
+                        <SelectItem key={item.value} value={item.value}>
+                          {item.label}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              </Field>
 
-            <Field>
-              <FieldLabel htmlFor="tradeDeadlineWeek">Trade deadline</FieldLabel>
-              <FieldDescription>
-                No trades can be proposed after this week ends.
-              </FieldDescription>
-              <Select
-                items={deadlineItems}
-                value={
-                  values.tradeDeadlineWeek == null
-                    ? NONE_VALUE
-                    : String(values.tradeDeadlineWeek)
+              <YesNoField
+                id="permitTradesAfterSeason"
+                label="Permit trades after season ends"
+                value={values.permitTradesAfterSeason}
+                onChange={(permitTradesAfterSeason) =>
+                  patch({ permitTradesAfterSeason })
                 }
-                onValueChange={(value) => {
-                  if (!value || value === NONE_VALUE) {
-                    patch({ tradeDeadlineWeek: null });
-                    return;
-                  }
-                  patch({ tradeDeadlineWeek: Number(value) });
-                }}
-              >
-                <SelectTrigger id="tradeDeadlineWeek" className="mt-3 max-w-sm">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    {deadlineItems.map((item) => (
-                      <SelectItem key={item.value} value={item.value}>
-                        {item.label}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-            </Field>
+              />
 
-            <YesNoField
-              label="Permit trades after season ends"
-              value={values.permitTradesAfterSeason}
-              onChange={(permitTradesAfterSeason) =>
-                patch({ permitTradesAfterSeason })
+              <YesNoField
+                id="allowVetoes"
+                label="Allow vetoes"
+                value={values.allowVetoes}
+                onChange={(allowVetoes) => patch({ allowVetoes })}
+              />
+            </>
+          ) : null}
+
+          <Field>
+            <FieldLabel htmlFor="addDropDeadlineWeek">Add/drop deadline</FieldLabel>
+            <FieldDescription>
+              No adds, drops, or waiver claims after this week ends.
+            </FieldDescription>
+            <Select
+              items={deadlineItems}
+              value={
+                values.addDropDeadlineWeek == null
+                  ? NONE_VALUE
+                  : String(values.addDropDeadlineWeek)
               }
-            />
+              onValueChange={(value) => {
+                if (!value || value === NONE_VALUE) {
+                  patch({ addDropDeadlineWeek: null });
+                  return;
+                }
+                patch({ addDropDeadlineWeek: Number(value) });
+              }}
+            >
+              <SelectTrigger id="addDropDeadlineWeek" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  {deadlineItems.map((item) => (
+                    <SelectItem key={item.value} value={item.value}>
+                      {item.label}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          </Field>
 
-            <YesNoField
-              label="Allow vetoes"
-              value={values.allowVetoes}
-              onChange={(allowVetoes) => patch({ allowVetoes })}
-            />
-          </>
-        ) : null}
-
-        <Field>
-          <FieldLabel htmlFor="addDropDeadlineWeek">Add/drop deadline</FieldLabel>
-          <FieldDescription>
-            No adds, drops, or waiver claims after this week ends.
-          </FieldDescription>
-          <Select
-            items={deadlineItems}
-            value={
-              values.addDropDeadlineWeek == null
-                ? NONE_VALUE
-                : String(values.addDropDeadlineWeek)
+          <YesNoField
+            id="permitAddDropsAfterSeason"
+            label="Permit add/drops after season ends"
+            value={values.permitAddDropsAfterSeason}
+            onChange={(permitAddDropsAfterSeason) =>
+              patch({ permitAddDropsAfterSeason })
             }
-            onValueChange={(value) => {
-              if (!value || value === NONE_VALUE) {
-                patch({ addDropDeadlineWeek: null });
-                return;
-              }
-              patch({ addDropDeadlineWeek: Number(value) });
-            }}
-          >
-            <SelectTrigger id="addDropDeadlineWeek" className="mt-3 max-w-sm">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectGroup>
-                {deadlineItems.map((item) => (
-                  <SelectItem key={item.value} value={item.value}>
-                    {item.label}
-                  </SelectItem>
-                ))}
-              </SelectGroup>
-            </SelectContent>
-          </Select>
-        </Field>
-
-        <YesNoField
-          label="Permit add/drops after season ends"
-          value={values.permitAddDropsAfterSeason}
-          onChange={(permitAddDropsAfterSeason) =>
-            patch({ permitAddDropsAfterSeason })
-          }
-        />
-
-        <YesNoField
-          label="Enforce roster minimums"
-          description="Block drops that would leave a team under the roster minimum."
-          value={values.enforceRosterMinimums}
-          onChange={(enforceRosterMinimums) =>
-            patch({ enforceRosterMinimums })
-          }
-        />
-
-        <Field>
-          <FieldLabel>Free agents during preseason (after draft)</FieldLabel>
-          <RadioGroup
-            value={values.preseasonFreeAgents}
-            onValueChange={(value) => {
-              if (value === "always_on_waivers" || value === "unlocked") {
-                patch({ preseasonFreeAgents: value });
-              }
-            }}
-            className="mt-3 grid gap-3"
-          >
-            <OptionLabel>
-              <RadioGroupItem value="always_on_waivers" className="mt-0.5" />
-              <span className="text-sm font-medium">Always-on waivers</span>
-            </OptionLabel>
-            <OptionLabel>
-              <RadioGroupItem value="unlocked" className="mt-0.5" />
-              <span className="text-sm font-medium">Unlocked</span>
-            </OptionLabel>
-          </RadioGroup>
-        </Field>
-
-        <YesNoField
-          label="Prevent cuts after game start"
-          description="Players whose NFL game has started cannot be dropped that week."
-          value={values.preventCutsAfterGameStart}
-          onChange={(preventCutsAfterGameStart) =>
-            patch({ preventCutsAfterGameStart })
-          }
-        />
-
-        <Field>
-          <FieldLabel>Transaction limits (in-season only)</FieldLabel>
-          <RadioGroup
-            value={values.transactionLimits}
-            onValueChange={(value) => {
-              if (
-                value === "unlimited" ||
-                value === "weekly" ||
-                value === "season" ||
-                value === "both"
-              ) {
-                patch({ transactionLimits: value });
-              }
-            }}
-            className="mt-3 grid gap-3"
-          >
-            <OptionLabel>
-              <RadioGroupItem value="unlimited" className="mt-0.5" />
-              <span className="text-sm font-medium">Unlimited</span>
-            </OptionLabel>
-            <OptionLabel>
-              <RadioGroupItem value="weekly" className="mt-0.5" />
-              <span className="text-sm font-medium">Weekly limit only</span>
-            </OptionLabel>
-            <OptionLabel>
-              <RadioGroupItem value="season" className="mt-0.5" />
-              <span className="text-sm font-medium">Season limit only</span>
-            </OptionLabel>
-            <OptionLabel>
-              <RadioGroupItem value="both" className="mt-0.5" />
-              <span className="text-sm font-medium">
-                Both weekly and season limits
-              </span>
-            </OptionLabel>
-          </RadioGroup>
-        </Field>
-      </FieldGroup>
-
-      <PageFormActions>
-        <Button
-          type="button"
-          variant="outline"
-          disabled={isPending || !hasChanges}
-          onClick={handleReset}
-        >
-          <HugeiconsIcon
-            icon={Cancel01Icon}
-            strokeWidth={2}
-            data-icon="inline-start"
           />
-          Reset
-        </Button>
-        <Button
-          type="button"
-          onClick={handleSave}
-          disabled={isPending || !hasChanges}
-        >
-          <HugeiconsIcon
-            icon={TickDouble02Icon}
-            strokeWidth={2}
-            data-icon="inline-start"
+
+          <YesNoField
+            id="enforceRosterMinimums"
+            label="Enforce roster minimums"
+            description="Block drops that would leave a team under the roster minimum."
+            value={values.enforceRosterMinimums}
+            onChange={(enforceRosterMinimums) =>
+              patch({ enforceRosterMinimums })
+            }
           />
-          Save
-        </Button>
-      </PageFormActions>
+
+          <Field>
+            <FieldLabel htmlFor="preseasonFreeAgents">
+              Free agents during preseason (after draft)
+            </FieldLabel>
+            <Select
+              items={[...PRESEASON_FA_ITEMS]}
+              value={values.preseasonFreeAgents}
+              onValueChange={(value) => {
+                if (value === "always_on_waivers" || value === "unlocked") {
+                  patch({ preseasonFreeAgents: value });
+                }
+              }}
+            >
+              <SelectTrigger id="preseasonFreeAgents" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  {PRESEASON_FA_ITEMS.map((item) => (
+                    <SelectItem key={item.value} value={item.value}>
+                      {item.label}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          </Field>
+
+          <YesNoField
+            id="preventCutsAfterGameStart"
+            label="Prevent cuts after game start"
+            description="Players whose NFL game has started cannot be dropped that week."
+            value={values.preventCutsAfterGameStart}
+            onChange={(preventCutsAfterGameStart) =>
+              patch({ preventCutsAfterGameStart })
+            }
+          />
+
+          <Field>
+            <FieldLabel htmlFor="transactionLimits">
+              Transaction limits (in-season only)
+            </FieldLabel>
+            <Select
+              items={[...TRANSACTION_LIMIT_ITEMS]}
+              value={values.transactionLimits}
+              onValueChange={(value) => {
+                if (
+                  value === "unlimited" ||
+                  value === "weekly" ||
+                  value === "season" ||
+                  value === "both"
+                ) {
+                  patch({ transactionLimits: value });
+                }
+              }}
+            >
+              <SelectTrigger id="transactionLimits" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  {TRANSACTION_LIMIT_ITEMS.map((item) => (
+                    <SelectItem key={item.value} value={item.value}>
+                      {item.label}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          </Field>
+
+          {values.transactionLimits === "weekly" ||
+          values.transactionLimits === "both" ? (
+            <Field>
+              <FieldLabel htmlFor="transactionWeeklyMax">
+                Weekly transaction max
+              </FieldLabel>
+              <NumberInput
+                id="transactionWeeklyMax"
+                min={1}
+                max={99}
+                value={values.transactionWeeklyMax}
+                onValueChange={(transactionWeeklyMax) =>
+                  patch({ transactionWeeklyMax })
+                }
+              />
+              <FieldDescription>
+                Counts trades, free-agent adds, and waiver awards per UTC week.
+              </FieldDescription>
+            </Field>
+          ) : null}
+
+          {values.transactionLimits === "season" ||
+          values.transactionLimits === "both" ? (
+            <Field>
+              <FieldLabel htmlFor="transactionSeasonMax">
+                Season transaction max
+              </FieldLabel>
+              <NumberInput
+                id="transactionSeasonMax"
+                min={1}
+                max={999}
+                value={values.transactionSeasonMax}
+                onValueChange={(transactionSeasonMax) =>
+                  patch({ transactionSeasonMax })
+                }
+              />
+            </Field>
+          ) : null}
+        </FieldGroup>
+      </SettingsFormCard>
     </div>
   );
 }

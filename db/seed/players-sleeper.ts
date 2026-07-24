@@ -1,5 +1,5 @@
 import dotenv from "dotenv";
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import {
   playerExternalIds,
@@ -30,8 +30,20 @@ type SleeperPlayer = {
   weight: string | null;
   college: string | null;
   number: number | null;
+  /** ESPN athlete id when Sleeper has a crosswalk. */
+  espn_id: number | string | null;
   metadata: { rookie_year?: string | null } | null;
 };
+
+function resolveEspnId(
+  value: number | string | null | undefined,
+): string | null {
+  if (value == null || value === "") {
+    return null;
+  }
+  const asString = String(value).trim();
+  return asString || null;
+}
 
 function resolveJerseyNumber(value: number | null | undefined): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
@@ -119,6 +131,7 @@ async function seedSleeperPlayers() {
 
       return {
         sleeperId: player.player_id,
+        espnId: resolveEspnId(player.espn_id),
         fullName: displayName,
         nflTeam: player.team,
         primaryPositionId: positionId,
@@ -154,6 +167,28 @@ async function seedSleeperPlayers() {
     existingExternalIds.map((row) => [row.externalId, row.playerId]),
   );
 
+  const existingPlayerIds = [...externalIdToPlayerId.values()];
+  const previousInjuryById = new Map<string, string | null>();
+  if (existingPlayerIds.length > 0) {
+    const previousRows = await db
+      .select({
+        id: players.id,
+        injuryStatus: players.injuryStatus,
+      })
+      .from(players)
+      .where(inArray(players.id, existingPlayerIds));
+    for (const row of previousRows) {
+      previousInjuryById.set(row.id, row.injuryStatus);
+    }
+  }
+
+  const injuryChanges: Array<{
+    playerId: string;
+    fullName: string;
+    previousStatus: string | null;
+    nextStatus: string | null;
+  }> = [];
+
   const counts: Record<string, number> = {
     QB: 0,
     RB: 0,
@@ -165,13 +200,71 @@ async function seedSleeperPlayers() {
 
   let inserted = 0;
   let updated = 0;
+  let espnLinked = 0;
 
   const activeSleeperIds = new Set(toImport.map((player) => player.sleeperId));
+
+  const existingEspnRows = await db
+    .select({
+      externalId: playerExternalIds.externalId,
+      playerId: playerExternalIds.playerId,
+    })
+    .from(playerExternalIds)
+    .where(eq(playerExternalIds.provider, "espn"));
+  const espnExternalIdToPlayerId = new Map(
+    existingEspnRows.map((row) => [row.externalId, row.playerId]),
+  );
+  const playerIdToEspnExternalId = new Map(
+    existingEspnRows.map((row) => [row.playerId, row.externalId]),
+  );
+
+  async function syncEspnExternalId(
+    playerId: string,
+    espnId: string | null,
+  ): Promise<void> {
+    if (!espnId) {
+      return;
+    }
+
+    const existingForEspn = espnExternalIdToPlayerId.get(espnId);
+    if (existingForEspn === playerId) {
+      return;
+    }
+
+    const previousEspnId = playerIdToEspnExternalId.get(playerId);
+    if (previousEspnId && previousEspnId !== espnId) {
+      await db
+        .delete(playerExternalIds)
+        .where(
+          and(
+            eq(playerExternalIds.provider, "espn"),
+            eq(playerExternalIds.externalId, previousEspnId),
+          ),
+        );
+      espnExternalIdToPlayerId.delete(previousEspnId);
+      playerIdToEspnExternalId.delete(playerId);
+    }
+
+    if (existingForEspn && existingForEspn !== playerId) {
+      // Another player already owns this ESPN id — skip rather than collide.
+      return;
+    }
+
+    await db.insert(playerExternalIds).values({
+      playerId,
+      provider: "espn",
+      externalId: espnId,
+    });
+    espnExternalIdToPlayerId.set(espnId, playerId);
+    playerIdToEspnExternalId.set(playerId, espnId);
+    espnLinked++;
+  }
 
   for (const player of toImport) {
     const existingPlayerId = externalIdToPlayerId.get(player.sleeperId);
 
     if (existingPlayerId) {
+      const previousStatus = previousInjuryById.get(existingPlayerId) ?? null;
       await db
         .update(players)
         .set({
@@ -191,6 +284,15 @@ async function seedSleeperPlayers() {
           updatedAt: new Date(),
         })
         .where(eq(players.id, existingPlayerId));
+      if ((previousStatus ?? null) !== (player.injuryStatus ?? null)) {
+        injuryChanges.push({
+          playerId: existingPlayerId,
+          fullName: player.fullName,
+          previousStatus,
+          nextStatus: player.injuryStatus,
+        });
+      }
+      await syncEspnExternalId(existingPlayerId, player.espnId);
       updated++;
     } else {
       const [created] = await db
@@ -219,10 +321,50 @@ async function seedSleeperPlayers() {
       });
 
       externalIdToPlayerId.set(player.sleeperId, created.id);
+      await syncEspnExternalId(created.id, player.espnId);
       inserted++;
     }
 
     counts[player.primaryPositionId]++;
+  }
+
+  if (injuryChanges.length > 0) {
+    try {
+      const { announceRosterInjuryChanges } = await import(
+        "@/lib/alerts/injuries"
+      );
+      await announceRosterInjuryChanges({ changes: injuryChanges });
+    } catch (error) {
+      console.error("[seed] injury notifications failed", error);
+    }
+  }
+
+  // Prefer ESPN roster name/team matches — Sleeper espn_id coverage is sparse.
+  const playersForEspnMatch = toImport.flatMap((player) => {
+    const playerId = externalIdToPlayerId.get(player.sleeperId);
+    if (!playerId || !player.nflTeam) {
+      return [];
+    }
+    return [
+      {
+        playerId,
+        fullName: player.fullName,
+        nflTeam: player.nflTeam,
+        primaryPositionId: player.primaryPositionId,
+        jerseyNumber: player.jerseyNumber,
+      },
+    ];
+  });
+
+  try {
+    const { matchPlayersToEspnIds } = await import("@/lib/espn/rosters");
+    const rosterMatches = await matchPlayersToEspnIds(playersForEspnMatch);
+    for (const [playerId, espnId] of rosterMatches) {
+      await syncEspnExternalId(playerId, espnId);
+    }
+    console.log(`ESPN roster matches applied: ${rosterMatches.size}`);
+  } catch (error) {
+    console.error("[seed] ESPN roster id backfill failed", error);
   }
 
   const inactivePlayerIds = existingExternalIds
@@ -261,6 +403,7 @@ async function seedSleeperPlayers() {
 
   console.log(`Imported ${toImport.length} active players from Sleeper.`);
   console.log(`Inserted: ${inserted}, Updated: ${updated}, Removed: ${removed}`);
+  console.log(`ESPN ids linked this run: ${espnLinked}`);
   if (orphansRemoved > 0) {
     console.log(`Removed ${orphansRemoved} players without Sleeper IDs.`);
   }

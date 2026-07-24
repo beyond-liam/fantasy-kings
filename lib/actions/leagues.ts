@@ -12,8 +12,11 @@ import {
 } from "@/db/schema";
 import { ensureProfile, requireSessionUser } from "@/lib/auth/session";
 import { db } from "@/lib/db";
-import { pickTimeToSeconds } from "@/lib/leagues/defaults";
-import { DEFAULT_DRAFT_SETTINGS } from "@/lib/leagues/draft-settings";
+import {
+  draftConfigPickTimeSeconds,
+  resolveDraftType,
+  toPersistedDraftSettings,
+} from "@/lib/leagues/draft-settings";
 import { DEFAULT_PLAYOFF_SETTINGS } from "@/lib/leagues/playoff-settings";
 import { buildPersistedRosterSlots } from "@/lib/leagues/roster";
 import { generateScheduleIfLeagueFull } from "@/lib/leagues/schedule/persist";
@@ -112,6 +115,7 @@ export async function createLeague(input: CreateLeagueWizardValues) {
     irEligibleStatuses: values.irEligibleStatuses,
     taxiEnabled: values.taxiEnabled,
     taxiSlots: values.taxiSlots,
+    taxiMaxYearsExp: values.taxiMaxYearsExp,
     customRosterSlots: values.customRosterSlots,
   });
 
@@ -160,20 +164,36 @@ export async function createLeague(input: CreateLeagueWizardValues) {
         tradesEnabled: values.tradesEnabled,
         tradeProcessing: values.tradeProcessing,
         tradeDeadlineWeek: values.tradesEnabled ? tradeDeadlineWeek : null,
-        draftType: values.draftType,
+        draftType: resolveDraftType(values.draftType),
         draftStartAt: new Date(values.draftStartAt),
-        pickTimeLimitSeconds: pickTimeToSeconds(
-          values.pickTimeLimit,
-          values.pickTimeUnit,
-        ),
-        emailNotificationsEnabled: values.draftType === "email",
+        pickTimeLimitSeconds: draftConfigPickTimeSeconds({
+          draftType: resolveDraftType(values.draftType),
+          draftStartAt: values.draftStartAt,
+          draftStyle: "snake",
+          pickTimeLimitEnabled: values.pickTimeLimitEnabled,
+          pickTimeLimit: values.pickTimeLimit,
+          pickTimeUnit: values.pickTimeUnit,
+          autoPickEnabled: false,
+        }),
+        emailNotificationsEnabled: false,
         settings: {
           rosterSlots,
-          draft: DEFAULT_DRAFT_SETTINGS,
+          draft: toPersistedDraftSettings({
+            draftType: resolveDraftType(values.draftType),
+            draftStartAt: values.draftStartAt,
+            draftStyle: "snake",
+            pickTimeLimitEnabled: values.pickTimeLimitEnabled,
+            pickTimeLimit: values.pickTimeLimit,
+            pickTimeUnit: values.pickTimeUnit,
+            autoPickEnabled: false,
+          }),
           schedule: DEFAULT_SCHEDULE_SETTINGS,
           playoffs: DEFAULT_PLAYOFF_SETTINGS,
           irEligibleStatuses: values.irEnabled
             ? values.irEligibleStatuses
+            : undefined,
+          taxiMaxYearsExp: values.taxiEnabled
+            ? values.taxiMaxYearsExp
             : undefined,
         },
       })
@@ -209,7 +229,7 @@ export async function createLeague(input: CreateLeagueWizardValues) {
         publicId: generatePublicId(),
         slug: teamSlug,
         draftSlot: slot,
-        autoPickEnabled: DEFAULT_DRAFT_SETTINGS.autoPickEnabled,
+        autoPickEnabled: false,
         waiverPriority: slot,
         faabRemaining:
           values.waiversEnabled && values.waiverType === "faab"

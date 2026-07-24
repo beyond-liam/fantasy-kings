@@ -1,12 +1,5 @@
 "use client";
 
-import {
-  Field,
-  FieldContent,
-  FieldDescription,
-  FieldLabel,
-  FieldTitle,
-} from "@/components/ui/field";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   SCORING_PRESET_OPTIONS,
@@ -24,29 +17,23 @@ export function ScoringPresetPicker({
 }: ScoringPresetPickerProps) {
   return (
     <RadioGroup
+      variant="card"
       value={value}
       onValueChange={(nextValue) => {
         if (nextValue) {
           onValueChange(nextValue as ScoringPreset);
         }
       }}
-      className="grid gap-3 sm:grid-cols-3"
+      className="sm:grid-cols-3"
     >
-      {SCORING_PRESET_OPTIONS.map((option) => {
-        const id = `scoring-preset-${option.value}`;
-
-        return (
-          <FieldLabel key={option.value} htmlFor={id}>
-            <Field orientation="horizontal">
-              <FieldContent>
-                <FieldTitle>{option.label}</FieldTitle>
-                <FieldDescription>{option.description}</FieldDescription>
-              </FieldContent>
-              <RadioGroupItem value={option.value} id={id} />
-            </Field>
-          </FieldLabel>
-        );
-      })}
+      {SCORING_PRESET_OPTIONS.map((option) => (
+        <RadioGroupItem key={option.value} value={option.value}>
+          <span className="block text-sm font-medium">{option.label}</span>
+          <span className="block text-sm text-muted-foreground">
+            {option.description}
+          </span>
+        </RadioGroupItem>
+      ))}
     </RadioGroup>
   );
 }

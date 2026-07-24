@@ -137,3 +137,150 @@ export async function announceTradeVetoed(input: {
     },
   });
 }
+
+/** Trade rejected by counterparty → proposer in-app + email. */
+export async function announceTradeRejected(input: {
+  tradeId: string;
+  leagueSeasonId: string;
+  leaguePublicId: string;
+  leagueName: string;
+  proposingTeamId: string;
+  rejectingTeamName: string;
+}) {
+  const owners = await getTeamOwnerUserIds([input.proposingTeamId]);
+  await deliverAlert({
+    userIds: [owners.get(input.proposingTeamId)],
+    inApp: {
+      leagueSeasonId: input.leagueSeasonId,
+      leaguePublicId: input.leaguePublicId,
+      type: "trade_update",
+      title: "Trade offer rejected",
+      body: `${input.rejectingTeamName} rejected your trade offer.`,
+      tradeId: input.tradeId,
+    },
+    email: {
+      subject: `${input.leagueName}: Trade rejected`,
+      title: "Trade offer rejected",
+      body: `${input.rejectingTeamName} rejected your trade offer in ${input.leagueName}.`,
+      ctaLabel: "View trades",
+      ctaUrl: tradesUrl(input.leaguePublicId),
+      dedupeKeyForUser: (userId) =>
+        `trade:rejected:${input.tradeId}:${userId}`,
+      tags: ["trade", "trade-rejected"],
+    },
+  });
+}
+
+/** Proposer cancelled → counterparty in-app + email. */
+export async function announceTradeCancelled(input: {
+  tradeId: string;
+  leagueSeasonId: string;
+  leaguePublicId: string;
+  leagueName: string;
+  receivingTeamId: string;
+  cancellingTeamName: string;
+}) {
+  const owners = await getTeamOwnerUserIds([input.receivingTeamId]);
+  await deliverAlert({
+    userIds: [owners.get(input.receivingTeamId)],
+    inApp: {
+      leagueSeasonId: input.leagueSeasonId,
+      leaguePublicId: input.leaguePublicId,
+      type: "trade_update",
+      title: "Trade offer cancelled",
+      body: `${input.cancellingTeamName} cancelled their trade offer.`,
+      tradeId: input.tradeId,
+    },
+    email: {
+      subject: `${input.leagueName}: Trade cancelled`,
+      title: "Trade offer cancelled",
+      body: `${input.cancellingTeamName} cancelled their trade offer in ${input.leagueName}.`,
+      ctaLabel: "View trades",
+      ctaUrl: tradesUrl(input.leaguePublicId),
+      dedupeKeyForUser: (userId) =>
+        `trade:cancelled:${input.tradeId}:${userId}`,
+      tags: ["trade", "trade-cancelled"],
+    },
+  });
+}
+
+/** Trade completed (review / commissioner) → both sides in-app + email. */
+export async function announceTradeCompleted(input: {
+  tradeId: string;
+  leagueSeasonId: string;
+  leaguePublicId: string;
+  leagueName: string;
+  proposingTeamId: string;
+  receivingTeamId: string;
+  title?: string;
+  body: string;
+}) {
+  const owners = await getTeamOwnerUserIds([
+    input.proposingTeamId,
+    input.receivingTeamId,
+  ]);
+  const title = input.title ?? "Trade completed";
+  await deliverAlert({
+    userIds: [
+      owners.get(input.proposingTeamId),
+      owners.get(input.receivingTeamId),
+    ],
+    inApp: {
+      leagueSeasonId: input.leagueSeasonId,
+      leaguePublicId: input.leaguePublicId,
+      type: "trade_update",
+      title,
+      body: input.body,
+      tradeId: input.tradeId,
+    },
+    email: {
+      subject: `${input.leagueName}: ${title}`,
+      title,
+      body: `${input.body} (${input.leagueName})`,
+      ctaLabel: "View trades",
+      ctaUrl: tradesUrl(input.leaguePublicId),
+      dedupeKeyForUser: (userId) =>
+        `trade:completed:${input.tradeId}:${userId}`,
+      tags: ["trade", "trade-completed"],
+    },
+  });
+}
+
+/** Commissioner rejected → both sides in-app + email. */
+export async function announceTradeCommissionerRejected(input: {
+  tradeId: string;
+  leagueSeasonId: string;
+  leaguePublicId: string;
+  leagueName: string;
+  proposingTeamId: string;
+  receivingTeamId: string;
+}) {
+  const owners = await getTeamOwnerUserIds([
+    input.proposingTeamId,
+    input.receivingTeamId,
+  ]);
+  await deliverAlert({
+    userIds: [
+      owners.get(input.proposingTeamId),
+      owners.get(input.receivingTeamId),
+    ],
+    inApp: {
+      leagueSeasonId: input.leagueSeasonId,
+      leaguePublicId: input.leaguePublicId,
+      type: "trade_update",
+      title: "Trade rejected",
+      body: "The commissioner rejected your trade.",
+      tradeId: input.tradeId,
+    },
+    email: {
+      subject: `${input.leagueName}: Trade rejected`,
+      title: "Trade rejected",
+      body: `The commissioner rejected your trade in ${input.leagueName}.`,
+      ctaLabel: "View trades",
+      ctaUrl: tradesUrl(input.leaguePublicId),
+      dedupeKeyForUser: (userId) =>
+        `trade:comm-rejected:${input.tradeId}:${userId}`,
+      tags: ["trade", "trade-rejected"],
+    },
+  });
+}

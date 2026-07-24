@@ -1,5 +1,6 @@
 import { PlayersDataTable } from "@/components/rankings/players-data-table";
 import { IrLockAlert } from "@/components/team/ir-lock-alert";
+import { TaxiLockAlert } from "@/components/team/taxi-lock-alert";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import type { LeagueSeasonSettings } from "@/db/schema/league-seasons";
 import { getNflScoreboard } from "@/lib/espn/scoreboard";
@@ -9,6 +10,11 @@ import {
   getIrLockViolations,
   IR_ACQUISITION_LOCK_REASON,
 } from "@/lib/leagues/ir-lock";
+import {
+  formatTaxiLockMessage,
+  getTaxiLockViolations,
+} from "@/lib/leagues/taxi-lock";
+import { resolveTaxiMaxYearsExp } from "@/lib/leagues/taxi-eligibility";
 import type { ScoringPreset } from "@/lib/leagues/scoring";
 import type { ScoringRuleDefinition } from "@/lib/leagues/scoring/types";
 import { resolveWaiverWireSettings } from "@/lib/leagues/waiver-wire";
@@ -129,10 +135,24 @@ export async function LeaguePlayersTable({
     rosterPlayers,
     seasonSettings.irEligibleStatuses,
   );
-  const acquisitionsLocked = irViolations.length > 0;
-  const acquisitionLockReason = acquisitionsLocked
-    ? formatIrLockMessage(irViolations)
-    : IR_ACQUISITION_LOCK_REASON;
+  const taxiViolations = getTaxiLockViolations(
+    rosterPlayers,
+    resolveTaxiMaxYearsExp(seasonSettings.taxiMaxYearsExp),
+  );
+  const acquisitionsLocked =
+    irViolations.length > 0 || taxiViolations.length > 0;
+  const acquisitionLockReason = (() => {
+    if (irViolations.length > 0 && taxiViolations.length > 0) {
+      return `${formatIrLockMessage(irViolations)} ${formatTaxiLockMessage(taxiViolations)}`;
+    }
+    if (irViolations.length > 0) {
+      return formatIrLockMessage(irViolations);
+    }
+    if (taxiViolations.length > 0) {
+      return formatTaxiLockMessage(taxiViolations);
+    }
+    return IR_ACQUISITION_LOCK_REASON;
+  })();
 
   if (ownershipResult.ok) {
     ownershipMap = ownershipResult.map;
@@ -230,6 +250,7 @@ export async function LeaguePlayersTable({
       ) : null}
 
       <IrLockAlert violations={irViolations} />
+      <TaxiLockAlert violations={taxiViolations} />
 
       <PlayersDataTable
         currentSeason={currentSeason}

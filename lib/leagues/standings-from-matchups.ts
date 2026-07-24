@@ -1,3 +1,7 @@
+import type {
+  RankTiebreakerId,
+  TiebreakerSettings,
+} from "@/db/schema/league-seasons";
 import type { FinalMatchupRecord } from "@/lib/leagues/standings";
 import {
   buildPlaceholderStandings,
@@ -5,6 +9,8 @@ import {
   type LeagueStandingsMember,
   type LeagueStandingsRow,
 } from "@/lib/leagues/standings";
+import { compareRankTiebreakers } from "@/lib/leagues/tiebreakers/rank-compare";
+import { DEFAULT_TIEBREAKER_SETTINGS } from "@/lib/leagues/tiebreakers";
 
 const TIE_EPSILON = 0.05;
 
@@ -47,20 +53,24 @@ function streakFromResults(results: Array<"W" | "L" | "T">): string | null {
   return `${last}${length}`;
 }
 
-function compareStandingsRows(a: LeagueStandingsRow, b: LeagueStandingsRow) {
-  if (a.claimed !== b.claimed) {
-    return a.claimed ? -1 : 1;
-  }
-  if (b.winPct !== a.winPct) {
-    return b.winPct - a.winPct;
-  }
-  if (b.pointsFor !== a.pointsFor) {
-    return b.pointsFor - a.pointsFor;
-  }
-  if (b.pointsAgainst !== a.pointsAgainst) {
-    return a.pointsAgainst - b.pointsAgainst;
-  }
-  return a.teamName.localeCompare(b.teamName);
+export type StandingsTiebreakerOptions = {
+  breakRegularSeasonTies?: boolean;
+  rankTiebreakers?: RankTiebreakerId[];
+};
+
+function resolveSortOptions(
+  options?: StandingsTiebreakerOptions | TiebreakerSettings | null,
+): {
+  breakTies: boolean;
+  order: RankTiebreakerId[];
+} {
+  return {
+    breakTies:
+      options?.breakRegularSeasonTies ??
+      DEFAULT_TIEBREAKER_SETTINGS.breakRegularSeasonTies,
+    order:
+      options?.rankTiebreakers ?? DEFAULT_TIEBREAKER_SETTINGS.rankTiebreakers,
+  };
 }
 
 /**
@@ -70,8 +80,10 @@ function compareStandingsRows(a: LeagueStandingsRow, b: LeagueStandingsRow) {
 export function applyFinalMatchupsToStandings(
   baseRows: LeagueStandingsRow[],
   finals: FinalMatchupRecord[],
+  tiebreakers?: StandingsTiebreakerOptions | TiebreakerSettings | null,
 ): LeagueStandingsRow[] {
   const byTeam = new Map<string, TeamAccum>();
+  const { breakTies, order } = resolveSortOptions(tiebreakers);
 
   const sortedFinals = finals.toSorted(
     (a, b) => a.week - b.week || a.id.localeCompare(b.id),
@@ -144,19 +156,47 @@ export function applyFinalMatchupsToStandings(
     };
   });
 
-  const claimed = withRecords
-    .filter((row) => row.claimed)
-    .toSorted(compareStandingsRows);
+  const winPctByTeamId = new Map<string, number>();
+  const pointsForByTeamId = new Map<string, number>();
+  for (const row of withRecords) {
+    if (!row.teamId || !row.claimed) continue;
+    winPctByTeamId.set(row.teamId, row.winPct);
+    pointsForByTeamId.set(row.teamId, row.pointsFor);
+  }
+
+  const claimed = withRecords.filter((row) => row.claimed);
   const unclaimed = withRecords.filter((row) => !row.claimed);
 
-  const leader = claimed[0] ?? null;
-  const ranked = claimed.map((row, index) => {
+  const sortedClaimed = claimed.toSorted((a, b) => {
+    if (a.claimed !== b.claimed) {
+      return a.claimed ? -1 : 1;
+    }
+    if (b.winPct !== a.winPct) {
+      return b.winPct - a.winPct;
+    }
+    if (!a.teamId || !b.teamId) {
+      return a.teamName.localeCompare(b.teamName);
+    }
+    // Same win% group — use configured rank tiebreakers among all teams
+    // sharing this win% (H2H among the full tied set).
+    const tiedIds = new Set(
+      claimed
+        .filter((row) => row.teamId && row.winPct === a.winPct)
+        .map((row) => row.teamId!),
+    );
+    return compareRankTiebreakers(a, b, tiedIds, order, breakTies, {
+      finals: sortedFinals,
+      winPctByTeamId,
+      pointsForByTeamId,
+    });
+  });
+
+  const leader = sortedClaimed[0] ?? null;
+  const ranked = sortedClaimed.map((row, index) => {
     let gamesBehind: number | null = null;
     if (leader && row.teamId !== leader.teamId) {
       const gb =
-        leader.wins -
-        row.wins +
-        (row.losses - leader.losses) / 2;
+        leader.wins - row.wins + (row.losses - leader.losses) / 2;
       gamesBehind = Math.round(gb * 10) / 10;
     } else if (leader && row.teamId === leader.teamId) {
       gamesBehind = 0;
@@ -176,10 +216,11 @@ export function buildLeagueStandings(
   members: LeagueStandingsMember[],
   options: BuildStandingsOptions,
   finals: FinalMatchupRecord[] = [],
+  tiebreakers?: StandingsTiebreakerOptions | TiebreakerSettings | null,
 ): LeagueStandingsRow[] {
   const base = buildPlaceholderStandings(members, options);
   if (finals.length === 0) {
     return base;
   }
-  return applyFinalMatchupsToStandings(base, finals);
+  return applyFinalMatchupsToStandings(base, finals, tiebreakers);
 }

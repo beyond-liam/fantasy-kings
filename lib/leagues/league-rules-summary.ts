@@ -15,6 +15,10 @@ import {
   resolveTiebreakerSettings,
 } from "@/lib/leagues/tiebreakers";
 import {
+  resolveTaxiMaxYearsExp,
+  taxiMaxYearsLabel,
+} from "@/lib/leagues/taxi-eligibility";
+import {
   resolveTransactionRules,
   TRADE_PROCESSING_OPTIONS,
 } from "@/lib/leagues/transaction-rules";
@@ -126,15 +130,15 @@ function churnPreventionLabel(
 }
 
 function transactionLimitsLabel(
-  value: ReturnType<typeof resolveTransactionRules>["transactionLimits"],
+  rules: ReturnType<typeof resolveTransactionRules>,
 ): string {
-  switch (value) {
+  switch (rules.transactionLimits) {
     case "weekly":
-      return "Weekly limit only";
+      return `${rules.transactionWeeklyMax} per week`;
     case "season":
-      return "Season limit only";
+      return `${rules.transactionSeasonMax} per season`;
     case "both":
-      return "Both weekly and season limits";
+      return `${rules.transactionWeeklyMax} per week, ${rules.transactionSeasonMax} per season`;
     default:
       return "Unlimited";
   }
@@ -218,6 +222,16 @@ export function buildLeagueRulesSummary(input: {
           label: "Taxi Slots",
           value: season.taxiEnabled ? String(season.taxiSlots) : "Off",
         },
+        ...(season.taxiEnabled
+          ? [
+              {
+                label: "Taxi Eligibility",
+                value: taxiMaxYearsLabel(
+                  resolveTaxiMaxYearsExp(settings.taxiMaxYearsExp),
+                ),
+              },
+            ]
+          : []),
       ],
     },
     {
@@ -378,7 +392,7 @@ export function buildLeagueRulesSummary(input: {
       },
       {
         label: "Transaction Limits",
-        value: transactionLimitsLabel(transactions.transactionLimits),
+        value: transactionLimitsLabel(transactions),
       },
     ],
   });
@@ -433,7 +447,7 @@ export function buildLeagueRulesSummary(input: {
           .join("\n"),
       },
       {
-        label: "Retroactively Apply Official Stat Changes",
+        label: "Allow Official Score Corrections",
         value: yesNo(tiebreakers.applyOfficialStatChanges),
       },
     ],

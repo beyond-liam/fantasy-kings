@@ -6,6 +6,7 @@ import { Cancel01Icon, TickDouble02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { settingsHref } from "@/lib/leagues/settings-tabs";
 
+import { SettingsFormCard } from "@/components/leagues/settings/settings-form-card";
 import { PageFormActions } from "@/components/layout/page-form-actions";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -162,24 +163,45 @@ export function LeagueSizeSettings({
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold tracking-tight text-balance">
-          Edit League Size
-        </h1>
-        <p className="text-sm text-pretty text-muted-foreground">
-          {memberCount} of {teamCount} slots filled. You can only shrink below
-          the current size after removing owners. Team count must divide evenly
-          by divisions.
-        </p>
-      </div>
-
       {error ? (
         <Alert variant="destructive">
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       ) : null}
 
-      <FieldGroup>
+      <SettingsFormCard
+        title="Edit League Size"
+        footer={
+          <PageFormActions>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={isPending}
+              onClick={() => router.push(settingsHref(slug, "league"))}
+            >
+              <HugeiconsIcon
+                icon={Cancel01Icon}
+                strokeWidth={2}
+                data-icon="inline-start"
+              />
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              disabled={isPending || !hasChanges}
+              onClick={handleSave}
+            >
+              <HugeiconsIcon
+                icon={TickDouble02Icon}
+                strokeWidth={2}
+                data-icon="inline-start"
+              />
+              Save
+            </Button>
+          </PageFormActions>
+        }
+      >
+        <FieldGroup>
         <Field>
           <FieldLabel>Number of teams</FieldLabel>
           <Select
@@ -188,7 +210,7 @@ export function LeagueSizeSettings({
               if (value != null) setNextTeamCount(value);
             }}
           >
-            <SelectTrigger className="w-full max-w-xs">
+            <SelectTrigger className="w-full">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -208,7 +230,7 @@ export function LeagueSizeSettings({
             value={nextDivisionCount}
             onValueChange={handleDivisionCountChange}
           >
-            <SelectTrigger className="w-full max-w-xs">
+            <SelectTrigger className="w-full">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -228,7 +250,7 @@ export function LeagueSizeSettings({
         {selectedDivisionCount > 1 ? (
           <Field>
             <FieldLabel>Division names</FieldLabel>
-            <div className="mt-2 grid max-w-xl gap-3">
+            <div className="mt-2 grid gap-3">
               {Array.from({ length: selectedDivisionCount }, (_, index) => (
                 <Input
                   key={`division-name-${index}`}
@@ -252,35 +274,8 @@ export function LeagueSizeSettings({
             </div>
           </Field>
         ) : null}
-      </FieldGroup>
-
-      <PageFormActions>
-        <Button
-          type="button"
-          variant="outline"
-          disabled={isPending}
-          onClick={() => router.push(settingsHref(slug, "league"))}
-        >
-          <HugeiconsIcon
-            icon={Cancel01Icon}
-            strokeWidth={2}
-            data-icon="inline-start"
-          />
-          Cancel
-        </Button>
-        <Button
-          type="button"
-          disabled={isPending || !hasChanges}
-          onClick={handleSave}
-        >
-          <HugeiconsIcon
-            icon={TickDouble02Icon}
-            strokeWidth={2}
-            data-icon="inline-start"
-          />
-          Save
-        </Button>
-      </PageFormActions>
+        </FieldGroup>
+      </SettingsFormCard>
     </div>
   );
 }

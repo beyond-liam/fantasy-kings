@@ -28,6 +28,7 @@ export function getInitialWizardValues(): CreateLeagueWizardValues {
     irEligibleStatuses: [...WIZARD_DEFAULTS.irEligibleStatuses],
     taxiEnabled: WIZARD_DEFAULTS.taxiEnabled,
     taxiSlots: WIZARD_DEFAULTS.taxiSlots,
+    taxiMaxYearsExp: WIZARD_DEFAULTS.taxiMaxYearsExp,
     scoringPreset: WIZARD_DEFAULTS.scoringPreset,
     customRosterSlots: buildStandardRosterSlots(
       WIZARD_DEFAULTS.benchSlots,
@@ -42,6 +43,7 @@ export function getInitialWizardValues(): CreateLeagueWizardValues {
     tradeDeadlineWeek: regularSeasonEndWeek,
     draftType: WIZARD_DEFAULTS.draftType,
     draftStartAt: getDefaultDraftStartAt().toISOString(),
+    pickTimeLimitEnabled: WIZARD_DEFAULTS.pickTimeLimitEnabled,
     pickTimeLimit: WIZARD_DEFAULTS.pickTimeLimit,
     pickTimeUnit: WIZARD_DEFAULTS.pickTimeUnit,
   };
@@ -57,7 +59,15 @@ export function loadWizardValues(): CreateLeagueWizardValues {
     if (!raw) {
       return getInitialWizardValues();
     }
-    return { ...getInitialWizardValues(), ...JSON.parse(raw) };
+    const parsed = JSON.parse(raw) as Partial<CreateLeagueWizardValues>;
+    return {
+      ...getInitialWizardValues(),
+      ...parsed,
+      pickTimeLimitEnabled:
+        typeof parsed.pickTimeLimitEnabled === "boolean"
+          ? parsed.pickTimeLimitEnabled
+          : true,
+    };
   } catch {
     return getInitialWizardValues();
   }

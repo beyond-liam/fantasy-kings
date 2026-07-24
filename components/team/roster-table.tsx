@@ -216,7 +216,9 @@ export function TeamRosterTable({
                   >
                     <TeamTableColumnHeader
                       title={column.header}
-                      tooltip={"tooltip" in column ? column.tooltip : undefined}
+                      tooltip={
+                        "tooltip" in column ? column.tooltip : undefined
+                      }
                       srOnly={"srOnly" in column ? column.srOnly : undefined}
                     />
                   </TableHead>
@@ -258,7 +260,9 @@ export function TeamRosterTable({
                         }
                       />
                     ) : (
-                      <span className="text-muted-foreground">{PLACEHOLDER}</span>
+                      <span className="text-muted-foreground">
+                        {PLACEHOLDER}
+                      </span>
                     )}
                   </TableCell>
                   <TableCell className="text-muted-foreground">

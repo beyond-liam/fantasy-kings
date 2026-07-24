@@ -46,46 +46,95 @@ function MissingBlock() {
   );
 }
 
+function ColorSwatch({
+  tone,
+  className,
+}: {
+  tone: "muted" | "primary";
+  className?: string;
+}) {
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        "size-3 shrink-0 rounded-xs",
+        tone === "primary" ? "bg-primary" : "bg-muted",
+        className,
+      )}
+    />
+  );
+}
+
 function MatchupPredictor({
   awayAbbrev,
   homeAbbrev,
+  awayLogoUrl,
+  homeLogoUrl,
   awayPct,
   homePct,
 }: {
   awayAbbrev: string;
   homeAbbrev: string;
+  awayLogoUrl: string;
+  homeLogoUrl: string;
   awayPct: number;
   homePct: number;
 }) {
-  const gradient = `conic-gradient(var(--primary) 0 ${homePct}%, var(--muted) ${homePct}% 100%)`;
-
   return (
-    <div className="flex flex-col items-center gap-4 py-2">
-      <div
-        className="relative size-36 rounded-full"
-        style={{ background: gradient }}
-        role="img"
-        aria-label={`${awayAbbrev} ${awayPct}%, ${homeAbbrev} ${homePct}%`}
-      >
-        <div className="absolute inset-4 flex flex-col items-center justify-center rounded-full bg-card text-center">
-          <p className="text-xs text-muted-foreground">Win %</p>
-          <p className="text-sm font-semibold tabular-nums">
-            {awayPct.toFixed(1)} / {homePct.toFixed(1)}
-          </p>
+    <div
+      className="flex flex-col items-center gap-4 py-2"
+      role="img"
+      aria-label={`${awayAbbrev} ${awayPct}%, ${homeAbbrev} ${homePct}%`}
+    >
+      <div className="relative size-28 sm:size-32">
+        <div
+          className="absolute inset-0 rounded-full"
+          style={{
+            background: `conic-gradient(var(--primary) 0 ${homePct}%, var(--muted) ${homePct}% 100%)`,
+            maskImage:
+              "radial-gradient(farthest-side, transparent 72%, #000 73%)",
+            WebkitMaskImage:
+              "radial-gradient(farthest-side, transparent 72%, #000 73%)",
+          }}
+        />
+        <div className="absolute inset-[22%] flex items-center justify-center gap-1.5">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={awayLogoUrl}
+            alt=""
+            width={28}
+            height={28}
+            className="size-6 object-contain sm:size-7"
+          />
+          <span
+            aria-hidden
+            className="h-7 w-px shrink-0 border-l border-dashed border-muted-foreground/40"
+          />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={homeLogoUrl}
+            alt=""
+            width={28}
+            height={28}
+            className="size-6 object-contain sm:size-7"
+          />
         </div>
       </div>
+
       <div className="flex w-full justify-between gap-2 text-sm font-medium">
-        <span>
+        <span className="flex items-center gap-1.5">
+          <ColorSwatch tone="muted" />
           {awayAbbrev}{" "}
           <span className="tabular-nums text-muted-foreground">
             {awayPct.toFixed(1)}%
           </span>
         </span>
-        <span>
+        <span className="flex items-center gap-1.5">
           {homeAbbrev}{" "}
           <span className="tabular-nums text-muted-foreground">
             {homePct.toFixed(1)}%
           </span>
+          <ColorSwatch tone="primary" />
         </span>
       </div>
     </div>
@@ -98,8 +147,8 @@ function InjuryDot({ status }: { status: string }) {
     <span
       className={cn(
         "inline-block size-2 shrink-0 rounded-full",
-        injury?.tone === "questionable" && "bg-orange-500",
-        (!injury || injury.tone === "out") && "bg-rose-500",
+        injury?.tone === "questionable" && "bg-warning",
+        (!injury || injury.tone === "out") && "bg-destructive",
       )}
       aria-hidden
     />
@@ -126,6 +175,8 @@ export function PreGameDashboard({ data }: PreGameDashboardProps) {
             <MatchupPredictor
               awayAbbrev={game.away.abbreviation}
               homeAbbrev={game.home.abbreviation}
+              awayLogoUrl={game.away.logoUrl}
+              homeLogoUrl={game.home.logoUrl}
               awayPct={data.predictor.awayPct}
               homePct={data.predictor.homePct}
             />

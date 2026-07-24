@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 import { WatchlistProvider } from "@/components/rankings/watchlist-provider";
 import { IrLockAlert } from "@/components/team/ir-lock-alert";
+import { TaxiLockAlert } from "@/components/team/taxi-lock-alert";
 import { TeamRosterSections } from "@/components/team/roster-sections";
 import { TeamStatsSections } from "@/components/team/stats-sections";
 import {
@@ -17,7 +18,7 @@ import { TeamScheduleList } from "@/components/team/team-schedule-list";
 import { TeamWatchlistSection } from "@/components/team/watchlist-section";
 import { TeamSettingsSection } from "@/components/team/team-settings-section";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { getSessionUser } from "@/lib/auth/session";
+import { getSessionUser, ensureProfile } from "@/lib/auth/session";
 import { getNflScoreboard } from "@/lib/espn/scoreboard";
 import {
   buildOpponentByTeam,
@@ -32,6 +33,11 @@ import {
   getIrLockViolations,
   IR_ACQUISITION_LOCK_REASON,
 } from "@/lib/leagues/ir-lock";
+import {
+  formatTaxiLockMessage,
+  getTaxiLockViolations,
+} from "@/lib/leagues/taxi-lock";
+import { resolveTaxiMaxYearsExp } from "@/lib/leagues/taxi-eligibility";
 import {
   resolveScoringRuleDefinitions,
   type ScoringPreset,
@@ -70,10 +76,20 @@ import {
 import { getTeamSchedule } from "@/lib/queries/matchups";
 import { enrichScheduleWinChances } from "@/lib/queries/schedule-win-chance";
 import {
+  getFinalMatchupsForSeason,
+  recordsFromFinalMatchups,
+} from "@/lib/leagues/matchups/finalize";
+import { buildScheduleDisplayRows } from "@/lib/leagues/schedule-display";
+import {
   getLeagueWatchlistPlayerIds,
   getTeamWatchlist,
   getUserTeamForLeague,
 } from "@/lib/queries/watchlist";
+import {
+  formatWaiverPriority,
+  resolveTeamSummaryMatchups,
+  type TeamSummaryScheduleRow,
+} from "@/lib/leagues/team-summary";
 import { getNflState } from "@/lib/sleeper/api";
 
 type MyTeamPageProps = {
@@ -140,9 +156,8 @@ export default async function MyTeamPage({
   const needsDraftPicksPanel = activeTab === "draft-picks";
   const needsSettingsPanel = activeTab === "settings";
 
-  // Light roster load for IR banner on tabs that can acquire players.
-  const needsRosterForIr =
-    needsRosterPanel || needsWatchlistPanel || needsTransactionsPanel;
+  // Light roster load for IR/taxi banners on every My Team tab.
+  const needsRosterForIr = Boolean(team);
   const needsNflState =
     needsRosterPanel ||
     needsStatsPanel ||
@@ -150,6 +165,7 @@ export default async function MyTeamPage({
     needsSchedulePanel;
   const needsScoreboard =
     needsRosterPanel || needsWatchlistPanel || needsSchedulePanel;
+  const needsTeamSchedule = needsRosterPanel || needsSchedulePanel;
 
   const nflStatePromise =
     needsNflState || needsScoreboard ? getNflState() : null;
@@ -160,6 +176,8 @@ export default async function MyTeamPage({
     rosterPlayers,
     nflState,
     scoreboard,
+    teamScheduleRows,
+    profile,
   ] = await Promise.all([
     team ? getIncomingTradeActionCount(team.id) : Promise.resolve(0),
     team
@@ -182,6 +200,10 @@ export default async function MyTeamPage({
           })
           .catch(() => null)
       : Promise.resolve(null),
+    team && needsTeamSchedule
+      ? getTeamSchedule(season.id, team.id)
+      : Promise.resolve([]),
+    ensureProfile(user),
   ]);
 
   const nflWeek = Math.max(1, Number(nflState?.week) || 1);
@@ -218,10 +240,24 @@ export default async function MyTeamPage({
     rosterPlayers,
     season.settings.irEligibleStatuses,
   );
-  const acquisitionsLocked = irViolations.length > 0;
-  const acquisitionLockReason = acquisitionsLocked
-    ? formatIrLockMessage(irViolations)
-    : IR_ACQUISITION_LOCK_REASON;
+  const taxiViolations = getTaxiLockViolations(
+    rosterPlayers,
+    resolveTaxiMaxYearsExp(season.settings.taxiMaxYearsExp),
+  );
+  const acquisitionsLocked =
+    irViolations.length > 0 || taxiViolations.length > 0;
+  const acquisitionLockReason = (() => {
+    if (irViolations.length > 0 && taxiViolations.length > 0) {
+      return `${formatIrLockMessage(irViolations)} ${formatTaxiLockMessage(taxiViolations)}`;
+    }
+    if (irViolations.length > 0) {
+      return formatIrLockMessage(irViolations);
+    }
+    if (taxiViolations.length > 0) {
+      return formatTaxiLockMessage(taxiViolations);
+    }
+    return IR_ACQUISITION_LOCK_REASON;
+  })();
 
   let rosterPanel = null;
   let statsPanel = null;
@@ -266,6 +302,22 @@ export default async function MyTeamPage({
         startPct: rates?.startPct ?? null,
       });
     });
+    const summarySchedule: TeamSummaryScheduleRow[] = teamScheduleRows.map(
+      (row) => ({
+        week: row.week,
+        publicId: row.publicId,
+        opponentName: row.opponentName,
+        opponentSlug: row.opponentSlug,
+        isHome: row.isHome,
+        status: row.status,
+        teamPts: row.isHome ? row.homePts : row.awayPts,
+        opponentPts: row.isHome ? row.awayPts : row.homePts,
+      }),
+    );
+    const { previous, current } = resolveTeamSummaryMatchups(
+      summarySchedule,
+      nflWeek,
+    );
     rosterPanel = (
       <TeamRosterSections
         rosterSlots={season.settings.rosterSlots}
@@ -275,10 +327,23 @@ export default async function MyTeamPage({
         irEligibleStatuses={season.settings.irEligibleStatuses}
         taxiEnabled={season.taxiEnabled}
         taxiSlots={season.taxiSlots}
+        taxiMaxYearsExp={season.settings.taxiMaxYearsExp}
         players={rosterPlayersWithRates}
         leagueSlug={slug}
         actionsEnabled={actionsEnabled}
         tradesEnabled={season.tradesEnabled && actionsEnabled}
+        summary={{
+          waiverPriorityLabel: season.waiversEnabled
+            ? formatWaiverPriority(team.waiverPriority)
+            : null,
+          ownerName:
+            profile.username?.trim() ||
+            profile.displayName?.trim() ||
+            null,
+          previous,
+          current,
+          myTeamSlug: team.publicId ?? team.slug,
+        }}
       />
     );
   }
@@ -385,16 +450,16 @@ export default async function MyTeamPage({
   }
 
   if (needsSchedulePanel && team && nflState) {
-    const scheduleRows = await getTeamSchedule(season.id, team.id);
+    const scheduleRows = teamScheduleRows;
     const weekRangeByNumber = new Map(
       (scoreboard?.weeks ?? []).map((week) => [week.number, week.rangeLabel]),
     );
     const currentMatchupWeek = scoreboard
       ? getDefaultScheduleWeek(scoreboard.weeks)
       : nflWeek;
-    const winChances =
+    const [winChances, finals] = await Promise.all([
       scheduleRows.length > 0
-        ? await enrichScheduleWinChances({
+        ? enrichScheduleWinChances({
             focusTeamId: team.id,
             schedule: scheduleRows,
             rosterSlots: season.settings.rosterSlots,
@@ -409,17 +474,15 @@ export default async function MyTeamPage({
             scoringRules,
             scoreboardGames: scoreboard?.games ?? [],
           }).catch(() => new Map<string, number | null>())
-        : new Map<string, number | null>();
-    const scheduleDisplayRows = scheduleRows.map((row) => ({
-      ...row,
-      weekRangeLabel: weekRangeByNumber.get(row.week) ?? "",
-      opponentWins: 0,
-      opponentLosses: 0,
-      opponentTies: 0,
-      result: null as "win" | "loss" | "tie" | null,
-      weeklyRank: null as number | null,
-      winChance: winChances.get(row.id) ?? null,
-    }));
+        : Promise.resolve(new Map<string, number | null>()),
+      getFinalMatchupsForSeason(season.id).catch(() => []),
+    ]);
+    const scheduleDisplayRows = buildScheduleDisplayRows({
+      rows: scheduleRows,
+      weekRangeByNumber,
+      records: recordsFromFinalMatchups(finals),
+      winChances,
+    });
     schedulePanel = (
       <TeamScheduleList
         rows={scheduleDisplayRows}
@@ -548,6 +611,7 @@ export default async function MyTeamPage({
       />
 
       <IrLockAlert violations={irViolations} />
+      <TaxiLockAlert violations={taxiViolations} />
 
       <TeamTabs
         defaultTab={activeTab}

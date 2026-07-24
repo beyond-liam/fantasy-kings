@@ -114,9 +114,9 @@ export function rosterSectionTitle(section: RosterTableSectionId): string {
     case "bench":
       return "Bench";
     case "ir":
-      return "Injured reserve";
+      return "Injured Reserve";
     case "taxi":
-      return "Taxi squad";
+      return "Taxi Squad";
   }
 }
 

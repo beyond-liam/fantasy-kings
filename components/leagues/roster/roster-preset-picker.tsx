@@ -1,18 +1,10 @@
 "use client";
 
-import {
-  Field,
-  FieldContent,
-  FieldDescription,
-  FieldLabel,
-  FieldTitle,
-} from "@/components/ui/field";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   ROSTER_PRESET_OPTIONS,
   type RosterUiMode,
 } from "@/lib/leagues/roster";
-import { cn } from "@/lib/utils";
 
 type RosterPresetPickerProps = {
   value: RosterUiMode;
@@ -25,6 +17,7 @@ export function RosterPresetPicker({
 }: RosterPresetPickerProps) {
   return (
     <RadioGroup
+      variant="card"
       value={value}
       onValueChange={(nextValue) => {
         if (
@@ -35,33 +28,23 @@ export function RosterPresetPicker({
           onValueChange(nextValue);
         }
       }}
-      className="grid gap-3 sm:grid-cols-3"
+      className="sm:grid-cols-3"
     >
       {ROSTER_PRESET_OPTIONS.map((option) => {
-        const id = `roster-preset-${option.value}`;
         const disabled = Boolean(option.disabled);
 
         return (
-          <FieldLabel
+          <RadioGroupItem
             key={option.value}
-            htmlFor={id}
-            className={cn(disabled && "cursor-not-allowed opacity-60")}
+            value={option.value}
+            disabled={disabled}
           >
-            <Field orientation="horizontal">
-              <FieldContent>
-                <FieldTitle>{option.label}</FieldTitle>
-                <FieldDescription>
-                  {option.description}
-                  {disabled ? " Coming soon." : null}
-                </FieldDescription>
-              </FieldContent>
-              <RadioGroupItem
-                value={option.value}
-                id={id}
-                disabled={disabled}
-              />
-            </Field>
-          </FieldLabel>
+            <span className="block text-sm font-medium">{option.label}</span>
+            <span className="block text-sm text-muted-foreground">
+              {option.description}
+              {disabled ? " Coming soon." : null}
+            </span>
+          </RadioGroupItem>
         );
       })}
     </RadioGroup>

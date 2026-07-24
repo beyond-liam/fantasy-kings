@@ -6,7 +6,11 @@ import { teams, tradePlayers, trades, tradeVetoes } from "@/db/schema";
 import type { RosterSlotConfig } from "@/db/schema/league-seasons";
 import {
   announceTradeAcceptedReview,
+  announceTradeCancelled,
+  announceTradeCommissionerRejected,
+  announceTradeCompleted,
   announceTradeProposed,
+  announceTradeRejected,
   announceTradeVetoed,
 } from "@/lib/alerts/trades";
 import { db } from "@/lib/db";
@@ -16,10 +20,6 @@ import {
   vetoThreshold,
 } from "@/lib/leagues/trades/vetoes";
 import type { resolveWaiverWireSettings } from "@/lib/leagues/waiver-wire";
-import {
-  getTeamOwnerUserIds,
-  notifyUsers,
-} from "@/lib/notifications/notify";
 
 export type TradeLifecycleResult =
   | { ok: true; tradeId: string }
@@ -80,21 +80,14 @@ export async function completeExpiredTrade(input: {
     summary: "Trade completed after review period.",
   });
 
-  const owners = await getTeamOwnerUserIds([
-    trade.proposingTeamId,
-    trade.receivingTeamId,
-  ]);
-  await notifyUsers({
-    userIds: [
-      owners.get(trade.proposingTeamId),
-      owners.get(trade.receivingTeamId),
-    ],
+  await announceTradeCompleted({
+    tradeId: input.tradeId,
     leagueSeasonId: input.league.leagueSeasonId,
     leaguePublicId: input.league.leaguePublicId,
-    type: "trade_update",
-    title: "Trade completed",
+    leagueName: input.league.leagueName,
+    proposingTeamId: trade.proposingTeamId,
+    receivingTeamId: trade.receivingTeamId,
     body: "Your trade completed after the review period.",
-    tradeId: input.tradeId,
   });
 
   return { ok: true, tradeId: input.tradeId };
@@ -273,7 +266,7 @@ export async function acceptTradeOffer(input: {
       leagueSeasonId: input.league.leagueSeasonId,
       tradeId: input.tradeId,
       type: "trade_completed",
-      summary: "Trade completed.",
+      summary: `${input.proposingTeam.name} ↔ ${input.actor.teamName} trade completed.`,
       actorUserId: input.actor.userId,
     });
   } else {
@@ -291,6 +284,17 @@ export async function acceptTradeOffer(input: {
       await cleanupReceivingDrops();
       return { ok: false, error: "This trade is no longer pending." };
     }
+
+    await logTradeActivity({
+      leagueSeasonId: input.league.leagueSeasonId,
+      tradeId: input.tradeId,
+      type: "trade_accepted",
+      summary:
+        input.nextStatus === "review"
+          ? `${input.proposingTeam.name} ↔ ${input.actor.teamName} trade agreed (league review).`
+          : `${input.proposingTeam.name} ↔ ${input.actor.teamName} trade agreed (awaiting commissioner).`,
+      actorUserId: input.actor.userId,
+    });
   }
 
   const acceptBody =
@@ -314,17 +318,18 @@ export async function acceptTradeOffer(input: {
       acceptBody,
     });
   } else {
-    await notifyUsers({
-      userIds: [input.proposingTeam.userId],
+    await announceTradeCompleted({
+      tradeId: input.tradeId,
       leagueSeasonId: input.league.leagueSeasonId,
       leaguePublicId: input.league.leaguePublicId,
-      type: "trade_update",
+      leagueName: input.league.leagueName,
+      proposingTeamId: input.proposingTeamId,
+      receivingTeamId: input.actor.teamId,
       title:
         input.nextStatus === "completed"
           ? "Trade completed"
           : "Trade offer accepted",
       body: acceptBody,
-      tradeId: input.tradeId,
     });
   }
 
@@ -355,15 +360,13 @@ export async function rejectTradeOffer(input: {
     actorUserId: input.actor.userId,
   });
 
-  const owners = await getTeamOwnerUserIds([input.proposingTeamId]);
-  await notifyUsers({
-    userIds: [owners.get(input.proposingTeamId)],
+  await announceTradeRejected({
+    tradeId: input.tradeId,
     leagueSeasonId: input.league.leagueSeasonId,
     leaguePublicId: input.league.leaguePublicId,
-    type: "trade_update",
-    title: "Trade offer rejected",
-    body: `${input.actor.teamName} rejected your trade offer.`,
-    tradeId: input.tradeId,
+    leagueName: input.league.leagueName,
+    proposingTeamId: input.proposingTeamId,
+    rejectingTeamName: input.actor.teamName,
   });
 
   return { ok: true, tradeId: input.tradeId };
@@ -384,24 +387,15 @@ export async function cancelTradeOffer(input: {
     return { ok: false, error: "This trade is no longer pending." };
   }
 
-  await logTradeActivity({
-    leagueSeasonId: input.league.leagueSeasonId,
-    tradeId: input.tradeId,
-    type: "trade_cancelled",
-    summary: `${input.actor.teamName} cancelled the trade.`,
-    teamId: input.actor.teamId,
-    actorUserId: input.actor.userId,
-  });
+  // Pending cancellations stay private — not written to the public activity feed.
 
-  const owners = await getTeamOwnerUserIds([input.receivingTeamId]);
-  await notifyUsers({
-    userIds: [owners.get(input.receivingTeamId)],
+  await announceTradeCancelled({
+    tradeId: input.tradeId,
     leagueSeasonId: input.league.leagueSeasonId,
     leaguePublicId: input.league.leaguePublicId,
-    type: "trade_update",
-    title: "Trade offer cancelled",
-    body: `${input.actor.teamName} cancelled their trade offer.`,
-    tradeId: input.tradeId,
+    leagueName: input.league.leagueName,
+    receivingTeamId: input.receivingTeamId,
+    cancellingTeamName: input.actor.teamName,
   });
 
   return { ok: true, tradeId: input.tradeId };
@@ -437,21 +431,14 @@ export async function approveTradeByCommissioner(input: {
     actorUserId: input.actorUserId,
   });
 
-  const owners = await getTeamOwnerUserIds([
-    input.proposingTeamId,
-    input.receivingTeamId,
-  ]);
-  await notifyUsers({
-    userIds: [
-      owners.get(input.proposingTeamId),
-      owners.get(input.receivingTeamId),
-    ],
+  await announceTradeCompleted({
+    tradeId: input.tradeId,
     leagueSeasonId: input.league.leagueSeasonId,
     leaguePublicId: input.league.leaguePublicId,
-    type: "trade_update",
-    title: "Trade completed",
+    leagueName: input.league.leagueName,
+    proposingTeamId: input.proposingTeamId,
+    receivingTeamId: input.receivingTeamId,
     body: "The commissioner approved your trade.",
-    tradeId: input.tradeId,
   });
 
   return { ok: true, tradeId: input.tradeId };
@@ -484,26 +471,18 @@ export async function rejectTradeByCommissioner(input: {
   await logTradeActivity({
     leagueSeasonId: input.league.leagueSeasonId,
     tradeId: input.tradeId,
-    type: "trade_rejected",
-    summary: "Commissioner rejected the trade.",
+    type: "trade_cancelled",
+    summary: "Commissioner cancelled the trade.",
     actorUserId: input.actorUserId,
   });
 
-  const owners = await getTeamOwnerUserIds([
-    input.proposingTeamId,
-    input.receivingTeamId,
-  ]);
-  await notifyUsers({
-    userIds: [
-      owners.get(input.proposingTeamId),
-      owners.get(input.receivingTeamId),
-    ],
+  await announceTradeCommissionerRejected({
+    tradeId: input.tradeId,
     leagueSeasonId: input.league.leagueSeasonId,
     leaguePublicId: input.league.leaguePublicId,
-    type: "trade_update",
-    title: "Trade rejected",
-    body: "The commissioner rejected your trade.",
-    tradeId: input.tradeId,
+    leagueName: input.league.leagueName,
+    proposingTeamId: input.proposingTeamId,
+    receivingTeamId: input.receivingTeamId,
   });
 
   return { ok: true, tradeId: input.tradeId };

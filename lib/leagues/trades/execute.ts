@@ -362,6 +362,7 @@ export async function logTradeActivity(input: {
   tradeId: string;
   type:
     | "trade_proposed"
+    | "trade_accepted"
     | "trade_completed"
     | "trade_rejected"
     | "trade_cancelled"

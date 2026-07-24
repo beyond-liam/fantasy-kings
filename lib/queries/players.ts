@@ -26,6 +26,8 @@ export type RankingsFilters = {
   rookiesOnly?: boolean;
   /** When set, only these player IDs are loaded (empty → no query). */
   playerIds?: string[];
+  /** Cap rows from player_scores (ordered by fantasy pts). */
+  limit?: number;
   scoringPreset?: ScoringPreset;
   scoringRules?: ScoringRuleDefinition[];
   /** Keep full normalized stats (skip client allowlist trim). */
@@ -111,18 +113,19 @@ async function loadScoreRows(
   week: number,
   kind: "projection" | "stats",
   playerIds?: string[],
+  limit?: number,
 ): Promise<BaseScoreRow[]> {
   if (playerIds != null && playerIds.length === 0) {
     return [];
   }
 
-  const key = scoreRowsCacheKey(season, week, kind, playerIds);
+  const key = `${scoreRowsCacheKey(season, week, kind, playerIds)}|lim:${limit ?? "all"}`;
   const cached = scoreRowsCache.get(key);
   if (cached && Date.now() - cached.loadedAt < SCORE_CACHE_TTL_MS[kind]) {
     return cached.rows;
   }
 
-  const rows = await db
+  const query = db
     .select({
       id: players.id,
       fullName: players.fullName,
@@ -163,6 +166,9 @@ async function loadScoreRows(
       asc(players.fullName),
     );
 
+  const rows =
+    limit != null && limit > 0 ? await query.limit(limit) : await query;
+
   const mapped: BaseScoreRow[] = rows.map((row) => ({
     ...row,
     sleeperId: row.sleeperId ?? null,
@@ -201,6 +207,7 @@ export async function getRankedPlayers(
     filters.week,
     filters.kind,
     filters.playerIds,
+    filters.limit,
   );
 
   const filtered = baseRows.filter((row) => {

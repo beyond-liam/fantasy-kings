@@ -10,6 +10,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
+import { SettingsFormCard } from "@/components/leagues/settings/settings-form-card";
 import { PageFormActions } from "@/components/layout/page-form-actions";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
@@ -28,8 +29,6 @@ import {
   FieldGroup,
   FieldLabel,
 } from "@/components/ui/field";
-import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Select,
   SelectContent,
@@ -39,7 +38,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { updatePlayoffSettings } from "@/lib/actions/league-settings";
-import { formatLeagueLabel } from "@/lib/leagues/format";
 import {
   clampPlayoffTeamCount,
   derivePlayoffSummary,
@@ -59,7 +57,12 @@ type PlayoffSettingsFormProps = {
   initialValues: PlayoffSettingsFormValues;
 };
 
-function YesNoRadio({
+const YES_NO_ITEMS = [
+  { value: "yes", label: "Yes" },
+  { value: "no", label: "No" },
+] as const;
+
+function YesNoSelect({
   id,
   value,
   disabled,
@@ -71,37 +74,34 @@ function YesNoRadio({
   onChange: (next: boolean) => void;
 }) {
   return (
-    <RadioGroup
+    <Select
+      items={[...YES_NO_ITEMS]}
       value={value ? "yes" : "no"}
       disabled={disabled}
       onValueChange={(next) => {
-        if (next == null) return;
-        onChange(next === "yes");
+        if (next === "yes" || next === "no") {
+          onChange(next === "yes");
+        }
       }}
-      className="flex flex-wrap gap-4"
     >
-      <Label
-        htmlFor={`${id}-yes`}
-        className="flex cursor-pointer items-center gap-2"
-      >
-        <RadioGroupItem id={`${id}-yes`} value="yes" />
-        Yes
-      </Label>
-      <Label
-        htmlFor={`${id}-no`}
-        className="flex cursor-pointer items-center gap-2"
-      >
-        <RadioGroupItem id={`${id}-no`} value="no" />
-        No
-      </Label>
-    </RadioGroup>
+      <SelectTrigger id={id} className="w-full">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectGroup>
+          {YES_NO_ITEMS.map((item) => (
+            <SelectItem key={item.value} value={item.value}>
+              {item.label}
+            </SelectItem>
+          ))}
+        </SelectGroup>
+      </SelectContent>
+    </Select>
   );
 }
 
 export function PlayoffSettingsForm({
   slug,
-  leagueName,
-  seasonStatus,
   teamCount,
   isLeagueFull,
   matchupCount,
@@ -183,17 +183,6 @@ export function PlayoffSettingsForm({
 
   return (
     <div className="flex flex-col gap-8">
-      <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold tracking-tight text-balance">
-          Playoffs
-        </h1>
-        <p className="text-sm text-pretty text-muted-foreground">
-          {leagueName}
-          {" · "}
-          <span className="capitalize">{formatLeagueLabel(seasonStatus)}</span>
-        </p>
-      </div>
-
       {!editable ? (
         <Alert>
           <AlertDescription>
@@ -208,10 +197,48 @@ export function PlayoffSettingsForm({
         </Alert>
       ) : null}
 
-      <FieldGroup>
+      <SettingsFormCard
+        title="Playoffs"
+        footer={
+          <PageFormActions>
+            {editable ? (
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={isPending || !hasChanges}
+                  onClick={handleReset}
+                >
+                  <HugeiconsIcon
+                    icon={Cancel01Icon}
+                    strokeWidth={2}
+                    data-icon="inline-start"
+                  />
+                  Reset
+                </Button>
+                <Button
+                  type="button"
+                  onClick={handleSave}
+                  disabled={isPending || !hasChanges}
+                >
+                  <HugeiconsIcon
+                    icon={TickDouble02Icon}
+                    strokeWidth={2}
+                    data-icon="inline-start"
+                  />
+                  Save
+                </Button>
+              </>
+            ) : null}
+          </PageFormActions>
+        }
+      >
+        <FieldGroup>
         <Field>
-          <FieldLabel>Hold a playoff tournament</FieldLabel>
-          <YesNoRadio
+          <FieldLabel htmlFor="playoffs-enabled">
+            Hold a playoff tournament
+          </FieldLabel>
+          <YesNoSelect
             id="playoffs-enabled"
             value={values.enabled}
             disabled={!editable}
@@ -242,10 +269,7 @@ export function PlayoffSettingsForm({
                   });
                 }}
               >
-                <SelectTrigger
-                  id="playoff-team-count"
-                  className="w-full max-w-xs"
-                >
+                <SelectTrigger id="playoff-team-count" className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -275,10 +299,7 @@ export function PlayoffSettingsForm({
                   });
                 }}
               >
-                <SelectTrigger
-                  id="championship-week"
-                  className="w-full max-w-xs"
-                >
+                <SelectTrigger id="championship-week" className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -294,8 +315,8 @@ export function PlayoffSettingsForm({
             </Field>
 
             <Field>
-              <FieldLabel>Re-seed after each round</FieldLabel>
-              <YesNoRadio
+              <FieldLabel htmlFor="reseed">Re-seed after each round</FieldLabel>
+              <YesNoSelect
                 id="reseed"
                 value={values.reSeedAfterEachRound}
                 disabled={!editable}
@@ -304,13 +325,14 @@ export function PlayoffSettingsForm({
                 }
               />
               <FieldDescription>
-                When yes, higher seeds always face the lowest remaining seed.
+                After each round, remaining teams are re-seeded by original
+                standings seed (highest hosts lowest).
               </FieldDescription>
             </Field>
 
             <Field>
-              <FieldLabel>Two-week championship</FieldLabel>
-              <YesNoRadio
+              <FieldLabel htmlFor="two-week">Two-week championship</FieldLabel>
+              <YesNoSelect
                 id="two-week"
                 value={values.twoWeekChampionship}
                 disabled={!editable}
@@ -357,7 +379,7 @@ export function PlayoffSettingsForm({
                 });
               }}
             >
-              <SelectTrigger id="season-end-week" className="w-full max-w-xs">
+              <SelectTrigger id="season-end-week" className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -375,39 +397,8 @@ export function PlayoffSettingsForm({
             </FieldDescription>
           </Field>
         )}
-      </FieldGroup>
-
-      <PageFormActions>
-        {editable ? (
-          <>
-            <Button
-              type="button"
-              variant="outline"
-              disabled={isPending || !hasChanges}
-              onClick={handleReset}
-            >
-              <HugeiconsIcon
-                icon={Cancel01Icon}
-                strokeWidth={2}
-                data-icon="inline-start"
-              />
-              Reset
-            </Button>
-            <Button
-              type="button"
-              onClick={handleSave}
-              disabled={isPending || !hasChanges}
-            >
-              <HugeiconsIcon
-                icon={TickDouble02Icon}
-                strokeWidth={2}
-                data-icon="inline-start"
-              />
-              Save
-            </Button>
-          </>
-        ) : null}
-      </PageFormActions>
+        </FieldGroup>
+      </SettingsFormCard>
 
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <AlertDialogContent>

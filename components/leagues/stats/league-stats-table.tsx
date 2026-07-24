@@ -15,6 +15,7 @@ import {
   useDataTable,
 } from "@/components/ui/data-table";
 import {
+  formatLeaderPositionFullLabel,
   formatLeaderPositionLabel,
   type LeaguePositionStatsRow,
 } from "@/lib/leagues/league-position-stats";
@@ -240,10 +241,10 @@ export function LeagueStatsTable({
     rank: "Rank",
     team: "Team",
     pf: "Points for",
-    optPf: "OPF",
+    optPf: "Optimum points for",
   };
   for (const positionId of positionColumns) {
-    columnLabels[positionId] = formatLeaderPositionLabel(positionId);
+    columnLabels[positionId] = formatLeaderPositionFullLabel(positionId);
   }
 
   const table = useDataTable({

@@ -3,7 +3,7 @@ import dynamic from "next/dynamic";
 import { notFound, redirect } from "next/navigation";
 
 import { LiveRefresh } from "@/components/scores/live-refresh";
-import { ScoresUpdatedLabel } from "@/components/scores/scores-updated-label";
+import { ScoresFreshnessBanner } from "@/components/scores/scores-freshness-banner";
 import { Spinner } from "@/components/ui/spinner";
 import { getSessionUser } from "@/lib/auth/session";
 import { getDefaultScheduleWeek } from "@/lib/nfl/schedule-week";
@@ -79,12 +79,18 @@ export default async function MatchupPage({ params }: MatchupPageProps) {
           <h1 className="text-2xl font-semibold tracking-tight text-balance">
             Game Centre
           </h1>
-          <p className="text-sm text-pretty text-muted-foreground">
-            Week {data.week} · {data.away.teamName} vs {data.home.teamName}
-          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-sm text-pretty text-muted-foreground">
+              Week {data.week} · {data.away.teamName} vs {data.home.teamName}
+            </p>
+          </div>
         </div>
-        <ScoresUpdatedLabel
+        <ScoresFreshnessBanner
           updatedAt={freshness?.toISOString() ?? null}
+          hasLiveNflGames={[
+            ...data.boxScore.away.starters,
+            ...data.boxScore.home.starters,
+          ].some((player) => player.gameStatus === "in")}
         />
       </div>
 

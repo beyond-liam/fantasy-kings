@@ -4,6 +4,8 @@ import { useMemo, useState } from "react";
 import {
   CarTaxiFrontIcon,
   Hospital01Icon,
+  RefreshIcon,
+  Settings01Icon,
   UserBlock01Icon,
   UserCheck01Icon,
   UserDollarIcon,
@@ -19,6 +21,14 @@ import {
   EmptyHeader,
   EmptyTitle,
 } from "@/components/ui/empty";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { ListPagination } from "@/components/ui/list-pagination";
 import {
   Select,
@@ -45,7 +55,7 @@ const ACTIVITY_META: Record<
   {
     label: string;
     icon: IconSvgElement;
-    tone: "success" | "destructive";
+    tone: "success" | "destructive" | "info";
   }
 > = {
   player_added: {
@@ -58,16 +68,6 @@ const ACTIVITY_META: Record<
     icon: UserMinus01Icon,
     tone: "destructive",
   },
-  trade_completed: {
-    label: "Trade completed",
-    icon: UserSwitchIcon,
-    tone: "success",
-  },
-  trade_vetoed: {
-    label: "Trade vetoed",
-    icon: UserBlock01Icon,
-    tone: "destructive",
-  },
   ir_added: {
     label: "IR added",
     icon: Hospital01Icon,
@@ -76,11 +76,6 @@ const ACTIVITY_META: Record<
   ir_removed: {
     label: "IR removed",
     icon: Hospital01Icon,
-    tone: "success",
-  },
-  waiver_awarded: {
-    label: "Claimed",
-    icon: UserDollarIcon,
     tone: "success",
   },
   taxi_added: {
@@ -93,11 +88,52 @@ const ACTIVITY_META: Record<
     icon: CarTaxiFrontIcon,
     tone: "success",
   },
+  waiver_awarded: {
+    label: "Claimed",
+    icon: UserDollarIcon,
+    tone: "success",
+  },
+  trade_accepted: {
+    label: "Trade agreed",
+    icon: UserSwitchIcon,
+    tone: "success",
+  },
+  trade_completed: {
+    label: "Trade completed",
+    icon: UserSwitchIcon,
+    tone: "success",
+  },
+  trade_vetoed: {
+    label: "Trade vetoed",
+    icon: UserBlock01Icon,
+    tone: "destructive",
+  },
+  trade_cancelled: {
+    label: "Trade cancelled",
+    icon: UserBlock01Icon,
+    tone: "destructive",
+  },
+  settings_updated: {
+    label: "Settings",
+    icon: Settings01Icon,
+    tone: "info",
+  },
+  score_corrected: {
+    label: "Score corrected",
+    icon: RefreshIcon,
+    tone: "info",
+  },
+  member_removed: {
+    label: "Member removed",
+    icon: UserMinus01Icon,
+    tone: "destructive",
+  },
 };
 
-const ACTIVITY_TONE_CLASS: Record<"success" | "destructive", string> = {
+const ACTIVITY_TONE_CLASS: Record<"success" | "destructive" | "info", string> = {
   success: "bg-success/10 text-success",
   destructive: "bg-destructive/10 text-destructive",
+  info: "bg-info/10 text-info",
 };
 
 function resolveActivitySummary(item: LeagueActivityRow): string {
@@ -137,6 +173,12 @@ function resolveActivitySummary(item: LeagueActivityRow): string {
     }
   }
 
+  if (item.type === "member_removed") {
+    const removed =
+      meta?.removedDisplayName?.trim() || meta?.teamName?.trim() || "A manager";
+    return `${removed} was removed from the league.`;
+  }
+
   const staleName = meta?.teamName?.trim();
   if (staleName && staleName !== liveName && item.summary.includes(staleName)) {
     return item.summary.split(staleName).join(liveName);
@@ -156,6 +198,8 @@ function formatActivityTime(date: Date) {
 export function LeagueActivityFeed({ items }: LeagueActivityFeedProps) {
   const [typeFilter, setTypeFilter] = useState(ALL_TYPES);
   const [page, setPage] = useState(0);
+  const [settingsDetail, setSettingsDetail] =
+    useState<LeagueActivityRow | null>(null);
 
   const filterItems = useMemo(() => {
     const present = new Set(items.map((item) => item.type));
@@ -192,7 +236,8 @@ export function LeagueActivityFeed({ items }: LeagueActivityFeedProps) {
           <EmptyHeader>
             <EmptyTitle>No activity yet</EmptyTitle>
             <EmptyDescription>
-              Adds, drops, trades, waivers, IR, and taxi moves will show up here.
+              Roster moves, claims, trades, settings changes, and membership
+              updates will show up here.
             </EmptyDescription>
           </EmptyHeader>
         </Empty>
@@ -245,8 +290,9 @@ export function LeagueActivityFeed({ items }: LeagueActivityFeedProps) {
             {pageItems.map((item) => {
               const meta = ACTIVITY_META[item.type as FeedActivityType];
               if (!meta) return null;
-              return (
-                <li key={item.id} className="flex items-start gap-3 px-4 py-3">
+              const isSettings = item.type === "settings_updated";
+              const body = (
+                <>
                   <span
                     className={cn(
                       "mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-md",
@@ -259,14 +305,32 @@ export function LeagueActivityFeed({ items }: LeagueActivityFeedProps) {
                       className="size-5"
                     />
                   </span>
-                  <div className="flex min-w-0 flex-col gap-1">
+                  <div className="flex min-w-0 flex-col gap-1 text-left">
                     <p className="text-sm text-pretty">
                       {resolveActivitySummary(item)}
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {formatActivityTime(item.createdAt)} UTC · {meta.label}
+                      {isSettings ? " · View changes" : null}
                     </p>
                   </div>
+                </>
+              );
+              return (
+                <li key={item.id}>
+                  {isSettings ? (
+                    <button
+                      type="button"
+                      className="flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/50 focus-visible:bg-muted/50 focus-visible:outline-none"
+                      onClick={() => setSettingsDetail(item)}
+                    >
+                      {body}
+                    </button>
+                  ) : (
+                    <div className="flex items-start gap-3 px-4 py-3">
+                      {body}
+                    </div>
+                  )}
                 </li>
               );
             })}
@@ -281,6 +345,84 @@ export function LeagueActivityFeed({ items }: LeagueActivityFeedProps) {
           />
         </>
       )}
+
+      <SettingsChangesDialog
+        item={settingsDetail}
+        open={settingsDetail != null}
+        onOpenChange={(open) => {
+          if (!open) setSettingsDetail(null);
+        }}
+      />
     </div>
+  );
+}
+
+function SettingsChangesDialog({
+  item,
+  open,
+  onOpenChange,
+}: {
+  item: LeagueActivityRow | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const label = item?.metadata?.settingsLabel?.trim() || "league settings";
+  const changes = item?.metadata?.settingsChanges ?? [];
+  const hasLegacySummaryOnly = changes.some(
+    (change) =>
+      change.after === "Updated" ||
+      /^\d+\s+rules$/i.test(change.before) ||
+      change.label === "Custom scoring rules",
+  );
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Settings updated</DialogTitle>
+          <DialogDescription>
+            Commissioner changed {label}
+            {item ? ` · ${formatActivityTime(item.createdAt)} UTC` : null}.
+          </DialogDescription>
+        </DialogHeader>
+        {changes.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            No field-level details were recorded for this change.
+          </p>
+        ) : hasLegacySummaryOnly ? (
+          <p className="text-sm text-muted-foreground">
+            This older entry only recorded that scoring rules changed, not the
+            exact before/after. New settings saves list each changed rule in
+            plain language.
+          </p>
+        ) : (
+          <ul className="divide-y rounded-lg border">
+            {changes.map((change) => (
+              <li
+                key={`${change.path}-${change.label}`}
+                className="flex flex-col gap-2 px-3 py-2.5"
+              >
+                <p className="text-sm font-medium">{change.label}</p>
+                <div className="grid gap-1.5 text-xs">
+                  <p className="text-muted-foreground">
+                    <span className="font-medium text-foreground/70">
+                      Before:{" "}
+                    </span>
+                    <span className="line-through">{change.before}</span>
+                  </p>
+                  <p className="text-muted-foreground">
+                    <span className="font-medium text-foreground/70">
+                      After:{" "}
+                    </span>
+                    <span className="text-foreground">{change.after}</span>
+                  </p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+        <DialogFooter showCloseButton />
+      </DialogContent>
+    </Dialog>
   );
 }

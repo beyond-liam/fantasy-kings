@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, lt, or } from "drizzle-orm";
 
 import {
   leagueActivity,
@@ -20,7 +20,7 @@ import {
 } from "@/lib/leagues/roster-capacity";
 import { pickDefaultSlotPosition, occupiedBySlot } from "@/lib/leagues/roster-slots";
 import {
-  assertIrAcquisitionsAllowed,
+  assertReserveAcquisitionsAllowed,
   findSeasonRosterRows,
   insertOrRestoreRosteredPlayer,
   listRosteredPlayers,
@@ -69,10 +69,34 @@ export async function processSeasonWaivers(input: {
   season: ProcessableSeason;
   leagueSlug: string;
   now?: Date;
+  /** Commissioner manual run — skip process-window lease gate. */
+  force?: boolean;
 }): Promise<{ awarded: number; failed: number }> {
   const { season, leagueSlug } = input;
   const wire = resolveWaiverWireSettings(season.settings.waiverWire);
   const now = input.now ?? new Date();
+  const processInstant =
+    getLastProcessInstantUtc(wire.processDays, now) ?? now;
+
+  // Season-level lease so overlapping cron/manual runs don't double-adjudicate.
+  if (!input.force) {
+    const [leased] = await db
+      .update(leagueSeasons)
+      .set({ lastWaiverProcessedAt: now })
+      .where(
+        and(
+          eq(leagueSeasons.id, season.id),
+          or(
+            isNull(leagueSeasons.lastWaiverProcessedAt),
+            lt(leagueSeasons.lastWaiverProcessedAt, processInstant),
+          ),
+        ),
+      )
+      .returning({ id: leagueSeasons.id });
+    if (!leased) {
+      return { awarded: 0, failed: 0 };
+    }
+  }
 
   const teamRows = await db
     .select({
@@ -155,8 +179,6 @@ export async function processSeasonWaivers(input: {
       ),
     );
 
-  const processInstant =
-    getLastProcessInstantUtc(wire.processDays, now) ?? now;
   const pending = pendingRows.filter((row) =>
     isClaimEligibleForProcess(row.createdAt, processInstant),
   );
@@ -226,7 +248,7 @@ export async function processSeasonWaivers(input: {
 
       if (outcome.status === "failed") {
         const failReason = outcome.failReason?.trim() || "Claim failed.";
-        await db
+        const [claimed] = await db
           .update(waiverClaims)
           .set({
             status: "failed",
@@ -234,7 +256,14 @@ export async function processSeasonWaivers(input: {
             processedAt: now,
             updatedAt: now,
           })
-          .where(eq(waiverClaims.id, claim.id));
+          .where(
+            and(
+              eq(waiverClaims.id, claim.id),
+              eq(waiverClaims.status, "pending"),
+            ),
+          )
+          .returning({ id: waiverClaims.id });
+        if (!claimed) continue;
         const failSummary = formatWaiverFailSummary({
           teamName,
           playerName,
@@ -274,6 +303,23 @@ export async function processSeasonWaivers(input: {
         failed += 1;
         continue;
       }
+
+      const [awardedClaim] = await db
+        .update(waiverClaims)
+        .set({
+          status: "awarded",
+          failReason: null,
+          processedAt: now,
+          updatedAt: now,
+        })
+        .where(
+          and(
+            eq(waiverClaims.id, claim.id),
+            eq(waiverClaims.status, "pending"),
+          ),
+        )
+        .returning({ id: waiverClaims.id });
+      if (!awardedClaim) continue;
 
       const applyError = await applyAwardedClaim({
         season,
@@ -331,16 +377,6 @@ export async function processSeasonWaivers(input: {
         failed += 1;
         continue;
       }
-
-      await db
-        .update(waiverClaims)
-        .set({
-          status: "awarded",
-          failReason: null,
-          processedAt: now,
-          updatedAt: now,
-        })
-        .where(eq(waiverClaims.id, claim.id));
 
       const awardSummary = formatWaiverAwardSummary({
         teamName,
@@ -447,9 +483,10 @@ async function applyAwardedClaim(input: {
     return "Player was already claimed or rostered by another team.";
   }
 
-  const irLock = await assertIrAcquisitionsAllowed(
+  const irLock = await assertReserveAcquisitionsAllowed(
     claim.teamId,
     season.settings.irEligibleStatuses,
+    season.settings.taxiMaxYearsExp,
   );
   if (irLock) {
     return irLock.error;

@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 
+import { SettingsFormCard } from "@/components/leagues/settings/settings-form-card";
 import { TeamRosterSections } from "@/components/team/roster-sections";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
@@ -43,7 +44,6 @@ type StartingLineupsSettingsProps = {
 
 export function StartingLineupsSettings({
   slug,
-  leagueName,
   teams,
   selectedTeamId,
   rosterSlots,
@@ -60,24 +60,19 @@ export function StartingLineupsSettings({
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold tracking-tight text-balance">
-          Set Starting Lineups
-        </h1>
-        <p className="text-sm text-pretty text-muted-foreground">
-          {leagueName} · Edit any team&apos;s lineup as commissioner.
-        </p>
-      </div>
-
-      {teams.length === 0 ? (
-        <Alert>
-          <AlertDescription>
-            No teams yet. Invite managers before setting lineups.
-          </AlertDescription>
-        </Alert>
-      ) : (
-        <>
-          <FieldGroup>
+      <SettingsFormCard
+        title="Set Starting Lineups"
+        contentClassName="flex flex-col gap-6"
+      >
+        {teams.length === 0 ? (
+          <Alert>
+            <AlertDescription>
+              No teams yet. Invite managers before setting lineups.
+            </AlertDescription>
+          </Alert>
+        ) : (
+          <>
+            <FieldGroup>
             <Field>
               <FieldLabel>Team</FieldLabel>
               <FieldDescription>
@@ -96,7 +91,7 @@ export function StartingLineupsSettings({
                   );
                 }}
               >
-                <SelectTrigger className="max-w-sm">
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder="Select a team" />
                 </SelectTrigger>
                 <SelectContent>
@@ -129,9 +124,10 @@ export function StartingLineupsSettings({
               tradesEnabled={false}
               commissionerTeamId={selectedTeamId}
             />
-          ) : null}
-        </>
-      )}
+            ) : null}
+          </>
+        )}
+      </SettingsFormCard>
     </div>
   );
 }

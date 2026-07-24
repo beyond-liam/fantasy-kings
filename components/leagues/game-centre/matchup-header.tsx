@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { MatchupStatusBadge } from "@/components/leagues/matchups/matchup-status-badge";
 import { formatRecord, teamInitials } from "@/lib/leagues/standings";
 import type { GameCentreTeamSide } from "@/lib/queries/game-centre";
 import { cn } from "@/lib/utils";
@@ -230,16 +231,21 @@ function HeaderSide({
 type MatchupHeaderProps = {
   away: GameCentreTeamSide;
   home: GameCentreTeamSide;
+  status: "scheduled" | "in_progress" | "final";
   onProjectedClick?: () => void;
 };
 
 export function MatchupHeader({
   away,
   home,
+  status,
   onProjectedClick,
 }: MatchupHeaderProps) {
   return (
-    <div className="relative flex min-w-0 items-stretch overflow-hidden rounded-xl border bg-card">
+    <div className="relative flex min-w-0 items-stretch overflow-hidden rounded-xl border bg-card pt-7">
+      <span className="pointer-events-none absolute inset-x-0 top-1.5 z-20 flex justify-center">
+        <MatchupStatusBadge status={status} />
+      </span>
       <HeaderSide
         side={away}
         align="away"

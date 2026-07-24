@@ -25,7 +25,7 @@ import {
 } from "@/lib/leagues/waivers/game-lock";
 import { processSeasonWaivers } from "@/lib/leagues/waivers/process";
 import {
-  assertIrAcquisitionsAllowed,
+  assertReserveAcquisitionsAllowed,
   ensureTeamFaabRemaining,
   findSeasonRosterRows,
   listRosteredPlayers,
@@ -169,9 +169,10 @@ export async function fileWaiverClaim(
     };
   }
 
-  const irLock = await assertIrAcquisitionsAllowed(
+  const irLock = await assertReserveAcquisitionsAllowed(
     team.id,
     season.settings.irEligibleStatuses,
+    season.settings.taxiMaxYearsExp,
   );
   if (irLock) {
     return { success: false, error: irLock.error };
@@ -581,6 +582,7 @@ export async function processWaiverClaimsNow(
   const result = await processSeasonWaivers({
     season,
     leagueSlug: league.publicId,
+    force: true,
   });
 
   revalidateWaiverPaths(league.publicId);

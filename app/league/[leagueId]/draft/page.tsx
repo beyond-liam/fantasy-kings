@@ -141,7 +141,12 @@ export default async function LeagueDraftRoomPage({
         pickByPlayerId={pickByPlayerId}
         draftType={season.draftType}
         pickTimeLimitSeconds={season.pickTimeLimitSeconds}
-        pickTimeLimitEnabled={draftSettings.pickTimeLimitEnabled !== false}
+        pickTimeLimitEnabled={
+          season.draftType === "live"
+            ? true
+            : Boolean(draftSettings.pickTimeLimitEnabled) &&
+              season.pickTimeLimitSeconds > 0
+        }
         autoPickEnabled={draftSettings.autoPickEnabled}
         onTheClockTeamAutoPick={Boolean(onTheClockTeam?.autoPickEnabled)}
         draftStartAt={toIso(season.draftStartAt)}

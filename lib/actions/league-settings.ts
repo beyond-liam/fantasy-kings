@@ -18,6 +18,7 @@ import {
   draftConfigFormSchema,
   draftConfigPickTimeSeconds,
   resolveDraftSettings,
+  resolveDraftType,
   toPersistedDraftSettings,
   type DraftConfigFormValues,
 } from "@/lib/leagues/draft-settings";
@@ -39,21 +40,33 @@ import {
   type OwnerRemovalReason,
 } from "@/lib/leagues/membership";
 import {
+  resolveWaiverWireSettings,
   toPersistedWaiverWire,
   waiverWireFormSchema,
   type WaiverWireFormValues,
 } from "@/lib/leagues/waiver-wire";
 import {
+  diffSettingsValues,
+  diffScoringRules,
+  logSettingsUpdated,
+  type SettingsFieldDef,
+} from "@/lib/leagues/settings-activity";
+import {
+  GAME_TIEBREAKER_OPTIONS,
+  RANK_TIEBREAKER_OPTIONS,
+  resolveTiebreakerSettings,
   tiebreakerSettingsSchema,
   type TiebreakerSettings,
 } from "@/lib/leagues/tiebreakers";
 import {
+  resolveTransactionRules,
   toPersistedTransactionRules,
   transactionRulesFormSchema,
   type TransactionRulesFormValues,
 } from "@/lib/leagues/transaction-rules";
 import {
   getDefaultScoringRuleDefinitions,
+  resolveScoringRuleDefinitions,
   type ScoringPreset,
   type ScoringRuleDefinition,
 } from "@/lib/leagues/scoring";
@@ -142,7 +155,7 @@ async function getCommissionerSeason(slug: string) {
     return { error: "League season not found." as const };
   }
 
-  return { season, league };
+  return { season, league, user };
 }
 
 async function assertScheduleStillEditable(seasonYear: number) {
@@ -218,7 +231,7 @@ export async function updateRegularSeasonSchedule(
     return { success: false, error: result.error };
   }
 
-  const { season } = result;
+  const { season, user } = result;
   const editable = await assertScheduleStillEditable(season.seasonYear);
   if (!editable.success) {
     return editable;
@@ -228,6 +241,8 @@ export async function updateRegularSeasonSchedule(
     playEachOtherTimes,
     season.divisionCount,
   );
+  const beforeTimes = resolveScheduleSettings(season.settings.schedule)
+    .playEachOtherTimes;
 
   const seasonTeams = await db
     .select({ id: teams.id })
@@ -254,6 +269,18 @@ export async function updateRegularSeasonSchedule(
         playEachOtherTimes: times,
       });
     }
+  });
+
+  await logSettingsUpdated({
+    leagueSeasonId: season.id,
+    actorUserId: user.id,
+    section: "schedule",
+    label: "Regular-season schedule",
+    changes: diffSettingsValues(
+      { playEachOtherTimes: beforeTimes },
+      { playEachOtherTimes: times },
+      [{ path: "playEachOtherTimes", label: "Play each other times" }],
+    ),
   });
 
   revalidateSettingsPaths(slug);
@@ -321,7 +348,7 @@ export async function updatePlayoffSettings(
     return { success: false, error: result.error };
   }
 
-  const { season } = result;
+  const { season, user } = result;
   const editable = await assertScheduleStillEditable(season.seasonYear);
   if (!editable.success) {
     return editable;
@@ -336,6 +363,21 @@ export async function updatePlayoffSettings(
   }
 
   const { values, regularSeasonEndWeek } = parsed;
+  const beforePlayoffs = resolvePlayoffSettings(season.settings.playoffs);
+  const before = {
+    enabled: beforePlayoffs.enabled,
+    playoffTeamCount: season.playoffTeamCount,
+    championshipWeek: season.championshipWeek,
+    reSeedAfterEachRound: beforePlayoffs.reSeedAfterEachRound,
+    twoWeekChampionship: beforePlayoffs.twoWeekChampionship,
+  };
+  const after = {
+    enabled: values.enabled,
+    playoffTeamCount: values.playoffTeamCount,
+    championshipWeek: values.championshipWeek,
+    reSeedAfterEachRound: values.reSeedAfterEachRound,
+    twoWeekChampionship: values.twoWeekChampionship,
+  };
   const schedule = resolveScheduleSettings(season.settings.schedule);
   const times = clampPlayEachOtherTimes(
     schedule.playEachOtherTimes,
@@ -382,6 +424,20 @@ export async function updatePlayoffSettings(
     }
   });
 
+  await logSettingsUpdated({
+    leagueSeasonId: season.id,
+    actorUserId: user.id,
+    section: "playoffs",
+    label: "Playoffs",
+    changes: diffSettingsValues(before, after, [
+      { path: "enabled", label: "Playoffs enabled" },
+      { path: "playoffTeamCount", label: "Playoff teams" },
+      { path: "championshipWeek", label: "Championship week" },
+      { path: "reSeedAfterEachRound", label: "Re-seed after each round" },
+      { path: "twoWeekChampionship", label: "Two-week championship" },
+    ]),
+  });
+
   revalidateSettingsPaths(slug);
   revalidatePath(`/league/${slug}/settings/transactions`);
 
@@ -392,40 +448,42 @@ export async function updateScoringPreset(
   slug: string,
   scoringPreset: ScoringPreset,
 ): Promise<ActionResult> {
-  if (!SCORING_PRESETS.includes(scoringPreset)) {
-    return { success: false, error: "Invalid scoring preset." };
-  }
-
-  const result = await getCommissionerSeason(slug);
-  if ("error" in result) {
-    return { success: false, error: result.error };
-  }
-
-  const { season } = result;
-
-  await db
-    .update(leagueSeasons)
-    .set({
-      scoringPreset,
-      settings: {
-        ...season.settings,
-        scoringRules: getDefaultScoringRuleDefinitions(scoringPreset),
-      },
-    })
-    .where(eq(leagueSeasons.id, season.id));
-
-  revalidateSettingsPaths(slug);
-
-  return { success: true };
+  return updateScoringSettings(slug, { scoringPreset });
 }
 
 export async function updateScoringRules(
   slug: string,
   scoringRules: ScoringRuleDefinition[],
 ): Promise<ActionResult> {
-  const parsed = scoringRulesPayloadSchema.safeParse(scoringRules);
-  if (!parsed.success) {
-    return { success: false, error: "Invalid scoring rules payload." };
+  return updateScoringSettings(slug, { scoringRules });
+}
+
+/** Persist scoring preset and/or rules, logging a detailed rule-level activity diff. */
+export async function updateScoringSettings(
+  slug: string,
+  input: {
+    scoringPreset?: ScoringPreset;
+    scoringRules?: ScoringRuleDefinition[];
+  },
+): Promise<ActionResult> {
+  if (
+    input.scoringPreset != null &&
+    !SCORING_PRESETS.includes(input.scoringPreset)
+  ) {
+    return { success: false, error: "Invalid scoring preset." };
+  }
+
+  let nextRules: ScoringRuleDefinition[] | undefined;
+  if (input.scoringRules != null) {
+    const parsed = scoringRulesPayloadSchema.safeParse(input.scoringRules);
+    if (!parsed.success) {
+      return { success: false, error: "Invalid scoring rules payload." };
+    }
+    nextRules = parsed.data as ScoringRuleDefinition[];
+  }
+
+  if (input.scoringPreset == null && nextRules == null) {
+    return { success: false, error: "Nothing to update." };
   }
 
   const result = await getCommissionerSeason(slug);
@@ -433,17 +491,45 @@ export async function updateScoringRules(
     return { success: false, error: result.error };
   }
 
-  const { season } = result;
+  const { season, user } = result;
+  const nextPreset = input.scoringPreset ?? (season.scoringPreset as ScoringPreset);
+  const beforeRules = resolveScoringRuleDefinitions(
+    season.scoringPreset as ScoringPreset,
+    season.settings.scoringRules,
+  );
+  const afterRules =
+    nextRules ??
+    (input.scoringPreset != null
+      ? getDefaultScoringRuleDefinitions(nextPreset)
+      : beforeRules);
 
   await db
     .update(leagueSeasons)
     .set({
+      scoringPreset: nextPreset,
       settings: {
         ...season.settings,
-        scoringRules: parsed.data as ScoringRuleDefinition[],
+        scoringRules: afterRules,
       },
     })
     .where(eq(leagueSeasons.id, season.id));
+
+  const changes = [
+    ...diffSettingsValues(
+      { scoringPreset: season.scoringPreset },
+      { scoringPreset: nextPreset },
+      [{ path: "scoringPreset", label: "Scoring preset" }],
+    ),
+    ...diffScoringRules(beforeRules, afterRules),
+  ];
+
+  await logSettingsUpdated({
+    leagueSeasonId: season.id,
+    actorUserId: user.id,
+    section: "scoring",
+    label: "Scoring rules",
+    changes,
+  });
 
   revalidateSettingsPaths(slug);
 
@@ -467,9 +553,29 @@ export async function updateRosterRequirements(
     return { success: false, error: result.error };
   }
 
-  const { season } = result;
+  const { season, user } = result;
   const next = parsed.data;
   const rosterSlots = buildPersistedRosterSlots(next);
+  const before = {
+    rosterMode: season.rosterMode,
+    benchSlots: season.benchSlots,
+    irEnabled: season.irEnabled,
+    irSlots: season.irSlots,
+    taxiEnabled: season.taxiEnabled,
+    taxiSlots: season.taxiSlots,
+    taxiMaxYearsExp: season.settings.taxiMaxYearsExp ?? null,
+    irEligibleStatuses: season.settings.irEligibleStatuses ?? [],
+  };
+  const after = {
+    rosterMode: next.rosterMode,
+    benchSlots: next.benchSlots,
+    irEnabled: next.irEnabled,
+    irSlots: next.irEnabled ? next.irSlots : 0,
+    taxiEnabled: next.taxiEnabled,
+    taxiSlots: next.taxiEnabled ? next.taxiSlots : 0,
+    taxiMaxYearsExp: next.taxiEnabled ? next.taxiMaxYearsExp : null,
+    irEligibleStatuses: next.irEnabled ? next.irEligibleStatuses : [],
+  };
 
   await db
     .update(leagueSeasons)
@@ -486,9 +592,29 @@ export async function updateRosterRequirements(
         irEligibleStatuses: next.irEnabled
           ? next.irEligibleStatuses
           : season.settings.irEligibleStatuses,
+        taxiMaxYearsExp: next.taxiEnabled
+          ? next.taxiMaxYearsExp
+          : season.settings.taxiMaxYearsExp,
       },
     })
     .where(eq(leagueSeasons.id, season.id));
+
+  await logSettingsUpdated({
+    leagueSeasonId: season.id,
+    actorUserId: user.id,
+    section: "roster",
+    label: "Roster requirements",
+    changes: diffSettingsValues(before, after, [
+      { path: "rosterMode", label: "Roster mode" },
+      { path: "benchSlots", label: "Bench slots" },
+      { path: "irEnabled", label: "IR enabled" },
+      { path: "irSlots", label: "IR slots" },
+      { path: "taxiEnabled", label: "Taxi enabled" },
+      { path: "taxiSlots", label: "Taxi slots" },
+      { path: "taxiMaxYearsExp", label: "Taxi eligibility" },
+      { path: "irEligibleStatuses", label: "IR eligible statuses" },
+    ]),
+  });
 
   revalidateSettingsPaths(slug);
 
@@ -509,7 +635,7 @@ export async function updateLineupLockMode(
     return { success: false, error: result.error };
   }
 
-  const { season } = result;
+  const { season, user } = result;
 
   await db
     .update(leagueSeasons)
@@ -520,6 +646,18 @@ export async function updateLineupLockMode(
       },
     })
     .where(eq(leagueSeasons.id, season.id));
+
+  await logSettingsUpdated({
+    leagueSeasonId: season.id,
+    actorUserId: user.id,
+    section: "lineup_lock",
+    label: "Lineup locking",
+    changes: diffSettingsValues(
+      { lineupLockMode: season.settings.lineupLockMode ?? null },
+      { lineupLockMode: parsed.data },
+      [{ path: "lineupLockMode", label: "Lineup lock mode" }],
+    ),
+  });
 
   revalidateSettingsPaths(slug);
 
@@ -548,8 +686,29 @@ export async function updateWaiverWireRules(
     return { success: false, error: result.error };
   }
 
-  const { season } = result;
+  const { season, user } = result;
   const next = parsed.data;
+  const beforeWire = resolveWaiverWireSettings(season.settings.waiverWire);
+  const before = {
+    waiversEnabled: season.waiversEnabled,
+    waiverType: season.waiverType,
+    faabBudget: season.faabBudget,
+    processDays: beforeWire.processDays,
+    waiverPool: beforeWire.waiverPool,
+    dropWaiverHours: beforeWire.dropWaiverHours,
+    resetOrderWeekly: beforeWire.resetOrderWeekly,
+  };
+  const afterWire = toPersistedWaiverWire(next);
+  const after = {
+    waiversEnabled: next.waiversEnabled,
+    waiverType: next.waiverType,
+    faabBudget:
+      next.waiversEnabled && next.waiverType === "faab" ? next.faabBudget : null,
+    processDays: afterWire.processDays,
+    waiverPool: afterWire.waiverPool,
+    dropWaiverHours: afterWire.dropWaiverHours,
+    resetOrderWeekly: afterWire.resetOrderWeekly,
+  };
 
   await db
     .update(leagueSeasons)
@@ -562,7 +721,7 @@ export async function updateWaiverWireRules(
           : null,
       settings: {
         ...season.settings,
-        waiverWire: toPersistedWaiverWire(next),
+        waiverWire: afterWire,
       },
     })
     .where(eq(leagueSeasons.id, season.id));
@@ -581,6 +740,22 @@ export async function updateWaiverWireRules(
       .set({ faabRemaining: null })
       .where(eq(teams.leagueSeasonId, season.id));
   }
+
+  await logSettingsUpdated({
+    leagueSeasonId: season.id,
+    actorUserId: user.id,
+    section: "waivers",
+    label: "Waiver wire",
+    changes: diffSettingsValues(before, after, [
+      { path: "waiversEnabled", label: "Waivers enabled" },
+      { path: "waiverType", label: "Waiver type" },
+      { path: "faabBudget", label: "FAAB budget" },
+      { path: "processDays", label: "Process days" },
+      { path: "waiverPool", label: "Waiver pool" },
+      { path: "dropWaiverHours", label: "Drop waiver hours" },
+      { path: "resetOrderWeekly", label: "Reset order weekly" },
+    ]),
+  });
 
   revalidateSettingsPaths(slug);
 
@@ -604,7 +779,42 @@ export async function updateTiebreakerSettings(
     return { success: false, error: result.error };
   }
 
-  const { season } = result;
+  const { season, user } = result;
+
+  const before = resolveTiebreakerSettings(season.settings.tiebreakers);
+  const after = parsed.data;
+  const fields: SettingsFieldDef[] = [
+    { path: "breakRegularSeasonTies", label: "Break regular-season ties" },
+    { path: "applyOfficialStatChanges", label: "Allow official score corrections" },
+    {
+      path: "gameTiebreakers",
+      label: "Game tiebreaker order",
+      format: (value) =>
+        Array.isArray(value)
+          ? value
+              .map(
+                (id) =>
+                  GAME_TIEBREAKER_OPTIONS.find((option) => option.id === id)
+                    ?.label ?? String(id),
+              )
+              .join(" → ")
+          : "—",
+    },
+    {
+      path: "rankTiebreakers",
+      label: "Rank tiebreaker order",
+      format: (value) =>
+        Array.isArray(value)
+          ? value
+              .map(
+                (id) =>
+                  RANK_TIEBREAKER_OPTIONS.find((option) => option.id === id)
+                    ?.label ?? String(id),
+              )
+              .join(" → ")
+          : "—",
+    },
+  ];
 
   await db
     .update(leagueSeasons)
@@ -615,6 +825,14 @@ export async function updateTiebreakerSettings(
       },
     })
     .where(eq(leagueSeasons.id, season.id));
+
+  await logSettingsUpdated({
+    leagueSeasonId: season.id,
+    actorUserId: user.id,
+    section: "tiebreakers",
+    label: "Tiebreakers",
+    changes: diffSettingsValues(before, after, fields),
+  });
 
   revalidateSettingsPaths(slug);
 
@@ -638,8 +856,22 @@ export async function updateTransactionRules(
     return { success: false, error: result.error };
   }
 
-  const { season } = result;
+  const { season, user } = result;
   const next = parsed.data;
+
+  const before = {
+    tradesEnabled: season.tradesEnabled,
+    tradeProcessing: season.tradeProcessing,
+    tradeDeadlineWeek: season.tradeDeadlineWeek,
+    ...resolveTransactionRules(season.settings.transactionRules),
+  };
+  const afterRules = toPersistedTransactionRules(next);
+  const after = {
+    tradesEnabled: next.tradesEnabled,
+    tradeProcessing: next.tradeProcessing,
+    tradeDeadlineWeek: next.tradesEnabled ? next.tradeDeadlineWeek : null,
+    ...afterRules,
+  };
 
   await db
     .update(leagueSeasons)
@@ -649,10 +881,29 @@ export async function updateTransactionRules(
       tradeDeadlineWeek: next.tradesEnabled ? next.tradeDeadlineWeek : null,
       settings: {
         ...season.settings,
-        transactionRules: toPersistedTransactionRules(next),
+        transactionRules: afterRules,
       },
     })
     .where(eq(leagueSeasons.id, season.id));
+
+  await logSettingsUpdated({
+    leagueSeasonId: season.id,
+    actorUserId: user.id,
+    section: "transactions",
+    label: "Transactions",
+    changes: diffSettingsValues(before, after, [
+      { path: "tradesEnabled", label: "Trades enabled" },
+      { path: "tradeProcessing", label: "Trade processing" },
+      { path: "tradeDeadlineWeek", label: "Trade deadline week" },
+      { path: "allowVetoes", label: "Allow vetoes" },
+      { path: "transactionLimits", label: "Transaction limits" },
+      { path: "transactionWeeklyMax", label: "Weekly transaction max" },
+      { path: "transactionSeasonMax", label: "Season transaction max" },
+      { path: "addDropDeadlineWeek", label: "Add/drop deadline week" },
+      { path: "enforceRosterMinimums", label: "Enforce roster minimums" },
+      { path: "preventCutsAfterGameStart", label: "Prevent cuts after game start" },
+    ]),
+  });
 
   revalidateSettingsPaths(slug);
 
@@ -984,9 +1235,30 @@ export async function updateDraftConfig(
     return { success: false, error: result.error };
   }
 
-  const { season } = result;
-  const next = parsed.data;
+  const { season, user } = result;
+  const next = {
+    ...parsed.data,
+    draftType: resolveDraftType(parsed.data.draftType),
+  };
   const draftStartAt = new Date(next.draftStartAt);
+  const beforeDraft = resolveDraftSettings(season.settings.draft);
+  const before = {
+    draftType: season.draftType,
+    draftStartAt: season.draftStartAt.toISOString(),
+    pickTimeLimitSeconds: season.pickTimeLimitSeconds,
+    draftStyle: beforeDraft.style,
+    pickTimeLimitEnabled: beforeDraft.pickTimeLimitEnabled ?? true,
+    autoPickEnabled: beforeDraft.autoPickEnabled,
+  };
+  const afterSettings = toPersistedDraftSettings(next);
+  const after = {
+    draftType: next.draftType,
+    draftStartAt: draftStartAt.toISOString(),
+    pickTimeLimitSeconds: draftConfigPickTimeSeconds(next),
+    draftStyle: afterSettings.style,
+    pickTimeLimitEnabled: afterSettings.pickTimeLimitEnabled ?? true,
+    autoPickEnabled: afterSettings.autoPickEnabled,
+  };
 
   await db
     .update(leagueSeasons)
@@ -994,10 +1266,10 @@ export async function updateDraftConfig(
       draftType: next.draftType,
       draftStartAt,
       pickTimeLimitSeconds: draftConfigPickTimeSeconds(next),
-      emailNotificationsEnabled: next.draftType === "email",
+      emailNotificationsEnabled: false,
       settings: {
         ...season.settings,
-        draft: toPersistedDraftSettings(next),
+        draft: afterSettings,
       },
     })
     .where(eq(leagueSeasons.id, season.id));
@@ -1007,6 +1279,21 @@ export async function updateDraftConfig(
     .update(teams)
     .set({ autoPickEnabled: next.autoPickEnabled })
     .where(eq(teams.leagueSeasonId, season.id));
+
+  await logSettingsUpdated({
+    leagueSeasonId: season.id,
+    actorUserId: user.id,
+    section: "draft",
+    label: "Draft settings",
+    changes: diffSettingsValues(before, after, [
+      { path: "draftType", label: "Draft type" },
+      { path: "draftStartAt", label: "Draft start" },
+      { path: "draftStyle", label: "Draft style" },
+      { path: "pickTimeLimitEnabled", label: "Pick time limit enabled" },
+      { path: "pickTimeLimitSeconds", label: "Pick time (seconds)" },
+      { path: "autoPickEnabled", label: "Auto-pick default" },
+    ]),
+  });
 
   revalidateSettingsPaths(slug);
   return { success: true };

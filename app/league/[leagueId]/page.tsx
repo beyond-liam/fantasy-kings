@@ -32,6 +32,7 @@ import {
   bracketTeamsFromStandings,
   buildPlayoffBracket,
 } from "@/lib/leagues/playoff-bracket";
+import { hydratePlayoffBracket } from "@/lib/leagues/playoff-bracket-hydrate";
 import {
   buildPlayoffStandingsRows,
   resolvePlayoffCutoffSeed,
@@ -40,8 +41,12 @@ import {
   clampPlayoffTeamCount,
   resolvePlayoffSettings,
 } from "@/lib/leagues/playoff-settings";
+import { getPlayoffWeekRange } from "@/lib/leagues/season-calendar";
 import { getLeagueHomeData, isDraftUnderway } from "@/lib/queries/leagues";
 import { getLeaguePositionStats } from "@/lib/queries/league-stats";
+import { db } from "@/lib/db";
+import { matchups } from "@/db/schema";
+import { and, eq, gte } from "drizzle-orm";
 
 type LeagueHomePageProps = {
   params: Promise<{ leagueId: string }>;
@@ -110,6 +115,7 @@ export default async function LeagueHomePage({ params }: LeagueHomePageProps) {
       faabBudget: showFaabBudget ? season.faabBudget : null,
     },
     finals,
+    season?.settings.tiebreakers,
   );
   const playoffSettings = resolvePlayoffSettings(season?.settings.playoffs);
   const playoffTeamCount =
@@ -122,19 +128,58 @@ export default async function LeagueHomePage({ params }: LeagueHomePageProps) {
     teamCount: standings.length,
   });
   const playoffStandings = buildPlayoffStandingsRows(standings);
-  const playoffBracket =
+  const seedTeams =
+    season && playoffSettings.enabled
+      ? bracketTeamsFromStandings(playoffStandings, playoffTeamCount)
+      : [];
+  let playoffBracket =
     season && playoffSettings.enabled
       ? buildPlayoffBracket({
-          teams: bracketTeamsFromStandings(
-            playoffStandings,
-            playoffTeamCount,
-          ),
+          teams: seedTeams,
           playoffTeamCount,
           championshipWeek: season.championshipWeek,
           twoWeekChampionship: playoffSettings.twoWeekChampionship,
           enabled: true,
         })
       : null;
+
+  if (season && playoffBracket) {
+    const range = getPlayoffWeekRange(
+      season.championshipWeek,
+      playoffTeamCount,
+      {
+        enabled: true,
+        twoWeekChampionship: playoffSettings.twoWeekChampionship,
+      },
+    );
+    if (range) {
+      const playoffRows = await db
+        .select({
+          week: matchups.week,
+          homeTeamId: matchups.homeTeamId,
+          awayTeamId: matchups.awayTeamId,
+          homePts: matchups.homePts,
+          awayPts: matchups.awayPts,
+          status: matchups.status,
+        })
+        .from(matchups)
+        .where(
+          and(
+            eq(matchups.leagueSeasonId, season.id),
+            gte(matchups.week, range.startWeek),
+          ),
+        )
+        .catch(() => []);
+
+      if (playoffRows.length > 0) {
+        playoffBracket = hydratePlayoffBracket(
+          playoffBracket,
+          playoffRows,
+          seedTeams,
+        );
+      }
+    }
+  }
   const myTeamPublicId =
     members.find((member) => member.userId === user.id)?.teamPublicId ?? null;
   const stats = await statsPromise;

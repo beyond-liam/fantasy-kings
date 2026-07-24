@@ -1,7 +1,6 @@
 "use client";
 
 import { NumberInput } from "@/components/ui/number-input";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -49,22 +48,21 @@ export function TransactionsStep({
           <Field>
             <FieldLabel>Waiver system</FieldLabel>
             <RadioGroup
+              variant="card"
               value={values.waiverType}
               onValueChange={(value) =>
                 onChange({
                   waiverType: value as TransactionsStepValues["waiverType"],
                 })
               }
-              className="grid gap-3 sm:grid-cols-2"
+              className="sm:grid-cols-2"
             >
-              <Label className="flex cursor-pointer items-center gap-2 rounded-lg border p-3 has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-primary/5">
-                <RadioGroupItem value="priority" />
-                Rolling priority
-              </Label>
-              <Label className="flex cursor-pointer items-center gap-2 rounded-lg border p-3 has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-primary/5">
-                <RadioGroupItem value="faab" />
-                FAAB budget
-              </Label>
+              <RadioGroupItem value="priority">
+                <span className="text-sm font-medium">Rolling priority</span>
+              </RadioGroupItem>
+              <RadioGroupItem value="faab">
+                <span className="text-sm font-medium">FAAB budget</span>
+              </RadioGroupItem>
             </RadioGroup>
           </Field>
           {values.waiverType === "faab" ? (
@@ -103,6 +101,7 @@ export function TransactionsStep({
           <Field>
             <FieldLabel>Trade processing</FieldLabel>
             <RadioGroup
+              variant="card"
               value={values.tradeProcessing}
               onValueChange={(value) =>
                 onChange({
@@ -110,20 +109,15 @@ export function TransactionsStep({
                     value as TransactionsStepValues["tradeProcessing"],
                 })
               }
-              className="grid gap-3"
             >
               {[
                 { value: "commissioner", label: "Commissioner approval" },
                 { value: "review_24h", label: "24-hour review" },
                 { value: "instant", label: "Instant processing" },
               ].map((option) => (
-                <Label
-                  key={option.value}
-                  className="flex cursor-pointer items-center gap-2 rounded-lg border p-3 has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-primary/5"
-                >
-                  <RadioGroupItem value={option.value} />
-                  {option.label}
-                </Label>
+                <RadioGroupItem key={option.value} value={option.value}>
+                  <span className="text-sm font-medium">{option.label}</span>
+                </RadioGroupItem>
               ))}
             </RadioGroup>
           </Field>

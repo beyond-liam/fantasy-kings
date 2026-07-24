@@ -61,6 +61,7 @@ export function GameCentre({ data }: GameCentreProps) {
       <MatchupHeader
         away={data.away}
         home={data.home}
+        status={data.status}
         onProjectedClick={
           data.optimum ? () => setOptimumOpen(true) : undefined
         }

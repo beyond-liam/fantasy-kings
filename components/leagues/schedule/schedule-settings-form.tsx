@@ -9,6 +9,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
+import { SettingsFormCard } from "@/components/leagues/settings/settings-form-card";
 import { PageFormActions } from "@/components/layout/page-form-actions";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
@@ -40,7 +41,6 @@ import {
   regenerateRegularSeasonSchedule,
   updateRegularSeasonSchedule,
 } from "@/lib/actions/league-settings";
-import { formatLeagueLabel } from "@/lib/leagues/format";
 import {
   clampPlayEachOtherTimes,
   maxPlayEachOtherTimes,
@@ -67,8 +67,6 @@ function timesLabel(times: PlayEachOtherTimes) {
 
 export function ScheduleSettingsForm({
   slug,
-  leagueName,
-  seasonStatus,
   divisionCount,
   teamCount,
   regularSeasonEndWeek,
@@ -121,17 +119,6 @@ export function ScheduleSettingsForm({
 
   return (
     <div className="flex flex-col gap-8">
-      <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold tracking-tight text-balance">
-          Regular season schedule
-        </h1>
-        <p className="text-sm text-pretty text-muted-foreground">
-          {leagueName}
-          {" · "}
-          <span className="capitalize">{formatLeagueLabel(seasonStatus)}</span>
-        </p>
-      </div>
-
       {!editable ? (
         <Alert>
           <AlertDescription>
@@ -146,7 +133,56 @@ export function ScheduleSettingsForm({
         </Alert>
       ) : null}
 
-      <FieldGroup>
+      <SettingsFormCard
+        title="Regular Season Schedule"
+        footer={
+          <PageFormActions>
+            {editable ? (
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={isPending || !isLeagueFull}
+                  onClick={() => setRegenOpen(true)}
+                >
+                  <HugeiconsIcon
+                    icon={ArrowReloadHorizontalIcon}
+                    strokeWidth={2}
+                    data-icon="inline-start"
+                  />
+                  Regenerate schedule
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={isPending || !hasChanges}
+                  onClick={handleReset}
+                >
+                  <HugeiconsIcon
+                    icon={Cancel01Icon}
+                    strokeWidth={2}
+                    data-icon="inline-start"
+                  />
+                  Reset
+                </Button>
+                <Button
+                  type="button"
+                  onClick={handleSave}
+                  disabled={isPending || !hasChanges}
+                >
+                  <HugeiconsIcon
+                    icon={TickDouble02Icon}
+                    strokeWidth={2}
+                    data-icon="inline-start"
+                  />
+                  Save
+                </Button>
+              </>
+            ) : null}
+          </PageFormActions>
+        }
+      >
+        <FieldGroup>
         <Field>
           <FieldLabel htmlFor="play-each-other">Play each other</FieldLabel>
           <Select
@@ -163,7 +199,7 @@ export function ScheduleSettingsForm({
               );
             }}
           >
-            <SelectTrigger id="play-each-other" className="w-full max-w-xs">
+            <SelectTrigger id="play-each-other" className="w-full">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -194,52 +230,8 @@ export function ScheduleSettingsForm({
               : " · schedule generates automatically when the league is full"}
           </FieldDescription>
         </Field>
-      </FieldGroup>
-
-      <PageFormActions>
-        {editable ? (
-          <>
-            <Button
-              type="button"
-              variant="outline"
-              disabled={isPending || !isLeagueFull}
-              onClick={() => setRegenOpen(true)}
-            >
-              <HugeiconsIcon
-                icon={ArrowReloadHorizontalIcon}
-                strokeWidth={2}
-                data-icon="inline-start"
-              />
-              Regenerate schedule
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              disabled={isPending || !hasChanges}
-              onClick={handleReset}
-            >
-              <HugeiconsIcon
-                icon={Cancel01Icon}
-                strokeWidth={2}
-                data-icon="inline-start"
-              />
-              Reset
-            </Button>
-            <Button
-              type="button"
-              onClick={handleSave}
-              disabled={isPending || !hasChanges}
-            >
-              <HugeiconsIcon
-                icon={TickDouble02Icon}
-                strokeWidth={2}
-                data-icon="inline-start"
-              />
-              Save
-            </Button>
-          </>
-        ) : null}
-      </PageFormActions>
+        </FieldGroup>
+      </SettingsFormCard>
 
       <AlertDialog open={regenOpen} onOpenChange={setRegenOpen}>
         <AlertDialogContent>

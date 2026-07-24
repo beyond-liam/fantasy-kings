@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Suspense, useEffect, useState } from "react";
 
+import { MatchupStatusBadge } from "@/components/leagues/matchups/matchup-status-badge";
 import {
   WeekFilter,
   type WeekFilterOption,
@@ -240,8 +241,12 @@ function MatchupBoardRow({
     <Link
       href={leagueMatchupPath(leagueSlug, game.publicId || game.id)}
       aria-label={`View matchup: ${game.away.teamName} vs ${game.home.teamName}`}
-      className="relative flex min-w-0 items-stretch overflow-hidden rounded-xl border bg-card transition-colors outline-none hover:bg-muted/40 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+      className="relative flex min-w-0 items-stretch overflow-hidden rounded-xl border bg-card pt-7 transition-colors outline-none hover:bg-muted/40 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
     >
+      <span className="pointer-events-none absolute inset-x-0 top-1.5 z-20 flex justify-center">
+        <MatchupStatusBadge status={game.status} />
+      </span>
+
       <MatchupSide side={game.away} align="away" />
 
       <div className="relative z-10 flex shrink-0 items-center self-center">

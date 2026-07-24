@@ -25,6 +25,7 @@ export async function getTeamRosterPlayers(
       primaryPositionId: players.primaryPositionId,
       byeWeek: players.byeWeek,
       injuryStatus: players.injuryStatus,
+      yearsExp: players.yearsExp,
       sleeperId: playerExternalIds.externalId,
       slotPositionId: rosterPlayers.slotPositionId,
     })

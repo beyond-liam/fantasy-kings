@@ -10,6 +10,11 @@ import {
   IR_ELIGIBILITY_OPTIONS,
   type IrEligibleStatusId,
 } from "@/lib/leagues/ir-eligibility";
+import {
+  DEFAULT_TAXI_MAX_YEARS_EXP,
+  TAXI_MAX_YEARS_OPTIONS,
+  type TaxiMaxYearsExp,
+} from "@/lib/leagues/taxi-eligibility";
 
 export type RosterMode = "standard" | "custom";
 
@@ -32,6 +37,7 @@ export type RosterRequirementsValues = {
   irEligibleStatuses: IrEligibleStatusId[];
   taxiEnabled: boolean;
   taxiSlots: number;
+  taxiMaxYearsExp: TaxiMaxYearsExp;
   customRosterSlots: RosterSlotInput[];
 };
 
@@ -50,6 +56,15 @@ const irEligibleStatusSchema = z.enum(
   ],
 );
 
+const taxiMaxYearsExpSchema = z.union([
+  z.literal(0),
+  z.literal(1),
+  z.literal(2),
+  z.literal(3),
+  z.literal(4),
+  z.literal(5),
+]);
+
 export const rosterRequirementsSchema = z
   .object({
     rosterMode: z.enum(["standard", "custom"]),
@@ -59,6 +74,7 @@ export const rosterRequirementsSchema = z
     irEligibleStatuses: z.array(irEligibleStatusSchema),
     taxiEnabled: z.boolean(),
     taxiSlots: z.number().int().min(0).max(5),
+    taxiMaxYearsExp: taxiMaxYearsExpSchema,
     customRosterSlots: z.array(rosterSlotSchema),
   })
   .refine((data) => !data.irEnabled || data.irSlots >= 1, {
@@ -78,6 +94,17 @@ export const rosterRequirementsSchema = z
   })
   .refine(
     (data) =>
+      !data.taxiEnabled ||
+      TAXI_MAX_YEARS_OPTIONS.some(
+        (option) => option.value === data.taxiMaxYearsExp,
+      ),
+    {
+      message: "Choose taxi eligibility",
+      path: ["taxiMaxYearsExp"],
+    },
+  )
+  .refine(
+    (data) =>
       data.rosterMode === "standard" || data.customRosterSlots.length > 0,
     {
       message: "Add at least one roster position",
@@ -85,7 +112,7 @@ export const rosterRequirementsSchema = z
     },
   );
 
-export { DEFAULT_IR_ELIGIBLE_STATUSES };
+export { DEFAULT_IR_ELIGIBLE_STATUSES, DEFAULT_TAXI_MAX_YEARS_EXP };
 
 export const ROSTER_PRESET_OPTIONS: Array<{
   value: RosterUiMode;

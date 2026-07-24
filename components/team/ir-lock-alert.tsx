@@ -21,7 +21,7 @@ export function IrLockAlert({ violations }: IrLockAlertProps) {
   }
 
   return (
-    <Alert variant="warning">
+    <Alert variant="destructive">
       <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} />
       <AlertTitle>IR eligibility required</AlertTitle>
       <AlertDescription>{formatIrLockMessage(violations)}</AlertDescription>

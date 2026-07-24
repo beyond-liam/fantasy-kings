@@ -1,6 +1,7 @@
 import { and, desc, eq, inArray } from "drizzle-orm";
 
 import { leagueActivity, players, teams, waiverClaims } from "@/db/schema";
+import type { LeagueActivityMetadata } from "@/db/schema/league-activity";
 import { db } from "@/lib/db";
 import {
   FEED_ACTIVITY_TYPES,
@@ -16,18 +17,7 @@ export type LeagueActivityRow = {
   teamName: string | null;
   playerId: string | null;
   playerName: string | null;
-  metadata: {
-    bid?: number | null;
-    failReason?: string | null;
-    playerName?: string;
-    dropPlayerName?: string | null;
-    teamName?: string;
-    waiverType?: "priority" | "faab";
-    tradeId?: string | null;
-    removalReason?: string | null;
-    removedUserId?: string | null;
-    removedDisplayName?: string | null;
-  } | null;
+  metadata: LeagueActivityMetadata | null;
 };
 
 export async function getLeagueActivity(

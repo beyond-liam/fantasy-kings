@@ -5,6 +5,7 @@ import {
   validateActiveRosterCaps,
 } from "@/lib/leagues/roster-capacity";
 import type { RosterAssignmentOption } from "@/lib/leagues/roster-display";
+import { isPlayerTaxiEligible } from "@/lib/leagues/taxi-eligibility";
 
 /** Count rostered players by effective slot (explicit slot or primary position). */
 export function occupiedBySlot(
@@ -36,10 +37,18 @@ export function slotAcceptsPlayer(
   options?: {
     injuryStatus?: string | null;
     irEligibleStatuses?: readonly string[];
+    yearsExp?: number | null;
+    taxiMaxYearsExp?: 0 | 1 | 2 | 3 | 4 | 5 | null;
   },
 ) {
-  if (slotPositionId === "BN" || slotPositionId === "TAXI") {
+  if (slotPositionId === "BN") {
     return true;
+  }
+  if (slotPositionId === "TAXI") {
+    return isPlayerTaxiEligible(
+      options?.yearsExp,
+      options?.taxiMaxYearsExp ?? 0,
+    );
   }
   if (slotPositionId === "IR") {
     return isPlayerIrEligible(
@@ -96,6 +105,8 @@ export function pickDefaultSlotPosition(input: {
   playerPositionId: string;
   injuryStatus?: string | null;
   irEligibleStatuses?: readonly string[];
+  yearsExp?: number | null;
+  taxiMaxYearsExp?: 0 | 1 | 2 | 3 | 4 | 5 | null;
   rosterSlots: RosterSlotConfig[];
   benchSlots: number;
   irEnabled: boolean;
@@ -115,6 +126,8 @@ export function pickDefaultSlotPosition(input: {
       !slotAcceptsPlayer(slotPositionId, input.playerPositionId, {
         injuryStatus: input.injuryStatus,
         irEligibleStatuses: input.irEligibleStatuses,
+        yearsExp: input.yearsExp,
+        taxiMaxYearsExp: input.taxiMaxYearsExp,
       })
     ) {
       continue;
@@ -139,6 +152,8 @@ export function filterAssignmentOptionsForPlayer(
   eligibility?: {
     injuryStatus?: string | null;
     irEligibleStatuses?: readonly string[];
+    yearsExp?: number | null;
+    taxiMaxYearsExp?: 0 | 1 | 2 | 3 | 4 | 5 | null;
     /** Keep IR selectable when the player is already assigned there. */
     currentSlotPositionId?: string | null;
     rosterSlots?: RosterSlotConfig[];
@@ -197,6 +212,7 @@ export type SlotAssignmentPlayer = {
   primaryPositionId: string;
   slotPositionId: string | null;
   injuryStatus?: string | null;
+  yearsExp?: number | null;
 };
 
 /** Apply a slot change in memory, bumping an occupant to BN when the target is full. */
@@ -207,6 +223,7 @@ export function applyLocalSlotAssignment<T extends SlotAssignmentPlayer>(
   rosterSlots: RosterSlotConfig[],
   benchSlots: number,
   irEligibleStatuses: readonly string[] = [],
+  taxiMaxYearsExp: 0 | 1 | 2 | 3 | 4 | 5 = 0,
 ): { players: T[] } | { error: string } {
   const player = players.find((row) => row.id === playerId);
   if (!player) {
@@ -217,10 +234,15 @@ export function applyLocalSlotAssignment<T extends SlotAssignmentPlayer>(
     !slotAcceptsPlayer(slotPositionId, player.primaryPositionId, {
       injuryStatus: player.injuryStatus,
       irEligibleStatuses,
+      yearsExp: player.yearsExp,
+      taxiMaxYearsExp,
     })
   ) {
     if (slotPositionId === "IR") {
       return { error: "Player is not eligible for IR." };
+    }
+    if (slotPositionId === "TAXI") {
+      return { error: "Player is not eligible for Taxi." };
     }
     return {
       error: `${player.primaryPositionId} cannot play ${slotPositionId}.`,

@@ -1,22 +1,12 @@
 import type { GameProgress } from "@/lib/leagues/win-probability/game-progress";
-
-/**
- * Rough weekly fantasy-point σ by position (pre-game). Residual σ scales with
- * remaining game fraction. Recalibrate when live scoring history exists.
- *
- * TODO(live-win-prob): Fit these from completed weeks once live data exists.
- */
-const POSITION_SIGMA: Record<string, number> = {
-  QB: 7,
-  RB: 6,
-  WR: 6,
-  TE: 5,
-  FLEX: 6,
-  K: 3.5,
-  DEF: 4,
-};
-
-const DEFAULT_SIGMA = 6;
+import {
+  LIVE_SIGMA_FLOOR_FRAC,
+  PACE_BLEND_MAX,
+  PACE_BLEND_START_FRAC,
+  SOFT_DNP_FRACTION,
+  positionSigma,
+} from "@/lib/leagues/win-probability/calibration";
+import { getInjuryIndicator } from "@/lib/players/injury";
 
 export type WinProbPlayer = {
   id: string;
@@ -24,22 +14,28 @@ export type WinProbPlayer = {
   nflTeam: string | null;
   projectedPts: number | null;
   actualPts: number | null;
+  injuryStatus?: string | null;
 };
 
 /**
  * Expected final fantasy points for one starter.
- * Pre → projection; live → actual + projection×timeLeft; post → actual.
+ * Pre → projection; live → actual + pace-blended remaining; post → actual.
+ * Out/DNP/IR (injury) and soft late-zero actuals → remaining forced to 0.
  */
 export function expectedPlayerPoints(
   player: WinProbPlayer,
   progress: GameProgress | null,
 ): { mean: number; variance: number } {
-  const projection = Math.max(0, player.projectedPts ?? 0);
+  const out =
+    getInjuryIndicator(player.injuryStatus)?.tone === "out";
+  const projection = out ? 0 : Math.max(0, player.projectedPts ?? 0);
   const actual = Math.max(0, player.actualPts ?? 0);
-  const sigma =
-    POSITION_SIGMA[player.primaryPositionId.toUpperCase()] ?? DEFAULT_SIGMA;
+  const sigma = positionSigma(player.primaryPositionId);
 
   if (!progress || progress.status === "pre") {
+    if (out) {
+      return { mean: 0, variance: 0 };
+    }
     return { mean: projection, variance: sigma * sigma };
   }
 
@@ -48,11 +44,41 @@ export function expectedPlayerPoints(
   }
 
   const remainingFrac = 1 - progress.fractionPlayed;
-  const remaining = projection * remainingFrac;
-  const residualSigma = sigma * remainingFrac;
+  const softDnp =
+    !out &&
+    actual === 0 &&
+    projection > 0 &&
+    progress.fractionPlayed >= SOFT_DNP_FRACTION;
+
+  if (out || softDnp) {
+    return { mean: actual, variance: 0 };
+  }
+
+  // Pace = actual / time played; blend toward pace as the game progresses.
+  const played = Math.max(progress.fractionPlayed, 0.01);
+  const paceFullGame = actual / played;
+  const paceWeight =
+    progress.fractionPlayed < PACE_BLEND_START_FRAC
+      ? 0
+      : Math.min(
+          PACE_BLEND_MAX,
+          ((progress.fractionPlayed - PACE_BLEND_START_FRAC) /
+            (1 - PACE_BLEND_START_FRAC)) *
+            PACE_BLEND_MAX,
+        );
+  const blendedFullGame =
+    projection * (1 - paceWeight) + paceFullGame * paceWeight;
+  const remaining = Math.max(0, blendedFullGame * remainingFrac);
+
+  // Live residual σ: scale with remaining time, keep a floor so mid-game WP
+  // isn't overconfident (calibrated priors in calibration.ts).
+  const liveSigma = Math.max(
+    sigma * remainingFrac,
+    sigma * LIVE_SIGMA_FLOOR_FRAC * Math.sqrt(Math.max(remainingFrac, 0.05)),
+  );
   return {
     mean: actual + remaining,
-    variance: residualSigma * residualSigma,
+    variance: liveSigma * liveSigma,
   };
 }
 

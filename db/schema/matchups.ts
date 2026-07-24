@@ -19,7 +19,7 @@ export const matchupStatusEnum = pgEnum("matchup_status", [
 
 /**
  * Head-to-head fantasy matchup for a league season week.
- * Regular-season games only for now (playoffs deferred).
+ * Regular season + playoff weeks (playoff rows ensured via `ensurePlayoffMatchupsAdvanced`).
  * Live points still come from player_scores; home/away pts lock when status=final.
  * `publicId` is the short URL segment under `/league/.../scores/[matchupId]`.
  */

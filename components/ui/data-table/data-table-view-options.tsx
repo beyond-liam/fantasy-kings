@@ -46,7 +46,7 @@ export function DataTableViewOptions<TData>({
       >
         <HugeiconsIcon icon={LayoutThreeColumnIcon} strokeWidth={2} />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-44">
+      <DropdownMenuContent align="end" className="min-w-56">
         <DropdownMenuGroup>
           <DropdownMenuLabel>Show</DropdownMenuLabel>
           {hideable.map((column) => (

@@ -78,4 +78,97 @@ describe("buildLeagueStandings", () => {
     assert.equal(rows[1]?.ties, 1);
     assert.equal(rows[0]?.streak, "T1");
   });
+
+  it("uses H2H rank tiebreaker when breakRegularSeasonTies is on", () => {
+    const four: LeagueStandingsMember[] = [
+      ...members,
+      {
+        teamId: "c",
+        teamName: "Charlie",
+        teamPublicId: "cccccc",
+        displayName: "Cat",
+        userId: "u3",
+        draftSlot: 3,
+        teamCreatedAt: new Date("2026-01-03"),
+        waiverPriority: 3,
+      },
+      {
+        teamId: "d",
+        teamName: "Delta",
+        teamPublicId: "dddddd",
+        displayName: "Dan",
+        userId: "u4",
+        draftSlot: 4,
+        teamCreatedAt: new Date("2026-01-04"),
+        waiverPriority: 4,
+      },
+    ];
+
+    // A and B both 2-1; B has more PF, but A owns the H2H win.
+    const finals = [
+      {
+        id: "m1",
+        week: 1,
+        homeTeamId: "a",
+        awayTeamId: "b",
+        homePts: 120,
+        awayPts: 100,
+      },
+      {
+        id: "m2",
+        week: 2,
+        homeTeamId: "a",
+        awayTeamId: "c",
+        homePts: 90,
+        awayPts: 100,
+      },
+      {
+        id: "m3",
+        week: 3,
+        homeTeamId: "a",
+        awayTeamId: "d",
+        homePts: 110,
+        awayPts: 80,
+      },
+      {
+        id: "m4",
+        week: 4,
+        homeTeamId: "b",
+        awayTeamId: "c",
+        homePts: 110,
+        awayPts: 80,
+      },
+      {
+        id: "m5",
+        week: 5,
+        homeTeamId: "b",
+        awayTeamId: "d",
+        homePts: 130,
+        awayPts: 90,
+      },
+    ];
+
+    const byPf = buildLeagueStandings(four, { teamCount: 4 }, finals, {
+      breakRegularSeasonTies: false,
+      rankTiebreakers: [
+        "head_to_head",
+        "points_per_game",
+        "schedule_record",
+        "schedule_points",
+      ],
+    });
+    assert.equal(byPf[0]?.teamId, "b", "without breakTies, higher PF wins");
+
+    const byH2h = buildLeagueStandings(four, { teamCount: 4 }, finals, {
+      breakRegularSeasonTies: true,
+      rankTiebreakers: [
+        "head_to_head",
+        "points_per_game",
+        "schedule_record",
+        "schedule_points",
+      ],
+    });
+    assert.equal(byH2h[0]?.teamId, "a", "with H2H first, A ranks above B");
+    assert.equal(byH2h[1]?.teamId, "b");
+  });
 });

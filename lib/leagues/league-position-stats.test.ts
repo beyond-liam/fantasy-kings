@@ -4,16 +4,29 @@ import { describe, it } from "node:test";
 import {
   aggregateStarterPositionPoints,
   buildLeaguePositionStatsRows,
+  formatLeaderPositionFullLabel,
   formatLeaderPositionLabel,
   getLeaderPositionColumns,
 } from "@/lib/leagues/league-position-stats";
 import type { RosterSlotConfig } from "@/db/schema/league-seasons";
 
 describe("formatLeaderPositionLabel", () => {
-  it("maps DEF to D/ST and keeps FLEX as FLEX", () => {
+  it("keeps position ids as display labels", () => {
     assert.equal(formatLeaderPositionLabel("FLEX"), "FLEX");
-    assert.equal(formatLeaderPositionLabel("DEF"), "D/ST");
+    assert.equal(formatLeaderPositionLabel("DEF"), "DEF");
     assert.equal(formatLeaderPositionLabel("QB"), "QB");
+  });
+});
+
+describe("formatLeaderPositionFullLabel", () => {
+  it("uses plain English names for column menus", () => {
+    assert.equal(formatLeaderPositionFullLabel("QB"), "Quarterback");
+    assert.equal(formatLeaderPositionFullLabel("RB"), "Running back");
+    assert.equal(formatLeaderPositionFullLabel("WR"), "Wide receiver");
+    assert.equal(formatLeaderPositionFullLabel("TE"), "Tight end");
+    assert.equal(formatLeaderPositionFullLabel("FLEX"), "Flex");
+    assert.equal(formatLeaderPositionFullLabel("K"), "Kicker");
+    assert.equal(formatLeaderPositionFullLabel("DEF"), "Defense");
   });
 });
 

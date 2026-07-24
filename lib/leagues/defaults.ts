@@ -42,6 +42,7 @@ export const WIZARD_DEFAULTS = {
   irEligibleStatuses: [...DEFAULT_IR_ELIGIBLE_STATUSES] as IrEligibleStatusId[],
   taxiEnabled: false,
   taxiSlots: 2,
+  taxiMaxYearsExp: 0 as const,
   scoringPreset: "full_ppr" as const,
   waiversEnabled: true,
   waiverType: "priority" as const,
@@ -50,6 +51,7 @@ export const WIZARD_DEFAULTS = {
   tradeProcessing: "review_24h" as const,
   tradesDeadlineWeek: null as number | null,
   draftType: "live" as const,
+  pickTimeLimitEnabled: true,
   pickTimeLimit: 2,
   pickTimeUnit: "minutes" as const,
 };

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Cancel01Icon, TickDouble02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
+import { SettingsFormCard } from "@/components/leagues/settings/settings-form-card";
 import { PageFormActions } from "@/components/layout/page-form-actions";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -43,7 +44,6 @@ function orderedTeamIds(teams: WaiverOrderTeam[]) {
 
 export function WaiverOrderSettings({
   slug,
-  leagueName,
   waiverType,
   initialTeams,
 }: WaiverOrderSettingsProps) {
@@ -92,15 +92,6 @@ export function WaiverOrderSettings({
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold tracking-tight text-balance">
-          Waiver Order
-        </h1>
-        <p className="text-sm text-pretty text-muted-foreground">
-          {leagueName} · Position 1 has the highest priority.
-        </p>
-      </div>
-
       {error ? (
         <Alert variant="destructive">
           <AlertDescription>{error}</AlertDescription>
@@ -115,49 +106,54 @@ export function WaiverOrderSettings({
         </Alert>
       ) : null}
 
-      {initialTeams.length === 0 ? (
-        <Alert>
-          <AlertDescription>
-            No teams yet. Invite managers before setting waiver order.
-          </AlertDescription>
-        </Alert>
-      ) : (
-        <FieldGroup>
+      <SettingsFormCard
+        title="Waiver Order"
+        footer={
+          <PageFormActions>
+            <Button
+              type="button"
+              variant="ghost"
+              disabled={isPending || !hasChanges}
+              onClick={handleReset}
+            >
+              <HugeiconsIcon
+                icon={Cancel01Icon}
+                strokeWidth={2}
+                data-icon="inline-start"
+              />
+              Reset
+            </Button>
+            <Button
+              type="button"
+              disabled={isPending || !hasChanges || initialTeams.length === 0}
+              onClick={handleSave}
+            >
+              <HugeiconsIcon
+                icon={TickDouble02Icon}
+                strokeWidth={2}
+                data-icon="inline-start"
+              />
+              Save
+            </Button>
+          </PageFormActions>
+        }
+      >
+        {initialTeams.length === 0 ? (
+          <Alert>
+            <AlertDescription>
+              No teams yet. Invite managers before setting waiver order.
+            </AlertDescription>
+          </Alert>
+        ) : (
+          <FieldGroup>
           <Field>
             <FieldLabel>Order</FieldLabel>
             <FieldDescription>Drag to reorder.</FieldDescription>
             <SortableList items={sortableItems} onReorder={setTeamIds} />
           </Field>
-        </FieldGroup>
-      )}
-
-      <PageFormActions>
-        <Button
-          type="button"
-          variant="ghost"
-          disabled={isPending || !hasChanges}
-          onClick={handleReset}
-        >
-          <HugeiconsIcon
-            icon={Cancel01Icon}
-            strokeWidth={2}
-            data-icon="inline-start"
-          />
-          Reset
-        </Button>
-        <Button
-          type="button"
-          disabled={isPending || !hasChanges || initialTeams.length === 0}
-          onClick={handleSave}
-        >
-          <HugeiconsIcon
-            icon={TickDouble02Icon}
-            strokeWidth={2}
-            data-icon="inline-start"
-          />
-          Save
-        </Button>
-      </PageFormActions>
+          </FieldGroup>
+        )}
+      </SettingsFormCard>
     </div>
   );
 }

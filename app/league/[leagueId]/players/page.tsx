@@ -79,9 +79,7 @@ export default async function LeaguePlayersPage({
   const previousSeason = state.previous_season;
   const kind =
     query.kind === "stats" ? ("stats" as const) : ("projection" as const);
-  const defaultSeason = kind === "stats" ? previousSeason : currentSeason;
-
-  const seasonYear = query.season ?? defaultSeason;
+  const seasonYear = query.season ?? currentSeason;
   const weekParam = query.week ?? "season";
   const week =
     weekParam === "season" || weekParam === "0" ? 0 : Number(weekParam);

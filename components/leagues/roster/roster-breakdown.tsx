@@ -21,12 +21,12 @@ import {
 } from "@/components/ui/toggle-group";
 import {
   Field,
-  FieldDescription,
   FieldError,
   FieldGroup,
   FieldLabel,
 } from "@/components/ui/field";
 import { IR_ELIGIBILITY_OPTIONS } from "@/lib/leagues/ir-eligibility";
+import { TAXI_MAX_YEARS_OPTIONS } from "@/lib/leagues/taxi-eligibility";
 import {
   ROSTER_POSITION_OPTIONS,
   formatStandardStarterSummary,
@@ -286,10 +286,6 @@ export function RosterBreakdown({
               </Field>
               <Field>
                 <FieldLabel>IR-Eligible Designations</FieldLabel>
-                <FieldDescription>
-                  Players must carry one of these Sleeper injury statuses to use
-                  an IR spot.
-                </FieldDescription>
                 <ToggleGroup
                   value={values.irEligibleStatuses}
                   onValueChange={(statuses) =>
@@ -308,6 +304,7 @@ export function RosterBreakdown({
                       key={option.id}
                       value={option.id}
                       aria-label={option.label}
+                      className="data-pressed:border-primary data-pressed:bg-primary/5 data-pressed:text-foreground dark:data-pressed:bg-primary/10"
                     >
                       {option.label}
                     </ToggleGroupItem>
@@ -336,19 +333,65 @@ export function RosterBreakdown({
             />
           </Field>
           {values.taxiEnabled ? (
-            <Field>
-              <FieldLabel htmlFor="taxiSlots">Taxi spots</FieldLabel>
-              <NumberInput
-                id="taxiSlots"
-                min={1}
-                max={5}
-                value={values.taxiSlots}
-                onValueChange={(taxiSlots) => onChange({ taxiSlots })}
-              />
-              {errors.taxiSlots ? (
-                <FieldError>{errors.taxiSlots}</FieldError>
-              ) : null}
-            </Field>
+            <>
+              <Field>
+                <FieldLabel htmlFor="taxiSlots">Taxi spots</FieldLabel>
+                <NumberInput
+                  id="taxiSlots"
+                  min={1}
+                  max={5}
+                  value={values.taxiSlots}
+                  onValueChange={(taxiSlots) => onChange({ taxiSlots })}
+                />
+                {errors.taxiSlots ? (
+                  <FieldError>{errors.taxiSlots}</FieldError>
+                ) : null}
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="taxiMaxYearsExp">
+                  Taxi eligibility
+                </FieldLabel>
+                <Select
+                  items={TAXI_MAX_YEARS_OPTIONS.map((option) => ({
+                    value: String(option.value),
+                    label: option.label,
+                  }))}
+                  value={String(values.taxiMaxYearsExp)}
+                  onValueChange={(value) => {
+                    const parsed = Number(value);
+                    if (
+                      parsed === 0 ||
+                      parsed === 1 ||
+                      parsed === 2 ||
+                      parsed === 3 ||
+                      parsed === 4 ||
+                      parsed === 5
+                    ) {
+                      onChange({ taxiMaxYearsExp: parsed });
+                    }
+                  }}
+                >
+                  <SelectTrigger id="taxiMaxYearsExp" className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      {TAXI_MAX_YEARS_OPTIONS.map((option) => (
+                        <SelectItem
+                          key={option.value}
+                          value={String(option.value)}
+                        >
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+                {errors.taxiMaxYearsExp ? (
+                  <FieldError>{errors.taxiMaxYearsExp}</FieldError>
+                ) : null}
+              </Field>
+            </>
           ) : null}
         </>
       ) : null}

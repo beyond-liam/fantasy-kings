@@ -1,47 +1,12 @@
 import { cache } from "react";
 
+import { ESPN_TEAM_IDS } from "@/lib/espn/rosters";
 import {
   normalizeNflTeamAbbrev,
 } from "@/lib/nfl/matchups";
 
 const ESPN_TEAM_SCHEDULE =
   "https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams";
-
-/** ESPN numeric team ids keyed by Fantasy Kings / Sleeper abbrev. */
-const ESPN_TEAM_IDS: Record<string, string> = {
-  ARI: "22",
-  ATL: "1",
-  BAL: "33",
-  BUF: "2",
-  CAR: "29",
-  CHI: "3",
-  CIN: "4",
-  CLE: "5",
-  DAL: "6",
-  DEN: "7",
-  DET: "8",
-  GB: "9",
-  HOU: "34",
-  IND: "11",
-  JAX: "30",
-  KC: "12",
-  LAC: "24",
-  LAR: "14",
-  LV: "13",
-  MIA: "15",
-  MIN: "16",
-  NE: "17",
-  NO: "18",
-  NYG: "19",
-  NYJ: "20",
-  PHI: "21",
-  PIT: "23",
-  SEA: "26",
-  SF: "25",
-  TB: "27",
-  TEN: "10",
-  WAS: "28",
-};
 
 type EspnScheduleCompetitor = {
   homeAway?: string;

@@ -28,6 +28,23 @@ export type LeagueActivityMetadata = {
   removalReason?: string | null;
   removedUserId?: string | null;
   removedDisplayName?: string | null;
+  settingsSection?: string;
+  settingsLabel?: string;
+  settingsChanges?: Array<{
+    path: string;
+    label: string;
+    before: string;
+    after: string;
+  }>;
+  matchupId?: string;
+  matchupPublicId?: string | null;
+  week?: number;
+  homeTeamName?: string;
+  awayTeamName?: string;
+  homePtsBefore?: number;
+  awayPtsBefore?: number;
+  homePtsAfter?: number;
+  awayPtsAfter?: number;
 };
 
 export const leagueActivity = pgTable(

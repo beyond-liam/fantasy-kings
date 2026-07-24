@@ -3,7 +3,6 @@
 import { RosterBreakdown } from "@/components/leagues/roster/roster-breakdown";
 import { ScoringPresetPicker } from "@/components/leagues/scoring/scoring-preset-picker";
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
-import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import type { RosterStepValues } from "@/lib/leagues/wizard-schema";
 
@@ -19,30 +18,25 @@ export function RosterStep({ values, errors, onChange }: RosterStepProps) {
       <Field>
         <FieldLabel>Roster format</FieldLabel>
         <RadioGroup
+          variant="card"
           value={values.rosterMode}
           onValueChange={(value) =>
             onChange({ rosterMode: value as RosterStepValues["rosterMode"] })
           }
-          className="grid gap-3 sm:grid-cols-2"
+          className="sm:grid-cols-2"
         >
-          <Label className="flex cursor-pointer items-start gap-3 rounded-lg border p-4 has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-primary/5">
-            <RadioGroupItem value="standard" />
-            <div>
-              <p className="font-medium">Standard</p>
-              <p className="text-sm text-muted-foreground">
-                QB, RB×2, WR×2, TE, FLEX, K, DEF + bench.
-              </p>
-            </div>
-          </Label>
-          <Label className="flex cursor-pointer items-start gap-3 rounded-lg border p-4 has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-primary/5">
-            <RadioGroupItem value="custom" />
-            <div>
-              <p className="font-medium">Custom</p>
-              <p className="text-sm text-muted-foreground">
-                Build your own position limits.
-              </p>
-            </div>
-          </Label>
+          <RadioGroupItem value="standard">
+            <span className="block text-sm font-medium">Standard</span>
+            <span className="block text-sm text-muted-foreground">
+              QB, RB×2, WR×2, TE, FLEX, K, DEF + bench.
+            </span>
+          </RadioGroupItem>
+          <RadioGroupItem value="custom">
+            <span className="block text-sm font-medium">Custom</span>
+            <span className="block text-sm text-muted-foreground">
+              Build your own position limits.
+            </span>
+          </RadioGroupItem>
         </RadioGroup>
       </Field>
 
@@ -55,6 +49,7 @@ export function RosterStep({ values, errors, onChange }: RosterStepProps) {
           irEligibleStatuses: values.irEligibleStatuses,
           taxiEnabled: values.taxiEnabled,
           taxiSlots: values.taxiSlots,
+          taxiMaxYearsExp: values.taxiMaxYearsExp,
           customRosterSlots: values.customRosterSlots,
         }}
         errors={{
@@ -62,6 +57,7 @@ export function RosterStep({ values, errors, onChange }: RosterStepProps) {
           irSlots: errors.irSlots,
           irEligibleStatuses: errors.irEligibleStatuses,
           taxiSlots: errors.taxiSlots,
+          taxiMaxYearsExp: errors.taxiMaxYearsExp,
         }}
         onChange={(patch) => onChange(patch)}
       />

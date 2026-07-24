@@ -7,6 +7,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { toast } from "sonner";
 
 import { TeamRosterTable } from "@/components/team/roster-table";
+import { TeamSummaryPanel } from "@/components/team/team-summary-panel";
 import { PageFormActions } from "@/components/layout/page-form-actions";
 import { Button } from "@/components/ui/button";
 import { updateRosterSlots, commissionerUpdateRosterSlots } from "@/lib/actions/roster";
@@ -18,6 +19,10 @@ import {
   type TeamRosterPlayer,
 } from "@/lib/leagues/roster-fill";
 import { applyLocalSlotAssignment } from "@/lib/leagues/roster-slots";
+import {
+  buildTeamSummaryRosterBreakdown,
+  type TeamSummaryMatchupRef,
+} from "@/lib/leagues/team-summary";
 
 type TeamRosterSectionsProps = {
   rosterSlots: RosterSlotConfig[];
@@ -27,6 +32,7 @@ type TeamRosterSectionsProps = {
   irEligibleStatuses?: string[];
   taxiEnabled: boolean;
   taxiSlots: number;
+  taxiMaxYearsExp?: 0 | 1 | 2 | 3 | 4 | 5 | null;
   players: TeamRosterPlayer[];
   leagueSlug: string;
   actionsEnabled?: boolean;
@@ -37,6 +43,14 @@ type TeamRosterSectionsProps = {
   tradesEnabled?: boolean;
   /** Commissioner editing another team's lineup. */
   commissionerTeamId?: string;
+  /** When set, shows the sticky team summary beside the roster. */
+  summary?: {
+    waiverPriorityLabel: string | null;
+    ownerName: string | null;
+    previous: TeamSummaryMatchupRef | null;
+    current: TeamSummaryMatchupRef | null;
+    myTeamSlug?: string | null;
+  };
 };
 
 function slotsFingerprint(players: TeamRosterPlayer[]) {
@@ -54,6 +68,7 @@ export function TeamRosterSections({
   irEligibleStatuses,
   taxiEnabled,
   taxiSlots,
+  taxiMaxYearsExp,
   players,
   leagueSlug,
   actionsEnabled = false,
@@ -62,6 +77,7 @@ export function TeamRosterSections({
   partnerTeamSlug,
   tradesEnabled = true,
   commissionerTeamId,
+  summary,
 }: TeamRosterSectionsProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -101,6 +117,20 @@ export function TeamRosterSections({
     taxiEnabled,
   });
 
+  const rosterBreakdown = summary
+    ? buildTeamSummaryRosterBreakdown({
+        players: draftPlayers,
+        rosterSlots,
+        benchSlots,
+        irEnabled,
+        irSlots,
+        irEligibleStatuses: resolvedIrEligible,
+        taxiEnabled,
+        taxiSlots,
+        taxiMaxYearsExp,
+      })
+    : null;
+
   const handleSlotChange = (playerId: string, slotPositionId: string) => {
     setDraftPlayers((current) => {
       const result = applyLocalSlotAssignment(
@@ -110,6 +140,7 @@ export function TeamRosterSections({
         rosterSlots,
         benchSlots,
         resolvedIrEligible,
+        taxiMaxYearsExp ?? 0,
       );
       if ("error" in result) {
         toast.error(result.error);
@@ -163,8 +194,8 @@ export function TeamRosterSections({
     onSlotChange: handleSlotChange,
   } as const;
 
-  return (
-    <div className="flex flex-col gap-8">
+  const rosterColumn = (
+    <div className="flex min-w-0 flex-1 flex-col gap-8">
       <TeamRosterTable section="lineup" slots={sections.lineup} {...tableProps} />
       <TeamRosterTable section="bench" slots={sections.bench} {...tableProps} />
       {sections.ir ? (
@@ -198,10 +229,29 @@ export function TeamRosterSections({
               strokeWidth={2}
               data-icon="inline-start"
             />
-            Update roster
+            Update Roster
           </Button>
         </PageFormActions>
       ) : null}
+    </div>
+  );
+
+  if (!summary || !rosterBreakdown) {
+    return rosterColumn;
+  }
+
+  return (
+    <div className="flex flex-col gap-8 lg:flex-row lg:items-start">
+      {rosterColumn}
+      <TeamSummaryPanel
+        className="lg:sticky lg:top-6 lg:w-64 lg:shrink-0"
+        leagueSlug={leagueSlug}
+        waiverPriorityLabel={summary.waiverPriorityLabel}
+        ownerName={summary.ownerName}
+        previous={summary.previous}
+        current={summary.current}
+        breakdown={rosterBreakdown}
+      />
     </div>
   );
 }

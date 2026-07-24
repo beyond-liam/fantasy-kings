@@ -1,7 +1,6 @@
 "use client";
 
 import { NumberInput } from "@/components/ui/number-input";
-import { Label } from "@/components/ui/label";
 import { DatePicker } from "@/components/ui/date-picker";
 import { TimePicker } from "@/components/ui/time-picker";
 import {
@@ -12,8 +11,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
+import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+} from "@/components/ui/field";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Switch } from "@/components/ui/switch";
 import type { DraftStepValues } from "@/lib/leagues/wizard-schema";
 
 const PICK_TIME_UNIT_ITEMS = [
@@ -30,6 +36,8 @@ type DraftStepProps = {
 export function DraftStep({ values, errors, onChange }: DraftStepProps) {
   const draftStartAt = new Date(values.draftStartAt);
   const draftTime = values.draftStartAt.slice(11, 16);
+  const showPickClock =
+    values.draftType === "live" || values.pickTimeLimitEnabled;
 
   const updateDraftStartAt = (date: Date, time: string) => {
     const [hours, minutes] = time.split(":").map(Number);
@@ -50,37 +58,41 @@ export function DraftStep({ values, errors, onChange }: DraftStepProps) {
       <Field>
         <FieldLabel>Draft format</FieldLabel>
         <RadioGroup
+          variant="card"
           value={values.draftType}
-          onValueChange={(value) =>
-            onChange({ draftType: value as DraftStepValues["draftType"] })
-          }
-          className="grid gap-3 sm:grid-cols-2"
+          onValueChange={(value) => {
+            const draftType = value as DraftStepValues["draftType"];
+            if (draftType === "email") {
+              onChange({
+                draftType,
+                pickTimeLimitEnabled: true,
+                pickTimeLimit: 8,
+                pickTimeUnit: "hours",
+              });
+              return;
+            }
+            onChange({
+              draftType,
+              pickTimeLimitEnabled: true,
+              pickTimeLimit: 2,
+              pickTimeUnit: "minutes",
+            });
+          }}
+          className="sm:grid-cols-2"
         >
-          <Label className="flex cursor-pointer items-start gap-3 rounded-lg border p-4 has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-primary/5">
-            <RadioGroupItem value="live" />
-            <div>
-              <p className="font-medium">Live draft</p>
-              <p className="text-sm text-muted-foreground">
-                Everyone drafts together in the draft room.
-              </p>
-            </div>
-          </Label>
-          <Label className="flex cursor-pointer items-start gap-3 rounded-lg border p-4 has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-primary/5">
-            <RadioGroupItem value="email" />
-            <div>
-              <p className="font-medium">Email draft</p>
-              <p className="text-sm text-muted-foreground">
-                Async picks with email alerts when you&apos;re on the clock.
-              </p>
-            </div>
-          </Label>
+          <RadioGroupItem value="live">
+            <span className="block text-sm font-medium">Live draft</span>
+            <span className="block text-sm text-muted-foreground">
+              Everyone drafts together in the draft room.
+            </span>
+          </RadioGroupItem>
+          <RadioGroupItem value="email">
+            <span className="block text-sm font-medium">Email draft</span>
+            <span className="block text-sm text-muted-foreground">
+              Same draft room — pick over hours or days with email alerts.
+            </span>
+          </RadioGroupItem>
         </RadioGroup>
-        {values.draftType === "email" ? (
-          <p className="text-sm text-muted-foreground">
-            Email notifications will be enabled when the notification service is
-            wired up.
-          </p>
-        ) : null}
       </Field>
 
       <div className="grid gap-4 sm:grid-cols-2">
@@ -92,6 +104,11 @@ export function DraftStep({ values, errors, onChange }: DraftStepProps) {
             onChange={updateDraftDate}
             placeholder="Select date"
           />
+          {values.draftType === "email" ? (
+            <FieldDescription>
+              When the draft opens and the first pick becomes available.
+            </FieldDescription>
+          ) : null}
         </Field>
         <Field>
           <FieldLabel htmlFor="draftTime">Start time</FieldLabel>
@@ -103,47 +120,75 @@ export function DraftStep({ values, errors, onChange }: DraftStepProps) {
         </Field>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      {values.draftType === "email" ? (
         <Field>
-          <FieldLabel htmlFor="pickTimeLimit">Pick time limit</FieldLabel>
-          <NumberInput
-            id="pickTimeLimit"
-            min={1}
-            value={values.pickTimeLimit}
-            onValueChange={(pickTimeLimit) => onChange({ pickTimeLimit })}
-          />
-          {errors.pickTimeLimit ? (
-            <FieldError>{errors.pickTimeLimit}</FieldError>
-          ) : null}
-        </Field>
-        <Field>
-          <FieldLabel htmlFor="pickTimeUnit">Time unit</FieldLabel>
-          <Select
-            items={PICK_TIME_UNIT_ITEMS}
-            value={values.pickTimeUnit}
-            onValueChange={(value) => {
-              if (value) {
-                onChange({
-                  pickTimeUnit: value as DraftStepValues["pickTimeUnit"],
-                });
+          <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
+            <div className="min-w-0">
+              <FieldLabel htmlFor="pickTimeLimitEnabled">
+                Pick time limit
+              </FieldLabel>
+              <FieldDescription>
+                Limit how long each manager has on the clock. Off means
+                unlimited until they pick.
+              </FieldDescription>
+            </div>
+            <Switch
+              id="pickTimeLimitEnabled"
+              checked={values.pickTimeLimitEnabled}
+              onCheckedChange={(pickTimeLimitEnabled) =>
+                onChange({ pickTimeLimitEnabled })
               }
-            }}
-          >
-            <SelectTrigger id="pickTimeUnit" className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectGroup>
-                {PICK_TIME_UNIT_ITEMS.map((item) => (
-                  <SelectItem key={item.value} value={item.value}>
-                    {item.label}
-                  </SelectItem>
-                ))}
-              </SelectGroup>
-            </SelectContent>
-          </Select>
+            />
+          </div>
         </Field>
-      </div>
+      ) : null}
+
+      {showPickClock ? (
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field>
+            <FieldLabel htmlFor="pickTimeLimit">
+              {values.draftType === "live" ? "Pick time limit" : "Time allowed"}
+            </FieldLabel>
+            <NumberInput
+              id="pickTimeLimit"
+              min={1}
+              max={48}
+              value={values.pickTimeLimit}
+              onValueChange={(pickTimeLimit) => onChange({ pickTimeLimit })}
+            />
+            {errors.pickTimeLimit ? (
+              <FieldError>{errors.pickTimeLimit}</FieldError>
+            ) : null}
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="pickTimeUnit">Time unit</FieldLabel>
+            <Select
+              items={PICK_TIME_UNIT_ITEMS}
+              value={values.pickTimeUnit}
+              onValueChange={(value) => {
+                if (value) {
+                  onChange({
+                    pickTimeUnit: value as DraftStepValues["pickTimeUnit"],
+                  });
+                }
+              }}
+            >
+              <SelectTrigger id="pickTimeUnit" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  {PICK_TIME_UNIT_ITEMS.map((item) => (
+                    <SelectItem key={item.value} value={item.value}>
+                      {item.label}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          </Field>
+        </div>
+      ) : null}
     </FieldGroup>
   );
 }

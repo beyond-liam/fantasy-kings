@@ -43,6 +43,9 @@ export type MatchupBoardGame = {
   /** Short URL segment for Game Centre links. */
   publicId: string;
   week: number;
+  /** Persisted lock state from `matchups.status`. */
+  status: "scheduled" | "in_progress" | "final";
+  finalizedAt: string | null;
   /** True when both sides have final actuals for the week. */
   resultFinal: boolean;
   away: MatchupBoardSide;
@@ -177,6 +180,7 @@ function toWinProbPlayers(
     nflTeam: player.nflTeam,
     projectedPts: projectedById.get(player.id) ?? null,
     actualPts: actualById.get(player.id) ?? null,
+    injuryStatus: player.injuryStatus,
   }));
 }
 
@@ -321,8 +325,7 @@ function buildSide(input: {
 
 /**
  * Enrich a week's H2H matchups with win%, projected/actual totals for the board UI.
- *
- * TODO(live-win-prob): Same live-accuracy caveats as schedule win chance.
+ * Same win-prob model as schedule Chance (`lib/leagues/win-probability`).
  */
 export async function enrichWeekMatchupBoard(
   input: EnrichWeekMatchupBoardInput,
@@ -361,6 +364,8 @@ export async function enrichWeekMatchupBoard(
       id: m.id,
       publicId: m.publicId,
       week: m.week,
+      status: m.status,
+      finalizedAt: m.finalizedAt?.toISOString() ?? null,
       resultFinal: false,
       away: emptySide(
         m.awayTeamId,
@@ -486,6 +491,8 @@ export async function enrichWeekMatchupBoard(
       id: m.id,
       publicId: m.publicId,
       week: m.week,
+      status: m.status,
+      finalizedAt: m.finalizedAt?.toISOString() ?? null,
       resultFinal:
         Boolean(resultFinal) &&
         away.actualPts != null &&

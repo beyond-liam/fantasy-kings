@@ -152,14 +152,14 @@ function toWinProbPlayers(
     nflTeam: player.nflTeam,
     projectedPts: projectedById.get(player.id) ?? null,
     actualPts: actualById.get(player.id) ?? null,
+    injuryStatus: player.injuryStatus,
   }));
 }
 
 /**
  * Attach a win-probability for each schedule matchup using current starters.
- *
- * TODO(live-win-prob): Revisit accuracy against live weeks — projections only
- * exist ahead of time; in-game σ/pace need real scoring feeds to calibrate.
+ * Model: calibrated position σ, pace blend, injury/soft-DNP zeroing
+ * (`lib/leagues/win-probability`). Accuracy tracks freshness of week stats.
  */
 export async function enrichScheduleWinChances(
   input: EnrichScheduleWinChancesInput,

@@ -79,6 +79,14 @@ export const rosterStepSchema = z
     irEligibleStatuses: z.array(irEligibleStatusSchema),
     taxiEnabled: z.boolean(),
     taxiSlots: z.number().int().min(0).max(5),
+    taxiMaxYearsExp: z.union([
+      z.literal(0),
+      z.literal(1),
+      z.literal(2),
+      z.literal(3),
+      z.literal(4),
+      z.literal(5),
+    ]),
     scoringPreset: z.enum(["standard", "half_ppr", "full_ppr"]),
     customRosterSlots: z.array(rosterSlotSchema),
   })
@@ -122,6 +130,7 @@ export const transactionsStepSchema = z
 export const draftStepSchema = z.object({
   draftType: z.enum(["live", "email"]),
   draftStartAt: z.string().datetime(),
+  pickTimeLimitEnabled: z.boolean(),
   pickTimeLimit: z.number().int().min(1).max(48),
   pickTimeUnit: z.enum(["minutes", "hours"]),
 });

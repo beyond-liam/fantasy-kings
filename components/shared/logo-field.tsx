@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useRef, useState, type ReactNode } from "react";
+import { useId, useRef, useState } from "react";
 import { ImageUpload01Icon, Loading03Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
@@ -12,7 +12,6 @@ import {
   FieldLabel,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   LOGO_ACCEPT,
@@ -37,25 +36,6 @@ type LogoFieldProps = {
   label?: string;
   description?: string;
 };
-
-function OptionLabel({
-  children,
-  className,
-}: {
-  children: ReactNode;
-  className?: string;
-}) {
-  return (
-    <Label
-      className={cn(
-        "flex w-full cursor-pointer items-start gap-3 rounded-lg border p-4 has-data-checked:border-primary",
-        className,
-      )}
-    >
-      {children}
-    </Label>
-  );
-}
 
 export function LogoField({
   kind,
@@ -117,6 +97,7 @@ export function LogoField({
           )}
         </div>
         <RadioGroup
+          variant="card"
           value={value.logoMode}
           onValueChange={(next) => {
             if (
@@ -129,24 +110,12 @@ export function LogoField({
               onChange({ logoMode: next });
             }
           }}
-          className="grid min-w-0 w-full flex-1 gap-3"
+          className="min-w-0 w-full flex-1"
         >
-          <OptionLabel>
-            <RadioGroupItem value="keep" className="mt-0.5" />
-            <span className="text-sm font-medium">Keep unchanged</span>
-          </OptionLabel>
-          <OptionLabel>
-            <RadioGroupItem value="upload" className="mt-0.5" />
-            <span className="text-sm font-medium">From my device</span>
-          </OptionLabel>
-          <OptionLabel>
-            <RadioGroupItem value="url" className="mt-0.5" />
-            <span className="text-sm font-medium">From web URL</span>
-          </OptionLabel>
-          <OptionLabel>
-            <RadioGroupItem value="remove" className="mt-0.5" />
-            <span className="text-sm font-medium">Remove</span>
-          </OptionLabel>
+          <RadioGroupItem value="keep">Keep unchanged</RadioGroupItem>
+          <RadioGroupItem value="upload">From my device</RadioGroupItem>
+          <RadioGroupItem value="url">From web URL</RadioGroupItem>
+          <RadioGroupItem value="remove">Remove</RadioGroupItem>
         </RadioGroup>
       </div>
 

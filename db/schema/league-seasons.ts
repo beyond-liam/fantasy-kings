@@ -75,6 +75,10 @@ export type TransactionRulesSettings = {
   preventCutsAfterGameStart: boolean;
   allowVetoes: boolean;
   transactionLimits: "unlimited" | "weekly" | "season" | "both";
+  /** Cap when weekly or both; ignored when unlimited/season. */
+  transactionWeeklyMax?: number | null;
+  /** Cap when season or both; ignored when unlimited/weekly. */
+  transactionSeasonMax?: number | null;
 };
 
 export type DraftStyle = "snake" | "linear";
@@ -119,6 +123,11 @@ export type LeagueSeasonSettings = {
   logoUrl?: string | null;
   /** Injury designations that qualify a player for an IR slot. */
   irEligibleStatuses?: string[];
+  /**
+   * Max NFL years of experience allowed on Taxi
+   * (`0` rookies … `5` = 5+ years).
+   */
+  taxiMaxYearsExp?: 0 | 1 | 2 | 3 | 4 | 5;
 };
 
 export const leagueSeasons = pgTable(

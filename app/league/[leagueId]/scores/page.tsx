@@ -2,14 +2,13 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { LiveRefresh } from "@/components/scores/live-refresh";
-import { ScoresUpdatedLabel } from "@/components/scores/scores-updated-label";
+import { ScoresFreshnessBanner } from "@/components/scores/scores-freshness-banner";
 import { WeekMatchupsList } from "@/components/leagues/matchups/week-matchups-list";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { getSessionUser } from "@/lib/auth/session";
 import { getNflScoreboard } from "@/lib/espn/scoreboard";
 import {
   getFinalMatchupsForSeason,
-  persistEnrichedMatchups,
   recordsFromFinalMatchups,
 } from "@/lib/leagues/matchups/finalize";
 import {
@@ -147,6 +146,8 @@ export default async function FantasyScoresPage({
         id: row.id,
         publicId: row.publicId,
         week: row.week,
+        status: row.status,
+        finalizedAt: row.finalizedAt?.toISOString() ?? null,
         resultFinal: false,
         away: {
           teamId: row.awayTeamId,
@@ -177,10 +178,6 @@ export default async function FantasyScoresPage({
       })),
     );
 
-    if (games.length > 0 && week <= currentWeek) {
-      await persistEnrichedMatchups(games).catch(() => null);
-    }
-
     const myTeamSlug =
       data.members.find((member) => member.userId === user.id)?.teamPublicId ??
       null;
@@ -193,7 +190,12 @@ export default async function FantasyScoresPage({
           <h1 className="text-2xl font-semibold tracking-tight text-balance">
             Matchups
           </h1>
-          <ScoresUpdatedLabel updatedAt={scoresUpdatedAt} />
+          <ScoresFreshnessBanner
+            updatedAt={scoresUpdatedAt}
+            hasLiveNflGames={scoreboardGames.some(
+              (game) => game.status === "in",
+            )}
+          />
         </div>
 
         {weekError ? (
@@ -261,6 +263,8 @@ export default async function FantasyScoresPage({
       id: row.id,
       publicId: row.publicId,
       week: row.week,
+      status: row.status,
+      finalizedAt: row.finalizedAt?.toISOString() ?? null,
       resultFinal: false,
       away: {
         teamId: row.awayTeamId,
@@ -291,10 +295,6 @@ export default async function FantasyScoresPage({
     })),
   );
 
-  if (games.length > 0 && week <= currentWeek) {
-    await persistEnrichedMatchups(games).catch(() => null);
-  }
-
   const myTeamSlug =
     data.members.find((member) => member.userId === user.id)?.teamPublicId ??
     null;
@@ -307,7 +307,10 @@ export default async function FantasyScoresPage({
         <h1 className="text-2xl font-semibold tracking-tight text-balance">
           Matchups
         </h1>
-        <ScoresUpdatedLabel updatedAt={scoresUpdatedAt} />
+        <ScoresFreshnessBanner
+          updatedAt={scoresUpdatedAt}
+          hasLiveNflGames={false}
+        />
       </div>
 
       {weekError ? (

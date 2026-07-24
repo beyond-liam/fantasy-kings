@@ -64,6 +64,10 @@ export function WizardReview({ values, onEdit }: WizardReviewProps) {
       ? values.pickTimeLimit * 3600
       : values.pickTimeLimit * 60,
   );
+  const pickClockLabel =
+    values.draftType === "email" && !values.pickTimeLimitEnabled
+      ? "Unlimited"
+      : `${pickTime.value} ${pickTime.unit}`;
 
   return (
     <div className="flex flex-col gap-6">
@@ -132,16 +136,16 @@ export function WizardReview({ values, onEdit }: WizardReviewProps) {
           <h3 className="font-medium">Draft</h3>
           <EditButton onClick={() => onEdit("draft")} />
         </div>
-        <ReviewRow label="Format" value={values.draftType} />
+        <ReviewRow
+          label="Format"
+          value={values.draftType === "email" ? "Email / slow" : "Live"}
+        />
         <ReviewRow
           label="Start"
           value={new Date(values.draftStartAt).toLocaleString()}
           raw
         />
-        <ReviewRow
-          label="Pick clock"
-          value={`${pickTime.value} ${pickTime.unit}`}
-        />
+        <ReviewRow label="Pick clock" value={pickClockLabel} />
       </section>
     </div>
   );

@@ -7,6 +7,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 
 import { RosterBreakdown } from "@/components/leagues/roster/roster-breakdown";
 import { RosterPresetPicker } from "@/components/leagues/roster/roster-preset-picker";
+import { ScoringPresetPicker } from "@/components/leagues/scoring/scoring-preset-picker";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -21,7 +22,6 @@ import {
   FieldGroup,
   FieldLabel,
 } from "@/components/ui/field";
-import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Select,
@@ -47,10 +47,8 @@ import {
   parseMockDraftConfig,
   writeMockDraftConfig,
   type MockDraftConfig,
-  type MockDraftScoring,
   type MockDraftStyle,
 } from "@/lib/mock-draft/settings";
-import { cn } from "@/lib/utils";
 
 const TEAM_COUNT_OPTIONS = Array.from({ length: 13 }, (_, i) => i + 4);
 const CLOCK_OPTIONS = [
@@ -60,25 +58,6 @@ const CLOCK_OPTIONS = [
   { value: 90, label: "90 seconds" },
   { value: 120, label: "2 minutes" },
 ] as const;
-
-function OptionLabel({
-  children,
-  className,
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <Label
-      className={cn(
-        "flex w-full cursor-pointer items-start gap-3 rounded-lg border p-4 has-data-checked:border-primary",
-        className,
-      )}
-    >
-      {children}
-    </Label>
-  );
-}
 
 export function MockDraftSettings() {
   const router = useRouter();
@@ -175,63 +154,36 @@ export function MockDraftSettings() {
               <FieldGroup>
                 <Field>
                   <FieldLabel>Scoring</FieldLabel>
-                  <RadioGroup
+                  <ScoringPresetPicker
                     value={config.scoring}
-                    onValueChange={(value) => {
-                      if (
-                        value === "standard" ||
-                        value === "half_ppr" ||
-                        value === "full_ppr"
-                      ) {
-                        patch({ scoring: value satisfies MockDraftScoring });
-                      }
-                    }}
-                    className="grid gap-3 sm:grid-cols-3"
-                  >
-                    <OptionLabel>
-                      <RadioGroupItem value="standard" className="mt-0.5" />
-                      <span className="text-sm font-medium">Standard</span>
-                    </OptionLabel>
-                    <OptionLabel>
-                      <RadioGroupItem value="half_ppr" className="mt-0.5" />
-                      <span className="text-sm font-medium">Half PPR</span>
-                    </OptionLabel>
-                    <OptionLabel>
-                      <RadioGroupItem value="full_ppr" className="mt-0.5" />
-                      <span className="text-sm font-medium">PPR</span>
-                    </OptionLabel>
-                  </RadioGroup>
+                    onValueChange={(scoring) => patch({ scoring })}
+                  />
                 </Field>
 
                 <Field>
                   <FieldLabel>Draft type</FieldLabel>
                   <RadioGroup
+                    variant="card"
                     value={config.style}
                     onValueChange={(value) => {
                       if (value === "snake" || value === "linear") {
                         patch({ style: value satisfies MockDraftStyle });
                       }
                     }}
-                    className="grid gap-3 sm:grid-cols-2"
+                    className="sm:grid-cols-2"
                   >
-                    <OptionLabel>
-                      <RadioGroupItem value="snake" className="mt-0.5" />
-                      <div className="flex flex-col gap-0.5">
-                        <span className="text-sm font-medium">Snake</span>
-                        <span className="text-xs text-muted-foreground">
-                          Order reverses each round
-                        </span>
-                      </div>
-                    </OptionLabel>
-                    <OptionLabel>
-                      <RadioGroupItem value="linear" className="mt-0.5" />
-                      <div className="flex flex-col gap-0.5">
-                        <span className="text-sm font-medium">Linear</span>
-                        <span className="text-xs text-muted-foreground">
-                          Same order every round
-                        </span>
-                      </div>
-                    </OptionLabel>
+                    <RadioGroupItem value="snake">
+                      <span className="block text-sm font-medium">Snake</span>
+                      <span className="block text-sm text-muted-foreground">
+                        Order reverses each round
+                      </span>
+                    </RadioGroupItem>
+                    <RadioGroupItem value="linear">
+                      <span className="block text-sm font-medium">Linear</span>
+                      <span className="block text-sm text-muted-foreground">
+                        Same order every round
+                      </span>
+                    </RadioGroupItem>
                   </RadioGroup>
                 </Field>
 

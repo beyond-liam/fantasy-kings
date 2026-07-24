@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Cancel01Icon, TickDouble02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
+import { SettingsFormCard } from "@/components/leagues/settings/settings-form-card";
 import { PageFormActions } from "@/components/layout/page-form-actions";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -15,9 +16,7 @@ import {
   FieldGroup,
   FieldLabel,
 } from "@/components/ui/field";
-import { Label } from "@/components/ui/label";
 import { NumberInput } from "@/components/ui/number-input";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Select,
   SelectContent,
@@ -30,11 +29,20 @@ import { Switch } from "@/components/ui/switch";
 import { TimePicker } from "@/components/ui/time-picker";
 import { updateDraftConfig } from "@/lib/actions/league-settings";
 import type { DraftConfigFormValues } from "@/lib/leagues/draft-settings";
-import { cn } from "@/lib/utils";
 
 const PICK_TIME_UNIT_ITEMS = [
   { value: "minutes", label: "Minutes" },
   { value: "hours", label: "Hours" },
+] as const;
+
+const DRAFT_TYPE_ITEMS = [
+  { value: "live", label: "Live draft" },
+  { value: "email", label: "Email / slow draft" },
+] as const;
+
+const DRAFT_STYLE_ITEMS = [
+  { value: "snake", label: "Snake" },
+  { value: "linear", label: "Linear" },
 ] as const;
 
 type DraftConfigSettingsProps = {
@@ -47,28 +55,8 @@ function valuesEqual(a: DraftConfigFormValues, b: DraftConfigFormValues) {
   return JSON.stringify(a) === JSON.stringify(b);
 }
 
-function OptionLabel({
-  children,
-  className,
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <Label
-      className={cn(
-        "flex cursor-pointer items-start gap-3 rounded-lg border p-4 has-data-checked:border-primary",
-        className,
-      )}
-    >
-      {children}
-    </Label>
-  );
-}
-
 export function DraftConfigSettings({
   slug,
-  leagueName,
   initialValues,
 }: DraftConfigSettingsProps) {
   const router = useRouter();
@@ -110,53 +98,90 @@ export function DraftConfigSettings({
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold tracking-tight text-balance">
-          Configure Draft
-        </h1>
-        <p className="text-sm text-pretty text-muted-foreground">
-          {leagueName} · Set format, clock, and autopick defaults.
-        </p>
-      </div>
-
       {error ? (
         <Alert variant="destructive">
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       ) : null}
 
-      <FieldGroup>
+      <SettingsFormCard
+        title="Configure Draft"
+        footer={
+          <PageFormActions>
+            <Button
+              type="button"
+              variant="ghost"
+              disabled={isPending || !hasChanges}
+              onClick={handleReset}
+            >
+              <HugeiconsIcon
+                icon={Cancel01Icon}
+                strokeWidth={2}
+                data-icon="inline-start"
+              />
+              Reset
+            </Button>
+            <Button
+              type="button"
+              disabled={isPending || !hasChanges}
+              onClick={handleSave}
+            >
+              <HugeiconsIcon
+                icon={TickDouble02Icon}
+                strokeWidth={2}
+                data-icon="inline-start"
+              />
+              Save
+            </Button>
+          </PageFormActions>
+        }
+      >
+        <FieldGroup>
         <Field>
-          <FieldLabel>Draft type</FieldLabel>
-          <RadioGroup
+          <FieldLabel htmlFor="draftType">Draft type</FieldLabel>
+          <Select
+            items={DRAFT_TYPE_ITEMS.map(({ value, label }) => ({
+              value,
+              label,
+            }))}
             value={values.draftType}
             onValueChange={(value) => {
-              if (value === "live" || value === "email") {
-                patch({ draftType: value });
+              if (value === "live") {
+                patch({
+                  draftType: "live",
+                  pickTimeLimitEnabled: true,
+                  pickTimeLimit: 2,
+                  pickTimeUnit: "minutes",
+                });
+                return;
+              }
+              if (value === "email") {
+                patch({
+                  draftType: "email",
+                  pickTimeLimitEnabled: true,
+                  pickTimeLimit: 8,
+                  pickTimeUnit: "hours",
+                });
               }
             }}
-            className="grid gap-3 sm:grid-cols-2"
           >
-            <OptionLabel>
-              <RadioGroupItem value="live" className="mt-0.5" />
-              <span>
-                <span className="block text-sm font-medium">Live draft</span>
-                <span className="block text-sm text-muted-foreground">
-                  Everyone drafts together on a set start time.
-                </span>
-              </span>
-            </OptionLabel>
-            <OptionLabel>
-              <RadioGroupItem value="email" className="mt-0.5" />
-              <span>
-                <span className="block text-sm font-medium">Slow draft</span>
-                <span className="block text-sm text-muted-foreground">
-                  Async picks. Email alerts come later — picks work without
-                  them.
-                </span>
-              </span>
-            </OptionLabel>
-          </RadioGroup>
+            <SelectTrigger id="draftType" className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                {DRAFT_TYPE_ITEMS.map((item) => (
+                  <SelectItem key={item.value} value={item.value}>
+                    {item.label}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+          <FieldDescription>
+            Same draft room either way. Email drafts use longer clocks and
+            Brevo alerts when it&apos;s your turn.
+          </FieldDescription>
         </Field>
 
         <div className="grid gap-4 sm:grid-cols-2">
@@ -188,35 +213,34 @@ export function DraftConfigSettings({
         </div>
 
         <Field>
-          <FieldLabel>Draft style</FieldLabel>
-          <RadioGroup
+          <FieldLabel htmlFor="draftStyle">Draft style</FieldLabel>
+          <Select
+            items={[...DRAFT_STYLE_ITEMS]}
             value={values.draftStyle}
             onValueChange={(value) => {
               if (value === "snake" || value === "linear") {
                 patch({ draftStyle: value });
               }
             }}
-            className="grid gap-3 sm:grid-cols-2"
           >
-            <OptionLabel>
-              <RadioGroupItem value="snake" className="mt-0.5" />
-              <span>
-                <span className="block text-sm font-medium">Snake</span>
-                <span className="block text-sm text-muted-foreground">
-                  Order reverses each round.
-                </span>
-              </span>
-            </OptionLabel>
-            <OptionLabel>
-              <RadioGroupItem value="linear" className="mt-0.5" />
-              <span>
-                <span className="block text-sm font-medium">Linear</span>
-                <span className="block text-sm text-muted-foreground">
-                  Same order every round.
-                </span>
-              </span>
-            </OptionLabel>
-          </RadioGroup>
+            <SelectTrigger id="draftStyle" className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                {DRAFT_STYLE_ITEMS.map((item) => (
+                  <SelectItem key={item.value} value={item.value}>
+                    {item.label}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+          <FieldDescription>
+            {values.draftStyle === "snake"
+              ? "Order reverses each round."
+              : "Same order every round."}
+          </FieldDescription>
         </Field>
 
         {values.draftType === "email" ? (
@@ -316,35 +340,8 @@ export function DraftConfigSettings({
             </div>
           </Field>
         ) : null}
-      </FieldGroup>
-
-      <PageFormActions>
-        <Button
-          type="button"
-          variant="ghost"
-          disabled={isPending || !hasChanges}
-          onClick={handleReset}
-        >
-          <HugeiconsIcon
-            icon={Cancel01Icon}
-            strokeWidth={2}
-            data-icon="inline-start"
-          />
-          Reset
-        </Button>
-        <Button
-          type="button"
-          disabled={isPending || !hasChanges}
-          onClick={handleSave}
-        >
-          <HugeiconsIcon
-            icon={TickDouble02Icon}
-            strokeWidth={2}
-            data-icon="inline-start"
-          />
-          Save
-        </Button>
-      </PageFormActions>
+        </FieldGroup>
+      </SettingsFormCard>
     </div>
   );
 }

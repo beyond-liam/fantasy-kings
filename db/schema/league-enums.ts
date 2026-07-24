@@ -23,6 +23,7 @@ export const leagueActivityTypeEnum = pgEnum("league_activity_type", [
   "waiver_awarded",
   "waiver_failed",
   "trade_proposed",
+  "trade_accepted",
   "trade_completed",
   "trade_rejected",
   "trade_cancelled",
@@ -34,6 +35,8 @@ export const leagueActivityTypeEnum = pgEnum("league_activity_type", [
   "ir_removed",
   "taxi_added",
   "taxi_removed",
+  "settings_updated",
+  "score_corrected",
 ]);
 
 export const tradeStatusEnum = pgEnum("trade_status", [

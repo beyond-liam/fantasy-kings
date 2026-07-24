@@ -8,14 +8,13 @@ import { useRouter } from "next/navigation";
 import { ScoringCategorySection } from "@/components/leagues/scoring/scoring-category-section";
 import { ScoringPresetPicker } from "@/components/leagues/scoring/scoring-preset-picker";
 import { ScoringRuleDialog } from "@/components/leagues/scoring/scoring-rule-dialog";
+import { SettingsFormCard } from "@/components/leagues/settings/settings-form-card";
 import { PageFormActions } from "@/components/layout/page-form-actions";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
-import { formatLeagueLabel } from "@/lib/leagues/format";
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import {
-  updateScoringPreset,
-  updateScoringRules,
+  updateScoringSettings,
 } from "@/lib/actions/league-settings";
 import {
   createEmptyScoringRuleDefinition,
@@ -38,8 +37,6 @@ type ScoringSettingsProps = {
 
 export function ScoringSettings({
   slug,
-  leagueName,
-  seasonStatus,
   initialPreset,
   initialRules,
 }: ScoringSettingsProps) {
@@ -65,17 +62,12 @@ export function ScoringSettings({
   const handleSave = () => {
     setError(null);
     startTransition(async () => {
-      if (preset !== initialPreset) {
-        const presetResult = await updateScoringPreset(slug, preset);
-        if (!presetResult.success) {
-          setError(presetResult.error ?? "Could not update scoring preset.");
-          return;
-        }
-      }
-
-      const rulesResult = await updateScoringRules(slug, rules);
-      if (!rulesResult.success) {
-        setError(rulesResult.error ?? "Could not save scoring rules.");
+      const result = await updateScoringSettings(slug, {
+        scoringPreset: preset !== initialPreset ? preset : undefined,
+        scoringRules: rules,
+      });
+      if (!result.success) {
+        setError(result.error ?? "Could not save scoring settings.");
         return;
       }
 
@@ -129,18 +121,46 @@ export function ScoringSettings({
 
   return (
     <div className="flex flex-col gap-8">
-      <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold tracking-tight text-balance">
-          Scoring rules
-        </h1>
-        <p className="text-sm text-pretty text-muted-foreground">
-          {leagueName}
-          {" · "}
-          <span className="capitalize">{formatLeagueLabel(seasonStatus)}</span>
-        </p>
-      </div>
+      {error ? (
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      ) : null}
 
-      <FieldGroup>
+      <SettingsFormCard
+        title="Scoring Rules"
+        contentClassName="flex flex-col gap-8"
+        footer={
+          <PageFormActions>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={isPending || !hasChanges}
+              onClick={handleReset}
+            >
+              <HugeiconsIcon
+                icon={Cancel01Icon}
+                strokeWidth={2}
+                data-icon="inline-start"
+              />
+              Reset
+            </Button>
+            <Button
+              type="button"
+              onClick={handleSave}
+              disabled={isPending || !hasChanges}
+            >
+              <HugeiconsIcon
+                icon={TickDouble02Icon}
+                strokeWidth={2}
+                data-icon="inline-start"
+              />
+              Save
+            </Button>
+          </PageFormActions>
+        }
+      >
+        <FieldGroup>
         <Field>
           <FieldLabel>Scoring preset</FieldLabel>
           <ScoringPresetPicker
@@ -154,61 +174,23 @@ export function ScoringSettings({
               );
             }}
           />
-          <FieldDescription>
-            All three presets share the same default scoring rules. Only
-            reception scoring differs between them. Changing the preset resets
-            your custom rules to that preset&apos;s defaults when saved.
-          </FieldDescription>
         </Field>
-      </FieldGroup>
+        </FieldGroup>
 
-      {error ? (
-        <Alert variant="destructive">
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      ) : null}
-
-      <div className="flex flex-col gap-8">
-        {categories.map(({ category, rules: categoryRules }) => (
-          <ScoringCategorySection
-            key={category}
-            category={category}
-            rules={categoryRules}
-            canAddRule={categoryHasAvailableRule(category, rules)}
-            onEditRule={openEditDialog}
-            onDeleteRule={handleDeleteRule}
-            onNewRule={openNewDialog}
-          />
-        ))}
-      </div>
-
-      <PageFormActions>
-        <Button
-          type="button"
-          variant="outline"
-          disabled={isPending || !hasChanges}
-          onClick={handleReset}
-        >
-          <HugeiconsIcon
-            icon={Cancel01Icon}
-            strokeWidth={2}
-            data-icon="inline-start"
-          />
-          Reset
-        </Button>
-        <Button
-          type="button"
-          onClick={handleSave}
-          disabled={isPending || !hasChanges}
-        >
-          <HugeiconsIcon
-            icon={TickDouble02Icon}
-            strokeWidth={2}
-            data-icon="inline-start"
-          />
-          Save
-        </Button>
-      </PageFormActions>
+        <div className="flex flex-col gap-8">
+          {categories.map(({ category, rules: categoryRules }) => (
+            <ScoringCategorySection
+              key={category}
+              category={category}
+              rules={categoryRules}
+              canAddRule={categoryHasAvailableRule(category, rules)}
+              onEditRule={openEditDialog}
+              onDeleteRule={handleDeleteRule}
+              onNewRule={openNewDialog}
+            />
+          ))}
+        </div>
+      </SettingsFormCard>
 
       <ScoringRuleDialog
         open={dialogOpen}

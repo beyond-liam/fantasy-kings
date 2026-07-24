@@ -1,15 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import {
-  ArrowRight01Icon,
-  CheckmarkCircle02Icon,
-  Home01Icon,
-  UserIcon,
-} from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
 
 import {
   DraftClockCard,
@@ -28,8 +20,6 @@ import { DraftPlayerPool } from "@/components/leagues/draft/draft-player-pool";
 import { DraftQueuePanel } from "@/components/leagues/draft/draft-queue-panel";
 import { DraftQueueProvider } from "@/components/leagues/draft/draft-queue-provider";
 import { DraftRosterTab } from "@/components/leagues/draft/draft-roster-tab";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
 import {
   Tabs,
   TabsContent,
@@ -377,16 +367,13 @@ export function DraftRoom({
     return () => window.clearInterval(timer);
   }, [waitingToStart, draftStartAt]);
 
-  const clockCardTitle =
-    effectiveStatus === "complete"
-      ? "Draft complete"
-      : waitingToStart
-        ? "Waiting to start"
-        : effectiveStatus === "paused"
-          ? "Draft paused"
-          : isMyTurn
-            ? "On the clock"
-            : "Up next";
+  const clockCardTitle = waitingToStart
+    ? "Waiting to start"
+    : effectiveStatus === "paused"
+      ? "Draft paused"
+      : isMyTurn
+        ? "On the clock"
+        : "Up next";
 
   const scheduledStartMs = draftStartAt
     ? new Date(draftStartAt).getTime()
@@ -426,149 +413,98 @@ export function DraftRoom({
               canRevert={currentPickIndex > 0}
               onStatusOptimistic={setOptimisticStatus}
             />
-            {effectiveStatus === "complete" ? (
-              <Alert variant="success" className="max-w-lg">
-                <HugeiconsIcon icon={CheckmarkCircle02Icon} strokeWidth={2} />
-                <AlertTitle>Season is live</AlertTitle>
-                <AlertDescription className="flex flex-col gap-3">
-                  <span>
-                    The draft is complete. Set your lineup and check this
-                    week&apos;s matchups.
-                  </span>
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      type="button"
-                      size="sm"
-                      nativeButton={false}
-                      render={<Link href={`/league/${slug}/team`} />}
-                    >
-                      <HugeiconsIcon
-                        icon={UserIcon}
-                        strokeWidth={2}
-                        data-icon="inline-start"
-                      />
-                      My Team
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      nativeButton={false}
-                      render={<Link href={`/league/${slug}/matchups`} />}
-                    >
-                      <HugeiconsIcon
-                        icon={ArrowRight01Icon}
-                        strokeWidth={2}
-                        data-icon="inline-start"
-                      />
-                      Matchups
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="ghost"
-                      nativeButton={false}
-                      render={<Link href={`/league/${slug}`} />}
-                    >
-                      <HugeiconsIcon
-                        icon={Home01Icon}
-                        strokeWidth={2}
-                        data-icon="inline-start"
-                      />
-                      League home
-                    </Button>
-                  </div>
-                </AlertDescription>
-              </Alert>
-            ) : null}
           </div>
 
-          <DraftClockCard
-            title={clockCardTitle}
-            showStopwatch={effectiveStatus !== "complete"}
-            headerAction={
-              <DraftClockToggle
-                slug={slug}
-                isCommissioner={isCommissioner}
-                status={effectiveStatus}
-                startHint={startHint}
-                onStatusOptimistic={setOptimisticStatus}
-              />
-            }
-          >
-            {effectiveStatus === "complete" ? (
-              <p className="text-sm text-muted-foreground">
-                All {schedule.length} picks are in. The season is now active.
-              </p>
-            ) : waitingToStart ? (
-              <p className="text-sm text-muted-foreground">{waitingMessage}</p>
-            ) : isMyTurn && onTheClock ? (
-              <div className="flex flex-col gap-1">
-                <p className="text-sm font-medium">
-                  You · Pick #{onTheClock.overall}
-                </p>
-                {secondsLeft != null ? (
-                  <DraftClockSeconds seconds={secondsLeft} />
-                ) : (
+          {!draftComplete ? (
+            <DraftClockCard
+              title={clockCardTitle}
+              showStopwatch
+              headerAction={
+                <DraftClockToggle
+                  slug={slug}
+                  isCommissioner={isCommissioner}
+                  status={effectiveStatus}
+                  startHint={startHint}
+                  onStatusOptimistic={setOptimisticStatus}
+                />
+              }
+            >
+              {waitingToStart ? (
+                <p className="text-sm text-muted-foreground">{waitingMessage}</p>
+              ) : isMyTurn && onTheClock ? (
+                <div className="flex flex-col gap-1">
+                  <p className="text-sm font-medium">
+                    You · Pick #{onTheClock.overall}
+                  </p>
+                  {secondsLeft != null ? (
+                    <DraftClockSeconds seconds={secondsLeft} />
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      {clockEnabled
+                        ? `Round ${onTheClock.round} · Pick ${onTheClock.overall}`
+                        : "No time limit — pick when ready"}
+                    </p>
+                  )}
+                </div>
+              ) : onTheClock && picksUntilUser != null && picksUntilUser > 0 ? (
+                <div className="flex flex-col gap-1">
                   <p className="text-sm text-muted-foreground">
-                    Round {onTheClock.round} · Pick {onTheClock.overall}
+                    {onTheClock.teamName}
+                    {onClockIsOpenSlot ? " (open)" : ""} · Pick #
+                    {onTheClock.overall}
                   </p>
-                )}
-              </div>
-            ) : onTheClock && picksUntilUser != null && picksUntilUser > 0 ? (
-              <div className="flex flex-col gap-1">
+                  {onClockIsOpenSlot || onClockTeam?.autoPickEnabled ? (
+                    <p className="text-xs text-muted-foreground">
+                      Autopick on for this team
+                    </p>
+                  ) : null}
+                  <p className="text-sm text-muted-foreground">You&apos;re up in</p>
+                  <p className="text-2xl font-semibold tabular-nums">
+                    {picksUntilUser}{" "}
+                    <span className="text-base font-medium text-muted-foreground">
+                      {picksUntilUser === 1 ? "pick" : "picks"}
+                    </span>
+                  </p>
+                  {secondsLeft != null ? (
+                    <p
+                      className={cn(
+                        "text-sm tabular-nums text-muted-foreground",
+                        secondsLeft === 0 && "text-destructive",
+                      )}
+                    >
+                      Clock: {secondsLeft}s
+                    </p>
+                  ) : null}
+                </div>
+              ) : onTheClock ? (
+                <div className="flex flex-col gap-1">
+                  <p className="text-sm font-medium">
+                    {onTheClock.teamName}
+                    {onClockIsOpenSlot ? " (open)" : ""}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    Round {onTheClock.round} · Pick #{onTheClock.overall}
+                  </p>
+                  {onClockIsOpenSlot || onClockTeam?.autoPickEnabled ? (
+                    <p className="text-xs text-muted-foreground">
+                      Autopick on — drafting from queue / ADP
+                    </p>
+                  ) : null}
+                  {secondsLeft != null ? (
+                    <DraftClockSeconds seconds={secondsLeft} />
+                  ) : !clockEnabled ? (
+                    <p className="text-sm text-muted-foreground">
+                      No time limit
+                    </p>
+                  ) : null}
+                </div>
+              ) : (
                 <p className="text-sm text-muted-foreground">
-                  {onTheClock.teamName}
-                  {onClockIsOpenSlot ? " (open)" : ""} · Pick #
-                  {onTheClock.overall}
+                  No more picks for you.
                 </p>
-                {onClockIsOpenSlot || onClockTeam?.autoPickEnabled ? (
-                  <p className="text-xs text-muted-foreground">
-                    Autopick on for this team
-                  </p>
-                ) : null}
-                <p className="text-sm text-muted-foreground">You&apos;re up in</p>
-                <p className="text-2xl font-semibold tabular-nums">
-                  {picksUntilUser}{" "}
-                  <span className="text-base font-medium text-muted-foreground">
-                    {picksUntilUser === 1 ? "pick" : "picks"}
-                  </span>
-                </p>
-                {secondsLeft != null ? (
-                  <p
-                    className={cn(
-                      "text-sm tabular-nums text-muted-foreground",
-                      secondsLeft === 0 && "text-destructive",
-                    )}
-                  >
-                    Clock: {secondsLeft}s
-                  </p>
-                ) : null}
-              </div>
-            ) : onTheClock ? (
-              <div className="flex flex-col gap-1">
-                <p className="text-sm font-medium">
-                  {onTheClock.teamName}
-                  {onClockIsOpenSlot ? " (open)" : ""}
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  Round {onTheClock.round} · Pick #{onTheClock.overall}
-                </p>
-                {onClockIsOpenSlot || onClockTeam?.autoPickEnabled ? (
-                  <p className="text-xs text-muted-foreground">
-                    Autopick on — drafting from queue / ADP
-                  </p>
-                ) : null}
-                {secondsLeft != null ? (
-                  <DraftClockSeconds seconds={secondsLeft} />
-                ) : null}
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                No more picks for you.
-              </p>
-            )}
-          </DraftClockCard>
+              )}
+            </DraftClockCard>
+          ) : null}
         </div>
 
         <Tabs value={tab} onValueChange={(value) => setTab(String(value))}>

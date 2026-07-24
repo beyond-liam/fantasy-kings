@@ -71,7 +71,22 @@ describe("expected player points", () => {
     assert.equal(result.mean, 12);
   });
 
-  it("blends actual + remaining mid-game", () => {
+  it("zeros remaining projection for out/IR designations", () => {
+    const result = expectedPlayerPoints(
+      {
+        id: "1",
+        primaryPositionId: "RB",
+        nflTeam: "KC",
+        projectedPts: 12,
+        actualPts: 2,
+        injuryStatus: "Out",
+      },
+      { status: "in", fractionPlayed: 0.25 },
+    );
+    assert.equal(result.mean, 2);
+  });
+
+  it("blends projection with pace mid-game", () => {
     const result = expectedPlayerPoints(
       {
         id: "1",
@@ -82,7 +97,25 @@ describe("expected player points", () => {
       },
       { status: "in", fractionPlayed: 0.5 },
     );
-    assert.equal(result.mean, 14);
+    // Pure projection remaining would be 14; pace (16 full-game) pulls mean up.
+    assert.ok(result.mean > 14);
+    assert.ok(result.mean < 16);
+    assert.ok(result.variance > 0);
+  });
+
+  it("zeros remaining after soft-DNP threshold with still-zero actuals", () => {
+    const result = expectedPlayerPoints(
+      {
+        id: "1",
+        primaryPositionId: "WR",
+        nflTeam: "KC",
+        projectedPts: 10,
+        actualPts: 0,
+      },
+      { status: "in", fractionPlayed: 0.4 },
+    );
+    assert.equal(result.mean, 0);
+    assert.equal(result.variance, 0);
   });
 
   it("locks to actual when final", () => {

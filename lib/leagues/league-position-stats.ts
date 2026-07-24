@@ -33,14 +33,37 @@ export type LeaguePositionStatsRow = {
    */
   byPosition: Record<string, number | null>;
   pointsFor: number | null;
+  /** Season PF from finalized matchups (null when none). */
+  seasonPointsFor: number | null;
   optimumPointsFor: number | null;
+  /** Season OPF from persisted weekly team_week_stats (null until snapshots exist). */
+  seasonOptimumPointsFor: number | null;
 };
 
 export function formatLeaderPositionLabel(positionId: string): string {
-  if (positionId === "DEF") {
-    return "D/ST";
-  }
   return positionId;
+}
+
+/** Plain-English labels for column toggles and similar menus. */
+export function formatLeaderPositionFullLabel(positionId: string): string {
+  switch (positionId) {
+    case "QB":
+      return "Quarterback";
+    case "RB":
+      return "Running back";
+    case "WR":
+      return "Wide receiver";
+    case "TE":
+      return "Tight end";
+    case "FLEX":
+      return "Flex";
+    case "K":
+      return "Kicker";
+    case "DEF":
+      return "Defense";
+    default:
+      return formatLeaderPositionLabel(positionId);
+  }
 }
 
 /** Starter position columns for a league, in leaders display order. */
@@ -123,7 +146,9 @@ export function buildLeaguePositionStatsRows(
         claimed: team.claimed,
         byPosition: emptyPositionPoints(positionColumns),
         pointsFor: null,
+        seasonPointsFor: null,
         optimumPointsFor: null,
+        seasonOptimumPointsFor: null,
       };
     }
 
@@ -142,7 +167,9 @@ export function buildLeaguePositionStatsRows(
       claimed: team.claimed,
       byPosition,
       pointsFor,
+      seasonPointsFor: null,
       optimumPointsFor: team.optimumPointsFor,
+      seasonOptimumPointsFor: null,
     };
   });
 

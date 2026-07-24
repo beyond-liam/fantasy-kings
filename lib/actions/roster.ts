@@ -27,13 +27,16 @@ import {
   slotAcceptsPlayer,
 } from "@/lib/leagues/roster-slots";
 import {
-  assertIrAcquisitionsAllowed,
+  assertReserveAcquisitionsAllowed,
   findSeasonRosterRows,
   insertOrRestoreRosteredPlayer,
   listRosteredPlayers,
   waiveOrDeleteRosterRow,
 } from "@/lib/leagues/roster-writes";
 import { resolveIrEligibleStatuses } from "@/lib/leagues/ir-eligibility";
+import { resolveTaxiMaxYearsExp } from "@/lib/leagues/taxi-eligibility";
+import { findBlockedLineupMoves } from "@/lib/leagues/lineup-lock-enforce";
+import { parseLineupLockMode } from "@/lib/leagues/lineup-lock";
 import { getAcquisitionKind } from "@/lib/leagues/waivers/acquisition";
 import { resolveChurnCut } from "@/lib/leagues/waivers/churn";
 import {
@@ -99,12 +102,26 @@ async function prepareAdd(
 ): Promise<PrepareAddSuccess | PrepareAddFailure> {
   const { season, team } = context;
 
-  const irLock = await assertIrAcquisitionsAllowed(
+  const irLock = await assertReserveAcquisitionsAllowed(
     team.id,
     season.settings.irEligibleStatuses,
+    season.settings.taxiMaxYearsExp,
   );
   if (irLock) {
     return { ok: false, result: { success: false, error: irLock.error } };
+  }
+
+  const { assertTransactionLimitsAllow } = await import(
+    "@/lib/leagues/transaction-limits"
+  );
+  const limitError = await assertTransactionLimitsAllow({
+    leagueSeasonId: season.id,
+    teamId: team.id,
+    seasonYear: season.seasonYear,
+    rules: season.settings.transactionRules,
+  });
+  if (limitError) {
+    return { ok: false, result: { success: false, error: limitError } };
   }
 
   const [player] = await db
@@ -499,6 +516,9 @@ export async function assignPlayerSlot(
   const irEligibleStatuses = resolveIrEligibleStatuses(
     season.settings.irEligibleStatuses,
   );
+  const taxiMaxYearsExp = resolveTaxiMaxYearsExp(
+    season.settings.taxiMaxYearsExp,
+  );
   const rosteredOnTeam = await listRosteredPlayers(team.id);
   const applied = applyLocalSlotAssignment(
     rosteredOnTeam,
@@ -507,10 +527,20 @@ export async function assignPlayerSlot(
     season.settings.rosterSlots,
     season.benchSlots,
     irEligibleStatuses,
+    taxiMaxYearsExp,
   );
 
   if ("error" in applied) {
     return { success: false, error: applied.error };
+  }
+
+  const lockError = await assertLineupLockAllowsChanges({
+    seasonSettings: season.settings,
+    current: rosteredOnTeam,
+    next: applied.players,
+  });
+  if (lockError) {
+    return { success: false, error: lockError };
   }
 
   return persistRosterSlotAssignments(
@@ -596,7 +626,64 @@ export async function commissionerUpdateRosterSlots(
     actorUserId: user.id,
     assignments,
     notOnRosterError: "Player is not on this team's roster.",
+    /** Commissioner can override lineup locks. */
+    bypassLineupLock: true,
   });
+}
+
+async function assertLineupLockAllowsChanges(input: {
+  seasonSettings: {
+    lineupLockMode?: string | null;
+  };
+  current: Array<{
+    id: string;
+    fullName: string;
+    nflTeam: string | null;
+    slotPositionId: string | null;
+    primaryPositionId: string;
+  }>;
+  next: Array<{
+    id: string;
+    fullName: string;
+    nflTeam: string | null;
+    slotPositionId: string | null;
+    primaryPositionId: string;
+  }>;
+}): Promise<string | null> {
+  const mode = parseLineupLockMode(input.seasonSettings.lineupLockMode);
+  const currentById = new Map(input.current.map((row) => [row.id, row]));
+  const changes = input.next.flatMap((player) => {
+    const previous = currentById.get(player.id);
+    if (!previous) return [];
+    const previousSlot = previous.slotPositionId ?? previous.primaryPositionId;
+    const nextSlot = player.slotPositionId ?? player.primaryPositionId;
+    if (previousSlot === nextSlot) return [];
+    return [
+      {
+        fullName: player.fullName,
+        nflTeam: player.nflTeam,
+        previousSlot,
+        nextSlot,
+      },
+    ];
+  });
+  if (changes.length === 0) {
+    return null;
+  }
+
+  let startedTeams = new Set<string>();
+  try {
+    const nflState = await getNflState();
+    const week = Math.max(1, Number(nflState.week) || 1);
+    const seasonYear = Number(nflState.season) || new Date().getUTCFullYear();
+    const scoreboard = await getNflScoreboard({ season: seasonYear, week });
+    startedTeams = getStartedNflTeamAbbreviations(scoreboard.games);
+  } catch {
+    // Fail open if scoreboard is unavailable — same posture as acquisition locks.
+    return null;
+  }
+
+  return findBlockedLineupMoves({ mode, startedTeams, changes });
 }
 
 async function applyRosterSlotAssignments(input: {
@@ -606,6 +693,8 @@ async function applyRosterSlotAssignments(input: {
     settings: {
       rosterSlots: Parameters<typeof getSlotCapacity>[0];
       irEligibleStatuses?: string[] | null;
+      lineupLockMode?: string | null;
+      taxiMaxYearsExp?: 0 | 1 | 2 | 3 | 4 | 5 | null;
     };
     benchSlots: number;
   };
@@ -614,6 +703,7 @@ async function applyRosterSlotAssignments(input: {
   actorUserId: string;
   assignments: Array<{ playerId: string; slotPositionId: string }>;
   notOnRosterError: string;
+  bypassLineupLock?: boolean;
 }): Promise<RosterActionResult> {
   const {
     leagueSlug,
@@ -623,9 +713,13 @@ async function applyRosterSlotAssignments(input: {
     actorUserId,
     assignments,
     notOnRosterError,
+    bypassLineupLock = false,
   } = input;
   const irEligibleStatuses = resolveIrEligibleStatuses(
     season.settings.irEligibleStatuses,
+  );
+  const taxiMaxYearsExp = resolveTaxiMaxYearsExp(
+    season.settings.taxiMaxYearsExp,
   );
   const rosteredOnTeam = await listRosteredPlayers(teamId);
   const byId = new Map(rosteredOnTeam.map((row) => [row.id, row]));
@@ -650,6 +744,8 @@ async function applyRosterSlotAssignments(input: {
 
     const previousSlot = current.slotPositionId ?? current.primaryPositionId;
     const movingOntoIr = slotPositionId === "IR" && previousSlot !== "IR";
+    const movingOntoTaxi =
+      slotPositionId === "TAXI" && previousSlot !== "TAXI";
 
     if (movingOntoIr) {
       if (
@@ -666,7 +762,22 @@ async function applyRosterSlotAssignments(input: {
       continue;
     }
 
-    if (slotPositionId === "IR") {
+    if (movingOntoTaxi) {
+      if (
+        !slotAcceptsPlayer("TAXI", player.primaryPositionId, {
+          yearsExp: player.yearsExp,
+          taxiMaxYearsExp,
+        })
+      ) {
+        return {
+          success: false,
+          error: `${player.fullName} is not eligible for Taxi.`,
+        };
+      }
+      continue;
+    }
+
+    if (slotPositionId === "IR" || slotPositionId === "TAXI") {
       continue;
     }
 
@@ -674,6 +785,8 @@ async function applyRosterSlotAssignments(input: {
       !slotAcceptsPlayer(slotPositionId, player.primaryPositionId, {
         injuryStatus: player.injuryStatus,
         irEligibleStatuses,
+        yearsExp: player.yearsExp,
+        taxiMaxYearsExp,
       })
     ) {
       return {
@@ -710,6 +823,17 @@ async function applyRosterSlotAssignments(input: {
   );
   if (!caps.ok) {
     return { success: false, error: caps.error };
+  }
+
+  if (!bypassLineupLock) {
+    const lockError = await assertLineupLockAllowsChanges({
+      seasonSettings: season.settings,
+      current: rosteredOnTeam,
+      next: nextPlayers,
+    });
+    if (lockError) {
+      return { success: false, error: lockError };
+    }
   }
 
   return persistRosterSlotAssignments(

@@ -53,6 +53,7 @@ export function getDefaultMockDraftConfig(): MockDraftConfig {
       irEligibleStatuses: [],
       taxiEnabled: false,
       taxiSlots: 2,
+      taxiMaxYearsExp: 0,
       customRosterSlots: getDefaultCustomRosterSlots(),
     },
   };

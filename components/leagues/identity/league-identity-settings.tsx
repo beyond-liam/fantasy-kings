@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import { LogoField } from "@/components/shared/logo-field";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { SettingsFormCard } from "@/components/leagues/settings/settings-form-card";
 import { PageFormActions } from "@/components/layout/page-form-actions";
 import {
   Field,
@@ -17,7 +18,6 @@ import {
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { updateLeagueIdentity } from "@/lib/actions/league-settings";
-import { formatLeagueLabel } from "@/lib/leagues/format";
 import type { LeagueIdentityFormValues } from "@/lib/leagues/league-identity";
 
 type LeagueIdentitySettingsProps = {
@@ -33,7 +33,6 @@ function valuesEqual(a: LeagueIdentityFormValues, b: LeagueIdentityFormValues) {
 
 export function LeagueIdentitySettings({
   slug,
-  seasonStatus,
   initialValues,
   initialLogoUrl,
 }: LeagueIdentitySettingsProps) {
@@ -82,24 +81,57 @@ export function LeagueIdentitySettings({
 
   return (
     <div className="flex flex-col gap-8">
-      <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold tracking-tight text-balance">
-          League Name & Logo
-        </h1>
-        <p className="text-sm text-pretty text-muted-foreground">
-          {initialValues.name}
-          {" · "}
-          <span className="capitalize">{formatLeagueLabel(seasonStatus)}</span>
-        </p>
-      </div>
-
       {error ? (
         <Alert variant="destructive">
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       ) : null}
 
-      <FieldGroup>
+      <SettingsFormCard
+        title="League Name & Logo"
+        footer={
+          <PageFormActions>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={isPending || !hasChanges}
+              onClick={handleReset}
+            >
+              <HugeiconsIcon
+                icon={Cancel01Icon}
+                strokeWidth={2}
+                data-icon="inline-start"
+              />
+              Reset
+            </Button>
+            <Button
+              type="button"
+              onClick={handleSave}
+              disabled={isPending || !hasChanges}
+            >
+              <HugeiconsIcon
+                icon={TickDouble02Icon}
+                strokeWidth={2}
+                data-icon="inline-start"
+              />
+              Save
+            </Button>
+          </PageFormActions>
+        }
+      >
+        <FieldGroup>
+        <Field>
+          <FieldLabel htmlFor="leagueName">League name</FieldLabel>
+          <Input
+            id="leagueName"
+            value={values.name}
+            onChange={(event) => patch({ name: event.target.value })}
+          />
+          {fieldErrors.name ? (
+            <FieldError>{fieldErrors.name}</FieldError>
+          ) : null}
+        </Field>
+
         <LogoField
           kind="league"
           value={values}
@@ -107,48 +139,8 @@ export function LeagueIdentitySettings({
           onChange={patch}
           error={fieldErrors.logoUrl}
         />
-
-        <Field>
-          <FieldLabel htmlFor="leagueName">League name</FieldLabel>
-          <Input
-            id="leagueName"
-            value={values.name}
-            onChange={(event) => patch({ name: event.target.value })}
-            className="max-w-xl"
-          />
-          {fieldErrors.name ? (
-            <FieldError>{fieldErrors.name}</FieldError>
-          ) : null}
-        </Field>
-      </FieldGroup>
-
-      <PageFormActions>
-        <Button
-          type="button"
-          variant="outline"
-          disabled={isPending || !hasChanges}
-          onClick={handleReset}
-        >
-          <HugeiconsIcon
-            icon={Cancel01Icon}
-            strokeWidth={2}
-            data-icon="inline-start"
-          />
-          Reset
-        </Button>
-        <Button
-          type="button"
-          onClick={handleSave}
-          disabled={isPending || !hasChanges}
-        >
-          <HugeiconsIcon
-            icon={TickDouble02Icon}
-            strokeWidth={2}
-            data-icon="inline-start"
-          />
-          Save
-        </Button>
-      </PageFormActions>
+        </FieldGroup>
+      </SettingsFormCard>
     </div>
   );
 }

@@ -182,8 +182,9 @@ export function CreateLeagueWizard() {
       description: "Waivers, trades, and when the market closes.",
     },
     draft: {
-      title: "Plan your draft night",
-      description: "Live room or email draft — pick your pace.",
+      title: "Plan your draft",
+      description:
+        "Live night or email/slow — same draft room, your pick clock.",
     },
     review: {
       title: "Review and launch",

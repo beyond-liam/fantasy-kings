@@ -82,11 +82,22 @@ async function assertCanPropose(season: LeagueMemberTeamContext["season"]) {
   return null;
 }
 
-async function assertNoIrLock(teamId: string, irEligibleStatuses: readonly string[] | null | undefined) {
+async function assertNoIrLock(
+  teamId: string,
+  irEligibleStatuses: readonly string[] | null | undefined,
+  taxiMaxYearsExp?: 0 | 1 | 2 | 3 | 4 | 5 | null,
+) {
   const roster = await getTeamRosterPlayers(teamId);
-  const violations = getIrLockViolations(roster, irEligibleStatuses);
-  if (violations.length > 0) {
-    return formatIrLockMessage(violations);
+  const irViolations = getIrLockViolations(roster, irEligibleStatuses);
+  if (irViolations.length > 0) {
+    return formatIrLockMessage(irViolations);
+  }
+  const { formatTaxiLockMessage, getTaxiLockViolations } = await import(
+    "@/lib/leagues/taxi-lock"
+  );
+  const taxiViolations = getTaxiLockViolations(roster, taxiMaxYearsExp);
+  if (taxiViolations.length > 0) {
+    return formatTaxiLockMessage(taxiViolations);
   }
   return null;
 }
@@ -260,6 +271,19 @@ export async function proposeTrade(
     return { success: false, error: proposeError };
   }
 
+  const { assertTransactionLimitsAllow } = await import(
+    "@/lib/leagues/transaction-limits"
+  );
+  const limitError = await assertTransactionLimitsAllow({
+    leagueSeasonId: season.id,
+    teamId: team.id,
+    seasonYear: season.seasonYear,
+    rules: season.settings.transactionRules,
+  });
+  if (limitError) {
+    return { success: false, error: limitError };
+  }
+
   if (input.receivingTeamId === team.id) {
     return { success: false, error: "Choose a different team to trade with." };
   }
@@ -305,6 +329,7 @@ export async function proposeTrade(
   const irError = await assertNoIrLock(
     team.id,
     season.settings.irEligibleStatuses,
+    season.settings.taxiMaxYearsExp,
   );
   if (irError) {
     return { success: false, error: irError };
@@ -474,6 +499,7 @@ export async function acceptTrade(
   const irError = await assertNoIrLock(
     team.id,
     season.settings.irEligibleStatuses,
+    season.settings.taxiMaxYearsExp,
   );
   if (irError) {
     return { success: false, error: irError };

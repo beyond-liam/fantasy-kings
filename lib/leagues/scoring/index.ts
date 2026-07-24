@@ -17,6 +17,7 @@ export {
   buildScoringRule,
   buildScoringRules,
   formatScoringPositions,
+  formatScoringRuleText,
 } from "@/lib/leagues/scoring/build-rule";
 export {
   createEmptyScoringRuleDefinition,

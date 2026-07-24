@@ -15,6 +15,7 @@ export type LeagueTeamDetail = {
   leagueSeasonId: string;
   ownerName: string | null;
   logoUrl: string | null;
+  waiverPriority: number;
 };
 
 export const getLeagueTeamByPublicId = cache(
@@ -32,8 +33,10 @@ export const getLeagueTeamByPublicId = cache(
         publicId: teams.publicId,
         userId: teams.userId,
         leagueSeasonId: teams.leagueSeasonId,
-        ownerName: profiles.displayName,
+        ownerName: profiles.username,
+        ownerDisplayName: profiles.displayName,
         logoUrl: teams.logoUrl,
+        waiverPriority: teams.waiverPriority,
       })
       .from(teams)
       .innerJoin(profiles, eq(teams.userId, profiles.id))
@@ -49,7 +52,17 @@ export const getLeagueTeamByPublicId = cache(
       return null;
     }
 
-    return { ...row, publicId: row.publicId };
+    return {
+      id: row.id,
+      name: row.name,
+      slug: row.slug,
+      publicId: row.publicId,
+      userId: row.userId,
+      leagueSeasonId: row.leagueSeasonId,
+      ownerName: row.ownerName?.trim() || row.ownerDisplayName?.trim() || null,
+      logoUrl: row.logoUrl,
+      waiverPriority: row.waiverPriority,
+    };
   },
 );
 
@@ -72,8 +85,10 @@ export const getLeagueTeamBySlug = cache(
         publicId: teams.publicId,
         userId: teams.userId,
         leagueSeasonId: teams.leagueSeasonId,
-        ownerName: profiles.displayName,
+        ownerName: profiles.username,
+        ownerDisplayName: profiles.displayName,
         logoUrl: teams.logoUrl,
+        waiverPriority: teams.waiverPriority,
       })
       .from(teams)
       .innerJoin(profiles, eq(teams.userId, profiles.id))
@@ -89,7 +104,17 @@ export const getLeagueTeamBySlug = cache(
       return null;
     }
 
-    return { ...row, publicId: row.publicId };
+    return {
+      id: row.id,
+      name: row.name,
+      slug: row.slug,
+      publicId: row.publicId,
+      userId: row.userId,
+      leagueSeasonId: row.leagueSeasonId,
+      ownerName: row.ownerName?.trim() || row.ownerDisplayName?.trim() || null,
+      logoUrl: row.logoUrl,
+      waiverPriority: row.waiverPriority,
+    };
   },
 );
 
@@ -108,8 +133,10 @@ export const getLeagueTeamById = cache(
         publicId: teams.publicId,
         userId: teams.userId,
         leagueSeasonId: teams.leagueSeasonId,
-        ownerName: profiles.displayName,
+        ownerName: profiles.username,
+        ownerDisplayName: profiles.displayName,
         logoUrl: teams.logoUrl,
+        waiverPriority: teams.waiverPriority,
       })
       .from(teams)
       .innerJoin(profiles, eq(teams.userId, profiles.id))
@@ -122,6 +149,16 @@ export const getLeagueTeamById = cache(
       return null;
     }
 
-    return { ...row, publicId: row.publicId };
+    return {
+      id: row.id,
+      name: row.name,
+      slug: row.slug,
+      publicId: row.publicId,
+      userId: row.userId,
+      leagueSeasonId: row.leagueSeasonId,
+      ownerName: row.ownerName?.trim() || row.ownerDisplayName?.trim() || null,
+      logoUrl: row.logoUrl,
+      waiverPriority: row.waiverPriority,
+    };
   },
 );

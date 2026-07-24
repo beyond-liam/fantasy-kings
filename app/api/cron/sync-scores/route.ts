@@ -1,12 +1,15 @@
 import { NextResponse } from "next/server";
 
 import { assertCronAuthorized } from "@/lib/cron/auth";
+import { getNflScoreboard } from "@/lib/espn/scoreboard";
 import { finalizeDueMatchupsAfterScoreSync } from "@/lib/leagues/matchups/finalize";
+import { syncEspnLiveScores } from "@/lib/scores/sync-espn-scores";
+import { syncNflverseWeekScores } from "@/lib/scores/sync-nflverse-scores";
 import { syncCurrentWeekScores } from "@/lib/scores/sync-sleeper-scores";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-/** Sleeper fetch + bulk upsert can exceed default serverless limits. */
+/** Sleeper + ESPN + nflverse fetch + bulk upsert can exceed default limits. */
 export const maxDuration = 60;
 
 async function handle(request: Request) {
@@ -42,24 +45,82 @@ async function handle(request: Request) {
     url.searchParams.get("projections") === "1" ||
     url.searchParams.get("projections") === "true";
 
+  // Default on: merge ESPN boxscores after Sleeper for live/final games.
+  const espnParam = url.searchParams.get("espn");
+  const includeEspn =
+    espnParam !== "0" &&
+    espnParam !== "false" &&
+    espnParam !== "off";
+
+  // Default on for completed weeks (no live games): official nflverse replace.
+  // Pass nflverse=0 to skip; nflverse=1 to force even during live games.
+  const nflverseParam = url.searchParams.get("nflverse");
+  const forceNflverse =
+    nflverseParam === "1" ||
+    nflverseParam === "true" ||
+    nflverseParam === "on";
+  const skipNflverse =
+    nflverseParam === "0" ||
+    nflverseParam === "false" ||
+    nflverseParam === "off";
+
   try {
-    const result = await syncCurrentWeekScores({
+    const sleeper = await syncCurrentWeekScores({
       week,
       season,
       kinds: includeProjections ? ["stats", "projection"] : ["stats"],
     });
 
+    const espn =
+      includeEspn && !sleeper.skipped
+        ? await syncEspnLiveScores({
+            week: sleeper.week,
+            season: sleeper.season,
+          })
+        : null;
+
+    let nflverse: Awaited<ReturnType<typeof syncNflverseWeekScores>> | null =
+      null;
+    if (!sleeper.skipped && !skipNflverse) {
+      let shouldRunNflverse = forceNflverse;
+      if (!shouldRunNflverse) {
+        const seasonYear = Number.parseInt(sleeper.season, 10);
+        if (Number.isFinite(seasonYear)) {
+          const board = await getNflScoreboard({
+            season: seasonYear,
+            week: sleeper.week,
+          }).catch(() => null);
+          const games = board?.games ?? [];
+          const hasLive = games.some((game) => game.status === "in");
+          const hasPost = games.some((game) => game.status === "post");
+          // Official replace once the slate is done (or empty past week).
+          shouldRunNflverse = !hasLive && (hasPost || games.length === 0);
+        }
+      }
+      if (shouldRunNflverse) {
+        nflverse = await syncNflverseWeekScores({
+          week: sleeper.week,
+          season: sleeper.season,
+        });
+      }
+    }
+
+    const upserted =
+      sleeper.upserted +
+      (espn && !espn.skipped ? espn.upserted : 0) +
+      (nflverse && !nflverse.skipped ? nflverse.upserted : 0);
+
     let finalize: Awaited<
       ReturnType<typeof finalizeDueMatchupsAfterScoreSync>
     > | null = null;
-    if (!result.skipped && result.upserted > 0) {
+    if (!sleeper.skipped && upserted > 0) {
       finalize = await finalizeDueMatchupsAfterScoreSync({
-        seasonYear: result.season,
-        week: result.week,
+        seasonYear: sleeper.season,
+        week: sleeper.week,
       });
     }
 
-    return NextResponse.json({ ...result, finalize });
+    return NextResponse.json({ ...sleeper, espn, nflverse, finalize });
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Score sync failed.";
@@ -68,8 +129,8 @@ async function handle(request: Request) {
 }
 
 /**
- * Near-live Sleeper stats → `player_scores`.
- * Vercel Cron (daily on Hobby) + cron-job.org every 2–5 min on game days.
+ * Near-live Sleeper (+ ESPN boxscores) and post-week nflverse official stats
+ * → `player_scores`. Vercel Cron + cron-job.org on game days.
  */
 export async function GET(request: Request) {
   return handle(request);

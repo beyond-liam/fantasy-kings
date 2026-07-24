@@ -159,7 +159,6 @@ export function TeamSettingsSection({
                 id="teamName"
                 value={values.name}
                 onChange={(event) => patch({ name: event.target.value })}
-                className="max-w-xl"
               />
               {fieldErrors.name ? (
                 <FieldError>{fieldErrors.name}</FieldError>
@@ -167,7 +166,7 @@ export function TeamSettingsSection({
             </Field>
           </FieldGroup>
         </CardContent>
-        <CardFooter className="justify-end gap-2 border-t">
+        <CardFooter className="justify-end gap-2 border-t pb-4">
           <Button
             type="button"
             variant="outline"

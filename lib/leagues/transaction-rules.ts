@@ -16,6 +16,8 @@ export type TransactionRulesFormValues = {
   preventCutsAfterGameStart: boolean;
   allowVetoes: boolean;
   transactionLimits: "unlimited" | "weekly" | "season" | "both";
+  transactionWeeklyMax: number;
+  transactionSeasonMax: number;
 };
 
 export const TRADE_PROCESSING_OPTIONS: Array<{
@@ -36,6 +38,8 @@ export const DEFAULT_TRANSACTION_RULES: TransactionRulesSettings = {
   preventCutsAfterGameStart: true,
   allowVetoes: true,
   transactionLimits: "unlimited",
+  transactionWeeklyMax: 10,
+  transactionSeasonMax: 40,
 };
 
 export const transactionRulesFormSchema = z
@@ -51,6 +55,8 @@ export const transactionRulesFormSchema = z
     preventCutsAfterGameStart: z.boolean(),
     allowVetoes: z.boolean(),
     transactionLimits: z.enum(["unlimited", "weekly", "season", "both"]),
+    transactionWeeklyMax: z.number().int().min(0).max(99),
+    transactionSeasonMax: z.number().int().min(0).max(999),
   })
   .refine(
     (data) =>
@@ -60,6 +66,26 @@ export const transactionRulesFormSchema = z
     {
       message: "Invalid trade deadline week",
       path: ["tradeDeadlineWeek"],
+    },
+  )
+  .refine(
+    (data) =>
+      data.transactionLimits === "unlimited" ||
+      data.transactionLimits === "season" ||
+      data.transactionWeeklyMax >= 1,
+    {
+      message: "Weekly limit must be at least 1",
+      path: ["transactionWeeklyMax"],
+    },
+  )
+  .refine(
+    (data) =>
+      data.transactionLimits === "unlimited" ||
+      data.transactionLimits === "weekly" ||
+      data.transactionSeasonMax >= 1,
+    {
+      message: "Season limit must be at least 1",
+      path: ["transactionSeasonMax"],
     },
   );
 
@@ -93,6 +119,12 @@ export function resolveTransactionRules(
     allowVetoes: stored.allowVetoes ?? DEFAULT_TRANSACTION_RULES.allowVetoes,
     transactionLimits:
       stored.transactionLimits ?? DEFAULT_TRANSACTION_RULES.transactionLimits,
+    transactionWeeklyMax:
+      stored.transactionWeeklyMax ??
+      DEFAULT_TRANSACTION_RULES.transactionWeeklyMax,
+    transactionSeasonMax:
+      stored.transactionSeasonMax ??
+      DEFAULT_TRANSACTION_RULES.transactionSeasonMax,
   };
 }
 
@@ -116,6 +148,8 @@ export function toTransactionRulesFormValues(input: {
     preventCutsAfterGameStart: rules.preventCutsAfterGameStart,
     allowVetoes: rules.allowVetoes,
     transactionLimits: rules.transactionLimits,
+    transactionWeeklyMax: rules.transactionWeeklyMax ?? 10,
+    transactionSeasonMax: rules.transactionSeasonMax ?? 40,
   };
 }
 
@@ -131,6 +165,16 @@ export function toPersistedTransactionRules(
     preventCutsAfterGameStart: values.preventCutsAfterGameStart,
     allowVetoes: values.allowVetoes,
     transactionLimits: values.transactionLimits,
+    transactionWeeklyMax:
+      values.transactionLimits === "weekly" ||
+      values.transactionLimits === "both"
+        ? values.transactionWeeklyMax
+        : null,
+    transactionSeasonMax:
+      values.transactionLimits === "season" ||
+      values.transactionLimits === "both"
+        ? values.transactionSeasonMax
+        : null,
   };
 }
 

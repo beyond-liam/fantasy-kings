@@ -24,11 +24,7 @@ type RankingsToolbarProps = {
   view: RankingsViewState;
 };
 
-export function RankingsToolbar({
-  currentSeason,
-  previousSeason,
-  view,
-}: RankingsToolbarProps) {
+export function RankingsToolbar({ view }: RankingsToolbarProps) {
   const updateParams = useRankingsParams();
 
   const handleKindChange = (value: string) => {
@@ -36,11 +32,10 @@ export function RankingsToolbar({
       return;
     }
 
-    const nextSeason = value === "stats" ? previousSeason : currentSeason;
-
     updateParams({
       kind: value === "projection" ? null : value,
-      season: nextSeason === currentSeason ? null : nextSeason,
+      // Always reset to the current NFL year when switching modes.
+      season: null,
     });
   };
 

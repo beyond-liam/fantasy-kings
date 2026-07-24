@@ -35,9 +35,7 @@ export default async function RankingsPage({ searchParams }: RankingsPageProps) 
   const previousSeason = state.previous_season;
   const kind =
     params.kind === "stats" ? ("stats" as const) : ("projection" as const);
-  const defaultSeason = kind === "stats" ? previousSeason : currentSeason;
-
-  const season = params.season ?? defaultSeason;
+  const season = params.season ?? currentSeason;
   const weekParam = params.week ?? "season";
   const week =
     weekParam === "season" || weekParam === "0" ? 0 : Number(weekParam);

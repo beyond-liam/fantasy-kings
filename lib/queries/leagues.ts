@@ -10,9 +10,6 @@ import {
 } from "@/db/schema";
 import { profiles } from "@/db/schema/users";
 import { db } from "@/lib/db";
-import { ensureSeasonTeamSlugs } from "@/lib/leagues/team-slug";
-import { ensureSeasonTeamPublicIds } from "@/lib/leagues/ensure-public-ids";
-import { ensureSeasonTeamSlots } from "@/lib/leagues/ensure-team-slots";
 import { getDraftBySeasonId } from "@/lib/queries/draft";
 import type { LeagueStandingsMember } from "@/lib/leagues/standings";
 import { buildLeagueStandings } from "@/lib/leagues/standings-from-matchups";
@@ -120,6 +117,16 @@ export async function getUserLeagues(
     teamsBySeason.set(team.leagueSeasonId, list);
   }
 
+  const settingsBySeason = new Map<
+    string,
+    (typeof rows)[number]["settings"]
+  >();
+  for (const row of rows) {
+    if (row.seasonId && row.settings) {
+      settingsBySeason.set(row.seasonId, row.settings);
+    }
+  }
+
   const standingByTeamId = new Map<
     string,
     {
@@ -149,6 +156,7 @@ export async function getUserLeagues(
       members,
       { teamCount: members.length },
       finalsBySeason.get(seasonId) ?? [],
+      settingsBySeason.get(seasonId)?.tiebreakers,
     );
     for (const row of standings) {
       if (!row.teamId) continue;
@@ -332,19 +340,6 @@ export async function getJoinPreview(inviteCode: string) {
     .orderBy(leagueSeasons.createdAt)
     .limit(1);
 
-  if (season) {
-    await ensureSeasonTeamSlots(season.id, season.teamCount, {
-      waiversEnabled: season.waiversEnabled,
-      waiverType: season.waiverType,
-      faabBudget: season.faabBudget,
-      autoPickEnabled: season.settings.draft?.autoPickEnabled ?? false,
-    });
-    await Promise.all([
-      ensureSeasonTeamSlugs(season.id),
-      ensureSeasonTeamPublicIds(season.id),
-    ]);
-  }
-
   const [memberCountRow] = await db
     .select({ value: count() })
     .from(leagueMembers)
@@ -398,19 +393,6 @@ export const getLeagueHomeData = cache(async (slug: string, userId: string) => {
   ]);
   if (!membership) {
     return { league, isMember: false as const };
-  }
-
-  if (season) {
-    await ensureSeasonTeamSlots(season.id, season.teamCount, {
-      waiversEnabled: season.waiversEnabled,
-      waiverType: season.waiverType,
-      faabBudget: season.faabBudget,
-      autoPickEnabled: season.settings.draft?.autoPickEnabled ?? false,
-    });
-    await Promise.all([
-      ensureSeasonTeamSlugs(season.id),
-      ensureSeasonTeamPublicIds(season.id),
-    ]);
   }
 
   const [draft, members, standingsTeams] = await Promise.all([

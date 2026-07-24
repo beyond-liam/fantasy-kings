@@ -28,7 +28,6 @@ import {
   FieldGroup,
   FieldLabel,
 } from "@/components/ui/field";
-import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Select,
@@ -168,25 +167,17 @@ export function RemoveOwnerMenuItem({
           <Field>
             <FieldLabel>Reason (optional)</FieldLabel>
             <RadioGroup
+              variant="card"
               value={reason ?? undefined}
               onValueChange={(value) =>
                 setReason(value as OwnerRemovalReason)
               }
-              className="gap-2"
             >
-              {OWNER_REMOVAL_REASONS.map((item) => {
-                const id = `remove-reason-${item.value}`;
-                return (
-                  <Label
-                    key={item.value}
-                    htmlFor={id}
-                    className="flex cursor-pointer items-start gap-3 font-normal"
-                  >
-                    <RadioGroupItem id={id} value={item.value} className="mt-0.5" />
-                    <span className="text-sm text-pretty">{item.label}</span>
-                  </Label>
-                );
-              })}
+              {OWNER_REMOVAL_REASONS.map((item) => (
+                <RadioGroupItem key={item.value} value={item.value}>
+                  {item.label}
+                </RadioGroupItem>
+              ))}
             </RadioGroup>
           </Field>
         </FieldGroup>

@@ -11,6 +11,10 @@ export type LeagueMatchupRow = {
   /** Short URL segment under `/scores/[matchupId]`. */
   publicId: string;
   week: number;
+  status: "scheduled" | "in_progress" | "final";
+  finalizedAt: Date | null;
+  homePts: number | null;
+  awayPts: number | null;
   homeTeamId: string;
   homeTeamName: string;
   homeTeamSlug: string;
@@ -30,6 +34,9 @@ export type TeamScheduleRow = {
   opponentSlug: string;
   opponentLogoUrl: string | null;
   isHome: boolean;
+  status: "scheduled" | "in_progress" | "final";
+  homePts: number | null;
+  awayPts: number | null;
 };
 
 const homeTeams = alias(teams, "home_teams");
@@ -39,6 +46,10 @@ const matchupSelect = {
   id: matchups.id,
   publicId: matchups.publicId,
   week: matchups.week,
+  status: matchups.status,
+  finalizedAt: matchups.finalizedAt,
+  homePts: matchups.homePts,
+  awayPts: matchups.awayPts,
   homeTeamId: matchups.homeTeamId,
   homeTeamName: homeTeams.name,
   homeTeamSlug: homeTeams.publicId,
@@ -225,7 +236,10 @@ export async function getTeamSchedule(
       id: mapped.id,
       publicId: mapped.publicId,
       week: mapped.week,
+      status: mapped.status,
       isHome,
+      homePts: mapped.homePts,
+      awayPts: mapped.awayPts,
       opponentTeamId: isHome ? mapped.awayTeamId : mapped.homeTeamId,
       opponentName: isHome ? mapped.awayTeamName : mapped.homeTeamName,
       opponentSlug: isHome ? mapped.awayTeamSlug : mapped.homeTeamSlug,

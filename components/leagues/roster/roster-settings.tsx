@@ -7,17 +7,16 @@ import { useRouter } from "next/navigation";
 
 import { RosterBreakdown } from "@/components/leagues/roster/roster-breakdown";
 import { RosterPresetPicker } from "@/components/leagues/roster/roster-preset-picker";
+import { SettingsFormCard } from "@/components/leagues/settings/settings-form-card";
 import { PageFormActions } from "@/components/layout/page-form-actions";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
   Field,
-  FieldDescription,
   FieldGroup,
   FieldLabel,
 } from "@/components/ui/field";
 import { updateRosterRequirements } from "@/lib/actions/league-settings";
-import { formatLeagueLabel } from "@/lib/leagues/format";
 import {
   getDefaultCustomRosterSlots,
   type RosterMode,
@@ -41,8 +40,6 @@ function valuesEqual(
 
 export function RosterSettings({
   slug,
-  leagueName,
-  seasonStatus,
   initialValues,
 }: RosterSettingsProps) {
   const router = useRouter();
@@ -94,69 +91,60 @@ export function RosterSettings({
 
   return (
     <div className="flex flex-col gap-8">
-      <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold tracking-tight text-balance">
-          Roster requirements
-        </h1>
-        <p className="text-sm text-pretty text-muted-foreground">
-          {leagueName}
-          {" · "}
-          <span className="capitalize">{formatLeagueLabel(seasonStatus)}</span>
-        </p>
-      </div>
-
-      <FieldGroup>
-        <Field>
-          <FieldLabel>Roster format</FieldLabel>
-          <RosterPresetPicker value={uiMode} onValueChange={handleModeChange} />
-          <FieldDescription>
-            Standard includes team DEF. Individual defensive positions are
-            coming later. Custom lets you define starter slots yourself.
-          </FieldDescription>
-        </Field>
-      </FieldGroup>
-
       {error ? (
         <Alert variant="destructive">
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       ) : null}
 
-      <RosterBreakdown
-        values={{
-          ...values,
-          rosterMode: uiMode === "idp" ? "standard" : (uiMode as RosterMode),
-        }}
-        onChange={patchValues}
-      />
+      <SettingsFormCard
+        title="Roster Requirements"
+        contentClassName="flex flex-col gap-8"
+        footer={
+          <PageFormActions>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={isPending || !hasChanges}
+              onClick={handleReset}
+            >
+              <HugeiconsIcon
+                icon={Cancel01Icon}
+                strokeWidth={2}
+                data-icon="inline-start"
+              />
+              Reset
+            </Button>
+            <Button
+              type="button"
+              onClick={handleSave}
+              disabled={isPending || !hasChanges}
+            >
+              <HugeiconsIcon
+                icon={TickDouble02Icon}
+                strokeWidth={2}
+                data-icon="inline-start"
+              />
+              Save Roster
+            </Button>
+          </PageFormActions>
+        }
+      >
+        <FieldGroup>
+        <Field>
+          <FieldLabel>Roster format</FieldLabel>
+          <RosterPresetPicker value={uiMode} onValueChange={handleModeChange} />
+        </Field>
+        </FieldGroup>
 
-      <PageFormActions>
-        <Button
-          type="button"
-          variant="outline"
-          disabled={isPending || !hasChanges}
-          onClick={handleReset}
-        >
-          <HugeiconsIcon
-            icon={Cancel01Icon}
-            strokeWidth={2}
-            data-icon="inline-start"
-          />
-          Reset
-        </Button>
-        <Button
-          type="button"
-          onClick={handleSave}
-          disabled={isPending || !hasChanges}
-        >
-          <HugeiconsIcon
-            icon={TickDouble02Icon}
-            strokeWidth={2}
-            data-icon="inline-start"
-          />
-          Save Roster
-        </Button>
-      </PageFormActions>
+        <RosterBreakdown
+          values={{
+            ...values,
+            rosterMode: uiMode === "idp" ? "standard" : (uiMode as RosterMode),
+          }}
+          onChange={patchValues}
+        />
+      </SettingsFormCard>
     </div>
   );
 }

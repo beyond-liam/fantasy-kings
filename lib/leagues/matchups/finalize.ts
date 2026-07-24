@@ -1,12 +1,15 @@
 import { and, eq, inArray, sql } from "drizzle-orm";
 
 import { leagueSeasons, matchups } from "@/db/schema";
+import type { LeagueSeasonSettings } from "@/db/schema/league-seasons";
 import { db } from "@/lib/db";
 import type { ScheduleGame } from "@/lib/espn/scoreboard";
 import { getNflScoreboard } from "@/lib/espn/scoreboard";
 import { resolveScoringRuleDefinitions } from "@/lib/leagues/scoring/rules";
 import type { ScoringPreset } from "@/lib/leagues/scoring/types";
 import type { RosterSlotConfig } from "@/db/schema/league-seasons";
+import { ensurePlayoffMatchupsAdvanced } from "@/lib/leagues/playoffs/ensure-matchups";
+import { resolveTiebreakerSettings } from "@/lib/leagues/tiebreakers";
 import { getWeekMatchups } from "@/lib/queries/matchups";
 import { enrichWeekMatchupBoard } from "@/lib/queries/week-matchup-board";
 
@@ -15,6 +18,7 @@ export type FinalizeMatchupsResult = {
   weeksChecked: number;
   finalized: number;
   inProgress: number;
+  corrected: number;
 };
 
 type SeasonFinalizeRow = {
@@ -39,18 +43,146 @@ async function persistMatchupStatus(input: {
   homePts: number | null;
   awayPts: number | null;
   status: "scheduled" | "in_progress" | "final";
-}) {
+}): Promise<"finalized" | "in_progress" | "unchanged" | "corrected"> {
+  const [existing] = await db
+    .select({
+      status: matchups.status,
+      publicId: matchups.publicId,
+      week: matchups.week,
+      leagueSeasonId: matchups.leagueSeasonId,
+      homeTeamId: matchups.homeTeamId,
+      awayTeamId: matchups.awayTeamId,
+      homePts: matchups.homePts,
+      awayPts: matchups.awayPts,
+      finalizedAt: matchups.finalizedAt,
+    })
+    .from(matchups)
+    .where(eq(matchups.id, input.matchupId))
+    .limit(1);
+
   const now = new Date();
+  const alreadyFinal = existing?.status === "final";
+  const ptsChanged =
+    alreadyFinal &&
+    input.status === "final" &&
+    input.homePts != null &&
+    input.awayPts != null &&
+    existing.homePts != null &&
+    existing.awayPts != null &&
+    (Math.abs(existing.homePts - input.homePts) > 0.05 ||
+      Math.abs(existing.awayPts - input.awayPts) > 0.05);
+
   await db
     .update(matchups)
     .set({
       homePts: input.homePts,
       awayPts: input.awayPts,
       status: input.status,
-      finalizedAt: input.status === "final" ? now : null,
+      // Keep original finalize time when correcting an already-final matchup.
+      finalizedAt:
+        input.status === "final"
+          ? (alreadyFinal ? (existing.finalizedAt ?? now) : now)
+          : null,
       updatedAt: now,
     })
     .where(eq(matchups.id, input.matchupId));
+
+  if (
+    existing &&
+    ptsChanged &&
+    input.homePts != null &&
+    input.awayPts != null &&
+    existing.homePts != null &&
+    existing.awayPts != null &&
+    existing.publicId
+  ) {
+    const { announceScoreCorrected } = await import("@/lib/alerts/matchups");
+    const { teams, leagues, leagueSeasons } = await import("@/db/schema");
+    const [home] = await db
+      .select({ name: teams.name })
+      .from(teams)
+      .where(eq(teams.id, existing.homeTeamId))
+      .limit(1);
+    const [away] = await db
+      .select({ name: teams.name })
+      .from(teams)
+      .where(eq(teams.id, existing.awayTeamId))
+      .limit(1);
+    const [league] = await db
+      .select({ publicId: leagues.publicId })
+      .from(leagueSeasons)
+      .innerJoin(leagues, eq(leagueSeasons.leagueId, leagues.id))
+      .where(eq(leagueSeasons.id, existing.leagueSeasonId))
+      .limit(1);
+
+    if (league?.publicId) {
+      await announceScoreCorrected({
+        matchupId: input.matchupId,
+        matchupPublicId: existing.publicId,
+        leagueSeasonId: existing.leagueSeasonId,
+        leaguePublicId: league.publicId,
+        week: existing.week,
+        homeTeamId: existing.homeTeamId,
+        awayTeamId: existing.awayTeamId,
+        homeTeamName: home?.name ?? "Home",
+        awayTeamName: away?.name ?? "Away",
+        homePtsBefore: existing.homePts,
+        awayPtsBefore: existing.awayPts,
+        homePtsAfter: input.homePts,
+        awayPtsAfter: input.awayPts,
+      }).catch(() => null);
+    }
+    return "corrected";
+  }
+
+  if (
+    existing &&
+    existing.status !== "final" &&
+    input.status === "final" &&
+    input.homePts != null &&
+    input.awayPts != null &&
+    existing.publicId
+  ) {
+    const { announceMatchupFinalized } = await import("@/lib/alerts/matchups");
+    const { teams, leagues, leagueSeasons } = await import("@/db/schema");
+    const [home] = await db
+      .select({ name: teams.name })
+      .from(teams)
+      .where(eq(teams.id, existing.homeTeamId))
+      .limit(1);
+    const [away] = await db
+      .select({ name: teams.name })
+      .from(teams)
+      .where(eq(teams.id, existing.awayTeamId))
+      .limit(1);
+    const [league] = await db
+      .select({ publicId: leagues.publicId })
+      .from(leagueSeasons)
+      .innerJoin(leagues, eq(leagueSeasons.leagueId, leagues.id))
+      .where(eq(leagueSeasons.id, existing.leagueSeasonId))
+      .limit(1);
+
+    if (league?.publicId) {
+      await announceMatchupFinalized({
+        matchupId: input.matchupId,
+        matchupPublicId: existing.publicId,
+        leagueSeasonId: existing.leagueSeasonId,
+        leaguePublicId: league.publicId,
+        week: existing.week,
+        homeTeamId: existing.homeTeamId,
+        awayTeamId: existing.awayTeamId,
+        homePts: input.homePts,
+        awayPts: input.awayPts,
+        homeTeamName: home?.name ?? "Home",
+        awayTeamName: away?.name ?? "Away",
+      }).catch(() => null);
+    }
+    return "finalized";
+  }
+
+  if (input.status === "final") return "finalized";
+  if (input.status === "in_progress") return "in_progress";
+  return "unchanged";
 }
 
 export async function persistEnrichedMatchups(
@@ -60,9 +192,10 @@ export async function persistEnrichedMatchups(
     home: { actualPts: number | null };
     away: { actualPts: number | null };
   }>,
-): Promise<{ finalized: number; inProgress: number }> {
+): Promise<{ finalized: number; inProgress: number; corrected: number }> {
   let finalized = 0;
   let inProgress = 0;
+  let corrected = 0;
 
   for (const game of games) {
     const homePts = game.home.actualPts;
@@ -71,21 +204,22 @@ export async function persistEnrichedMatchups(
     let status: "scheduled" | "in_progress" | "final" = "scheduled";
     if (game.resultFinal && homePts != null && awayPts != null) {
       status = "final";
-      finalized += 1;
     } else if (homePts != null || awayPts != null) {
       status = "in_progress";
-      inProgress += 1;
     }
 
-    await persistMatchupStatus({
+    const outcome = await persistMatchupStatus({
       matchupId: game.id,
       homePts,
       awayPts,
       status,
     });
+    if (outcome === "corrected") corrected += 1;
+    else if (outcome === "finalized") finalized += 1;
+    else if (outcome === "in_progress") inProgress += 1;
   }
 
-  return { finalized, inProgress };
+  return { finalized, inProgress, corrected };
 }
 
 /**
@@ -96,10 +230,10 @@ export async function finalizeSeasonWeekMatchups(input: {
   week: number;
   currentWeek: number;
   scoreboardGames: ScheduleGame[];
-}): Promise<{ finalized: number; inProgress: number }> {
+}): Promise<{ finalized: number; inProgress: number; corrected: number }> {
   const rows = await getWeekMatchups(input.season.id, input.week);
   if (rows.length === 0) {
-    return { finalized: 0, inProgress: 0 };
+    return { finalized: 0, inProgress: 0, corrected: 0 };
   }
 
   const scoringRules = resolveScoringRuleDefinitions(
@@ -127,9 +261,11 @@ export async function finalizeSeasonWeekMatchups(input: {
 }
 
 /**
- * After a Sleeper score sync, finalize matchups for all seasons in that year
- * through the synced week (skips already-final rows' weeks still recompute —
- * cheap at friend-group scale).
+ * After a score sync, finalize matchups for all seasons in that year
+ * through the synced week.
+ *
+ * Fully-final weeks are skipped unless the season enables
+ * `applyOfficialStatChanges` (recompute pts from corrected official stats).
  */
 export async function finalizeDueMatchupsAfterScoreSync(input: {
   seasonYear: string;
@@ -142,6 +278,7 @@ export async function finalizeDueMatchupsAfterScoreSync(input: {
       weeksChecked: 0,
       finalized: 0,
       inProgress: 0,
+      corrected: 0,
     };
   }
 
@@ -164,6 +301,7 @@ export async function finalizeDueMatchupsAfterScoreSync(input: {
   let weeksChecked = 0;
   let finalized = 0;
   let inProgress = 0;
+  let corrected = 0;
 
   const scoreboardCache = new Map<number, ScheduleGame[]>();
 
@@ -180,13 +318,18 @@ export async function finalizeDueMatchupsAfterScoreSync(input: {
   }
 
   for (const season of seasons) {
+    const tiebreakers = resolveTiebreakerSettings(
+      (season.settings as LeagueSeasonSettings | null)?.tiebreakers,
+    );
+    const allowOfficialCorrections = tiebreakers.applyOfficialStatChanges;
+
     const maxWeek = Math.min(
       input.week,
       season.regularSeasonEndWeek,
       18,
     );
     for (let week = 1; week <= maxWeek; week++) {
-      // Skip weeks that are already fully final.
+      // Skip weeks that are already fully final — unless corrections are on.
       const [{ pending }] = await db
         .select({
           pending: sql<number>`count(*)::int`,
@@ -200,8 +343,7 @@ export async function finalizeDueMatchupsAfterScoreSync(input: {
           ),
         );
 
-      if (pending === 0) {
-        // Still refresh pts if any rows exist? Skip fully locked weeks.
+      if (pending === 0 && !allowOfficialCorrections) {
         const [{ total }] = await db
           .select({ total: sql<number>`count(*)::int` })
           .from(matchups)
@@ -218,7 +360,9 @@ export async function finalizeDueMatchupsAfterScoreSync(input: {
 
       weeksChecked += 1;
       const scoreboardGames =
-        week === maxWeek ? await gamesForWeek(week) : [];
+        week === maxWeek || allowOfficialCorrections
+          ? await gamesForWeek(week)
+          : [];
       const result = await finalizeSeasonWeekMatchups({
         season: season as SeasonFinalizeRow,
         week,
@@ -227,7 +371,13 @@ export async function finalizeDueMatchupsAfterScoreSync(input: {
       });
       finalized += result.finalized;
       inProgress += result.inProgress;
+      corrected += result.corrected;
     }
+
+    await ensurePlayoffMatchupsAdvanced({
+      leagueSeasonId: season.id,
+      currentNflWeek: input.week,
+    }).catch(() => null);
   }
 
   return {
@@ -235,6 +385,7 @@ export async function finalizeDueMatchupsAfterScoreSync(input: {
     weeksChecked,
     finalized,
     inProgress,
+    corrected,
   };
 }
 

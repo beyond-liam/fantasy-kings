@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Cancel01Icon, TickDouble02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
+import { SettingsFormCard } from "@/components/leagues/settings/settings-form-card";
 import { PageFormActions } from "@/components/layout/page-form-actions";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -14,7 +15,6 @@ import {
   FieldGroup,
   FieldLabel,
 } from "@/components/ui/field";
-import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { SortableList } from "@/components/ui/sortable-list";
 import {
@@ -50,7 +50,6 @@ function orderedTeamIds(teams: DraftOrderTeam[]) {
 
 export function DraftOrderSettings({
   slug,
-  leagueName,
   initialTeams,
 }: DraftOrderSettingsProps) {
   const router = useRouter();
@@ -111,70 +110,79 @@ export function DraftOrderSettings({
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold tracking-tight text-balance">
-          Draft Order
-        </h1>
-        <p className="text-sm text-pretty text-muted-foreground">
-          {leagueName} · Slot 1 picks first in round 1.
-        </p>
-      </div>
-
       {error ? (
         <Alert variant="destructive">
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       ) : null}
 
-      {initialTeams.length === 0 ? (
-        <Alert>
-          <AlertDescription>
-            No teams yet. Invite managers before setting draft order.
-          </AlertDescription>
-        </Alert>
-      ) : (
-        <FieldGroup>
+      <SettingsFormCard
+        title="Draft Order"
+        footer={
+          <PageFormActions>
+            <Button
+              type="button"
+              variant="ghost"
+              disabled={isPending || !hasChanges}
+              onClick={handleReset}
+            >
+              <HugeiconsIcon
+                icon={Cancel01Icon}
+                strokeWidth={2}
+                data-icon="inline-start"
+              />
+              Reset
+            </Button>
+            <Button
+              type="button"
+              disabled={isPending || !hasChanges || initialTeams.length === 0}
+              onClick={handleSave}
+            >
+              <HugeiconsIcon
+                icon={TickDouble02Icon}
+                strokeWidth={2}
+                data-icon="inline-start"
+              />
+              Save
+            </Button>
+          </PageFormActions>
+        }
+      >
+        {initialTeams.length === 0 ? (
+          <Alert>
+            <AlertDescription>
+              No teams yet. Invite managers before setting draft order.
+            </AlertDescription>
+          </Alert>
+        ) : (
+          <FieldGroup>
           <Field>
             <FieldLabel>Shuffle</FieldLabel>
             <RadioGroup
+              variant="card"
               value={mode}
               onValueChange={(value) => {
                 if (value === "manual" || value === "random") {
                   setMode(value);
                 }
               }}
-              className="grid gap-3"
             >
-              <Label
-                className={cn(
-                  "flex cursor-pointer items-start gap-3 rounded-lg border p-4 has-data-checked:border-primary",
-                )}
-              >
-                <RadioGroupItem value="random" className="mt-0.5" />
-                <span>
-                  <span className="block text-sm font-medium">
-                    Randomly generate new draft order
-                  </span>
-                  <span className="block text-sm text-muted-foreground">
-                    Shuffles all teams when you save.
-                  </span>
+              <RadioGroupItem value="random">
+                <span className="block text-sm font-medium">
+                  Randomly generate new draft order
                 </span>
-              </Label>
-              <Label
-                className={cn(
-                  "flex cursor-pointer items-start gap-3 rounded-lg border p-4 has-data-checked:border-primary",
-                )}
-              >
-                <RadioGroupItem value="manual" className="mt-0.5" />
-                <span>
-                  <span className="block text-sm font-medium">
-                    Use the draft order below
-                  </span>
-                  <span className="block text-sm text-muted-foreground">
-                    Drag teams to set pick order.
-                  </span>
+                <span className="block text-sm text-muted-foreground">
+                  Shuffles all teams when you save.
                 </span>
-              </Label>
+              </RadioGroupItem>
+              <RadioGroupItem value="manual">
+                <span className="block text-sm font-medium">
+                  Use the draft order below
+                </span>
+                <span className="block text-sm text-muted-foreground">
+                  Drag teams to set pick order.
+                </span>
+              </RadioGroupItem>
             </RadioGroup>
           </Field>
 
@@ -197,36 +205,9 @@ export function DraftOrderSettings({
               />
             </div>
           </Field>
-        </FieldGroup>
-      )}
-
-      <PageFormActions>
-        <Button
-          type="button"
-          variant="ghost"
-          disabled={isPending || !hasChanges}
-          onClick={handleReset}
-        >
-          <HugeiconsIcon
-            icon={Cancel01Icon}
-            strokeWidth={2}
-            data-icon="inline-start"
-          />
-          Reset
-        </Button>
-        <Button
-          type="button"
-          disabled={isPending || !hasChanges || initialTeams.length === 0}
-          onClick={handleSave}
-        >
-          <HugeiconsIcon
-            icon={TickDouble02Icon}
-            strokeWidth={2}
-            data-icon="inline-start"
-          />
-          Save
-        </Button>
-      </PageFormActions>
+          </FieldGroup>
+        )}
+      </SettingsFormCard>
     </div>
   );
 }

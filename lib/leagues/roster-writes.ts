@@ -8,6 +8,10 @@ import {
   formatIrLockMessage,
   getIrLockViolations,
 } from "@/lib/leagues/ir-lock";
+import {
+  formatTaxiLockMessage,
+  getTaxiLockViolations,
+} from "@/lib/leagues/taxi-lock";
 import { seasonUsesFaab } from "@/lib/leagues/waivers/faab";
 
 /** Query surface shared by the root db and a transaction client. */
@@ -24,6 +28,7 @@ export async function listRosteredPlayers(teamId: string) {
       nflTeam: players.nflTeam,
       primaryPositionId: players.primaryPositionId,
       injuryStatus: players.injuryStatus,
+      yearsExp: players.yearsExp,
       rosterRowId: rosterPlayers.id,
       slotPositionId: rosterPlayers.slotPositionId,
     })
@@ -47,6 +52,28 @@ export async function assertIrAcquisitionsAllowed(
     return null;
   }
   return { error: formatIrLockMessage(violations) };
+}
+
+export async function assertTaxiAcquisitionsAllowed(
+  teamId: string,
+  taxiMaxYearsExp: 0 | 1 | 2 | 3 | 4 | 5 | null | undefined,
+): Promise<{ error: string } | null> {
+  const rostered = await listRosteredPlayers(teamId);
+  const violations = getTaxiLockViolations(rostered, taxiMaxYearsExp);
+  if (violations.length === 0) {
+    return null;
+  }
+  return { error: formatTaxiLockMessage(violations) };
+}
+
+export async function assertReserveAcquisitionsAllowed(
+  teamId: string,
+  irEligibleStatuses: readonly string[] | null | undefined,
+  taxiMaxYearsExp: 0 | 1 | 2 | 3 | 4 | 5 | null | undefined,
+): Promise<{ error: string } | null> {
+  const irLock = await assertIrAcquisitionsAllowed(teamId, irEligibleStatuses);
+  if (irLock) return irLock;
+  return assertTaxiAcquisitionsAllowed(teamId, taxiMaxYearsExp);
 }
 
 export async function findSeasonRosterRows(

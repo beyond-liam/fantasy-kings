@@ -58,8 +58,8 @@ export function PlayerAvatar({
                 <span
                   className={cn(
                     "absolute -right-0.5 -bottom-0.5 size-2.5 rounded-full ring-2 ring-background",
-                    injury.tone === "questionable" && "bg-orange-500",
-                    injury.tone === "out" && "bg-rose-500",
+                    injury.tone === "questionable" && "bg-warning",
+                    injury.tone === "out" && "bg-destructive",
                   )}
                   aria-label={injury.label}
                 />

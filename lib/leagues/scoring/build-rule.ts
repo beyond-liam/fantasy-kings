@@ -201,6 +201,17 @@ export function buildScoringRule(
   };
 }
 
+/** Plain-text description of a rule (for activity diffs, logs, etc.). */
+export function formatScoringRuleText(
+  definition: ScoringRuleDefinition,
+): string {
+  return buildSegments(definition)
+    .map((segment) => String(segment.value))
+    .join("")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 export function buildScoringRules(
   definitions: ScoringRuleDefinition[],
 ): ScoringRule[] {

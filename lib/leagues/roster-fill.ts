@@ -20,6 +20,7 @@ export type TeamRosterPlayer = {
   primaryPositionId: string;
   byeWeek: number | null;
   injuryStatus: string | null;
+  yearsExp?: number | null;
   sleeperId: string | null;
   slotPositionId: string | null;
   ownedPct?: number | null;

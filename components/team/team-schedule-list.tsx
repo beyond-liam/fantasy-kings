@@ -2,7 +2,10 @@
 
 import Link from "next/link";
 import type { ColumnDef } from "@tanstack/react-table";
-import { TvMinimalPlay as TvMinimalPlayIcon } from "@hugeicons/core-free-icons";
+import {
+  TvMinimal as TvMinimalIcon,
+  TvMinimalPlay as TvMinimalPlayIcon,
+} from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -34,6 +37,7 @@ export type TeamScheduleDisplayRow = {
   opponentSlug: string;
   opponentLogoUrl?: string | null;
   isHome: boolean;
+  status: "scheduled" | "in_progress" | "final";
   opponentWins: number;
   opponentLosses: number;
   opponentTies: number;
@@ -43,7 +47,7 @@ export type TeamScheduleDisplayRow = {
   weeklyRank: number | null;
   /**
    * Estimated win probability vs this opponent (0–1).
-   * TODO(live-win-prob): Recalibrate once live scoring feeds are trusted.
+   * Uses calibrated σ + pace blend; see `lib/leagues/win-probability`.
    */
   winChance: number | null;
 };
@@ -235,24 +239,28 @@ function getColumns(
       header: () => (
         <TeamTableColumnHeader title="Game Centre" srOnly />
       ),
-      cell: ({ row }) => (
-        <Button
-          nativeButton={false}
-          size="sm"
-          render={
-            <Link
-              href={`/league/${leagueSlug}/scores/${row.original.publicId || row.original.id}`}
+      cell: ({ row }) => {
+        const isLive = row.original.status === "in_progress";
+        return (
+          <Button
+            nativeButton={false}
+            size="sm"
+            variant={isLive ? "default" : "secondary"}
+            render={
+              <Link
+                href={`/league/${leagueSlug}/scores/${row.original.publicId || row.original.id}`}
+              />
+            }
+          >
+            <HugeiconsIcon
+              icon={isLive ? TvMinimalPlayIcon : TvMinimalIcon}
+              strokeWidth={1.5}
+              data-icon="inline-start"
             />
-          }
-        >
-          <HugeiconsIcon
-            icon={TvMinimalPlayIcon}
-            strokeWidth={1.5}
-            data-icon="inline-start"
-          />
-          View Game Centre
-        </Button>
-      ),
+            View Game Centre
+          </Button>
+        );
+      },
     },
   ];
 }

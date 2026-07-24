@@ -1,7 +1,6 @@
 "use client";
 
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -74,30 +73,25 @@ export function SetupStep({ values, errors, onChange }: SetupStepProps) {
       <Field>
         <FieldLabel>League type</FieldLabel>
         <RadioGroup
+          variant="card"
           value={values.leagueType}
           onValueChange={(value) =>
             onChange({ leagueType: value as SetupStepValues["leagueType"] })
           }
-          className="grid gap-3 sm:grid-cols-2"
+          className="sm:grid-cols-2"
         >
-          <Label className="flex cursor-pointer items-start gap-3 rounded-lg border p-4 has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-primary/5">
-            <RadioGroupItem value="redraft" />
-            <div>
-              <p className="font-medium">Redraft</p>
-              <p className="text-sm text-muted-foreground">
-                Fresh rosters every season.
-              </p>
-            </div>
-          </Label>
-          <Label className="flex cursor-pointer items-start gap-3 rounded-lg border p-4 has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-primary/5">
-            <RadioGroupItem value="dynasty" />
-            <div>
-              <p className="font-medium">Dynasty</p>
-              <p className="text-sm text-muted-foreground">
-                Keep your core — future picks coming later.
-              </p>
-            </div>
-          </Label>
+          <RadioGroupItem value="redraft">
+            <span className="block text-sm font-medium">Redraft</span>
+            <span className="block text-sm text-muted-foreground">
+              Fresh rosters every season.
+            </span>
+          </RadioGroupItem>
+          <RadioGroupItem value="dynasty">
+            <span className="block text-sm font-medium">Dynasty</span>
+            <span className="block text-sm text-muted-foreground">
+              Keep your core — future picks coming later.
+            </span>
+          </RadioGroupItem>
         </RadioGroup>
       </Field>
 

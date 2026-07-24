@@ -30,6 +30,7 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react";
 import { settingsHref } from "@/lib/leagues/settings-tabs";
 
+import { SettingsFormCard } from "@/components/leagues/settings/settings-form-card";
 import { PageFormActions } from "@/components/layout/page-form-actions";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -294,16 +295,6 @@ export function RealignDivisionsSettings({
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold tracking-tight text-balance">
-          Realign Divisions
-        </h1>
-        <p className="text-sm text-pretty text-muted-foreground">
-          Drag teams between divisions. Each division must have the same number
-          of teams before you can save.
-        </p>
-      </div>
-
       {error ? (
         <Alert variant="destructive">
           <AlertDescription>{error}</AlertDescription>
@@ -319,7 +310,39 @@ export function RealignDivisionsSettings({
         </Alert>
       ) : null}
 
-      <DndContext
+      <SettingsFormCard
+        title="Realign Divisions"
+        footer={
+          <PageFormActions>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={isPending}
+              onClick={() => router.push(settingsHref(slug, "league"))}
+            >
+              <HugeiconsIcon
+                icon={Cancel01Icon}
+                strokeWidth={2}
+                data-icon="inline-start"
+              />
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              disabled={isPending || !hasChanges || !balanced}
+              onClick={handleSave}
+            >
+              <HugeiconsIcon
+                icon={TickDouble02Icon}
+                strokeWidth={2}
+                data-icon="inline-start"
+              />
+              Save
+            </Button>
+          </PageFormActions>
+        }
+      >
+        <DndContext
         sensors={sensors}
         collisionDetection={closestCorners}
         onDragStart={handleDragStart}
@@ -343,34 +366,7 @@ export function RealignDivisionsSettings({
           ) : null}
         </DragOverlay>
       </DndContext>
-
-      <PageFormActions>
-        <Button
-          type="button"
-          variant="outline"
-          disabled={isPending}
-          onClick={() => router.push(settingsHref(slug, "league"))}
-        >
-          <HugeiconsIcon
-            icon={Cancel01Icon}
-            strokeWidth={2}
-            data-icon="inline-start"
-          />
-          Cancel
-        </Button>
-        <Button
-          type="button"
-          disabled={isPending || !hasChanges || !balanced}
-          onClick={handleSave}
-        >
-          <HugeiconsIcon
-            icon={TickDouble02Icon}
-            strokeWidth={2}
-            data-icon="inline-start"
-          />
-          Save
-        </Button>
-      </PageFormActions>
+      </SettingsFormCard>
     </div>
   );
 }
