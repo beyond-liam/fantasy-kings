@@ -1,7 +1,7 @@
 # Fantasy Kings — Project Specification
 
 > Living document. Update this file as requirements, decisions, and scope change.
-> Last updated: 2026-07-23
+> Last updated: 2026-07-24
 
 ---
 
@@ -12,6 +12,40 @@ A mobile-first fantasy football web app for a private friend group (8–16 users
 **Long-term differentiator:** True positional flexibility (EDGE/DT/LB/CB/S as distinct positions), not bucketed categories like DL/LB/DB. IDP remains deferred; offense scoring and league rule customization are in progress.
 
 **This is not a prototype.** Build for correctness and maintainability within scope, but do not gold-plate beyond it.
+
+---
+
+## 1b. Status snapshot (2026-07-24)
+
+### Shipped (use this as the source of truth)
+
+| Area | What’s live |
+|---|---|
+| Auth / leagues | Magic link OTP, create/join, multi-league, settings |
+| Scoring | Offense engine + commissioner scoring UI |
+| Roster | Lineup / IR / taxi (eligibility), FA add/cut, lineup-lock enforce |
+| Waivers / trades | FAAB + rolling, claims, vetoes, limits, crons, alerts |
+| Draft | Live + email/slow same room; Brevo turn emails; mock draft |
+| Matchups | Week board, Game Centre, standings from finals, Live/Final badges |
+| Live scores | Sleeper near-live + ESPN athlete boxscores → `player_scores` |
+| Official scores | nflverse post-week replace; optional `applyOfficialStatChanges` |
+| Corrections UX | Activity `score_corrected` + owner notifications; Live freshness only when NFL games are in progress |
+| Win% | Calibrated live chance on schedule/board (σ re-fit deferred until residuals exist) |
+| Playoffs (partial) | Settings, bracket UI hydrate, first-round ensure, advance to next week on finals (4/6/8 + re-seed + byes + game tiebreakers) |
+| Activity | Adds/drops, waivers, trades, IR/taxi, settings diffs, score corrections |
+| Team UX | Roster summary panel, IR/taxi lock alerts on all My Team tabs |
+
+### Still remaining (near-term product)
+
+| Item | Notes |
+|---|---|
+| **Playoff advancement completion** | Two-week championship: same finalists both weeks, combined score decides winner; harden edge cases / characterization |
+| Win% σ re-fit from residuals | After enough completed weeks of `player_scores` |
+| Dynasty picks + pick trades | Explicitly deferred |
+| IDP positions + scoring | Explicitly deferred |
+| TanStack Query / Zustand | Deferred until draft-room client cache needs them |
+| Charts / deep analytics UI | Player trends, SOS, power rankings — deferred |
+| Spec risk: Live vs Final | Status badges only (no source tooltip) |
 
 ---
 
@@ -48,8 +82,8 @@ Do not substitute without explicit approval.
 | Auth | Supabase Auth (magic link / OTP) | Passwordless only — no stored passwords |
 | Realtime | Supabase Realtime | Live draft room (when built) |
 | ORM | Drizzle | Domain-split schema files — see Section 8 |
-| Historical stats | nflverse (nfl-data-py / nflreadr) | Free, open source — deferred |
-| Live stats | ESPN unofficial public API | Free, no key — deferred |
+| Historical stats | nflverse (nflreadr / player week CSVs) | Free, open source — **wired** post-week via `sync-scores` |
+| Live stats | ESPN unofficial public API | Free, no key — **wired** (scoreboard + athlete boxscores → `player_scores`) |
 | Live-poll scheduler | cron-job.org (external, free) | Every 2–5 min on game days → `/api/cron/sync-scores` |
 | Player metadata | Sleeper `/v1/players/nfl` | Player pool + external IDs; daily refresh via seed script |
 | Email | Brevo (free: 300/day) | Wired — draft + trade transactional alerts |
@@ -164,7 +198,7 @@ Both contexts have "Scores" and "Draft Room". Use distinct labels in the UI:
 - nflverse for historical/weekly stats — post-week official import via `/api/cron/sync-scores` (auto when slate has no live games; `nflverse=0` to skip)
 - ESPN unofficial API for live in-game **player** stats — scoreboard/clock for win% progress; athlete boxscores merge into `player_scores` via `/api/cron/sync-scores` (pass `espn=0` to skip)
 - cron-job.org as external scheduler for live score polling **(in use for sync-scores)**
-- Graceful degradation: "scores updating…" when freshness is missing/stale on live week **(shipped)**
+- Graceful degradation: when NFL games are **live**, show `Last updated: …` (xs); hide otherwise **(shipped)**
 
 ### Draft
 
@@ -196,12 +230,14 @@ Both contexts have "Scores" and "Draft Room". Use distinct labels in the UI:
 ### Season structure
 
 - Create wizard captures team count, divisions, playoffs, draft timing **(shipped)**
-- Playoff bracket UI + first-round / advance matchup ensure on score sync **(shipped)**
+- Playoff bracket UI + first-round / advance matchup ensure on score sync **(shipped foundation)**
 - Rank tiebreakers (H2H / PPG / schedule strength) + game tiebreakers (TDs / high starter / bench) + re-seed after each round **(shipped)**
+- **Remaining:** two-week championship combined scoring + same-pairing week-2 row; further characterization of advance edge cases
 
 ### Stats & analytics
 
-- League Stats tab: starter points by position (QB/RB/WR/TE/FLEX/K/DEF), PF, and Optimum PF — week view + season PF/OPF rollup (`team_week_stats`)
+- League Stats tab: starter points by position (QB/RB/WR/TE/FLEX/K/DEF), PF, and Optimum PF — **week positional breakdown** (column menu uses plain English; DEF not D/ST)
+- Season PF/OPF available via `team_week_stats` for standings/analytics paths
 - Playoff bracket hydrates from live matchup scores; advance pairs byes correctly; point ties use game tiebreakers then higher seed
 - League Rules tab: read-only key/value summary of season settings (roster, schedule, playoffs, waivers, transactions, draft, tiebreakers)
 - League Scoring tab: read-only preset + category rule list from season scoring config
@@ -210,10 +246,10 @@ Both contexts have "Scores" and "Draft Room". Use distinct labels in the UI:
 
 ### Notifications & activity
 
-- Chronological activity log of league events **(shipped)** — adds/drops, waivers, trades, IR/taxi, membership, commissioner settings changes (click for before/after)
-- In-app bell dropdown shipped (trade + waiver producers)
+- Chronological activity log of league events **(shipped)** — adds/drops, waivers, trades, IR/taxi, membership, commissioner settings changes (click for before/after), **score corrections**
+- In-app bell dropdown shipped (trade + waiver + matchup-result / score-correction producers)
 - Email via **Brevo** **(wired)** — `lib/email/*` adapters; push optional later
-- **League Alert** fan-out (`lib/alerts/`): Trade + Draft announce helpers resolve recipients once, then in-app + email adapters (`CONTEXT.md`)
+- **League Alert** fan-out (`lib/alerts/`): Trade + Draft + Matchup announce helpers resolve recipients once, then in-app + email adapters (`CONTEXT.md`)
 - Auth OTP remains Supabase (not Brevo)
 - Dedupe via `email_sends` table; email sends use `after()` except draft-reminder cron (sync)
 - Live draft reminders: `/api/cron/draft-reminders` (use cron-job.org every ~5 min; Vercel Hobby daily backup only)
@@ -230,7 +266,7 @@ Both contexts have "Scores" and "Draft Room". Use distinct labels in the UI:
   | Trade accepted (review/veto window) | League | So managers can veto |
   | Trade vetoed | Both sides | |
   | Trade rejected / cancelled / completed | Affected managers | League Alert helpers |
-- Out of email v1 (in-app only for now): waiver results, matchup W/L, adds/drops, injuries, every pick broadcast
+- Out of email v1 (in-app only for now): waiver results, matchup W/L, score corrections, adds/drops, injuries, every pick broadcast
 - No built-in chat/social layer
 
 ### Historical data
@@ -334,24 +370,23 @@ lib/
 | 2 | positions (QB, RB, WR, TE, K, **DEF**, FLEX, BN, IR…) | Yes — offense + team DEF |
 | 3 | players, player_external_ids, player_scores | Yes |
 | 4 | league_seasons, teams, roster slots in settings | Yes |
-| 5 | roster_players (ownership map) | Yes — mutations next |
-| 6 | drafts, draft_picks, draft_settings | Schema/UI later |
-| 7 | matchups, matchup_scores | Schema later, logic deferred |
+| 5 | roster_players (ownership map) | Yes — mutations shipped |
+| 6 | drafts, draft_picks, draft_settings | Yes — live + email draft shipped |
+| 7 | matchups (+ pts/status on row) | Yes — finalize + playoff ensure |
 | 8 | offense scoring rules (JSON + `lib/leagues/scoring`) | Yes |
-| 9 | waiver_claims, dynasty draft picks | Defer |
+| 9 | waiver_claims, dynasty draft picks | Waivers shipped; dynasty picks defer |
 | 10 | historical archive, trophies | Schema stubs only |
 
 ---
 
 ## 9. Explicitly Out of Scope (MVP)
 
-- Predictive risk modeling / "% chance of hitting projection"
 - CB-vs-WR shutdown coverage analytics (requires paid charting data)
 - Deep historical archive browsing UI
 - Contracts / salary-cap system
 - **IDP** scoring and positions (current phase)
-- nflverse post-week official corrections shipped (gated per league via Tiebreakers → Allow official score corrections)
 - Installing TanStack Query / Zustand before draft-room need
+- Dynasty roster construction / draft-pick inventory (come back later)
 
 ---
 
@@ -359,11 +394,11 @@ lib/
 
 | Risk | Mitigation |
 |---|---|
-| ESPN live API is unofficial, no SLA | Graceful degradation UI, not hard failure |
+| ESPN live API is unofficial, no SLA | Soft freshness UI when games are live; never hard-fail the page |
 | Vercel free tier only allows daily cron | cron-job.org triggers secured API route |
 | Brevo 300 emails/day free cap | Draft/trade-only targeting; no league-wide pick spam; throttle if needed |
-| Live ESPN vs finalized nflverse data may disagree | Label Live / Final on matchup cards (tooltip explains corrections) |
-| Draft room is highest-complexity feature | Ship slow draft before live draft if needed |
+| Live ESPN vs finalized nflverse data may disagree | Live / Final status badges; optional official corrections + activity/notifications |
+| Draft room is highest-complexity feature | Live + email share one room; clocks/autopick shipped |
 
 ---
 
@@ -418,12 +453,12 @@ lib/
 - [x] League Playoffs tab (seeded standings + cutoff line + bracket path)
 - [x] League Rules tab (settings summary from season config)
 - [x] League Scoring tab (preset + category scoring rules)
-- [x] My Team (watchlist-only; roster/lineup later)
-- [x] Players (pool + Team/Action UI; mutations later)
+- [x] My Team (roster / stats / watchlist / schedule / transactions / draft picks / settings)
+- [x] Players (pool + Team/Action + acquisition locks)
 - [x] Settings + scoring rules UI
-- [x] Scores (fantasy Matchups) — week matchup board
+- [x] Scores (fantasy Matchups) — week matchup board + Live/Final + freshness
 - [x] Trades — composer, transactions tab, processing, vetoes, history
-- [x] Activity — league event log (waivers + trades)
+- [x] Activity — league event log (waivers + trades + settings + score corrections)
 - [x] Draft Room (league) — live room (mock layout, pick clock, queue→ADP autopick)
 
 ### Phase 3 — Backend wiring
@@ -434,22 +469,22 @@ lib/
 - [x] Offense scoring engine + league scoring settings
 - [x] Roster Add / Claim / Cut mutations
 - [x] Trade mutations + processing pipeline
-- [x] In-app notifications (bell dropdown; trade + waiver producers)
+- [x] In-app notifications (bell dropdown; trade + waiver + matchup producers)
 - [x] Near-live Sleeper week stats sync (`/api/cron/sync-scores`)
+- [x] ESPN live athlete boxscores merge on `sync-scores`
+- [x] nflverse post-week official replace + `applyOfficialStatChanges`
 - [x] Matchup result lock + standings from final H2H (`home_pts`/`away_pts`/`status`)
 - [x] Leagues list W/L/Strk/Rank from final matchups
+- [x] Playoff first-round ensure + single-week advance (4/6/8, byes, re-seed, game TBs)
 
-### Deferred
+### Deferred / remaining
 
+- [ ] **Playoff two-week championship** — insert leg-2 pairing; combined score decides champion
+- [ ] Win% σ re-fit from `player_scores` residuals (needs completed weeks)
 - [ ] IDP positions + scoring
 - [ ] TanStack Query / Zustand (when draft room needs them)
-- [x] Near-live Sleeper stats cron (`sync-scores`); ESPN athlete boxscores merge on same cron; nflverse post-week official replace when slate is final; `applyOfficialStatChanges` re-finalizes locked weeks
-- [x] Waivers (FAAB + rolling) runtime
-- [x] Playoffs bracket + first-round / advance matchup ensure (rank + game tiebreakers + re-seed)
-- [x] Email notifications (Brevo) — draft + trade set in §5 Notifications
-- [x] **Draft email alerts** — tomorrow + 15 mins (live); start / on deck / on clock / end (live + email draft)
-- [x] Injury / matchup-result notification producers
 - [ ] Dynasty picks — deferred (come back later)
+- [ ] **Dynasty draft-pick trades** — deferred with dynasty picks
 
 ### Trades — follow-up (after initial ship)
 
@@ -458,7 +493,6 @@ lib/
 - [x] **Trade activity feed** — `league_activity` trade types; Activity page labels
 - [x] **Trade emails (Brevo)** — proposal → counterparty; accepted (veto window) → league; vetoed → both sides
 - [x] **Scheduled trade processor** — `/api/cron/process-trades` daily on Hobby + page-load fallback; use cron-job.org for frequent runs
-- [ ] **Dynasty draft-pick trades** — deferred with dynasty picks
 - [x] **Counter-offers** — receiver can open composer prefilled from a pending trade; sending rejects the original
 - [x] **Trade history** — collapsed section on Transactions tab + Trades page
 - [x] **Trade Analyzer** — removed from product for now (Open Question #2 deferred)
