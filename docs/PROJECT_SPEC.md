@@ -230,9 +230,9 @@ Both contexts have "Scores" and "Draft Room". Use distinct labels in the UI:
 ### Season structure
 
 - Create wizard captures team count, divisions, playoffs, draft timing **(shipped)**
-- Playoff bracket UI + first-round / advance matchup ensure on score sync **(shipped foundation)**
+- Playoff bracket UI + first-round / advance matchup ensure on score sync **(shipped)**
 - Rank tiebreakers (H2H / PPG / schedule strength) + game tiebreakers (TDs / high starter / bench) + re-seed after each round **(shipped)**
-- **Remaining:** bracket UX for combined two-week championship totals / champion crowning; further characterization of advance edge cases
+- Two-week championship rematch, series totals, and Champion crowning on the bracket **(shipped)**
 
 ### Stats & analytics
 
@@ -562,4 +562,5 @@ lib/
 | 2026-07-24 | Score corrections: activity feed + owner notifications when finalized matchup pts change |
 | 2026-07-24 | Spec status snapshot: shipped vs remaining; ESPN/nflverse marked wired; playoff two-week championship called out as next gap |
 | 2026-07-24 | Playoff two-week championship backend: rematch Game 2 rows on ensure; hydrate keeps both finalists; combined winner helper |
+| 2026-07-24 | Playoff bracket champion crowning + two-week series totals on championship cards |
 | 2026-07-16 | Trades: initial implementation started; follow-up items documented (vetoes, limits, cron, email) |
