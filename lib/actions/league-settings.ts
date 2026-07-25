@@ -291,46 +291,54 @@ export async function updateRegularSeasonSchedule(
 export async function regenerateRegularSeasonSchedule(
   slug: string,
 ): Promise<ActionResult> {
-  const result = await getCommissionerSeason(slug);
-  if ("error" in result) {
-    return { success: false, error: result.error };
-  }
+  try {
+    const result = await getCommissionerSeason(slug);
+    if ("error" in result) {
+      return { success: false, error: result.error };
+    }
 
-  const { season } = result;
-  const editable = await assertScheduleStillEditable(season.seasonYear);
-  if (!editable.success) {
-    return editable;
-  }
+    const { season } = result;
+    const editable = await assertScheduleStillEditable(season.seasonYear);
+    if (!editable.success) {
+      return editable;
+    }
 
-  const seasonTeams = await db
-    .select({ id: teams.id })
-    .from(teams)
-    .where(eq(teams.leagueSeasonId, season.id))
-    .orderBy(asc(teams.createdAt));
+    const seasonTeams = await db
+      .select({ id: teams.id })
+      .from(teams)
+      .where(eq(teams.leagueSeasonId, season.id))
+      .orderBy(asc(teams.createdAt));
 
-  if (seasonTeams.length !== season.teamCount || season.teamCount < 2) {
+    if (seasonTeams.length !== season.teamCount || season.teamCount < 2) {
+      return {
+        success: false,
+        error: "The league must be full before a schedule can be generated.",
+      };
+    }
+
+    const schedule = resolveScheduleSettings(season.settings.schedule);
+    const times = clampPlayEachOtherTimes(
+      schedule.playEachOtherTimes,
+      season.divisionCount,
+    );
+
+    await replaceSeasonMatchups(db, {
+      leagueSeasonId: season.id,
+      teamIds: seasonTeams.map((team) => team.id),
+      weekCount: season.regularSeasonEndWeek,
+      playEachOtherTimes: times,
+    });
+
+    revalidateSettingsPaths(slug);
+
+    return { success: true };
+  } catch (error) {
+    console.error("regenerateRegularSeasonSchedule failed", error);
     return {
       success: false,
-      error: "The league must be full before a schedule can be generated.",
+      error: "Could not regenerate schedule. Try again.",
     };
   }
-
-  const schedule = resolveScheduleSettings(season.settings.schedule);
-  const times = clampPlayEachOtherTimes(
-    schedule.playEachOtherTimes,
-    season.divisionCount,
-  );
-
-  await replaceSeasonMatchups(db, {
-    leagueSeasonId: season.id,
-    teamIds: seasonTeams.map((team) => team.id),
-    weekCount: season.regularSeasonEndWeek,
-    playEachOtherTimes: times,
-  });
-
-  revalidateSettingsPaths(slug);
-
-  return { success: true };
 }
 
 export async function updatePlayoffSettings(

@@ -107,13 +107,19 @@ export function ScheduleSettingsForm({
   const handleRegenerate = () => {
     setError(null);
     startTransition(async () => {
-      const result = await regenerateRegularSeasonSchedule(slug);
-      if (!result.success) {
-        setError(result.error ?? "Could not regenerate schedule.");
-        return;
+      try {
+        const result = await regenerateRegularSeasonSchedule(slug);
+        if (!result.success) {
+          setError(result.error ?? "Could not regenerate schedule.");
+          setRegenOpen(false);
+          return;
+        }
+        setRegenOpen(false);
+        router.refresh();
+      } catch {
+        setError("Could not regenerate schedule.");
+        setRegenOpen(false);
       }
-      setRegenOpen(false);
-      router.refresh();
     });
   };
 
@@ -233,7 +239,13 @@ export function ScheduleSettingsForm({
         </FieldGroup>
       </SettingsFormCard>
 
-      <AlertDialog open={regenOpen} onOpenChange={setRegenOpen}>
+      <AlertDialog
+        open={regenOpen}
+        onOpenChange={(open) => {
+          if (isPending && !open) return;
+          setRegenOpen(open);
+        }}
+      >
         <AlertDialogContent>
                     <AlertDialogHeader>
             <AlertDialogTitle>Regenerate schedule?</AlertDialogTitle>
@@ -254,7 +266,7 @@ export function ScheduleSettingsForm({
                 strokeWidth={2}
                 data-icon="inline-start"
               />
-              Regenerate
+              {isPending ? "Regenerating…" : "Regenerate"}
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>

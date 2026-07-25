@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq, lte } from "drizzle-orm";
 
 import { matchups } from "@/db/schema";
 import { db } from "@/lib/db";
@@ -30,9 +30,15 @@ export async function replaceSeasonMatchups(
     playEachOtherTimes: input.playEachOtherTimes,
   });
 
+  // Only wipe regular-season weeks — leave playoff matchups intact.
   await executor
     .delete(matchups)
-    .where(eq(matchups.leagueSeasonId, input.leagueSeasonId));
+    .where(
+      and(
+        eq(matchups.leagueSeasonId, input.leagueSeasonId),
+        lte(matchups.week, input.weekCount),
+      ),
+    );
 
   if (generated.length > 0) {
     const publicIds = await allocateMatchupPublicIds(

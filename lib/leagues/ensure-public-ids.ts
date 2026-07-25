@@ -1,4 +1,4 @@
-import { and, eq, isNull, or } from "drizzle-orm";
+import { and, eq, inArray, isNull, or } from "drizzle-orm";
 
 import { leagues, matchups, teams } from "@/db/schema";
 import { db } from "@/lib/db";
@@ -142,12 +142,53 @@ export async function allocateMatchupPublicIds(
   leagueSeasonId: string,
   count: number,
 ): Promise<string[]> {
-  const ids: string[] = [];
-  const used = new Set<string>();
+  if (count <= 0) {
+    return [];
+  }
+
+  const candidates = new Set<string>();
+  let attempts = 0;
+  while (candidates.size < count) {
+    candidates.add(generatePublicId());
+    attempts += 1;
+    if (attempts > count * 50) {
+      throw new Error("Could not allocate matchup public ids");
+    }
+  }
+
+  let ids = [...candidates];
+  const existing = await db
+    .select({ publicId: matchups.publicId })
+    .from(matchups)
+    .where(
+      and(
+        eq(matchups.leagueSeasonId, leagueSeasonId),
+        inArray(matchups.publicId, ids),
+      ),
+    );
+
+  if (existing.length === 0) {
+    return ids;
+  }
+
+  const taken = new Set(
+    existing
+      .map((row) => row.publicId)
+      .filter((id): id is string => Boolean(id)),
+  );
+  ids = ids.filter((id) => !taken.has(id));
+
+  attempts = 0;
   while (ids.length < count) {
     const publicId = generatePublicId();
-    if (used.has(publicId)) continue;
-    const [existing] = await db
+    attempts += 1;
+    if (attempts > count * 50) {
+      throw new Error("Could not allocate matchup public ids");
+    }
+    if (taken.has(publicId) || ids.includes(publicId)) {
+      continue;
+    }
+    const [hit] = await db
       .select({ id: matchups.id })
       .from(matchups)
       .where(
@@ -157,10 +198,13 @@ export async function allocateMatchupPublicIds(
         ),
       )
       .limit(1);
-    if (existing) continue;
-    used.add(publicId);
+    if (hit) {
+      taken.add(publicId);
+      continue;
+    }
     ids.push(publicId);
   }
+
   return ids;
 }
 
