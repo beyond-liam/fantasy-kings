@@ -58,7 +58,11 @@ function MessageScrollerContent({
   return (
     <MessageScrollerPrimitive.Content
       data-slot="message-scroller-content"
-      className={cn("flex h-max min-h-full flex-col gap-8", className)}
+      className={cn(
+        // min-h-full + justify-end: short threads hug the reply box; empty space sits above
+        "flex h-max min-h-full flex-col justify-end gap-8",
+        className
+      )}
       {...props}
     />
   )
@@ -67,16 +71,15 @@ function MessageScrollerContent({
 function MessageScrollerItem({
   className,
   scrollAnchor = false,
+  ref,
   ...props
 }: React.ComponentProps<typeof MessageScrollerPrimitive.Item>) {
   return (
     <MessageScrollerPrimitive.Item
+      ref={ref}
       data-slot="message-scroller-item"
       scrollAnchor={scrollAnchor}
-      className={cn(
-        "min-w-0 shrink-0 [contain-intrinsic-size:auto_10rem] [content-visibility:auto]",
-        className
-      )}
+      className={cn("min-w-0 shrink-0", className)}
       {...props}
     />
   )

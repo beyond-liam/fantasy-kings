@@ -38,13 +38,13 @@ A mobile-first fantasy football web app for a private friend group (8–16 users
 | Standings | FORM guide (last 5) replaces next-opponent column |
 | Game Centre | Yet-to-play starter breakdown popover |
 | Playoffs standings | Seed only (no Rank column) |
+| Messages | League threads + replies; nav unread red dot; mark all read |
 
 ### Near-term product (build next)
 
 | Item | Notes |
 |---|---|
 | Advanced player filtering | Richer filters beyond current position / team / rookies / FA toggles |
-| In-league messaging service | League-scoped messaging (not email); design TBD |
 
 ### Engagement analytics (planned — after near-term)
 
@@ -181,6 +181,8 @@ Entered via dashboard league picker or `/league/[leagueId]` (6-char public id). 
 | `/league/[leagueId]/scores` | Matchups | **Fantasy** matchup scores |
 | `/league/[leagueId]/scores/[matchupId]` | Game Centre | Fantasy matchup detail (6-char public id) |
 | `/league/[leagueId]/trades` | Trades | Propose/review trades |
+| `/league/[leagueId]/messages` | Messages | League threads / replies |
+| `/league/[leagueId]/messages/[threadId]` | Thread | Message thread detail |
 | `/league/[leagueId]/activity` | Activity | Chronological event log |
 | `/league/[leagueId]/draft` | Draft Room | League draft |
 | `/league/[leagueId]/settings` | Settings | League settings + scoring rules (commissioner) |
@@ -360,7 +362,7 @@ Both contexts have "Scores" and "Draft Room". Use distinct labels in the UI:
   | Trade rejected / cancelled / completed | Affected managers | League Alert helpers |
 - **In-app only (never email):** waiver results, matchup W/L, score corrections, adds/drops, injuries, every pick broadcast
 - **Web push:** lowest-priority optional later (DIY Web Push can stay free-tier); not scheduled
-- **In-league messaging** planned (near-term) — separate from email/push; design TBD
+- **In-league messaging** shipped — threads/replies under `/messages`; nav unread red dot; mark all read; `@` mentions → bell notifications
 
 ### Historical data
 
@@ -597,7 +599,7 @@ lib/
 - [ ] **Advanced player filtering** — richer filters beyond position / team / rookies / FA
 - [x] **Form guide on league table** — last 5 results (FORM column replaces OPP); tooltips with opponent/score
 - [x] **Remove rank from playoffs table** — seed only; drop redundant Rank column
-- [ ] **In-league messaging service** — league-scoped messaging (design TBD)
+- [x] **In-league messaging** — league threads/replies; nav unread red dot; mark all read; `@` mentions → bell notifications
 - [x] **Yet-to-play breakdown** — Game Centre tooltip lists remaining unplayed starters
 - [x] **Use suggested lineup** — button next to Update Roster; auto-set from projections
 - [x] **Floating action bar** — sticky save/action bar when dirty (settings + always on My Team roster)
@@ -708,4 +710,7 @@ lib/
 | 2026-07-25 | Engagement backlog: SOS, playoff chance %, playoff picture, matchup insights, would-have-won, team H2H tab, Hall of Fame (titles + roast awards), season rewind; exclude activity milestones + franchise pages |
 | 2026-07-25 | Spec triage: near-term vs engagement vs deferred; permanently drop friends lobby, Trade Analyzer, branding track, broader email; lowest priority = win% σ re-fit, Query/Zustand, web push |
 | 2026-07-25 | Ship near-term slices: league on notifications, yet-to-play tooltip, standings FORM guide, floating dirty actions, suggested lineup, FA “Owned by” copy fix |
+| 2026-07-25 | In-league messaging v1: threads/replies, create dialog, unread nav red dot, mark all read; mentions → notifications deferred |
+| 2026-07-25 | Message mentions: `@` member picker, bold tokens, `message_mention` bell notifications |
+| 2026-07-25 | Audit leftovers closed: lineup lock on FA add/cut + waiver award; schedule weeklyRank + other-team Chance; plans README status |
 | 2026-07-16 | Trades: initial implementation started; follow-up items documented (vetoes, limits, cron, email) |

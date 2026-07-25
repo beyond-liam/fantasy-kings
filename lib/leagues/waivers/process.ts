@@ -13,6 +13,13 @@ import type { LeagueSeasonSettings } from "@/db/schema/league-seasons";
 import { db } from "@/lib/db";
 import { resolveIrEligibleStatuses } from "@/lib/leagues/ir-eligibility";
 import {
+  findBlockedAcquisitionAdd,
+  findBlockedAcquisitionCut,
+  isStarterSlot,
+} from "@/lib/leagues/lineup-lock-enforce";
+import { parseLineupLockMode } from "@/lib/leagues/lineup-lock";
+import { loadStartedNflTeamsForLineupLock } from "@/lib/leagues/lineup-lock-started";
+import {
   countActivePositionPlayers,
   countActiveRosterPlayers,
   getMaxRosterSize,
@@ -495,8 +502,10 @@ async function applyAwardedClaim(input: {
   const [player] = await db
     .select({
       id: players.id,
+      fullName: players.fullName,
       primaryPositionId: players.primaryPositionId,
       injuryStatus: players.injuryStatus,
+      nflTeam: players.nflTeam,
     })
     .from(players)
     .where(eq(players.id, claim.playerId))
@@ -542,7 +551,25 @@ async function applyAwardedClaim(input: {
     return `At max ${player.primaryPositionId}s — choose a different drop.`;
   }
 
-  const slotPositionId = pickDefaultSlotPosition({
+  const mode = parseLineupLockMode(season.settings.lineupLockMode);
+  const startedTeams = await loadStartedNflTeamsForLineupLock();
+
+  if (dropRow && startedTeams) {
+    const previousSlot = dropRow.slotPositionId ?? dropRow.primaryPositionId;
+    const dropBlocked = findBlockedAcquisitionCut({
+      mode,
+      startedTeams,
+      fullName: dropRow.fullName,
+      nflTeam: dropRow.nflTeam,
+      previousSlot,
+    });
+    if (dropBlocked) {
+      return dropBlocked;
+    }
+  }
+
+  const occupied = occupiedBySlot(rosteredOnTeam);
+  const slotArgs = {
     playerPositionId: player.primaryPositionId,
     injuryStatus: player.injuryStatus,
     irEligibleStatuses: resolveIrEligibleStatuses(
@@ -552,8 +579,25 @@ async function applyAwardedClaim(input: {
     benchSlots: season.benchSlots,
     irEnabled: season.irEnabled,
     taxiEnabled: season.taxiEnabled,
-    occupiedBySlot: occupiedBySlot(rosteredOnTeam),
-  });
+    occupiedBySlot: occupied,
+  };
+  let slotPositionId = pickDefaultSlotPosition(slotArgs);
+
+  if (startedTeams && isStarterSlot(slotPositionId)) {
+    const starterBlocked = findBlockedAcquisitionAdd({
+      mode,
+      startedTeams,
+      fullName: player.fullName,
+      nflTeam: player.nflTeam,
+      nextSlot: slotPositionId,
+    });
+    if (starterBlocked) {
+      slotPositionId = pickDefaultSlotPosition({
+        ...slotArgs,
+        reserveOnly: true,
+      });
+    }
+  }
 
   await db.transaction(async (tx) => {
     if (dropRow) {

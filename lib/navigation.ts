@@ -7,6 +7,7 @@ import {
   Home09Icon,
   LeftToRightListDashIcon,
   LeftToRightListNumberIcon,
+  Message01Icon,
   NoteEditIcon,
   RankingIcon,
   Settings01Icon,
@@ -103,6 +104,13 @@ export function getLeagueNavItems(leagueId: string): NavItem[] {
       shortLabel: "Trades",
       icon: UserSwitchIcon,
       isActive: (pathname) => pathname.startsWith(`${base}/trades`),
+    },
+    {
+      href: `${base}/messages`,
+      label: "Messages",
+      shortLabel: "Messages",
+      icon: Message01Icon,
+      isActive: (pathname) => pathname.startsWith(`${base}/messages`),
     },
     {
       href: `${base}/activity`,

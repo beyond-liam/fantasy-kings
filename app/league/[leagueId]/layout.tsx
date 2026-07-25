@@ -21,8 +21,8 @@ export default async function LeagueLayout({
         <Suspense fallback={<LeagueSideNav slug={slug} isCommissioner={false} />}>
           <LeagueSideNavSlot slug={slug} />
         </Suspense>
-        <div className="ml-[4.5rem] flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overscroll-none">
-          <ContentContainer className="flex flex-col">
+        <div className="ml-[4.5rem] flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+          <ContentContainer className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-none">
             {children}
           </ContentContainer>
         </div>

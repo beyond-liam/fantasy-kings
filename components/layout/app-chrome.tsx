@@ -27,9 +27,10 @@ export function AppChrome({
     <>
       <AppTopNav initialAccount={account} />
       {account ? <OnboardingDialog /> : null}
-      <PageTransition>
-        <div className="flex min-h-0 flex-1 flex-col pt-14">{children}</div>
-      </PageTransition>
+      {/* flex-1 must sit outside ViewTransition or the height chain collapses */}
+      <div className="flex min-h-0 flex-1 flex-col pt-14">
+        <PageTransition>{children}</PageTransition>
+      </div>
     </>
   );
 }

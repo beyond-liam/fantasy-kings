@@ -12,6 +12,7 @@ type LeagueSideNavProps = {
   slug: string;
   isCommissioner: boolean;
   tradesAttention?: boolean;
+  messagesAttention?: boolean;
 };
 
 function NavLink({
@@ -59,6 +60,7 @@ export function LeagueSideNav({
   slug,
   isCommissioner,
   tradesAttention = false,
+  messagesAttention = false,
 }: LeagueSideNavProps) {
   const pathname = usePathname();
   const navItems = getLeagueNavItems(slug).filter(
@@ -72,16 +74,21 @@ export function LeagueSideNav({
     >
       <ScrollArea className="h-full">
         <div className="flex flex-col">
-          {navItems.map((item) => (
-            <NavLink
-              key={item.href}
-              item={item}
-              pathname={pathname}
-              showAttention={
-                item.href.endsWith("/trades") ? tradesAttention : false
-              }
-            />
-          ))}
+          {navItems.map((item) => {
+            const showAttention = item.href.endsWith("/trades")
+              ? tradesAttention
+              : item.href.endsWith("/messages")
+                ? messagesAttention
+                : false;
+            return (
+              <NavLink
+                key={item.href}
+                item={item}
+                pathname={pathname}
+                showAttention={showAttention}
+              />
+            );
+          })}
         </div>
       </ScrollArea>
     </nav>

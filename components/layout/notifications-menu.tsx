@@ -15,6 +15,7 @@ import {
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -24,22 +25,27 @@ import {
   markNotificationRead,
   type NotificationsPayload,
 } from "@/lib/actions/notifications";
+import {
+  NOTIFICATIONS_REFRESH_EVENT,
+} from "@/lib/notifications/client-refresh";
 import { cn } from "@/lib/utils";
 
 function formatNotificationTime(date: Date) {
   const created = date instanceof Date ? date : new Date(date);
-  const diffMs = Date.now() - created.getTime();
+  const diffMs = Math.max(0, Date.now() - created.getTime());
   const minutes = Math.floor(diffMs / 60_000);
-  if (minutes < 1) return "Just now";
-  if (minutes < 60) return `${minutes}m ago`;
+  if (minutes < 1) return "Now";
+  if (minutes < 60) return `${minutes}m`;
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
+  if (hours < 24) return `${hours}h`;
   const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d ago`;
-  return created.toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-  });
+  if (days < 7) return `${days}d`;
+  const weeks = Math.floor(days / 7);
+  if (weeks < 5) return `${weeks}w`;
+  const months = Math.floor(days / 30);
+  if (months < 12) return `${months}mo`;
+  const years = Math.floor(days / 365);
+  return `${Math.max(1, years)}y`;
 }
 
 export function NotificationsMenu() {
@@ -48,6 +54,10 @@ export function NotificationsMenu() {
   const [payload, setPayload] = useState<NotificationsPayload | null>(null);
   const [pending, startTransition] = useTransition();
 
+  function loadNotifications() {
+    return getSessionNotifications().then(setPayload);
+  }
+
   useEffect(() => {
     let cancelled = false;
     void getSessionNotifications().then((next) => {
@@ -55,6 +65,16 @@ export function NotificationsMenu() {
     });
     return () => {
       cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    function onRefresh() {
+      void loadNotifications();
+    }
+    window.addEventListener(NOTIFICATIONS_REFRESH_EVENT, onRefresh);
+    return () => {
+      window.removeEventListener(NOTIFICATIONS_REFRESH_EVENT, onRefresh);
     };
   }, []);
 
@@ -75,7 +95,7 @@ export function NotificationsMenu() {
 
   function refresh() {
     startTransition(() => {
-      void getSessionNotifications().then(setPayload);
+      void loadNotifications();
     });
   }
 
@@ -122,47 +142,55 @@ export function NotificationsMenu() {
           ) : null}
         </span>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-80 p-0">
-        <div className="flex items-center justify-between gap-2 px-3 py-2">
-          <p className="text-xs font-medium text-muted-foreground">
-            Notifications
-          </p>
-          {items.length > 0 ? (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="h-7 px-2 text-xs"
-              disabled={pending}
-              onClick={onClear}
-            >
-              <HugeiconsIcon
-                icon={Eraser01Icon}
-                strokeWidth={2}
-                data-icon="inline-start"
-              />
-              Clear
-            </Button>
-          ) : null}
-        </div>
-        <DropdownMenuSeparator className="my-0" />
+      <DropdownMenuContent align="end" className="w-80">
+        <DropdownMenuGroup>
+          <DropdownMenuLabel className="flex items-center justify-between gap-2 py-1.5">
+            <span>Notifications</span>
+            {items.length > 0 ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-xs"
+                disabled={pending}
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  onClear();
+                }}
+              >
+                <HugeiconsIcon
+                  icon={Eraser01Icon}
+                  strokeWidth={2}
+                  data-icon="inline-start"
+                />
+                Clear
+              </Button>
+            ) : null}
+          </DropdownMenuLabel>
+        </DropdownMenuGroup>
+        <DropdownMenuSeparator />
         {items.length === 0 ? (
-          <div className="flex flex-col items-center gap-2 px-4 py-8 text-center">
-            <HugeiconsIcon
-              icon={NotificationOff01Icon}
-              size={20}
-              className="text-muted-foreground"
-            />
-            <p className="text-sm text-muted-foreground">No notifications yet</p>
-          </div>
+          <DropdownMenuGroup>
+            <div className="flex flex-col items-center gap-2 px-2 py-8 text-center">
+              <HugeiconsIcon
+                icon={NotificationOff01Icon}
+                size={20}
+                className="text-muted-foreground"
+              />
+              <p className="text-sm text-muted-foreground">
+                No notifications yet
+              </p>
+            </div>
+          </DropdownMenuGroup>
         ) : (
-          <DropdownMenuGroup className="max-h-80 overflow-y-auto py-1">
+          <DropdownMenuGroup className="max-h-80 overflow-y-auto">
             {items.map((item) => {
               const unread = !item.readAt;
               return (
                 <DropdownMenuItem
                   key={item.id}
-                  className="cursor-pointer items-start gap-2 rounded-none px-3 py-2.5"
+                  className="cursor-pointer items-start gap-2 py-2.5 whitespace-normal"
                   onClick={() => onItemClick(item)}
                 >
                   <span
@@ -172,20 +200,22 @@ export function NotificationsMenu() {
                       unread ? "bg-destructive" : "bg-transparent",
                     )}
                   />
-                  <span className="min-w-0 flex-1">
+                  <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                     {item.leagueName ? (
-                      <span className="mb-0.5 block text-[11px] font-medium text-muted-foreground">
+                      <span className="text-[11px] font-medium text-muted-foreground">
                         {item.leagueName}
                       </span>
                     ) : null}
-                    <span className="block text-sm font-medium text-foreground">
-                      {item.title}
+                    <span className="flex items-baseline justify-between gap-3">
+                      <span className="min-w-0 text-sm font-medium text-foreground">
+                        {item.title}
+                      </span>
+                      <span className="shrink-0 text-[11px] text-muted-foreground tabular-nums">
+                        {formatNotificationTime(item.createdAt)}
+                      </span>
                     </span>
-                    <span className="mt-0.5 line-clamp-2 block text-xs text-muted-foreground">
+                    <span className="line-clamp-2 text-xs text-muted-foreground">
                       {item.body}
-                    </span>
-                    <span className="mt-1 block text-[11px] text-muted-foreground tabular-nums">
-                      {formatNotificationTime(item.createdAt)}
                     </span>
                   </span>
                 </DropdownMenuItem>

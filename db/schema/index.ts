@@ -18,4 +18,5 @@ export * from "./matchups";
 export * from "./team-week-stats";
 export * from "./notifications";
 export * from "./email-sends";
+export * from "./messages";
 

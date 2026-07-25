@@ -22,7 +22,7 @@ export function PageTransition({ children }: PageTransitionProps) {
       share="page-fade"
       default="none"
     >
-      {children}
+      <div className="flex min-h-0 flex-1 flex-col">{children}</div>
     </ViewTransition>
   );
 }

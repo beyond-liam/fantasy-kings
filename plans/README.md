@@ -23,16 +23,26 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJE
 
 ### Audit findings not planned this round (selected by maintainer on 2026-07-23)
 
-Vetted and valid — re-plan on request:
+Originally vetted; status as of 2026-07-25:
 
-- Lineup lock mode configured but never enforced on roster writes (`lib/leagues/lineup-lock.ts` vs `lib/actions/roster.ts`).
-- Unauthenticated `getJoinPreview` performs DB writes (`ensureSeasonTeamSlots`) + ensure* round-trips on league-home reads (`lib/queries/leagues.ts:322-346, 403-413`).
-- Scores page persists matchup scores on every GET (`app/league/[leagueId]/scores/page.tsx:180-182`).
-- Game Centre loads full-week projections with no `playerIds` bound (`lib/queries/game-centre.ts:384-389`).
-- Other-team page missed My Team's tab-scoped fetching (`app/league/[leagueId]/team/[teamId]/page.tsx:84-152`).
-- Waiver processing lease / conditional claim updates against overlapping runs (`lib/cron/process-waivers.ts`).
-- PROJECT_SPEC drift (shipped waivers/trades still marked deferred) + `.env.example` gitignored and missing `CRON_SECRET`/`BREVO_*` names.
-- Direction options: wire schedule tab to real matchup results; finish League Alert migration for trade reject/cancel/complete; email/slow draft engine (or gate the option); playoff advancement engine.
+| Finding | Status |
+|---------|--------|
+| Lineup lock on roster writes | DONE — slot moves + FA add/cut + waiver award/drop (`lineup-lock-enforce`, `reserveOnly` slot pick) |
+| `getJoinPreview` writes + home ensures | DONE — read-only preview; ensure on authenticated join |
+| Scores page persists matchup scores on GET | DONE — persist via cron finalize only |
+| Game Centre unbound projections | DONE — `playerIds: rosterIds` |
+| Other-team tab-scoped fetching | DONE — mirrors My Team gates |
+| Waiver lease / claim CAS | DONE — season lease + pending→awarded/failed CAS |
+| PROJECT_SPEC drift + `.env.example` | DONE — waivers/trades shipped; `CRON_SECRET` / `BREVO_*` present |
+| Direction: schedule → real results | DONE — W/L + weeklyRank + other-team win% |
+| Direction: League Alert trade reject/cancel/complete | DONE |
+| Direction: email/slow draft (same-room) | DONE — not gated; longer/unlimited clock + Brevo |
+| Direction: playoff advancement | DONE — ensure + advance after finalize |
+
+Vetted residuals (re-plan on request only):
+
+- Matchup/team public-id backfill still runs on some read paths (`ensureSeasonMatchupPublicIds`, `ensureSeasonTeamPublicIds`).
+- FA tips query in Game Centre is intentionally unbound but `limit: 100`.
 
 ### Findings considered and rejected (2026-07-23 audit)
 

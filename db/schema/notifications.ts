@@ -20,6 +20,7 @@ export const notificationTypeEnum = pgEnum("notification_type", [
   "waiver_processed",
   "player_status",
   "matchup_result",
+  "message_mention",
 ]);
 
 export const notifications = pgTable(

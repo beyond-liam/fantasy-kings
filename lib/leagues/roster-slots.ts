@@ -112,14 +112,22 @@ export function pickDefaultSlotPosition(input: {
   irEnabled: boolean;
   taxiEnabled: boolean;
   occupiedBySlot: Map<string, number>;
+  /** When true (lineup locked), only consider BN / IR / TAXI. */
+  reserveOnly?: boolean;
 }) {
-  const candidates = [
-    input.playerPositionId,
-    ...(isFlexEligible(input.playerPositionId) ? ["FLEX"] : []),
-    "BN",
-    ...(input.irEnabled ? ["IR"] : []),
-    ...(input.taxiEnabled ? ["TAXI"] : []),
-  ];
+  const candidates = input.reserveOnly
+    ? [
+        "BN",
+        ...(input.irEnabled ? ["IR"] : []),
+        ...(input.taxiEnabled ? ["TAXI"] : []),
+      ]
+    : [
+        input.playerPositionId,
+        ...(isFlexEligible(input.playerPositionId) ? ["FLEX"] : []),
+        "BN",
+        ...(input.irEnabled ? ["IR"] : []),
+        ...(input.taxiEnabled ? ["TAXI"] : []),
+      ];
 
   for (const slotPositionId of candidates) {
     if (

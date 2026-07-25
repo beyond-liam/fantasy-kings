@@ -35,6 +35,15 @@ export function isLineupEditBlocked(input: {
   return hasNflTeamStarted(input.playerNflTeam, input.startedTeams);
 }
 
+export function lineupLockBlockedMessage(
+  mode: LineupLockMode,
+  fullName: string,
+): string {
+  return mode === "first_game"
+    ? `Lineups are locked — the first NFL game of the week has started (${fullName}).`
+    : `${fullName}'s lineup slot is locked — their NFL game has started.`;
+}
+
 export function findBlockedLineupMoves(input: {
   mode: LineupLockMode;
   startedTeams: Set<string>;
@@ -61,10 +70,52 @@ export function findBlockedLineupMoves(input: {
         startedTeams: input.startedTeams,
       })
     ) {
-      return input.mode === "first_game"
-        ? `Lineups are locked — the first NFL game of the week has started (${change.fullName}).`
-        : `${change.fullName}'s lineup slot is locked — their NFL game has started.`;
+      return lineupLockBlockedMessage(input.mode, change.fullName);
     }
   }
   return null;
+}
+
+/** Block adding into a locked starter slot (null → slot). */
+export function findBlockedAcquisitionAdd(input: {
+  mode: LineupLockMode;
+  startedTeams: Set<string>;
+  fullName: string;
+  nflTeam: string | null;
+  nextSlot: string | null;
+}): string | null {
+  if (
+    !isLineupEditBlocked({
+      mode: input.mode,
+      previousSlot: null,
+      nextSlot: input.nextSlot,
+      playerNflTeam: input.nflTeam,
+      startedTeams: input.startedTeams,
+    })
+  ) {
+    return null;
+  }
+  return lineupLockBlockedMessage(input.mode, input.fullName);
+}
+
+/** Block cutting a locked starter (slot → null). */
+export function findBlockedAcquisitionCut(input: {
+  mode: LineupLockMode;
+  startedTeams: Set<string>;
+  fullName: string;
+  nflTeam: string | null;
+  previousSlot: string | null;
+}): string | null {
+  if (
+    !isLineupEditBlocked({
+      mode: input.mode,
+      previousSlot: input.previousSlot,
+      nextSlot: null,
+      playerNflTeam: input.nflTeam,
+      startedTeams: input.startedTeams,
+    })
+  ) {
+    return null;
+  }
+  return lineupLockBlockedMessage(input.mode, input.fullName);
 }

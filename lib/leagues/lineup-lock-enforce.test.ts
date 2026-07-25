@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import {
+  findBlockedAcquisitionAdd,
+  findBlockedAcquisitionCut,
   findBlockedLineupMoves,
   isLineupEditBlocked,
 } from "@/lib/leagues/lineup-lock-enforce";
@@ -70,6 +72,45 @@ describe("findBlockedLineupMoves", () => {
           nextSlot: "BN",
         },
       ],
+    });
+    assert.match(message ?? "", /Josh Allen/);
+  });
+});
+
+describe("findBlockedAcquisitionAdd", () => {
+  it("blocks adding into a starter under first_game after kickoff", () => {
+    const message = findBlockedAcquisitionAdd({
+      mode: "first_game",
+      startedTeams: new Set(["KC"]),
+      fullName: "Free Agent",
+      nflTeam: "BUF",
+      nextSlot: "RB",
+    });
+    assert.match(message ?? "", /Free Agent/);
+  });
+
+  it("allows adding to bench under first_game", () => {
+    assert.equal(
+      findBlockedAcquisitionAdd({
+        mode: "first_game",
+        startedTeams: new Set(["KC"]),
+        fullName: "Free Agent",
+        nflTeam: "BUF",
+        nextSlot: "BN",
+      }),
+      null,
+    );
+  });
+});
+
+describe("findBlockedAcquisitionCut", () => {
+  it("blocks cutting a locked starter under individual", () => {
+    const message = findBlockedAcquisitionCut({
+      mode: "individual",
+      startedTeams: new Set(["BUF"]),
+      fullName: "Josh Allen",
+      nflTeam: "BUF",
+      previousSlot: "QB",
     });
     assert.match(message ?? "", /Josh Allen/);
   });

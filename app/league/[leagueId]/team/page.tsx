@@ -79,7 +79,7 @@ import {
   getFinalMatchupsForSeason,
   recordsFromFinalMatchups,
 } from "@/lib/leagues/matchups/finalize";
-import { buildScheduleDisplayRows } from "@/lib/leagues/schedule-display";
+import { buildScheduleDisplayRows, weeklyRanksByWeekFromFinals } from "@/lib/leagues/schedule-display";
 import {
   getLeagueWatchlistPlayerIds,
   getTeamWatchlist,
@@ -483,6 +483,7 @@ export default async function MyTeamPage({
       weekRangeByNumber,
       records: recordsFromFinalMatchups(finals),
       winChances,
+      weeklyRanksByWeek: weeklyRanksByWeekFromFinals(finals, team.id),
     });
     schedulePanel = (
       <TeamScheduleList

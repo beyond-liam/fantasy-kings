@@ -6,6 +6,7 @@ import {
   getLeagueMembership,
   getLeagueSeason,
 } from "@/lib/queries/leagues";
+import { getMessageNavIndicator } from "@/lib/queries/messages";
 import { getTradeNavIndicator } from "@/lib/queries/trades";
 import { getUserTeamForSeason } from "@/lib/queries/watchlist";
 
@@ -20,21 +21,29 @@ export async function LeagueSideNavSlot({ slug }: { slug: string }) {
     user && season ? await getUserTeamForSeason(season.id, user.id) : null;
   const isCommissioner = hasCommissionerPowers(membership?.role);
 
-  const indicator =
+  const [tradeIndicator, messageIndicator] = await Promise.all([
     season && team
-      ? await getTradeNavIndicator({
+      ? getTradeNavIndicator({
           leagueSeasonId: season.id,
           teamId: team.id,
           isCommissioner,
           tradeProcessing: season.tradeProcessing,
         })
-      : { showDot: false };
+      : Promise.resolve({ showDot: false }),
+    season && user
+      ? getMessageNavIndicator({
+          leagueSeasonId: season.id,
+          userId: user.id,
+        })
+      : Promise.resolve({ showDot: false }),
+  ]);
 
   return (
     <LeagueSideNav
       slug={slug}
       isCommissioner={isCommissioner}
-      tradesAttention={indicator.showDot}
+      tradesAttention={tradeIndicator.showDot}
+      messagesAttention={messageIndicator.showDot}
     />
   );
 }

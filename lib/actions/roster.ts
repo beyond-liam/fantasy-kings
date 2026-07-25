@@ -35,8 +35,14 @@ import {
 } from "@/lib/leagues/roster-writes";
 import { resolveIrEligibleStatuses } from "@/lib/leagues/ir-eligibility";
 import { resolveTaxiMaxYearsExp } from "@/lib/leagues/taxi-eligibility";
-import { findBlockedLineupMoves } from "@/lib/leagues/lineup-lock-enforce";
+import {
+  findBlockedAcquisitionAdd,
+  findBlockedAcquisitionCut,
+  findBlockedLineupMoves,
+  isStarterSlot,
+} from "@/lib/leagues/lineup-lock-enforce";
 import { parseLineupLockMode } from "@/lib/leagues/lineup-lock";
+import { loadStartedNflTeamsForLineupLock } from "@/lib/leagues/lineup-lock-started";
 import { getAcquisitionKind } from "@/lib/leagues/waivers/acquisition";
 import { resolveChurnCut } from "@/lib/leagues/waivers/churn";
 import {
@@ -259,7 +265,8 @@ async function prepareAdd(
     };
   }
 
-  const slotPositionId = pickDefaultSlotPosition({
+  const occupied = occupiedBySlot(rosteredOnTeam);
+  const slotArgs = {
     playerPositionId: player.primaryPositionId,
     injuryStatus: player.injuryStatus,
     irEligibleStatuses: resolveIrEligibleStatuses(
@@ -269,8 +276,42 @@ async function prepareAdd(
     benchSlots: season.benchSlots,
     irEnabled: season.irEnabled,
     taxiEnabled: season.taxiEnabled,
-    occupiedBySlot: occupiedBySlot(rosteredOnTeam),
-  });
+    occupiedBySlot: occupied,
+  };
+  let slotPositionId = pickDefaultSlotPosition(slotArgs);
+
+  const mode = parseLineupLockMode(season.settings.lineupLockMode);
+  if (isStarterSlot(slotPositionId)) {
+    const startedTeams = await loadStartedNflTeamsForLineupLock();
+    if (startedTeams) {
+      const starterBlocked = findBlockedAcquisitionAdd({
+        mode,
+        startedTeams,
+        fullName: player.fullName,
+        nflTeam: player.nflTeam,
+        nextSlot: slotPositionId,
+      });
+      if (starterBlocked) {
+        slotPositionId = pickDefaultSlotPosition({
+          ...slotArgs,
+          reserveOnly: true,
+        });
+        const reserveBlocked = findBlockedAcquisitionAdd({
+          mode,
+          startedTeams,
+          fullName: player.fullName,
+          nflTeam: player.nflTeam,
+          nextSlot: slotPositionId,
+        });
+        if (reserveBlocked) {
+          return {
+            ok: false,
+            result: { success: false, error: reserveBlocked },
+          };
+        }
+      }
+    }
+  }
 
   return {
     ok: true,
@@ -348,7 +389,10 @@ async function prepareCut(
       id: rosterPlayers.id,
       status: rosterPlayers.status,
       acquiredAt: rosterPlayers.acquiredAt,
+      slotPositionId: rosterPlayers.slotPositionId,
       fullName: players.fullName,
+      nflTeam: players.nflTeam,
+      primaryPositionId: players.primaryPositionId,
     })
     .from(rosterPlayers)
     .innerJoin(players, eq(rosterPlayers.playerId, players.id))
@@ -374,6 +418,23 @@ async function prepareCut(
   });
   if (!churn.allow) {
     return { error: churn.error };
+  }
+
+  const previousSlot = row.slotPositionId ?? row.primaryPositionId;
+  if (isStarterSlot(previousSlot)) {
+    const startedTeams = await loadStartedNflTeamsForLineupLock();
+    if (startedTeams) {
+      const cutBlocked = findBlockedAcquisitionCut({
+        mode: parseLineupLockMode(season.settings.lineupLockMode),
+        startedTeams,
+        fullName: row.fullName,
+        nflTeam: row.nflTeam,
+        previousSlot,
+      });
+      if (cutBlocked) {
+        return { error: cutBlocked };
+      }
+    }
   }
 
   return {
@@ -671,14 +732,8 @@ async function assertLineupLockAllowsChanges(input: {
     return null;
   }
 
-  let startedTeams = new Set<string>();
-  try {
-    const nflState = await getNflState();
-    const week = Math.max(1, Number(nflState.week) || 1);
-    const seasonYear = Number(nflState.season) || new Date().getUTCFullYear();
-    const scoreboard = await getNflScoreboard({ season: seasonYear, week });
-    startedTeams = getStartedNflTeamAbbreviations(scoreboard.games);
-  } catch {
+  const startedTeams = await loadStartedNflTeamsForLineupLock();
+  if (!startedTeams) {
     // Fail open if scoreboard is unavailable — same posture as acquisition locks.
     return null;
   }

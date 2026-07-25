@@ -92,6 +92,20 @@
       "when": 1784793800000,
       "tag": "0012_activity_trade_accepted",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1784966400000,
+      "tag": "0015_message_threads",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1785052800000,
+      "tag": "0016_message_mention_notification",
+      "breakpoints": true
     }
   ]
 }
