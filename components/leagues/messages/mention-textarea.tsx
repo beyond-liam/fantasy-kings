@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  useEffect,
   useId,
   useRef,
   useState,
@@ -60,21 +59,23 @@ export function MentionTextarea({
   const filtered = candidates.filter((candidate) =>
     matchesQuery(candidate, query),
   );
-
-  useEffect(() => {
-    setActiveIndex(0);
-  }, [query, open]);
+  const safeActiveIndex =
+    filtered.length === 0
+      ? 0
+      : Math.min(activeIndex, filtered.length - 1);
 
   function syncMentionState(nextValue: string, caret: number) {
     const active = getActiveMention(nextValue, caret);
     if (!active) {
       setOpen(false);
       setQuery("");
+      setActiveIndex(0);
       return;
     }
     setOpen(true);
     setMentionStart(active.start);
     setQuery(active.query);
+    setActiveIndex(0);
   }
 
   function selectCandidate(candidate: MentionCandidate) {
@@ -114,7 +115,7 @@ export function MentionTextarea({
       }
       if (event.key === "Enter" || event.key === "Tab") {
         event.preventDefault();
-        const candidate = filtered[activeIndex];
+        const candidate = filtered[safeActiveIndex];
         if (candidate) selectCandidate(candidate);
         return;
       }
@@ -181,7 +182,7 @@ export function MentionTextarea({
             filtered.map((candidate, index) => {
               const personName = formatPersonName(candidate);
               const teamLabel = candidate.teamName ?? "No team";
-              const selected = index === activeIndex;
+              const selected = index === safeActiveIndex;
               return (
                 <button
                   key={candidate.userId}

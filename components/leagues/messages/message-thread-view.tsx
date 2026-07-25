@@ -112,6 +112,7 @@ export function MessageThreadView({
   const router = useRouter();
   const reduceMotion = useReducedMotion();
   const [posts, setPosts] = useState(serverPosts);
+  const [prevServerPosts, setPrevServerPosts] = useState(serverPosts);
   const [reply, setReply] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editBody, setEditBody] = useState("");
@@ -120,10 +121,9 @@ export function MessageThreadView({
     isRoot: boolean;
   } | null>(null);
   const [isPending, startTransition] = useTransition();
-  const groups = groupPostsByAuthor(posts);
-  const rootPostId = posts[0]?.id;
 
-  useEffect(() => {
+  if (serverPosts !== prevServerPosts) {
+    setPrevServerPosts(serverPosts);
     setPosts((current) => {
       const optimistic = current.filter((post) =>
         post.id.startsWith("optimistic-"),
@@ -141,7 +141,10 @@ export function MessageThreadView({
       );
       return [...serverPosts, ...remaining];
     });
-  }, [serverPosts]);
+  }
+
+  const groups = groupPostsByAuthor(posts);
+  const rootPostId = posts[0]?.id;
 
   useEffect(() => {
     void markThreadReadOnView(leagueSlug, threadPublicId);
