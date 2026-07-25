@@ -406,7 +406,13 @@ export function PlayoffSettingsForm({
         </FieldGroup>
       </SettingsFormCard>
 
-      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+      <AlertDialog
+        open={confirmOpen}
+        onOpenChange={(open) => {
+          if (isPending && !open) return;
+          setConfirmOpen(open);
+        }}
+      >
         <AlertDialogContent>
                     <AlertDialogHeader>
             <AlertDialogTitle>Regenerate schedule?</AlertDialogTitle>
@@ -428,7 +434,13 @@ export function PlayoffSettingsForm({
                 strokeWidth={2}
                 data-icon="inline-start"
               />
-              {willRegenerate ? "Save and Regenerate" : "Save"}
+              {isPending
+                ? willRegenerate
+                  ? "Regenerating…"
+                  : "Saving…"
+                : willRegenerate
+                  ? "Save and regenerate"
+                  : "Save"}
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
