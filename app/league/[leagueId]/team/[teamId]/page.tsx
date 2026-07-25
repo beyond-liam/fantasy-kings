@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { redirect, notFound } from "next/navigation";
 
 import { TeamDraftPicksList } from "@/components/team/team-draft-picks-list";
+import { TeamH2hSection } from "@/components/team/team-h2h-section";
 import { TeamRosterSections } from "@/components/team/roster-sections";
 import { TeamScheduleList } from "@/components/team/team-schedule-list";
 import { TeamStatsSections } from "@/components/team/stats-sections";
@@ -12,6 +13,12 @@ import {
 } from "@/components/team/team-tab-config";
 import { TeamTabs } from "@/components/team/team-tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { getSessionUser } from "@/lib/auth/session";
 import { getNflScoreboard } from "@/lib/espn/scoreboard";
 import {
@@ -27,6 +34,7 @@ import {
   buildScheduleDisplayRows,
   weeklyRanksByWeekFromFinals,
 } from "@/lib/leagues/schedule-display";
+import { buildTeamH2hSeries } from "@/lib/leagues/team-h2h";
 import { myTeamPath } from "@/lib/leagues/utils";
 import {
   buildOpponentByTeam,
@@ -117,41 +125,53 @@ export default async function LeagueTeamPage({
   const needsRosterPanel = activeTab === "roster";
   const needsStatsPanel = activeTab === "stats";
   const needsSchedulePanel = activeTab === "schedule";
+  const needsH2hPanel = activeTab === "head-to-head";
   const needsDraftPicksPanel = activeTab === "draft-picks";
 
   const needsNflState =
     needsRosterPanel || needsStatsPanel || needsSchedulePanel;
   const needsScoreboard = needsRosterPanel || needsSchedulePanel;
-  const needsTeamSchedule = needsRosterPanel || needsSchedulePanel;
+  const needsOtherTeamSchedule = needsRosterPanel || needsSchedulePanel;
+  const needsViewerSchedule = needsH2hPanel && Boolean(myTeam);
 
   const nflStatePromise = needsNflState ? getNflState() : null;
 
-  const [rosterPlayers, scheduleRows, draftPicks, nflState, scoreboard, finals] =
-    await Promise.all([
-      needsRosterPanel || needsStatsPanel
-        ? getTeamRosterPlayers(team.id)
-        : Promise.resolve([]),
-      needsTeamSchedule
-        ? getTeamSchedule(season.id, team.id)
-        : Promise.resolve([]),
-      needsDraftPicksPanel
-        ? getDraftedRosterForTeam(team.id)
-        : Promise.resolve([]),
-      nflStatePromise ?? Promise.resolve(null),
-      needsScoreboard && nflStatePromise
-        ? nflStatePromise
-            .then((state) => {
-              const week = Math.max(1, Number(state.week) || 1);
-              const seasonYear =
-                Number(state.season) || new Date().getUTCFullYear();
-              return getNflScoreboard({ season: seasonYear, week });
-            })
-            .catch(() => null)
-        : Promise.resolve(null),
-      needsSchedulePanel
-        ? getFinalMatchupsForSeason(season.id).catch(() => [])
-        : Promise.resolve([]),
-    ]);
+  const [
+    rosterPlayers,
+    scheduleRows,
+    viewerScheduleRows,
+    draftPicks,
+    nflState,
+    scoreboard,
+    finals,
+  ] = await Promise.all([
+    needsRosterPanel || needsStatsPanel
+      ? getTeamRosterPlayers(team.id)
+      : Promise.resolve([]),
+    needsOtherTeamSchedule
+      ? getTeamSchedule(season.id, team.id)
+      : Promise.resolve([]),
+    needsViewerSchedule && myTeam
+      ? getTeamSchedule(season.id, myTeam.id)
+      : Promise.resolve([]),
+    needsDraftPicksPanel
+      ? getDraftedRosterForTeam(team.id)
+      : Promise.resolve([]),
+    nflStatePromise ?? Promise.resolve(null),
+    needsScoreboard && nflStatePromise
+      ? nflStatePromise
+          .then((state) => {
+            const week = Math.max(1, Number(state.week) || 1);
+            const seasonYear =
+              Number(state.season) || new Date().getUTCFullYear();
+            return getNflScoreboard({ season: seasonYear, week });
+          })
+          .catch(() => null)
+      : Promise.resolve(null),
+    needsSchedulePanel
+      ? getFinalMatchupsForSeason(season.id).catch(() => [])
+      : Promise.resolve([]),
+  ]);
 
   const rosterPlayerIds = rosterPlayers.map((player) => player.id);
   const nflWeek = Math.max(1, Number(nflState?.week) || 1);
@@ -180,6 +200,7 @@ export default async function LeagueTeamPage({
   let rosterPanel: ReactNode = null;
   let statsPanel: ReactNode = null;
   let schedulePanel: ReactNode = null;
+  let h2hPanel: ReactNode = null;
   let draftPicksPanel: ReactNode = null;
 
   if (needsRosterPanel) {
@@ -327,6 +348,35 @@ export default async function LeagueTeamPage({
     );
   }
 
+  if (needsH2hPanel) {
+    if (!myTeam) {
+      h2hPanel = (
+        <Empty>
+          <EmptyHeader>
+            <EmptyTitle>No team yet</EmptyTitle>
+            <EmptyDescription>
+              Claim a team in this league to see head-to-head history.
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+      );
+    } else {
+      const series = buildTeamH2hSeries(
+        viewerScheduleRows,
+        team.id,
+        season.seasonYear,
+      );
+      h2hPanel = (
+        <TeamH2hSection
+          series={series}
+          leagueSlug={slug}
+          viewerTeamName={myTeam.name}
+          opponentTeamName={team.name}
+        />
+      );
+    }
+  }
+
   if (needsDraftPicksPanel) {
     const draftPickRows = draftPicks.map((pick) => ({
       overall: pick.overall,
@@ -360,6 +410,7 @@ export default async function LeagueTeamPage({
         roster={rosterPanel}
         stats={statsPanel}
         schedule={schedulePanel}
+        head-to-head={h2hPanel}
         draft-picks={draftPicksPanel}
       />
     </div>

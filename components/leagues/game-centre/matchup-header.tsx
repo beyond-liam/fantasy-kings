@@ -7,7 +7,6 @@ import { MatchupStatusBadge } from "@/components/leagues/matchups/matchup-status
 import {
   Popover,
   PopoverContent,
-  PopoverDescription,
   PopoverHeader,
   PopoverTitle,
   PopoverTrigger,
@@ -90,14 +89,13 @@ function YetToPlayLabel({
       >
         {label}
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-72 gap-2 p-3">
-        <PopoverHeader className="gap-0.5">
-          <PopoverTitle>Still to play</PopoverTitle>
-          <PopoverDescription>
-            Starters whose NFL game has not started
-          </PopoverDescription>
+      <PopoverContent align="start" className="w-72 gap-0 overflow-hidden p-0">
+        <PopoverHeader className="border-b px-3 py-2">
+          <PopoverTitle className="text-xs font-medium text-muted-foreground">
+            Still to play
+          </PopoverTitle>
         </PopoverHeader>
-        <ul className="flex flex-col gap-2">
+        <ul className="flex flex-col gap-1.5 px-3 py-2">
           {players.map((player) => {
             const kickoff = player.kickoff ? new Date(player.kickoff) : null;
             const when =
@@ -105,14 +103,14 @@ function YetToPlayLabel({
                 ? `${formatKickoffDay(kickoff)} ${formatKickoffTime(kickoff)}`
                 : null;
             return (
-              <li key={player.id} className="flex flex-col gap-0.5 text-sm">
+              <li key={player.id} className="flex flex-col gap-0.5 text-xs">
                 <span>
+                  {player.fullName}{" "}
                   <span className="tabular-nums text-muted-foreground">
                     {player.slotPositionId}
-                  </span>{" "}
-                  {player.fullName}
+                  </span>
                 </span>
-                <span className="text-xs text-muted-foreground">
+                <span className="text-[11px] text-muted-foreground">
                   {[player.opponentLabel, when].filter(Boolean).join(" · ") ||
                     "Kickoff TBD"}
                 </span>

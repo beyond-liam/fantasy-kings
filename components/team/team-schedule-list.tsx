@@ -245,7 +245,7 @@ function getColumns(
           <Button
             nativeButton={false}
             size="sm"
-            variant={isLive ? "default" : "secondary"}
+            variant={isLive ? "default" : "outline"}
             render={
               <Link
                 href={`/league/${leagueSlug}/scores/${row.original.publicId || row.original.id}`}

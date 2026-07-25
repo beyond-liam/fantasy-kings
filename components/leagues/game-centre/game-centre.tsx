@@ -6,6 +6,7 @@ import { useState } from "react";
 
 import { BoxScoreTable } from "@/components/leagues/game-centre/box-score-table";
 import { MatchupHeader } from "@/components/leagues/game-centre/matchup-header";
+import { MatchupPreviewDashboard } from "@/components/leagues/game-centre/matchup-preview-dashboard";
 import { OptimumLineupDialog } from "@/components/leagues/game-centre/optimum-lineup-dialog";
 import { ScoringBreakdownDialog } from "@/components/leagues/game-centre/scoring-breakdown-dialog";
 import { MatchupRosterList } from "@/components/leagues/game-centre/starter-duel-list";
@@ -28,24 +29,41 @@ type GameCentreProps = {
   data: GameCentreData;
 };
 
-function parseTab(raw: string | null): "matchup" | "box" {
-  return raw === "box" ? "box" : "matchup";
+type GameCentreTab = "preview" | "matchup" | "box";
+
+function isScheduled(status: GameCentreData["status"]) {
+  return status === "scheduled";
+}
+
+function parseTab(
+  raw: string | null,
+  status: GameCentreData["status"],
+): GameCentreTab {
+  const scheduled = isScheduled(status);
+  if (scheduled) {
+    if (raw === "matchup") return "matchup";
+    return "preview";
+  }
+  if (raw === "box") return "box";
+  return "matchup";
 }
 
 export function GameCentre({ data }: GameCentreProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const tab = parseTab(searchParams.get("tab"));
+  const scheduled = isScheduled(data.status);
+  const tab = parseTab(searchParams.get("tab"), data.status);
 
   const [optimumOpen, setOptimumOpen] = useState(false);
   const [breakdownPlayer, setBreakdownPlayer] =
     useState<GameCentrePlayer | null>(null);
 
   const setTab = (next: string | number | null) => {
-    const value = String(next ?? "matchup");
+    const value = String(next ?? (scheduled ? "preview" : "matchup"));
     const params = new URLSearchParams(searchParams.toString());
-    if (value === "matchup") {
+    const defaultTab = scheduled ? "preview" : "matchup";
+    if (value === defaultTab) {
       params.delete("tab");
     } else {
       params.set("tab", value);
@@ -69,9 +87,35 @@ export function GameCentre({ data }: GameCentreProps) {
 
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList>
-          <TabsTrigger value="matchup">Matchup</TabsTrigger>
-          <TabsTrigger value="box">Box Score</TabsTrigger>
+          {scheduled ? (
+            <>
+              <TabsTrigger value="preview">Preview</TabsTrigger>
+              <TabsTrigger value="matchup">Matchup</TabsTrigger>
+            </>
+          ) : (
+            <>
+              <TabsTrigger value="matchup">Matchup</TabsTrigger>
+              <TabsTrigger value="box">Box Score</TabsTrigger>
+            </>
+          )}
         </TabsList>
+
+        {scheduled ? (
+          <TabsContent value="preview" className="pt-4">
+            {data.preview ? (
+              <MatchupPreviewDashboard
+                away={data.away}
+                home={data.home}
+                preview={data.preview}
+                leagueSlug={data.leagueSlug}
+              />
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Preview is unavailable for this matchup.
+              </p>
+            )}
+          </TabsContent>
+        ) : null}
 
         <TabsContent value="matchup" className="flex flex-col gap-8 pt-4">
           <ScoreLineChart
@@ -96,18 +140,20 @@ export function GameCentre({ data }: GameCentreProps) {
           <WaiverTips tips={data.waiverTips} leagueSlug={data.leagueSlug} />
         </TabsContent>
 
-        <TabsContent value="box" className="flex flex-col gap-8 pt-4">
-          <BoxScoreTable
-            team={data.boxScore.away}
-            onActualClick={setBreakdownPlayer}
-            leagueSlug={data.leagueSlug}
-          />
-          <BoxScoreTable
-            team={data.boxScore.home}
-            onActualClick={setBreakdownPlayer}
-            leagueSlug={data.leagueSlug}
-          />
-        </TabsContent>
+        {!scheduled ? (
+          <TabsContent value="box" className="flex flex-col gap-8 pt-4">
+            <BoxScoreTable
+              team={data.boxScore.away}
+              onActualClick={setBreakdownPlayer}
+              leagueSlug={data.leagueSlug}
+            />
+            <BoxScoreTable
+              team={data.boxScore.home}
+              onActualClick={setBreakdownPlayer}
+              leagueSlug={data.leagueSlug}
+            />
+          </TabsContent>
+        ) : null}
       </Tabs>
 
       <OptimumLineupDialog

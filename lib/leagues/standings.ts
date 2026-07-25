@@ -35,6 +35,10 @@ export type LeagueStandingsRow = {
   opponentName: string | null;
   /** Last up to 5 finalized results, oldest → newest. */
   form: StandingsFormGame[];
+  /** Season SOS (played + remaining opponents), avg opponent win%. */
+  sos: number | null;
+  sosPlayed: number | null;
+  sosRemaining: number | null;
 };
 
 export type LeagueStandingsMember = {
@@ -81,6 +85,9 @@ function emptyStats() {
     pointsAgainstAvg: 0,
     opponentName: null as string | null,
     form: [] as StandingsFormGame[],
+    sos: null as number | null,
+    sosPlayed: null as number | null,
+    sosRemaining: null as number | null,
   };
 }
 

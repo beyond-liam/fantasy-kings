@@ -34,7 +34,7 @@ function resolveBadge(status: MatchupLockStatus) {
       };
     default:
       return {
-        variant: "secondary" as const,
+        variant: "outline" as const,
         icon: Calendar03Icon,
         label: "Scheduled",
       };

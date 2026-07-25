@@ -34,6 +34,7 @@ type MyTeamTabsProps = BaseTeamTabsProps & {
   transactions?: ReactNode;
   transactionsBadge?: number;
   settings?: ReactNode;
+  "head-to-head"?: never;
 };
 
 type OtherTeamTabsProps = BaseTeamTabsProps & {
@@ -42,6 +43,7 @@ type OtherTeamTabsProps = BaseTeamTabsProps & {
   transactions?: never;
   transactionsBadge?: never;
   settings?: never;
+  "head-to-head"?: ReactNode;
 };
 
 type TeamTabsProps = MyTeamTabsProps | OtherTeamTabsProps;
@@ -99,6 +101,13 @@ export function TeamTabs(props: TeamTabsProps) {
       <ComingSoon description="Draft pick inventory and trades will show up here." />,
     ),
   };
+
+  if (isOther) {
+    content["head-to-head"] = resolvePanel(
+      props["head-to-head"],
+      <ComingSoon description="Head-to-head history vs your team will show up here." />,
+    );
+  }
 
   if (!isOther) {
     content.watchlist = resolvePanel(props.watchlist, <TabLoading />);

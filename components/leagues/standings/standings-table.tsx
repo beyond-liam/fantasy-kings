@@ -11,6 +11,7 @@ import type {
 
 import { TeamIdentity } from "@/components/leagues/standings/team-identity";
 import { TeamTableColumnHeader } from "@/components/team/team-table-column-header";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   DataTable,
@@ -25,6 +26,8 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { claimTeam } from "@/lib/actions/leagues";
+import { formatPlayoffOdds } from "@/lib/leagues/playoff-odds";
+import type { PlayoffPictureStatus } from "@/lib/leagues/playoff-picture";
 import {
   formatGamesBehind,
   formatPoints,
@@ -35,6 +38,7 @@ import {
   type StandingsFormGame,
 } from "@/lib/leagues/standings";
 import type { LeaguePlayoffStandingsRow } from "@/lib/leagues/playoff-standings";
+import { formatSos } from "@/lib/leagues/sos";
 import { leagueTeamPath, myTeamPath } from "@/lib/leagues/utils";
 import { cn } from "@/lib/utils";
 
@@ -68,12 +72,38 @@ const COLUMN_LABELS: Record<string, string> = {
   pfAvg: "Points for average",
   pa: "Points against",
   paAvg: "Points against average",
+  sos: "Strength of schedule",
+  odds: "Playoff chance",
+  status: "Playoff picture",
   wp: "Waiver priority",
   faab: "Budget remaining",
   rank: "Rank",
   form: "Form",
   action: "Action",
 };
+
+function playoffStatusLabel(status: PlayoffPictureStatus) {
+  if (status === "clinched") return "In";
+  if (status === "eliminated") return "Out";
+  return "Bubble";
+}
+
+function PlayoffStatusBadge({ status }: { status: PlayoffPictureStatus }) {
+  const label = playoffStatusLabel(status);
+  const variant =
+    status === "clinched"
+      ? "success"
+      : status === "eliminated"
+        ? "destructive"
+        : "warning";
+  return <Badge variant={variant}>{label}</Badge>;
+}
+
+function oddsClassName(odds: number) {
+  if (odds >= 0.7) return "text-success font-medium";
+  if (odds <= 0.3) return "text-destructive font-medium";
+  return "text-muted-foreground";
+}
 
 function formResultLabel(result: StandingsFormGame["result"]) {
   if (result === "W") return "Win";
@@ -413,104 +443,215 @@ function getStandingsColumns(
       meta: { cellClassName: "tabular-nums" },
     },
     {
-      id: "pf",
-      accessorFn: (row) => (row.claimed ? row.pointsFor : null),
+      id: "sos",
+      accessorFn: (row) =>
+        row.claimed
+          ? showSeed
+            ? row.sosRemaining
+            : row.sos
+          : null,
       enableSorting: true,
       sortingFn: (a, b) =>
         claimedFirst(a, b, () =>
           compareNullableNumber(
-            a.getValue<number | null>("pf"),
-            b.getValue<number | null>("pf"),
+            a.getValue<number | null>("sos"),
+            b.getValue<number | null>("sos"),
           ),
         ),
       header: ({ column }) => (
         <DataTableColumnHeader
           column={column}
-          title="PF"
-          tooltip="Points for"
+          title="SOS"
+          tooltip={
+            showSeed
+              ? "Remaining strength of schedule"
+              : "Strength of schedule"
+          }
         />
       ),
-      cell: ({ row }) =>
-        row.original.claimed
-          ? formatPoints(row.original.pointsFor)
-          : PLACEHOLDER,
+      cell: ({ row }) => {
+        if (!row.original.claimed) return PLACEHOLDER;
+        const value = showSeed
+          ? row.original.sosRemaining
+          : row.original.sos;
+        return formatSos(value) ?? PLACEHOLDER;
+      },
       meta: { cellClassName: "tabular-nums" },
     },
-    {
-      id: "pfAvg",
-      accessorFn: (row) => (row.claimed ? row.pointsForAvg : null),
-      enableSorting: true,
-      sortingFn: (a, b) =>
-        claimedFirst(a, b, () =>
-          compareNullableNumber(
-            a.getValue<number | null>("pfAvg"),
-            b.getValue<number | null>("pfAvg"),
-          ),
-        ),
-      header: ({ column }) => (
-        <DataTableColumnHeader
-          column={column}
-          title="PF/G"
-          tooltip="Points for average"
-        />
-      ),
-      cell: ({ row }) =>
-        row.original.claimed
-          ? formatPoints(row.original.pointsForAvg)
-          : PLACEHOLDER,
-      meta: { cellClassName: "tabular-nums" },
-    },
-    {
-      id: "pa",
-      accessorFn: (row) => (row.claimed ? row.pointsAgainst : null),
-      enableSorting: true,
-      sortingFn: (a, b) =>
-        claimedFirst(a, b, () =>
-          compareNullableNumber(
-            a.getValue<number | null>("pa"),
-            b.getValue<number | null>("pa"),
-          ),
-        ),
-      header: ({ column }) => (
-        <DataTableColumnHeader
-          column={column}
-          title="PA"
-          tooltip="Points against"
-        />
-      ),
-      cell: ({ row }) =>
-        row.original.claimed
-          ? formatPoints(row.original.pointsAgainst)
-          : PLACEHOLDER,
-      meta: { cellClassName: "tabular-nums" },
-    },
-    {
-      id: "paAvg",
-      accessorFn: (row) => (row.claimed ? row.pointsAgainstAvg : null),
-      enableSorting: true,
-      sortingFn: (a, b) =>
-        claimedFirst(a, b, () =>
-          compareNullableNumber(
-            a.getValue<number | null>("paAvg"),
-            b.getValue<number | null>("paAvg"),
-          ),
-        ),
-      header: ({ column }) => (
-        <DataTableColumnHeader
-          column={column}
-          title="PA/G"
-          tooltip="Points against average"
-        />
-      ),
-      cell: ({ row }) =>
-        row.original.claimed
-          ? formatPoints(row.original.pointsAgainstAvg)
-          : PLACEHOLDER,
-      meta: { cellClassName: "tabular-nums" },
-    },
-    wpColumn,
-    ...(showFaabBudget ? [faabColumn] : []),
-    ...(showSeed ? [] : [rankColumn]),
+    ...(showSeed
+      ? ([
+          {
+            id: "odds",
+            accessorFn: (row) =>
+              "playoffOdds" in row ? row.playoffOdds : null,
+            enableSorting: true,
+            sortingFn: (a, b) =>
+              claimedFirst(a, b, () =>
+                compareNullableNumber(
+                  a.getValue<number | null>("odds"),
+                  b.getValue<number | null>("odds"),
+                ),
+              ),
+            header: ({ column }) => (
+              <DataTableColumnHeader
+                column={column}
+                title="Odds"
+                tooltip="Playoff chance"
+              />
+            ),
+            cell: ({ row }) => {
+              if (!row.original.claimed) return PLACEHOLDER;
+              const odds =
+                "playoffOdds" in row.original
+                  ? row.original.playoffOdds
+                  : null;
+              const label = formatPlayoffOdds(odds);
+              if (label == null || odds == null) return PLACEHOLDER;
+              return (
+                <span className={cn("tabular-nums", oddsClassName(odds))}>
+                  {label}
+                </span>
+              );
+            },
+            meta: { cellClassName: "tabular-nums" },
+          },
+          {
+            id: "status",
+            accessorFn: (row) =>
+              "playoffStatus" in row ? row.playoffStatus : null,
+            enableSorting: true,
+            sortingFn: (a, b) =>
+              claimedFirst(a, b, () => {
+                const order = { clinched: 0, bubble: 1, eliminated: 2 } as const;
+                const aStatus = a.getValue<PlayoffPictureStatus | null>("status");
+                const bStatus = b.getValue<PlayoffPictureStatus | null>("status");
+                return (
+                  (aStatus ? order[aStatus] : 3) -
+                  (bStatus ? order[bStatus] : 3)
+                );
+              }),
+            header: ({ column }) => (
+              <DataTableColumnHeader
+                column={column}
+                title="Status"
+                tooltip="Playoff picture"
+              />
+            ),
+            cell: ({ row }) => {
+              if (!row.original.claimed) return PLACEHOLDER;
+              const status =
+                "playoffStatus" in row.original
+                  ? row.original.playoffStatus
+                  : null;
+              if (!status) return PLACEHOLDER;
+              return <PlayoffStatusBadge status={status} />;
+            },
+          },
+        ] as ColumnDef<StandingsTableRow>[])
+      : []),
+    ...(showSeed
+      ? []
+      : ([
+          {
+            id: "pf",
+            accessorFn: (row) => (row.claimed ? row.pointsFor : null),
+            enableSorting: true,
+            sortingFn: (a, b) =>
+              claimedFirst(a, b, () =>
+                compareNullableNumber(
+                  a.getValue<number | null>("pf"),
+                  b.getValue<number | null>("pf"),
+                ),
+              ),
+            header: ({ column }) => (
+              <DataTableColumnHeader
+                column={column}
+                title="PF"
+                tooltip="Points for"
+              />
+            ),
+            cell: ({ row }) =>
+              row.original.claimed
+                ? formatPoints(row.original.pointsFor)
+                : PLACEHOLDER,
+            meta: { cellClassName: "tabular-nums" },
+          },
+          {
+            id: "pfAvg",
+            accessorFn: (row) => (row.claimed ? row.pointsForAvg : null),
+            enableSorting: true,
+            sortingFn: (a, b) =>
+              claimedFirst(a, b, () =>
+                compareNullableNumber(
+                  a.getValue<number | null>("pfAvg"),
+                  b.getValue<number | null>("pfAvg"),
+                ),
+              ),
+            header: ({ column }) => (
+              <DataTableColumnHeader
+                column={column}
+                title="PF/G"
+                tooltip="Points for average"
+              />
+            ),
+            cell: ({ row }) =>
+              row.original.claimed
+                ? formatPoints(row.original.pointsForAvg)
+                : PLACEHOLDER,
+            meta: { cellClassName: "tabular-nums" },
+          },
+          {
+            id: "pa",
+            accessorFn: (row) => (row.claimed ? row.pointsAgainst : null),
+            enableSorting: true,
+            sortingFn: (a, b) =>
+              claimedFirst(a, b, () =>
+                compareNullableNumber(
+                  a.getValue<number | null>("pa"),
+                  b.getValue<number | null>("pa"),
+                ),
+              ),
+            header: ({ column }) => (
+              <DataTableColumnHeader
+                column={column}
+                title="PA"
+                tooltip="Points against"
+              />
+            ),
+            cell: ({ row }) =>
+              row.original.claimed
+                ? formatPoints(row.original.pointsAgainst)
+                : PLACEHOLDER,
+            meta: { cellClassName: "tabular-nums" },
+          },
+          {
+            id: "paAvg",
+            accessorFn: (row) => (row.claimed ? row.pointsAgainstAvg : null),
+            enableSorting: true,
+            sortingFn: (a, b) =>
+              claimedFirst(a, b, () =>
+                compareNullableNumber(
+                  a.getValue<number | null>("paAvg"),
+                  b.getValue<number | null>("paAvg"),
+                ),
+              ),
+            header: ({ column }) => (
+              <DataTableColumnHeader
+                column={column}
+                title="PA/G"
+                tooltip="Points against average"
+              />
+            ),
+            cell: ({ row }) =>
+              row.original.claimed
+                ? formatPoints(row.original.pointsAgainstAvg)
+                : PLACEHOLDER,
+            meta: { cellClassName: "tabular-nums" },
+          },
+          wpColumn,
+          ...(showFaabBudget ? [faabColumn] : []),
+          rankColumn,
+        ] as ColumnDef<StandingsTableRow>[])),
     {
       id: "form",
       accessorFn: (row) => row.form.length,

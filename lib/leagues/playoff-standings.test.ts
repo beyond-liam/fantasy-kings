@@ -32,6 +32,9 @@ function stubRow(id: string): LeagueStandingsRow {
     draftOrder: 1,
     opponentName: null,
     form: [],
+    sos: null,
+    sosPlayed: null,
+    sosRemaining: null,
   };
 }
 
@@ -78,5 +81,17 @@ describe("buildPlayoffStandingsRows", () => {
       rows.map((row) => row.seed),
       [1, 2, 3],
     );
+  });
+
+  it("attaches odds when the regular season is complete", () => {
+    const rows = buildPlayoffStandingsRows(
+      [stubRow("a"), stubRow("b")],
+      {
+        playoffSpots: 1,
+        remainingMatchups: [],
+      },
+    );
+    assert.equal(rows[0]?.playoffOdds, 1);
+    assert.equal(rows[1]?.playoffOdds, 0);
   });
 });

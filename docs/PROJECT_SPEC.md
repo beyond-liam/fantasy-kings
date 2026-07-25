@@ -36,7 +36,7 @@ A mobile-first fantasy football web app for a private friend group (8–16 users
 | Team UX | Roster summary panel, IR/taxi lock alerts, floating roster actions, suggested lineup |
 | Notifications | In-app bell (with league name) + Brevo email v1 (draft + trade only) |
 | Standings | FORM guide (last 5) replaces next-opponent column |
-| Game Centre | Yet-to-play starter breakdown popover |
+| Game Centre | Yet-to-play + scheduled Preview dashboard (predictor, leaders, injuries, H2H) |
 | Playoffs standings | Seed only (no Rank column) |
 | Messages | League threads + replies; nav unread red dot; mark all read |
 
@@ -50,9 +50,9 @@ A mobile-first fantasy football web app for a private friend group (8–16 users
 
 | Item | Notes |
 |---|---|
-| Strength of schedule | Played + remaining SOS (opponent win% and/or PF) |
-| Playoff chance % | Odds column on Playoffs standings table (method TBD; start simple) |
-| Playoff picture | Clinch / eliminate / bubble / magic number mid–late season |
+| Strength of schedule | Projected opponent win% (starter PF → logistic); season vs remaining; pre-season both match |
+| Playoff chance % | Monte Carlo on remaining schedule; Odds column color-coded |
+| Playoff picture | In / Bubble / Out badges (win-bound clinch/eliminate) |
 | Matchup insights | Rivalry record, last N meetings, proj winner/margin, positional edges, top starter each side, median/luck, shared NFL games, injury impact, bench/optimal delta |
 | “Would have won” | Alternate H2H outcomes (vs field / median / optimal) on matchup + team H2H |
 | Team Head-to-Head tab | On other-team page: historical record vs viewer’s team + meeting list |
@@ -173,10 +173,9 @@ Entered via dashboard league picker or `/league/[leagueId]` (6-char public id). 
 
 | Route | Page | Description |
 |---|---|---|
-| `/league/[leagueId]` | League | League home — tabs: Standings, Stats, Playoffs, Rules, Scoring (+ Hall of Fame when shipped) |
+| `/league/[leagueId]` | League | League home — tabs: Overview, Standings, Stats, Playoffs, Hall of Fame, Rules, Scoring |
 | `/league/[leagueId]/team` | My Team | Roster / lineup / watchlist |
 | `/league/[leagueId]/team/[teamId]` | Other team | Another manager's roster (public team id); **Head-to-Head** tab vs viewer’s team when shipped |
-| `/league/[leagueId]/hall-of-fame` | Hall of Fame | League museum — titles, cellar, all-time, roast awards (route TBD: tab vs dedicated page) |
 | `/league/[leagueId]/players` | Players | Rankings-style pool + Team/Action columns |
 | `/league/[leagueId]/scores` | Matchups | **Fantasy** matchup scores |
 | `/league/[leagueId]/scores/[matchupId]` | Game Centre | Fantasy matchup detail (6-char public id) |
@@ -525,8 +524,8 @@ lib/
 | 3 | Rankings source — Sleeper projections/stats scored with league/preset rules | **Resolved** |
 | 4 | Shareable invite link — commissioner approval required, or open join? | **Resolved** — invite link/code opens recruiting page; Claim Team assigns a specific open slot; leagues private (no public discovery) |
 | 5 | League home — standings + matchup only, or commissioner settings on same page? | **Resolved** — settings under `/league/[slug]/settings` |
-| 6 | Hall of Fame — tab on league home vs dedicated `/hall-of-fame` route? | **Open** — either OK; pick when implementing |
-| 7 | Playoff chance % method — heuristic vs simulation? | **Open** — start simple when building |
+| 6 | Hall of Fame — tab on league home vs dedicated `/hall-of-fame` route? | **Closed** — tab on league home (after Playoffs) |
+| 7 | Playoff chance % method — heuristic vs simulation? | **Closed** — Monte Carlo on remaining schedule (PF/G logistic); picture uses win bounds |
 
 ---
 
@@ -606,12 +605,14 @@ lib/
 - [x] **League on notification popover** — show which league each notification belongs to
 
 **Engagement analytics**
-- [ ] **Strength of schedule** — played + remaining SOS on standings / team views
-- [ ] **Playoff chance %** — odds column on Playoffs standings table
-- [ ] **Playoff picture** — clinch / eliminate / bubble / magic number
-- [ ] **Matchup insights** — rivalry history, last N, proj edges, top starters, median/luck, shared NFL games, injury impact, bench/optimal delta
+- [x] **Strength of schedule** — projected opponent win% on standings (season) + playoffs (remaining); same pre-season
+- [x] **Playoff chance %** — Odds column (Monte Carlo on remaining schedule)
+- [x] **Playoff picture** — Status badges (In / Bubble / Out) on playoffs table
+- [x] **Matchup Preview (scheduled)** — Preview + Matchup tabs; predictor, season leaders, injury report, rivalry history, last 5
+- [x] **League Overview** — standings glance (±2 neighbors); top scorer / worst D / inefficiency %; passing/rushing/receiving leaders (yards+TD fantasy pts); season leaders; POTW spotlights
+- [ ] **Matchup insights (remaining)** — positional edges, median/luck, bench/optimal delta, would-have-won
 - [ ] **Would have won** — alternate outcomes on matchup + H2H views
-- [ ] **Team Head-to-Head tab** — viewer vs other team historical series
+- [x] **Team Head-to-Head tab** — viewer vs other team series on other-team page
 - [ ] **Hall of Fame** — champions, cellar, all-time, roast awards, single-game museum
 - [ ] **Season rewind** — end-of-year team/league recap
 
@@ -712,5 +713,9 @@ lib/
 | 2026-07-25 | Ship near-term slices: league on notifications, yet-to-play tooltip, standings FORM guide, floating dirty actions, suggested lineup, FA “Owned by” copy fix |
 | 2026-07-25 | In-league messaging v1: threads/replies, create dialog, unread nav red dot, mark all read; mentions → notifications deferred |
 | 2026-07-25 | Message mentions: `@` member picker, bold tokens, `message_mention` bell notifications |
+| 2026-07-25 | League home tabs: Overview (first) + Hall of Fame (after Playoffs); HoF content placeholder |
+| 2026-07-25 | Engagement: season SOS on standings; remaining SOS + Odds + Status on playoffs; slim playoff cols (drop PF/PA/WP/BRM) |
 | 2026-07-25 | Audit leftovers closed: lineup lock on FA add/cut + waiver award; schedule weeklyRank + other-team Chance; plans README status |
+| 2026-07-25 | League Overview: standings glance, PF/PA/inefficiency, season leaders, POTW, TOTW |
+| 2026-07-25 | Game Centre Preview: scheduled = Preview+Matchup; live/final = Matchup+Box; predictor/leaders/injuries/H2H |
 | 2026-07-16 | Trades: initial implementation started; follow-up items documented (vetoes, limits, cron, email) |

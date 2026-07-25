@@ -1,4 +1,5 @@
 import type { ScheduleGame } from "@/lib/espn/scoreboard";
+import { resolvePlayerByeWeek } from "@/lib/nfl/bye-weeks";
 
 /** ESPN uses WSH; players/Sleeper often use WAS. */
 const TEAM_ALIASES: Record<string, string> = {
@@ -114,18 +115,29 @@ export function resolvePlayerOpponent(input: {
   byeWeek?: number | null;
   week: number;
   opponentsByTeam: Map<string, TeamMatchup>;
+  seasonYear?: number;
 }): PlayerOpponent | null {
   const team = normalizeNflTeamAbbrev(input.nflTeam);
   if (!team) {
     return null;
   }
 
-  if (input.byeWeek != null && input.byeWeek === input.week) {
+  const byeWeek = resolvePlayerByeWeek({
+    byeWeek: input.byeWeek,
+    nflTeam: team,
+    seasonYear: input.seasonYear,
+  });
+
+  if (byeWeek != null && byeWeek === input.week) {
     return { label: "BYE", kickoffLabel: null, gameStatus: null };
   }
 
   const matchup = input.opponentsByTeam.get(team);
   if (!matchup) {
+    // Slate loaded but this team has no game → bye (covers null/stale player byeWeek).
+    if (input.opponentsByTeam.size > 0) {
+      return { label: "BYE", kickoffLabel: null, gameStatus: null };
+    }
     return null;
   }
 

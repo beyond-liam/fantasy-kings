@@ -12,6 +12,7 @@ export const OTHER_TEAM_TABS = [
   { value: "roster", label: "Roster" },
   { value: "stats", label: "Stats" },
   { value: "schedule", label: "Schedule" },
+  { value: "head-to-head", label: "Head to Head" },
   { value: "draft-picks", label: "Draft Picks" },
 ] as const;
 

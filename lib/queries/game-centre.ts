@@ -6,6 +6,10 @@ import {
   type OptimumLineupResult,
 } from "@/lib/leagues/game-centre/optimum";
 import {
+  buildMatchupPreview,
+  type GameCentrePreview,
+} from "@/lib/leagues/game-centre/preview";
+import {
   pickWaiverTips,
   type WaiverTip,
 } from "@/lib/leagues/game-centre/waivers";
@@ -43,7 +47,7 @@ import {
   getLeagueMembership,
   getLeagueSeasonByYear,
 } from "@/lib/queries/leagues";
-import { getMatchupByKey } from "@/lib/queries/matchups";
+import { getMatchupByKey, getTeamSchedule } from "@/lib/queries/matchups";
 import { getRankedPlayers, type RankedPlayerRow } from "@/lib/queries/players";
 import {
   getLeaguePlayerOwnershipMap,
@@ -140,6 +144,8 @@ export type GameCentreData = {
     home: GameCentreBoxTeam;
   };
   viewerTeamId: string | null;
+  /** Pre-game insight dashboard; only populated when status is scheduled. */
+  preview: GameCentrePreview | null;
 };
 
 function buildProgressByNflTeam(
@@ -199,6 +205,7 @@ function mapPlayer(input: {
   actualStatsById: Map<string, RankedPlayerRow>;
   opponentsByTeam: Map<string, TeamMatchup>;
   week: number;
+  seasonYear: number;
   startedTeams: Set<string>;
   scoringRules: Parameters<typeof explainPlayerPoints>[2];
   games: ScheduleGame[];
@@ -211,6 +218,7 @@ function mapPlayer(input: {
     actualStatsById,
     opponentsByTeam,
     week,
+    seasonYear,
     startedTeams,
     scoringRules,
     games,
@@ -223,6 +231,7 @@ function mapPlayer(input: {
     byeWeek: player.byeWeek,
     week,
     opponentsByTeam,
+    seasonYear,
   });
   const kickoff = kickoffForNflTeam(player.nflTeam, games);
   const teamMatchup = player.nflTeam
@@ -376,42 +385,59 @@ export async function getGameCentreData(input: {
       viewerTeamId === matchup.homeTeamId);
 
   const seasonYear = String(season.seasonYear);
+  const needsPreview = matchup.status === "scheduled";
 
-  const [weekProjections, weekStats, faProjections] = await Promise.all([
-    rosterIds.length
-      ? getRankedPlayers({
-          season: seasonYear,
-          week: matchup.week,
-          kind: "projection",
-          scoringRules,
-          playerIds: rosterIds,
-          preserveStats: true,
-        }).catch(() => [])
-      : Promise.resolve([]),
-    rosterIds.length
-      ? getRankedPlayers({
-          season: seasonYear,
-          week: matchup.week,
-          kind: "stats",
-          scoringRules,
-          playerIds: rosterIds,
-          preserveStats: true,
-        }).catch(() => [])
-      : Promise.resolve([]),
-    // Waiver tips only for the viewer's matchup; top projections (not full pool).
-    needsFaTips
-      ? getRankedPlayers({
-          season: seasonYear,
-          week: matchup.week,
-          kind: "projection",
-          scoringRules,
-          limit: 100,
-        }).catch(() => [])
-      : Promise.resolve([]),
-  ]);
+  const [weekProjections, weekStats, faProjections, awaySchedule, seasonProjections] =
+    await Promise.all([
+      rosterIds.length
+        ? getRankedPlayers({
+            season: seasonYear,
+            week: matchup.week,
+            kind: "projection",
+            scoringRules,
+            playerIds: rosterIds,
+            preserveStats: true,
+          }).catch(() => [])
+        : Promise.resolve([]),
+      rosterIds.length
+        ? getRankedPlayers({
+            season: seasonYear,
+            week: matchup.week,
+            kind: "stats",
+            scoringRules,
+            playerIds: rosterIds,
+            preserveStats: true,
+          }).catch(() => [])
+        : Promise.resolve([]),
+      // Waiver tips only for the viewer's matchup; top projections (not full pool).
+      needsFaTips
+        ? getRankedPlayers({
+            season: seasonYear,
+            week: matchup.week,
+            kind: "projection",
+            scoringRules,
+            limit: 100,
+          }).catch(() => [])
+        : Promise.resolve([]),
+      needsPreview
+        ? getTeamSchedule(season.id, matchup.awayTeamId)
+        : Promise.resolve([]),
+      needsPreview && rosterIds.length
+        ? getRankedPlayers({
+            season: seasonYear,
+            week: 0,
+            kind: "projection",
+            scoringRules,
+            playerIds: rosterIds,
+          }).catch(() => [])
+        : Promise.resolve([]),
+    ]);
 
   const projectedById = new Map(
     weekProjections.map((p) => [p.id, p.fantasyPts]),
+  );
+  const seasonProjectedById = new Map(
+    seasonProjections.map((p) => [p.id, p.fantasyPts]),
   );
   const actualById = new Map(weekStats.map((p) => [p.id, p.fantasyPts]));
   const actualStatsById = new Map(weekStats.map((p) => [p.id, p]));
@@ -422,6 +448,7 @@ export async function getGameCentreData(input: {
     actualStatsById,
     opponentsByTeam,
     week: matchup.week,
+    seasonYear: season.seasonYear,
     startedTeams,
     scoringRules,
     games,
@@ -486,12 +513,7 @@ export async function getGameCentreData(input: {
         slotPositionId: player.slotPositionId,
         opponentLabel: player.opponent?.label ?? null,
         kickoff: player.kickoff,
-      }))
-      .toSorted((a, b) => {
-        const aTime = a.kickoff ? Date.parse(a.kickoff) : Number.POSITIVE_INFINITY;
-        const bTime = b.kickoff ? Date.parse(b.kickoff) : Number.POSITIVE_INFINITY;
-        return aTime - bTime || a.fullName.localeCompare(b.fullName);
-      });
+      }));
   }
 
   const awayWinPlayers = toWinProbPlayers(
@@ -616,6 +638,41 @@ export async function getGameCentreData(input: {
     yetToPlayPlayers: yetToPlayBreakdown(homeStarters),
   };
 
+  const awayStarterIds = new Set(
+    awayStarters.filter((p): p is GameCentrePlayer => p != null).map((p) => p.id),
+  );
+  const homeStarterIds = new Set(
+    homeStarters.filter((p): p is GameCentrePlayer => p != null).map((p) => p.id),
+  );
+
+  const preview = needsPreview
+    ? buildMatchupPreview({
+        focusSchedule: awaySchedule,
+        opponentTeamId: matchup.homeTeamId,
+        seasonYear: season.seasonYear,
+        awayPlayers: awayRoster.map((player) => ({
+          fullName: player.fullName,
+          primaryPositionId: player.primaryPositionId,
+          sleeperId: player.sleeperId,
+          nflTeam: player.nflTeam,
+          injuryStatus: player.injuryStatus,
+          projectedPts: projectedById.get(player.id) ?? null,
+          seasonProjectedPts: seasonProjectedById.get(player.id) ?? null,
+          isStarter: awayStarterIds.has(player.id),
+        })),
+        homePlayers: homeRoster.map((player) => ({
+          fullName: player.fullName,
+          primaryPositionId: player.primaryPositionId,
+          sleeperId: player.sleeperId,
+          nflTeam: player.nflTeam,
+          injuryStatus: player.injuryStatus,
+          projectedPts: projectedById.get(player.id) ?? null,
+          seasonProjectedPts: seasonProjectedById.get(player.id) ?? null,
+          isStarter: homeStarterIds.has(player.id),
+        })),
+      })
+    : null;
+
   return {
     matchupId: matchup.id,
     matchupPublicId: matchup.publicId,
@@ -645,5 +702,6 @@ export async function getGameCentreData(input: {
       },
     },
     viewerTeamId,
+    preview,
   };
 }

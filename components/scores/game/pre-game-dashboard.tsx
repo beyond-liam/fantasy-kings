@@ -121,20 +121,20 @@ function MatchupPredictor({
         </div>
       </div>
 
-      <div className="flex w-full justify-between gap-2 text-sm font-medium">
-        <span className="flex items-center gap-1.5">
+      <div className="flex w-full flex-col gap-1.5 text-sm font-medium">
+        <span className="flex min-w-0 items-center gap-1.5">
           <ColorSwatch tone="muted" />
-          {awayAbbrev}{" "}
-          <span className="tabular-nums text-muted-foreground">
+          <span className="truncate">{awayAbbrev}</span>
+          <span className="ml-auto shrink-0 tabular-nums text-muted-foreground">
             {awayPct.toFixed(1)}%
           </span>
         </span>
-        <span className="flex items-center gap-1.5">
-          {homeAbbrev}{" "}
-          <span className="tabular-nums text-muted-foreground">
+        <span className="flex min-w-0 items-center gap-1.5">
+          <ColorSwatch tone="primary" />
+          <span className="truncate">{homeAbbrev}</span>
+          <span className="ml-auto shrink-0 tabular-nums text-muted-foreground">
             {homePct.toFixed(1)}%
           </span>
-          <ColorSwatch tone="primary" />
         </span>
       </div>
     </div>
@@ -170,7 +170,7 @@ export function PreGameDashboard({ data }: PreGameDashboardProps) {
   return (
     <div className="grid gap-4 lg:grid-cols-[minmax(0,17rem)_minmax(0,1fr)_minmax(0,17rem)]">
       <div className="flex flex-col gap-4">
-        <SectionCard title="Matchup predictor">
+        <SectionCard title="Matchup Predictor">
           {data.predictor ? (
             <MatchupPredictor
               awayAbbrev={game.away.abbreviation}
@@ -185,7 +185,7 @@ export function PreGameDashboard({ data }: PreGameDashboardProps) {
           )}
         </SectionCard>
 
-        <SectionCard title="Game information">
+        <SectionCard title="Game Information">
           <div className="flex flex-col gap-3">
             <div>
               <p className="text-sm font-medium tabular-nums">
@@ -206,7 +206,7 @@ export function PreGameDashboard({ data }: PreGameDashboardProps) {
       </div>
 
       <div className="flex flex-col gap-4">
-        <SectionCard title="Game odds">
+        <SectionCard title="Game Odds">
           {data.odds ? (
             <>
               <TableShell className="rounded-lg border-0">
@@ -275,7 +275,7 @@ export function PreGameDashboard({ data }: PreGameDashboardProps) {
           )}
         </SectionCard>
 
-        <SectionCard title="Season leaders">
+        <SectionCard title="Season Leaders">
           {data.seasonLeaders ? (
             <LeadersList leaders={data.seasonLeaders} />
           ) : (
@@ -283,7 +283,7 @@ export function PreGameDashboard({ data }: PreGameDashboardProps) {
           )}
         </SectionCard>
 
-        <SectionCard title="Injury report">
+        <SectionCard title="Injury Report">
           {data.injuries ? (
             <div className="grid gap-4 sm:grid-cols-2">
               {(
@@ -333,7 +333,7 @@ export function PreGameDashboard({ data }: PreGameDashboardProps) {
           )}
         </SectionCard>
 
-        <SectionCard title="Last five games">
+        <SectionCard title="Last 5 Games">
           {data.awayForm != null && data.homeForm != null ? (
             <div className="grid gap-4 sm:grid-cols-2">
               {(
