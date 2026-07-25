@@ -210,7 +210,7 @@ export function UserSettingsForm({
         </CardContent>
       </Card>
 
-      <PageFormActions>
+      <PageFormActions float={hasChanges}>
         <Button
           type="button"
           variant="outline"

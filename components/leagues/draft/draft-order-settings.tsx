@@ -119,7 +119,7 @@ export function DraftOrderSettings({
       <SettingsFormCard
         title="Draft Order"
         footer={
-          <PageFormActions>
+          <PageFormActions float={hasChanges}>
             <Button
               type="button"
               variant="ghost"

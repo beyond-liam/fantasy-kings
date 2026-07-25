@@ -66,7 +66,7 @@ export function LineupLockSettings({
       <SettingsFormCard
         title="Lineup Locking"
         footer={
-          <PageFormActions>
+          <PageFormActions float={hasChanges}>
             <Button
               type="button"
               variant="outline"

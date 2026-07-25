@@ -2,7 +2,10 @@ import type {
   RankTiebreakerId,
   TiebreakerSettings,
 } from "@/db/schema/league-seasons";
-import type { FinalMatchupRecord } from "@/lib/leagues/standings";
+import type {
+  FinalMatchupRecord,
+  StandingsFormGame,
+} from "@/lib/leagues/standings";
 import {
   buildPlaceholderStandings,
   type BuildStandingsOptions,
@@ -13,6 +16,7 @@ import { compareRankTiebreakers } from "@/lib/leagues/tiebreakers/rank-compare";
 import { DEFAULT_TIEBREAKER_SETTINGS } from "@/lib/leagues/tiebreakers";
 
 const TIE_EPSILON = 0.05;
+const FORM_LENGTH = 5;
 
 type TeamAccum = {
   wins: number;
@@ -22,6 +26,8 @@ type TeamAccum = {
   pointsAgainst: number;
   /** Chronological results for streak (oldest → newest). */
   results: Array<"W" | "L" | "T">;
+  /** Chronological form games with opponent context. */
+  formGames: StandingsFormGame[];
 };
 
 function emptyAccum(): TeamAccum {
@@ -32,6 +38,7 @@ function emptyAccum(): TeamAccum {
     pointsFor: 0,
     pointsAgainst: 0,
     results: [],
+    formGames: [],
   };
 }
 
@@ -84,6 +91,11 @@ export function applyFinalMatchupsToStandings(
 ): LeagueStandingsRow[] {
   const byTeam = new Map<string, TeamAccum>();
   const { breakTies, order } = resolveSortOptions(tiebreakers);
+  const teamNameById = new Map(
+    baseRows
+      .filter((row) => row.teamId)
+      .map((row) => [row.teamId!, row.teamName] as const),
+  );
 
   const sortedFinals = finals.toSorted(
     (a, b) => a.week - b.week || a.id.localeCompare(b.id),
@@ -101,6 +113,10 @@ export function applyFinalMatchupsToStandings(
 
     const home = byTeam.get(matchup.homeTeamId) ?? emptyAccum();
     const away = byTeam.get(matchup.awayTeamId) ?? emptyAccum();
+    const homeName =
+      teamNameById.get(matchup.homeTeamId) ?? "Unknown";
+    const awayName =
+      teamNameById.get(matchup.awayTeamId) ?? "Unknown";
 
     home.pointsFor += matchup.homePts;
     home.pointsAgainst += matchup.awayPts;
@@ -108,22 +124,41 @@ export function applyFinalMatchupsToStandings(
     away.pointsAgainst += matchup.homePts;
 
     const diff = matchup.homePts - matchup.awayPts;
+    let homeResult: "W" | "L" | "T";
+    let awayResult: "W" | "L" | "T";
     if (Math.abs(diff) <= TIE_EPSILON) {
       home.ties += 1;
       away.ties += 1;
-      home.results.push("T");
-      away.results.push("T");
+      homeResult = "T";
+      awayResult = "T";
     } else if (diff > 0) {
       home.wins += 1;
       away.losses += 1;
-      home.results.push("W");
-      away.results.push("L");
+      homeResult = "W";
+      awayResult = "L";
     } else {
       away.wins += 1;
       home.losses += 1;
-      away.results.push("W");
-      home.results.push("L");
+      awayResult = "W";
+      homeResult = "L";
     }
+
+    home.results.push(homeResult);
+    away.results.push(awayResult);
+    home.formGames.push({
+      result: homeResult,
+      week: matchup.week,
+      opponentName: awayName,
+      ownPts: matchup.homePts,
+      oppPts: matchup.awayPts,
+    });
+    away.formGames.push({
+      result: awayResult,
+      week: matchup.week,
+      opponentName: homeName,
+      ownPts: matchup.awayPts,
+      oppPts: matchup.homePts,
+    });
 
     byTeam.set(matchup.homeTeamId, home);
     byTeam.set(matchup.awayTeamId, away);
@@ -153,6 +188,7 @@ export function applyFinalMatchupsToStandings(
       pointsAgainstAvg:
         games > 0 ? Math.round((accum.pointsAgainst / games) * 10) / 10 : 0,
       streak: streakFromResults(accum.results),
+      form: accum.formGames.slice(-FORM_LENGTH),
     };
   });
 

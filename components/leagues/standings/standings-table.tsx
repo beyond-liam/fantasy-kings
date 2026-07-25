@@ -18,6 +18,12 @@ import {
   DataTableViewOptions,
   useDataTable,
 } from "@/components/ui/data-table";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { claimTeam } from "@/lib/actions/leagues";
 import {
   formatGamesBehind,
@@ -26,6 +32,7 @@ import {
   formatWinPct,
   streakSortValue,
   type LeagueStandingsRow,
+  type StandingsFormGame,
 } from "@/lib/leagues/standings";
 import type { LeaguePlayoffStandingsRow } from "@/lib/leagues/playoff-standings";
 import { leagueTeamPath, myTeamPath } from "@/lib/leagues/utils";
@@ -64,9 +71,52 @@ const COLUMN_LABELS: Record<string, string> = {
   wp: "Waiver priority",
   faab: "Budget remaining",
   rank: "Rank",
-  opp: "Opponent",
+  form: "Form",
   action: "Action",
 };
+
+function formResultLabel(result: StandingsFormGame["result"]) {
+  if (result === "W") return "Win";
+  if (result === "L") return "Loss";
+  return "Tie";
+}
+
+function FormGuideCell({ games }: { games: StandingsFormGame[] }) {
+  if (games.length === 0) {
+    return <span className="text-muted-foreground">{PLACEHOLDER}</span>;
+  }
+
+  return (
+    <TooltipProvider>
+      <div className="flex items-center gap-1" aria-label="Last five results">
+        {games.map((game, index) => (
+          <Tooltip key={`${game.week}-${game.opponentName}-${index}`}>
+            <TooltipTrigger
+              render={
+                <span
+                  className={cn(
+                    "inline-flex size-4 shrink-0 items-center justify-center rounded-sm text-[9px] font-semibold leading-none tabular-nums text-background",
+                    game.result === "W" && "bg-success",
+                    game.result === "L" && "bg-destructive",
+                    game.result === "T" && "bg-muted text-muted-foreground",
+                  )}
+                  aria-label={`${formResultLabel(game.result)} vs ${game.opponentName}`}
+                >
+                  {game.result}
+                </span>
+              }
+            />
+            <TooltipContent>
+              Week {game.week}: {formResultLabel(game.result)} vs{" "}
+              {game.opponentName} ({formatPoints(game.ownPts)}–
+              {formatPoints(game.oppPts)})
+            </TooltipContent>
+          </Tooltip>
+        ))}
+      </div>
+    </TooltipProvider>
+  );
+}
 
 function compareNullableNumber(
   a: number | null | undefined,
@@ -462,14 +512,18 @@ function getStandingsColumns(
       meta: { cellClassName: "tabular-nums" },
     },
     {
-      id: "opp",
-      accessorFn: (row) => row.opponentName,
+      id: "form",
+      accessorFn: (row) => row.form.length,
       enableSorting: false,
-      header: () => <TeamTableColumnHeader title="OPP" tooltip="Opponent" />,
+      header: () => (
+        <TeamTableColumnHeader title="FORM" tooltip="Last five results" />
+      ),
       cell: ({ row }) =>
-        row.original.claimed
-          ? (row.original.opponentName ?? PLACEHOLDER)
-          : PLACEHOLDER,
+        row.original.claimed ? (
+          <FormGuideCell games={row.original.form ?? []} />
+        ) : (
+          PLACEHOLDER
+        ),
     },
   ];
 

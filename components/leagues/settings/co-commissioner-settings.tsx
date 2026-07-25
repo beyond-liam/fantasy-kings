@@ -82,7 +82,7 @@ export function CoCommissionerSettings({
         title="Appoint Co-Commissioners"
         contentClassName="p-0"
         footer={
-          <PageFormActions>
+          <PageFormActions float={hasChanges}>
             <Button
               type="button"
               variant="outline"

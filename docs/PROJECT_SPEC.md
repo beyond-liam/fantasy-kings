@@ -33,21 +33,18 @@ A mobile-first fantasy football web app for a private friend group (8–16 users
 | Win% | Calibrated live chance on schedule/board (literature σ priors; re-fit is lowest-priority later) |
 | Playoffs | Settings, bracket hydrate, first-round ensure, advance (4/6/8 + re-seed + byes + game TBs), two-week championship rematch + series totals + Champion crowning |
 | Activity | Adds/drops, waivers, trades, IR/taxi, settings diffs, score corrections |
-| Team UX | Roster summary panel, IR/taxi lock alerts on all My Team tabs |
-| Notifications | In-app bell + Brevo email v1 (draft + trade only) |
+| Team UX | Roster summary panel, IR/taxi lock alerts, floating roster actions, suggested lineup |
+| Notifications | In-app bell (with league name) + Brevo email v1 (draft + trade only) |
+| Standings | FORM guide (last 5) replaces next-opponent column |
+| Game Centre | Yet-to-play starter breakdown tooltip |
 
 ### Near-term product (build next)
 
 | Item | Notes |
 |---|---|
 | Advanced player filtering | Richer filters beyond current position / team / rookies / FA toggles |
-| Form guide on league table | Recent W/L/T form strip (or similar) on standings |
 | Remove rank from playoffs table | Playoffs standings show seed; drop redundant Rank column |
 | In-league messaging service | League-scoped messaging (not email); design TBD |
-| Break down yet-to-play positions/players | Surface remaining unplayed starters/slots in live matchups |
-| “Use suggested lineup” | Button next to Update Roster — auto-set lineup from projections |
-| Floating action bar | On pages with save/action buttons: sticky bar appears when there are unsaved changes (avoids scroll-to-save) |
-| League on notification popover | Show which league each notification belongs to |
 
 ### Engagement analytics (planned — after near-term)
 
@@ -598,13 +595,13 @@ lib/
 
 **Near-term product**
 - [ ] **Advanced player filtering** — richer filters beyond position / team / rookies / FA
-- [ ] **Form guide on league table** — recent results form on standings
+- [x] **Form guide on league table** — last 5 results (FORM column replaces OPP); tooltips with opponent/score
 - [ ] **Remove rank from playoffs table** — seed only; drop redundant Rank column
 - [ ] **In-league messaging service** — league-scoped messaging (design TBD)
-- [ ] **Yet-to-play breakdown** — remaining unplayed positions/players in live matchups
-- [ ] **Use suggested lineup** — button next to Update Roster; auto-set from projections
-- [ ] **Floating action bar** — sticky save/action bar when dirty (all pages with action buttons)
-- [ ] **League on notification popover** — show which league each notification belongs to
+- [x] **Yet-to-play breakdown** — Game Centre tooltip lists remaining unplayed starters
+- [x] **Use suggested lineup** — button next to Update Roster; auto-set from projections
+- [x] **Floating action bar** — sticky save/action bar when dirty (settings + always on My Team roster)
+- [x] **League on notification popover** — show which league each notification belongs to
 
 **Engagement analytics**
 - [ ] **Strength of schedule** — played + remaining SOS on standings / team views
@@ -710,4 +707,5 @@ lib/
 | 2026-07-25 | Product backlog: advanced player filters, standings form guide, playoffs rank column removal, in-league messaging, yet-to-play breakdown, suggested lineup, floating action bar, league name on notification popover |
 | 2026-07-25 | Engagement backlog: SOS, playoff chance %, playoff picture, matchup insights, would-have-won, team H2H tab, Hall of Fame (titles + roast awards), season rewind; exclude activity milestones + franchise pages |
 | 2026-07-25 | Spec triage: near-term vs engagement vs deferred; permanently drop friends lobby, Trade Analyzer, branding track, broader email; lowest priority = win% σ re-fit, Query/Zustand, web push |
+| 2026-07-25 | Ship near-term slices: league on notifications, yet-to-play tooltip, standings FORM guide, floating dirty actions, suggested lineup, FA “Owned by” copy fix |
 | 2026-07-16 | Trades: initial implementation started; follow-up items documented (vetoes, limits, cron, email) |

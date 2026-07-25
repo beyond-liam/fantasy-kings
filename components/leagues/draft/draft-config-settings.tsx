@@ -107,7 +107,7 @@ export function DraftConfigSettings({
       <SettingsFormCard
         title="Configure Draft"
         footer={
-          <PageFormActions>
+          <PageFormActions float={hasChanges}>
             <Button
               type="button"
               variant="ghost"

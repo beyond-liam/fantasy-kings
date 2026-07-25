@@ -313,7 +313,7 @@ export function RealignDivisionsSettings({
       <SettingsFormCard
         title="Realign Divisions"
         footer={
-          <PageFormActions>
+          <PageFormActions float={hasChanges}>
             <Button
               type="button"
               variant="outline"

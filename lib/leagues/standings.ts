@@ -1,5 +1,13 @@
 import { resolveFaabRemaining } from "@/lib/leagues/waivers/faab";
 
+export type StandingsFormGame = {
+  result: "W" | "L" | "T";
+  week: number;
+  opponentName: string;
+  ownPts: number;
+  oppPts: number;
+};
+
 export type LeagueStandingsRow = {
   id: string;
   teamId: string | null;
@@ -23,7 +31,10 @@ export type LeagueStandingsRow = {
   faabRemaining: number | null;
   rank: number | null;
   draftOrder: number | null;
+  /** @deprecated Prefer `form` — next opponent is no longer shown on standings. */
   opponentName: string | null;
+  /** Last up to 5 finalized results, oldest → newest. */
+  form: StandingsFormGame[];
 };
 
 export type LeagueStandingsMember = {
@@ -69,6 +80,7 @@ function emptyStats() {
     pointsAgainst: 0,
     pointsAgainstAvg: 0,
     opponentName: null as string | null,
+    form: [] as StandingsFormGame[],
   };
 }
 

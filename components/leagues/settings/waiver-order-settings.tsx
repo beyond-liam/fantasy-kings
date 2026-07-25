@@ -109,7 +109,7 @@ export function WaiverOrderSettings({
       <SettingsFormCard
         title="Waiver Order"
         footer={
-          <PageFormActions>
+          <PageFormActions float={hasChanges}>
             <Button
               type="button"
               variant="ghost"

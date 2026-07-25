@@ -92,7 +92,7 @@ export function TiebreakerSettingsForm({
       <SettingsFormCard
         title="Tiebreak Rules"
         footer={
-          <PageFormActions>
+          <PageFormActions float={hasChanges}>
             <Button
               type="button"
               variant="outline"

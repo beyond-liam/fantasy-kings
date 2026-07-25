@@ -173,6 +173,11 @@ export function NotificationsMenu() {
                     )}
                   />
                   <span className="min-w-0 flex-1">
+                    {item.leagueName ? (
+                      <span className="mb-0.5 block text-[11px] font-medium text-muted-foreground">
+                        {item.leagueName}
+                      </span>
+                    ) : null}
                     <span className="block text-sm font-medium text-foreground">
                       {item.title}
                     </span>

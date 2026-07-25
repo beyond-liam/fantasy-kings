@@ -101,7 +101,7 @@ export function RosterSettings({
         title="Roster Requirements"
         contentClassName="flex flex-col gap-8"
         footer={
-          <PageFormActions>
+          <PageFormActions float={hasChanges}>
             <Button
               type="button"
               variant="outline"

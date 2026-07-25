@@ -206,7 +206,7 @@ export function PlayoffSettingsForm({
       <SettingsFormCard
         title="Playoffs"
         footer={
-          <PageFormActions>
+          <PageFormActions float={hasChanges}>
             {editable ? (
               <>
                 <Button

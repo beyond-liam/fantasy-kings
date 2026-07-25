@@ -1,8 +1,12 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { IterationCwIcon, TickDouble02Icon } from "@hugeicons/core-free-icons";
+import {
+  IterationCwIcon,
+  ShuffleIcon,
+  TickDouble02Icon,
+} from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { toast } from "sonner";
 
@@ -12,6 +16,7 @@ import { PageFormActions } from "@/components/layout/page-form-actions";
 import { Button } from "@/components/ui/button";
 import { updateRosterSlots, commissionerUpdateRosterSlots } from "@/lib/actions/roster";
 import type { RosterSlotConfig } from "@/db/schema/league-seasons";
+import { computeOptimumLineup } from "@/lib/leagues/game-centre/optimum";
 import { resolveIrEligibleStatuses } from "@/lib/leagues/ir-eligibility";
 import { buildRosterAssignmentOptions } from "@/lib/leagues/roster-display";
 import {
@@ -43,6 +48,8 @@ type TeamRosterSectionsProps = {
   tradesEnabled?: boolean;
   /** Commissioner editing another team's lineup. */
   commissionerTeamId?: string;
+  /** NFL teams whose games have started — locks suggested-lineup moves. */
+  startedNflTeams?: string[];
   /** When set, shows the sticky team summary beside the roster. */
   summary?: {
     waiverPriorityLabel: string | null;
@@ -77,6 +84,7 @@ export function TeamRosterSections({
   partnerTeamSlug,
   tradesEnabled = true,
   commissionerTeamId,
+  startedNflTeams = [],
   summary,
 }: TeamRosterSectionsProps) {
   const router = useRouter();
@@ -85,6 +93,10 @@ export function TeamRosterSections({
   const serverKey = slotsFingerprint(players);
   const resolvedIrEligible = resolveIrEligibleStatuses(irEligibleStatuses);
   const showRowActions = rowActionsEnabled ?? actionsEnabled;
+  const startedTeams = useMemo(
+    () => new Set(startedNflTeams),
+    [startedNflTeams],
+  );
 
   // Only reset the draft when persisted slot assignments change.
   const [syncedServerKey, setSyncedServerKey] = useState(serverKey);
@@ -154,6 +166,46 @@ export function TeamRosterSections({
     setDraftPlayers(players);
   };
 
+  const handleSuggestedLineup = () => {
+    const projectedById = new Map(
+      draftPlayers.map((player) => [player.id, player.projectedPts ?? null]),
+    );
+    const optimum = computeOptimumLineup({
+      lineup: sections.lineup,
+      rosterPlayers: draftPlayers,
+      projectedById,
+      startedTeams,
+      irEligibleStatuses: resolvedIrEligible,
+    });
+
+    if (!optimum.canApply) {
+      toast.message("Suggested lineup matches your starters (or all are locked).");
+      return;
+    }
+
+    const byId = new Map(draftPlayers.map((player) => [player.id, player]));
+    const next: TeamRosterPlayer[] = [];
+    for (const assignment of optimum.assignments) {
+      const player = byId.get(assignment.playerId);
+      if (!player) {
+        toast.error("Could not apply suggested lineup.");
+        return;
+      }
+      next.push({
+        ...player,
+        slotPositionId: assignment.slotPositionId,
+      });
+    }
+
+    if (next.length !== draftPlayers.length) {
+      toast.error("Could not apply suggested lineup.");
+      return;
+    }
+
+    setDraftPlayers(next);
+    toast.success("Suggested lineup applied — review and update roster.");
+  };
+
   const handleUpdate = () => {
     if (!isDirty || isPending) return;
 
@@ -205,7 +257,20 @@ export function TeamRosterSections({
         <TeamRosterTable section="taxi" slots={sections.taxi} {...tableProps} />
       ) : null}
       {actionsEnabled ? (
-        <PageFormActions>
+        <PageFormActions float>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={isPending}
+            onClick={handleSuggestedLineup}
+          >
+            <HugeiconsIcon
+              icon={ShuffleIcon}
+              strokeWidth={2}
+              data-icon="inline-start"
+            />
+            Use Suggested Lineup
+          </Button>
           <Button
             type="button"
             variant="outline"

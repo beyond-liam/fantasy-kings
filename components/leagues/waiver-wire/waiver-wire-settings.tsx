@@ -165,7 +165,7 @@ export function WaiverWireSettings({
       <SettingsFormCard
         title="Waiver Wire Rules"
         footer={
-          <PageFormActions>
+          <PageFormActions float={hasChanges}>
             <Button
               type="button"
               variant="outline"

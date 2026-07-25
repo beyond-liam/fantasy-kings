@@ -90,7 +90,7 @@ export function LeagueIdentitySettings({
       <SettingsFormCard
         title="League Name & Logo"
         footer={
-          <PageFormActions>
+          <PageFormActions float={hasChanges}>
             <Button
               type="button"
               variant="outline"

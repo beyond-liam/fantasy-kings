@@ -172,7 +172,7 @@ export function LeagueSizeSettings({
       <SettingsFormCard
         title="Edit League Size"
         footer={
-          <PageFormActions>
+          <PageFormActions float={hasChanges}>
             <Button
               type="button"
               variant="outline"

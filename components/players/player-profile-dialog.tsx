@@ -305,10 +305,14 @@ function ProfileBody({ profile }: { profile: PlayerProfile }) {
       <div className="flex flex-col gap-6 p-5 sm:p-6">
         {profile.leagueSlug ? (
           <p className="text-sm text-muted-foreground">
-            <span className="text-foreground">Owned by </span>
-            {profile.ownership?.fantasyTeamName
-              ? profile.ownership.fantasyTeamName
-              : "Free agent"}
+            {profile.ownership?.fantasyTeamName ? (
+              <>
+                <span className="text-foreground">Owned by </span>
+                {profile.ownership.fantasyTeamName}
+              </>
+            ) : (
+              <span className="text-foreground">Free agent</span>
+            )}
           </p>
         ) : null}
 

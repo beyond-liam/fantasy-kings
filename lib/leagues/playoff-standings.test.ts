@@ -31,6 +31,7 @@ function stubRow(id: string): LeagueStandingsRow {
     rank: 1,
     draftOrder: 1,
     opponentName: null,
+    form: [],
   };
 }
 

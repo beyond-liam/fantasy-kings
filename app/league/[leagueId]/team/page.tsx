@@ -332,6 +332,7 @@ export default async function MyTeamPage({
         leagueSlug={slug}
         actionsEnabled={actionsEnabled}
         tradesEnabled={season.tradesEnabled && actionsEnabled}
+        startedNflTeams={[...startedNflTeams]}
         summary={{
           waiverPriorityLabel: season.waiversEnabled
             ? formatWaiverPriority(team.waiverPriority)

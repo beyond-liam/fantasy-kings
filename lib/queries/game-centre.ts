@@ -79,6 +79,14 @@ export type GameCentreDuelRow = {
   adv: "away" | "home" | null;
 };
 
+export type GameCentreYetToPlayPlayer = {
+  id: string;
+  fullName: string;
+  slotPositionId: string;
+  opponentLabel: string | null;
+  kickoff: string | null;
+};
+
 export type GameCentreTeamSide = {
   teamId: string;
   teamName: string;
@@ -94,6 +102,7 @@ export type GameCentreTeamSide = {
   isViewerTeam: boolean;
   /** Starters whose NFL game has not started yet. */
   yetToPlay: number;
+  yetToPlayPlayers: GameCentreYetToPlayPlayer[];
 };
 
 export type GameCentreBoxTeam = {
@@ -466,6 +475,25 @@ export async function getGameCentreData(input: {
     ).length;
   }
 
+  function yetToPlayBreakdown(
+    players: Array<GameCentrePlayer | null>,
+  ): GameCentreYetToPlayPlayer[] {
+    return players
+      .filter((player): player is GameCentrePlayer => player != null && !player.locked)
+      .map((player) => ({
+        id: player.id,
+        fullName: player.fullName,
+        slotPositionId: player.slotPositionId,
+        opponentLabel: player.opponent?.label ?? null,
+        kickoff: player.kickoff,
+      }))
+      .toSorted((a, b) => {
+        const aTime = a.kickoff ? Date.parse(a.kickoff) : Number.POSITIVE_INFINITY;
+        const bTime = b.kickoff ? Date.parse(b.kickoff) : Number.POSITIVE_INFINITY;
+        return aTime - bTime || a.fullName.localeCompare(b.fullName);
+      });
+  }
+
   const awayWinPlayers = toWinProbPlayers(
     awaySections.lineup,
     projectedById,
@@ -568,6 +596,7 @@ export async function getGameCentreData(input: {
     isLoser: awayLoser,
     isViewerTeam: awayIsViewer,
     yetToPlay: countYetToPlay(awayStarters),
+    yetToPlayPlayers: yetToPlayBreakdown(awayStarters),
   };
 
   const homeSide: GameCentreTeamSide = {
@@ -584,6 +613,7 @@ export async function getGameCentreData(input: {
     isLoser: homeLoser,
     isViewerTeam: homeIsViewer,
     yetToPlay: countYetToPlay(homeStarters),
+    yetToPlayPlayers: yetToPlayBreakdown(homeStarters),
   };
 
   return {

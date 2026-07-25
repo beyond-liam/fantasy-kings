@@ -142,7 +142,7 @@ export function ScheduleSettingsForm({
       <SettingsFormCard
         title="Regular Season Schedule"
         footer={
-          <PageFormActions>
+          <PageFormActions float={hasChanges}>
             {editable ? (
               <>
                 

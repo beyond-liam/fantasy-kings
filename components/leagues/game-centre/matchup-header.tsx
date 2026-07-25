@@ -4,8 +4,18 @@ import { useEffect, useState } from "react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { MatchupStatusBadge } from "@/components/leagues/matchups/matchup-status-badge";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { formatKickoffDay, formatKickoffTime } from "@/lib/nfl/schedule-week";
 import { formatRecord, teamInitials } from "@/lib/leagues/standings";
-import type { GameCentreTeamSide } from "@/lib/queries/game-centre";
+import type {
+  GameCentreTeamSide,
+  GameCentreYetToPlayPlayer,
+} from "@/lib/queries/game-centre";
 import { cn } from "@/lib/utils";
 
 const PLACEHOLDER = "—";
@@ -54,18 +64,79 @@ function formatPts(value: number | null, digits = 2) {
   return value.toFixed(digits);
 }
 
+function YetToPlayLabel({
+  yetToPlay,
+  players,
+}: {
+  yetToPlay: number;
+  players: GameCentreYetToPlayPlayer[];
+}) {
+  const label = `Yet to play (${yetToPlay})`;
+  if (yetToPlay === 0 || players.length === 0) {
+    return <span className="text-muted-foreground">{label}</span>;
+  }
+
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <button
+              type="button"
+              className="text-muted-foreground underline-offset-2 hover:underline focus-visible:underline focus-visible:outline-none"
+            />
+          }
+        >
+          {label}
+        </TooltipTrigger>
+        <TooltipContent className="max-w-xs flex-col items-start gap-1.5 py-2">
+          <p className="font-medium text-background">Still to play</p>
+          <ul className="flex w-full flex-col gap-1">
+            {players.map((player) => {
+              const kickoff = player.kickoff ? new Date(player.kickoff) : null;
+              const when =
+                kickoff && Number.isFinite(kickoff.getTime())
+                  ? `${formatKickoffDay(kickoff)} ${formatKickoffTime(kickoff)}`
+                  : null;
+              return (
+                <li
+                  key={player.id}
+                  className="flex w-full flex-col gap-0.5 text-left"
+                >
+                  <span>
+                    <span className="tabular-nums text-background/70">
+                      {player.slotPositionId}
+                    </span>{" "}
+                    {player.fullName}
+                  </span>
+                  <span className="text-[11px] text-background/70">
+                    {[player.opponentLabel, when].filter(Boolean).join(" · ") ||
+                      "Kickoff TBD"}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
 function WinChanceMeter({
   chance,
   growFrom,
   align,
   muted,
   yetToPlay,
+  yetToPlayPlayers,
 }: {
   chance: number | null;
   growFrom: "end" | "start";
   align: "away" | "home";
   muted: boolean;
   yetToPlay: number;
+  yetToPlayPlayers: GameCentreYetToPlayPlayer[];
 }) {
   const targetPct =
     chance != null && Number.isFinite(chance)
@@ -85,7 +156,6 @@ function WinChanceMeter({
           : "bg-muted-foreground";
 
   const pctLabel = displayPct == null ? PLACEHOLDER : `${displayPct}%`;
-  const yetLabel = `Yet to play (${yetToPlay})`;
 
   // % near VS (fill origin); "Yet to play" on the outer end.
   const meta = (
@@ -95,7 +165,7 @@ function WinChanceMeter({
         align === "away" ? "justify-between" : "justify-between flex-row-reverse",
       )}
     >
-      <span className="text-muted-foreground">{yetLabel}</span>
+      <YetToPlayLabel yetToPlay={yetToPlay} players={yetToPlayPlayers} />
       <span
         className={cn(
           muted ? "text-muted-foreground/70" : null,
@@ -223,6 +293,7 @@ function HeaderSide({
         align={align}
         muted={muted}
         yetToPlay={side.yetToPlay}
+        yetToPlayPlayers={side.yetToPlayPlayers}
       />
     </div>
   );

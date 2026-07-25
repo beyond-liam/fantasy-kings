@@ -1,7 +1,7 @@
 import { and, count, desc, eq, isNull } from "drizzle-orm";
 import { cache } from "react";
 
-import { notifications } from "@/db/schema";
+import { leagueSeasons, leagues, notifications } from "@/db/schema";
 import { db } from "@/lib/db";
 
 export type NotificationListItem = {
@@ -12,6 +12,7 @@ export type NotificationListItem = {
   href: string;
   readAt: Date | null;
   createdAt: Date;
+  leagueName: string | null;
 };
 
 export const getUserNotifications = cache(
@@ -25,8 +26,14 @@ export const getUserNotifications = cache(
         href: notifications.href,
         readAt: notifications.readAt,
         createdAt: notifications.createdAt,
+        leagueName: leagues.name,
       })
       .from(notifications)
+      .leftJoin(
+        leagueSeasons,
+        eq(notifications.leagueSeasonId, leagueSeasons.id),
+      )
+      .leftJoin(leagues, eq(leagueSeasons.leagueId, leagues.id))
       .where(
         and(
           eq(notifications.recipientUserId, userId),

@@ -162,7 +162,7 @@ export function TransactionRulesSettings({
       <SettingsFormCard
         title="Transaction Rules"
         footer={
-          <PageFormActions>
+          <PageFormActions float={hasChanges}>
             <Button
               type="button"
               variant="outline"
