@@ -167,13 +167,19 @@ export function PlayoffSettingsForm({
   const persist = () => {
     setError(null);
     startTransition(async () => {
-      const result = await updatePlayoffSettings(slug, values);
-      if (!result.success) {
-        setError(result.error ?? "Could not save playoff settings.");
-        return;
+      try {
+        const result = await updatePlayoffSettings(slug, values);
+        if (!result.success) {
+          setError(result.error ?? "Could not save playoff settings.");
+          setConfirmOpen(false);
+          return;
+        }
+        setConfirmOpen(false);
+        router.refresh();
+      } catch {
+        setError("Could not save playoff settings.");
+        setConfirmOpen(false);
       }
-      setConfirmOpen(false);
-      router.refresh();
     });
   };
 
@@ -422,7 +428,7 @@ export function PlayoffSettingsForm({
                 strokeWidth={2}
                 data-icon="inline-start"
               />
-              {willRegenerate ? "Save & regenerate" : "Save"}
+              {willRegenerate ? "Save and Regenerate" : "Save"}
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
