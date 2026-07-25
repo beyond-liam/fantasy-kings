@@ -4,6 +4,9 @@ import { leagues, matchups, teams } from "@/db/schema";
 import { db } from "@/lib/db";
 import { generatePublicId } from "@/lib/leagues/public-id";
 
+/** Same connection as an open transaction — required with postgres `max: 1`. */
+type DbExecutor = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];
+
 async function allocateUniqueLeaguePublicId(): Promise<string> {
   for (let attempt = 0; attempt < 20; attempt++) {
     const publicId = generatePublicId();
@@ -137,10 +140,15 @@ export async function nextMatchupPublicId(
   return allocateUniqueMatchupPublicId(leagueSeasonId);
 }
 
-/** Allocate many unique matchup public ids for one season (schedule insert). */
+/**
+ * Allocate many unique matchup public ids for one season (schedule insert).
+ * Pass `executor` when called inside a transaction — with `max: 1` the pool
+ * deadlocks if this queries on a second connection while the tx holds the only one.
+ */
 export async function allocateMatchupPublicIds(
   leagueSeasonId: string,
   count: number,
+  executor: DbExecutor = db,
 ): Promise<string[]> {
   if (count <= 0) {
     return [];
@@ -157,7 +165,7 @@ export async function allocateMatchupPublicIds(
   }
 
   let ids = [...candidates];
-  const existing = await db
+  const existing = await executor
     .select({ publicId: matchups.publicId })
     .from(matchups)
     .where(
@@ -188,7 +196,7 @@ export async function allocateMatchupPublicIds(
     if (taken.has(publicId) || ids.includes(publicId)) {
       continue;
     }
-    const [hit] = await db
+    const [hit] = await executor
       .select({ id: matchups.id })
       .from(matchups)
       .where(

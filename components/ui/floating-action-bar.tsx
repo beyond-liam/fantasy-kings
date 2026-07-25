@@ -4,7 +4,7 @@ import { useEffect, useState, type ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
 
-/** Keep in sync with `--fab-motion` duration in globals.css */
+/** Keep in sync with fab-motion animation duration in globals.css */
 const FAB_MOTION_MS = 280;
 
 type FloatingActionBarProps = {
@@ -23,18 +23,21 @@ export function FloatingActionBar({
   const [rendered, setRendered] = useState(open);
   const [phase, setPhase] = useState<"in" | "out">(open ? "in" : "out");
 
-  useEffect(() => {
-    if (open) {
+  // Sync enter/exit phase from `open` during render (avoids setState-in-effect).
+  if (open) {
+    if (!rendered || phase !== "in") {
       setRendered(true);
       setPhase("in");
-      return;
     }
-
-    // Mirror entry: stay mounted, play out keyframes, then unmount.
+  } else if (rendered && phase === "in") {
     setPhase("out");
+  }
+
+  useEffect(() => {
+    if (open || phase !== "out") return;
     const timeout = window.setTimeout(() => setRendered(false), FAB_MOTION_MS);
     return () => window.clearTimeout(timeout);
-  }, [open]);
+  }, [open, phase]);
 
   if (!rendered) {
     return null;

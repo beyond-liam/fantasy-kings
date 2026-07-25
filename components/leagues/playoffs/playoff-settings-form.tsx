@@ -439,7 +439,7 @@ export function PlayoffSettingsForm({
                   ? "Regenerating…"
                   : "Saving…"
                 : willRegenerate
-                  ? "Save and regenerate"
+                  ? "Save and Regenerate"
                   : "Save"}
             </Button>
           </AlertDialogFooter>
