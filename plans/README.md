@@ -58,6 +58,6 @@ All six plans executed and verified DONE; the plan files were removed from the w
 
 Carried-forward follow-up from batch 1:
 
-- **Live win probability**: Shipped in `lib/leagues/win-probability` — calibrated position σ priors, pace blend, injury/out + soft DNP zeroing, OT ≈ done, live σ floor. Schedule/board Chance columns use it. ESPN live boxscores + nflverse official week stats feed `player_scores` (win% actuals). Remaining: re-fit σ from `player_scores` residuals once enough completed weeks exist.
+- **Live win probability**: Shipped in `lib/leagues/win-probability` — calibrated position σ priors, pace blend, injury/out + soft DNP zeroing, OT ≈ done, live σ floor. Schedule/board Chance columns use it. ESPN live boxscores + nflverse official week stats feed `player_scores` (win% actuals). σ re-fit from residuals = **lowest priority** (not scheduled ahead of product/engagement).
 
 Batch-1 rejections still standing (don't re-audit without cause): double middleware + RSC `getUser`; `revalidateSettingsPaths` shotgun; Recharts-in-bundle (DX cleanup, not perf); Supabase Realtime draft (documented direction — polling bridge shipped as 006).

@@ -61,7 +61,7 @@ type ScheduleSettingsFormProps = {
 };
 
 function timesLabel(times: PlayEachOtherTimes) {
-  if (times === 1) return "1 Time";
+  if (times === 1) return "Once";
   return `${times} Times`;
 }
 
@@ -145,19 +145,7 @@ export function ScheduleSettingsForm({
           <PageFormActions>
             {editable ? (
               <>
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={isPending || !isLeagueFull}
-                  onClick={() => setRegenOpen(true)}
-                >
-                  <HugeiconsIcon
-                    icon={ArrowReloadHorizontalIcon}
-                    strokeWidth={2}
-                    data-icon="inline-start"
-                  />
-                  Regenerate schedule
-                </Button>
+                
                 <Button
                   type="button"
                   variant="outline"
@@ -170,6 +158,19 @@ export function ScheduleSettingsForm({
                     data-icon="inline-start"
                   />
                   Reset
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={isPending || !isLeagueFull}
+                  onClick={() => setRegenOpen(true)}
+                >
+                  <HugeiconsIcon
+                    icon={ArrowReloadHorizontalIcon}
+                    strokeWidth={2}
+                    data-icon="inline-start"
+                  />
+                  Regenerate Schedule
                 </Button>
                 <Button
                   type="button"

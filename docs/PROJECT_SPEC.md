@@ -1,7 +1,7 @@
 # Fantasy Kings — Project Specification
 
 > Living document. Update this file as requirements, decisions, and scope change.
-> Last updated: 2026-07-24
+> Last updated: 2026-07-25
 
 ---
 
@@ -15,7 +15,7 @@ A mobile-first fantasy football web app for a private friend group (8–16 users
 
 ---
 
-## 1b. Status snapshot (2026-07-24)
+## 1b. Status snapshot (2026-07-25)
 
 ### Shipped (use this as the source of truth)
 
@@ -30,22 +30,57 @@ A mobile-first fantasy football web app for a private friend group (8–16 users
 | Live scores | Sleeper near-live + ESPN athlete boxscores → `player_scores` |
 | Official scores | nflverse post-week replace; optional `applyOfficialStatChanges` |
 | Corrections UX | Activity `score_corrected` + owner notifications; Live freshness only when NFL games are in progress |
-| Win% | Calibrated live chance on schedule/board (σ re-fit deferred until residuals exist) |
-| Playoffs (partial) | Settings, bracket UI hydrate, first-round ensure, advance to next week on finals (4/6/8 + re-seed + byes + game tiebreakers) |
+| Win% | Calibrated live chance on schedule/board (literature σ priors; re-fit is lowest-priority later) |
+| Playoffs | Settings, bracket hydrate, first-round ensure, advance (4/6/8 + re-seed + byes + game TBs), two-week championship rematch + series totals + Champion crowning |
 | Activity | Adds/drops, waivers, trades, IR/taxi, settings diffs, score corrections |
 | Team UX | Roster summary panel, IR/taxi lock alerts on all My Team tabs |
+| Notifications | In-app bell + Brevo email v1 (draft + trade only) |
 
-### Still remaining (near-term product)
+### Near-term product (build next)
 
 | Item | Notes |
 |---|---|
-| **Playoff advancement completion** | Two-week championship rematch + combined series / champion crowning on bracket **shipped** |
-| Win% σ re-fit from residuals | After enough completed weeks of `player_scores` |
-| Dynasty picks + pick trades | Explicitly deferred |
-| IDP positions + scoring | Explicitly deferred |
-| TanStack Query / Zustand | Deferred until draft-room client cache needs them |
-| Charts / deep analytics UI | Player trends, SOS, power rankings — deferred |
-| Spec risk: Live vs Final | Status badges only (no source tooltip) |
+| Advanced player filtering | Richer filters beyond current position / team / rookies / FA toggles |
+| Form guide on league table | Recent W/L/T form strip (or similar) on standings |
+| Remove rank from playoffs table | Playoffs standings show seed; drop redundant Rank column |
+| In-league messaging service | League-scoped messaging (not email); design TBD |
+| Break down yet-to-play positions/players | Surface remaining unplayed starters/slots in live matchups |
+| “Use suggested lineup” | Button next to Update Roster — auto-set lineup from projections |
+| Floating action bar | On pages with save/action buttons: sticky bar appears when there are unsaved changes (avoids scroll-to-save) |
+| League on notification popover | Show which league each notification belongs to |
+
+### Engagement analytics (planned — after near-term)
+
+| Item | Notes |
+|---|---|
+| Strength of schedule | Played + remaining SOS (opponent win% and/or PF) |
+| Playoff chance % | Odds column on Playoffs standings table (method TBD; start simple) |
+| Playoff picture | Clinch / eliminate / bubble / magic number mid–late season |
+| Matchup insights | Rivalry record, last N meetings, proj winner/margin, positional edges, top starter each side, median/luck, shared NFL games, injury impact, bench/optimal delta |
+| “Would have won” | Alternate H2H outcomes (vs field / median / optimal) on matchup + team H2H |
+| Team Head-to-Head tab | On other-team page: historical record vs viewer’s team + meeting list |
+| Hall of Fame | League museum — champions, cellar, all-time, roast awards, single-game museum (see §6) |
+| Season rewind | End-of-year team/league recap |
+
+### Explicitly deferred (do not schedule soon)
+
+| Item | Priority | Notes |
+|---|---|---|
+| Dynasty picks + pick trades | Deferred | Come back later with dynasty format |
+| IDP positions + scoring | Deferred | Long-term differentiator; not current phase |
+| Player trend / snap / target share charts | Deferred | Paid/chart-heavy; Recharts installed but unused for this |
+| Win% σ re-fit from `player_scores` residuals | **Lowest** | Chance already shipped with literature priors; re-fit only after enough completed weeks — polish, not blocking |
+| TanStack Query / Zustand | **Lowest** | Not installed; RSC + local state fine. Revisit only if draft-room polling/cache becomes painful — not a planned product slice |
+| Web push notifications | **Lowest** | Optional later; DIY Web Push can stay free-tier. In-app + email v1 cover MVP |
+
+### Permanently out of scope (do not build / do not revisit)
+
+- Mock draft **friends lobby** — mock stays solo vs ADP bots only
+- **Trade Analyzer** — route/nav removed; not coming back
+- Separate **branding** track — ship with current dark-only shadcn + Figtree; no TBD rebrand workstream
+- **Broader transactional email** beyond locked draft + trade set (waivers, matchup W/L, score corrections, adds/drops, injuries, every-pick broadcast stay in-app only)
+- Activity-feed milestones; franchise pages across owner changes
+- Deep unbounded historical archive browser (Hall of Fame plaques are in scope; full season-by-season archive explorer is not)
 
 ---
 
@@ -91,9 +126,9 @@ Do not substitute without explicit approval.
 | Components | shadcn/ui | Copied into codebase, full styling ownership |
 | Icons | Hugeicons free tier | `@hugeicons/react` + `@hugeicons/core-free-icons`, Stroke Rounded only |
 | Fonts | **Figtree** (UI text) | Via `next/font` |
-| Charts | Recharts | Installed; charts UI still deferred |
-| Data fetching | Server Components + server actions | TanStack Query **deferred** until draft room / client cache needs it (not installed) |
-| Client state | React local state | Zustand **deferred** until draft room / ephemeral client cache needs it (not installed) |
+| Charts | Recharts | Installed; player-trend charts deferred; engagement charts when those features ship |
+| Data fetching | Server Components + server actions | TanStack Query **not installed** — lowest priority; only if draft-room client cache pain appears |
+| Client state | React local state | Zustand **not installed** — lowest priority; same bar as Query |
 
 ---
 
@@ -107,9 +142,15 @@ Do not substitute without explicit approval.
 | Invites | **Shareable league link** (not email-invite flow for now) |
 | Multi-league users | Yes — post-login dashboard / leagues list |
 | Auth | Passwordless magic link / OTP via Supabase (**wired**) |
-| UI reference | No mockup required — shadcn components, unstyled/minimal is fine |
-| Branding | TBD — neutral shadcn dark-only for now |
+| UI reference | No mockup required — shadcn components |
+| Visual system | Dark-only shadcn + Figtree — **no separate branding track** |
 | Scoring | **Offense engine + league rules UI shipped**; IDP scoring deferred |
+| Mock draft | Solo vs need-aware ADP bots only — **no friends lobby** |
+| Trade Analyzer | **Removed permanently** (not deferred) |
+| Email scope | Brevo **locked** to draft + trade alerts — no broader email expansion |
+| Push notifications | **Lowest priority** deferred (optional Web Push later; free DIY path OK) |
+| Win% calibration | Live Chance **shipped**; σ re-fit from residuals = **lowest priority** |
+| TanStack Query / Zustand | **Lowest priority** — do not install until draft-room pain warrants it |
 | Supabase | **Set up** — `.env.local` configured |
 
 ---
@@ -135,9 +176,10 @@ Entered via dashboard league picker or `/league/[leagueId]` (6-char public id). 
 
 | Route | Page | Description |
 |---|---|---|
-| `/league/[leagueId]` | League | League home — tabs: Standings, Stats, Playoffs, Rules, Scoring |
+| `/league/[leagueId]` | League | League home — tabs: Standings, Stats, Playoffs, Rules, Scoring (+ Hall of Fame when shipped) |
 | `/league/[leagueId]/team` | My Team | Roster / lineup / watchlist |
-| `/league/[leagueId]/team/[teamId]` | Other team | Another manager's roster (public team id) |
+| `/league/[leagueId]/team/[teamId]` | Other team | Another manager's roster (public team id); **Head-to-Head** tab vs viewer’s team when shipped |
+| `/league/[leagueId]/hall-of-fame` | Hall of Fame | League museum — titles, cellar, all-time, roast awards (route TBD: tab vs dedicated page) |
 | `/league/[leagueId]/players` | Players | Rankings-style pool + Team/Action columns |
 | `/league/[leagueId]/scores` | Matchups | **Fantasy** matchup scores |
 | `/league/[leagueId]/scores/[matchupId]` | Game Centre | Fantasy matchup detail (6-char public id) |
@@ -203,7 +245,7 @@ Both contexts have "Scores" and "Draft Room". Use distinct labels in the UI:
 ### Draft
 
 - Two engines: live draft room (real-time) and slow/async draft **(both shipped — same draft room; email uses longer/optional clocks + Brevo turn alerts)**
-- Mock draft room at app level (practice)
+- Mock draft room at app level (practice) — **solo vs need-aware ADP bots only**; no friends lobby
 - Fully customizable: snake vs linear, manual order edits **(snake/linear + pick clock + autopick honored in live room)**
 - Auto-start at scheduled `draftStartAt` **(cron + draft-room client trigger)**
 - Per-team autopick toggle (My Team → Settings); open/unclaimed slots forced onto autopick
@@ -241,19 +283,72 @@ Both contexts have "Scores" and "Draft Room". Use distinct labels in the UI:
 - Playoff bracket hydrates from live matchup scores; advance pairs byes correctly; point ties use game tiebreakers then higher seed
 - League Rules tab: read-only key/value summary of season settings (roster, schedule, playoffs, waivers, transactions, draft, tiebreakers)
 - League Scoring tab: read-only preset + category rule list from season scoring config
-- Player trend graphs, matchup history, snap counts, target share, SOS ratings **(deferred)**
-- League-wide power rankings and projected standings **(deferred)**
+- Player trend graphs, snap counts, target share **(deferred)** — paid/chart-heavy; not required for engagement v1
+
+### Engagement analytics (planned)
+
+**Standings / playoffs**
+- Form guide strip on standings (recent W/L/T)
+- Strength of schedule (played + remaining opponents)
+- Playoff chance % column on Playoffs standings table
+- Playoff picture: clinch / eliminate / bubble / magic number
+
+**Matchups / Game Centre**
+- Rivalry series history vs this opponent (W–L–T, avg margin, biggest/closest, streak)
+- Last N meetings mini scoreboard
+- Projected winner / projected margin; optional upset watch when close
+- Positional edge board (slot-by-slot proj or live)
+- Top projected / live starter each side
+- Yet-to-play starters by kickoff
+- Median / luck: beat-the-field that week
+- Shared NFL games (correlation / stack risk)
+- Injury / Out impact on starters
+- Bench bombs / optimal-lineup delta (“points left on bench”) after finalize
+- “Would have won” alternate outcomes where useful
+
+**Other team page**
+- Head-to-Head tab: career record vs viewer’s team, every meeting, avg margin, streaks, best/worst game
+- Include “would have won” style alternate views where data allows
+
+**Hall of Fame (league museum)** — serious plaques
+- Playoff champions (true winners) + runner-up by season
+- Regular-season champions (#1 seed / best record)
+- Points champions: most PF, most PA, highest single-week team score
+- Multi-title / drought callouts
+- All-time standings (career W–L–T, win%, PF across seasons — team continuity as stored today; no separate franchise pages)
+
+**Hall of Fame — roast / funny awards**
+- Toilet bowl / last place (Sacko)
+- Paper champion (most PF, missed playoffs or early exit)
+- Soft schedule (strong record, weak SOS / PA)
+- Bench warmer (most points left on bench)
+- Waiver wire wizard (biggest FA/waiver scoring impact)
+- Trade deadline hero / villain (post-trade PF swing)
+- Close-game king / choke artist (record in ≤N-pt games)
+- Blowout merchant (largest avg margin of victory)
+- Monday night miracle / collapse (biggest lead blown or deficit overcome — approximate if progressive scores limited)
+- Iron man (fewest moves / most original drafted starters still starting late)
+- Injury magnet (most IR / Out starter weeks)
+- Rivalry of the year
+- Single-game museum: highest score, lowest winning score, biggest blowout, highest-scoring loser
+
+**Season wrap**
+- Season rewind / end-of-year recap page for each team (and optional league rollup)
+
+**Explicitly not in this pass**
+- Activity-feed milestones (first title, 100th league win, etc.)
+- Franchise pages documenting owner changes across years
 
 ### Notifications & activity
 
 - Chronological activity log of league events **(shipped)** — adds/drops, waivers, trades, IR/taxi, membership, commissioner settings changes (click for before/after), **score corrections**
-- In-app bell dropdown shipped (trade + waiver + matchup-result / score-correction producers)
-- Email via **Brevo** **(wired)** — `lib/email/*` adapters; push optional later
+- In-app bell dropdown shipped (trade + waiver + matchup-result / score-correction producers); **league name on each notification** planned (near-term)
+- Email via **Brevo** **(wired)** — `lib/email/*` adapters; scope **locked** to draft + trade only (no expansion)
 - **League Alert** fan-out (`lib/alerts/`): Trade + Draft + Matchup announce helpers resolve recipients once, then in-app + email adapters (`CONTEXT.md`)
 - Auth OTP remains Supabase (not Brevo)
 - Dedupe via `email_sends` table; email sends use `after()` except draft-reminder cron (sync)
 - Live draft reminders: `/api/cron/draft-reminders` (use cron-job.org every ~5 min; Vercel Hobby daily backup only)
-- **Email v1 scope (locked):**
+- **Email scope (locked — do not expand):**
   | Event | Recipients | Notes |
   |---|---|---|
   | Live draft tomorrow | League | Cron |
@@ -266,13 +361,19 @@ Both contexts have "Scores" and "Draft Room". Use distinct labels in the UI:
   | Trade accepted (review/veto window) | League | So managers can veto |
   | Trade vetoed | Both sides | |
   | Trade rejected / cancelled / completed | Affected managers | League Alert helpers |
-- Out of email v1 (in-app only for now): waiver results, matchup W/L, score corrections, adds/drops, injuries, every pick broadcast
-- No built-in chat/social layer
+- **In-app only (never email):** waiver results, matchup W/L, score corrections, adds/drops, injuries, every pick broadcast
+- **Web push:** lowest-priority optional later (DIY Web Push can stay free-tier); not scheduled
+- **In-league messaging** planned (near-term) — separate from email/push; design TBD
 
 ### Historical data
 
-- Schema must support season archives, all-time H2H, trophy room, career stats, draft history
-- Deep-history browsing UI is post-MVP
+- Schema should support season archives, all-time H2H, trophy room, career stats, draft history (stubs today)
+- **Hall of Fame** UI is in scope (engagement); full unbounded archive browser is not
+
+### Win probability
+
+- Live Chance on matchup board / schedule **shipped** — position σ priors, pace blend, injury/soft DNP, live σ floor
+- **σ re-fit** from projection vs actual residuals (`rmseByPosition`) = **lowest priority** after enough completed weeks; not blocking
 
 ### Platform
 
@@ -289,7 +390,7 @@ Both contexts have "Scores" and "Draft Room". Use distinct labels in the UI:
 | Inc | Deliverable |
 |---|---|
 | 0.1 | `docs/PROJECT_SPEC.md` (this file) |
-| 0.2 | Install deps: Drizzle, Supabase, shadcn, Hugeicons (Query/Zustand deferred) |
+| 0.2 | Install deps: Drizzle, Supabase, shadcn, Hugeicons (Query/Zustand not installed — lowest priority) |
 | 0.3 | Supabase project + env vars + Drizzle config |
 | 0.4 | App shell: top nav (app-level), league side nav, Figtree |
 | 0.5 | Schema: users, leagues, league_members, positions, players |
@@ -314,7 +415,7 @@ Both contexts have "Scores" and "Draft Room". Use distinct labels in the UI:
 | 1.4 | Rankings **(wired to DB — D.2)** |
 | 1.5 | Scores (NFL) |
 | 1.6 | Draft Room (mock) |
-| ~~1.7~~ | ~~Trade Analyzer~~ — **removed** (deferred; not in nav) |
+| ~~1.7~~ | ~~Trade Analyzer~~ — **removed permanently** |
 
 ### Phase 2 — League-level UI
 
@@ -333,9 +434,16 @@ Both contexts have "Scores" and "Draft Room". Use distinct labels in the UI:
 
 Auth → league create/join → season settings → roster mutations → remaining screens.
 
-### Phase 4+ — Deferred
+### Phase 4+ — Deferred / lowest priority
 
-IDP scoring, dynasty pick trades, push notifications, deep history UI, TanStack Query / Zustand when draft room needs them.
+| Item | Priority |
+|---|---|
+| IDP scoring + positions | Deferred |
+| Dynasty picks + pick trades | Deferred |
+| Player trend / snap / target share charts | Deferred |
+| Win% σ re-fit from residuals | **Lowest** |
+| TanStack Query / Zustand | **Lowest** (only if draft-room pain) |
+| Web push notifications | **Lowest** (optional free DIY Web Push) |
 
 ---
 
@@ -375,18 +483,25 @@ lib/
 | 7 | matchups (+ pts/status on row) | Yes — finalize + playoff ensure |
 | 8 | offense scoring rules (JSON + `lib/leagues/scoring`) | Yes |
 | 9 | waiver_claims, dynasty draft picks | Waivers shipped; dynasty picks defer |
-| 10 | historical archive, trophies | Schema stubs only |
+| 10 | historical archive, trophies | Schema stubs only — Hall of Fame UI planned (§6 Engagement analytics) |
 
 ---
 
-## 9. Explicitly Out of Scope (MVP)
+## 9. Explicitly Out of Scope
 
 - CB-vs-WR shutdown coverage analytics (requires paid charting data)
-- Deep historical archive browsing UI
+- Deep unbounded historical archive browser (Hall of Fame plaques + awards are **in scope**)
+- Franchise continuity pages / owner-change timelines
+- Activity-feed milestones (league anniversaries, Nth win toasts, etc.)
 - Contracts / salary-cap system
 - **IDP** scoring and positions (current phase)
-- Installing TanStack Query / Zustand before draft-room need
 - Dynasty roster construction / draft-pick inventory (come back later)
+- Mock draft **friends lobby**
+- **Trade Analyzer** (removed permanently)
+- Separate branding / rebrand workstream
+- Expanding Brevo beyond locked draft + trade emails
+- Installing TanStack Query / Zustand as a planned near-term slice
+- Broader push/email notification fan-out for waivers, injuries, every draft pick, etc.
 
 ---
 
@@ -406,11 +521,13 @@ lib/
 
 | # | Question | Status |
 |---|---|---|
-| 1 | Mock draft room — solo vs ADP bots, or friends in a lobby together? | **Resolved (MVP)** — solo vs need-aware ADP bots; friends lobby deferred |
-| 2 | Trade Analyzer — standalone tool or connected to league trade proposals? | **Deferred** — route + nav removed; revisit later |
+| 1 | Mock draft room — solo vs ADP bots, or friends in a lobby together? | **Closed** — solo vs need-aware ADP bots only; friends lobby **out of scope** |
+| 2 | Trade Analyzer — standalone tool or connected to league trade proposals? | **Closed** — removed permanently; do not revisit |
 | 3 | Rankings source — Sleeper projections/stats scored with league/preset rules | **Resolved** |
 | 4 | Shareable invite link — commissioner approval required, or open join? | **Resolved** — invite link/code opens recruiting page; Claim Team assigns a specific open slot; leagues private (no public discovery) |
 | 5 | League home — standings + matchup only, or commissioner settings on same page? | **Resolved** — settings under `/league/[slug]/settings` |
+| 6 | Hall of Fame — tab on league home vs dedicated `/hall-of-fame` route? | **Open** — either OK; pick when implementing |
+| 7 | Playoff chance % method — heuristic vs simulation? | **Open** — start simple when building |
 
 ---
 
@@ -443,8 +560,8 @@ lib/
 - [x] Leagues (create / join via link)
 - [x] Rankings (DB-backed; SQL position/team/rookie filters)
 - [x] Scores (NFL) — schedule list + game dashboard (ESPN summary, no mocks)
-- [x] Draft Room (mock) — settings + live vs need-aware ADP bots
-- [x] Trade Analyzer — **removed** from app (route + nav); deferred
+- [x] Draft Room (mock) — settings + live vs need-aware ADP bots (no friends lobby)
+- [x] Trade Analyzer — **removed permanently** (route + nav)
 
 ### Phase 2 — League-level UI
 
@@ -479,13 +596,40 @@ lib/
 
 ### Deferred / remaining
 
+**Near-term product**
+- [ ] **Advanced player filtering** — richer filters beyond position / team / rookies / FA
+- [ ] **Form guide on league table** — recent results form on standings
+- [ ] **Remove rank from playoffs table** — seed only; drop redundant Rank column
+- [ ] **In-league messaging service** — league-scoped messaging (design TBD)
+- [ ] **Yet-to-play breakdown** — remaining unplayed positions/players in live matchups
+- [ ] **Use suggested lineup** — button next to Update Roster; auto-set from projections
+- [ ] **Floating action bar** — sticky save/action bar when dirty (all pages with action buttons)
+- [ ] **League on notification popover** — show which league each notification belongs to
+
+**Engagement analytics**
+- [ ] **Strength of schedule** — played + remaining SOS on standings / team views
+- [ ] **Playoff chance %** — odds column on Playoffs standings table
+- [ ] **Playoff picture** — clinch / eliminate / bubble / magic number
+- [ ] **Matchup insights** — rivalry history, last N, proj edges, top starters, median/luck, shared NFL games, injury impact, bench/optimal delta
+- [ ] **Would have won** — alternate outcomes on matchup + H2H views
+- [ ] **Team Head-to-Head tab** — viewer vs other team historical series
+- [ ] **Hall of Fame** — champions, cellar, all-time, roast awards, single-game museum
+- [ ] **Season rewind** — end-of-year team/league recap
+
+**Shipped playoff completion (kept for history)**
 - [x] **Playoff two-week championship (backend)** — schedule Game 2 rematch; combined pts helper; hydrate copies both finalists
 - [x] **Playoff two-week championship (UI)** — series totals on championship cards + Champion column crowning
-- [ ] Win% σ re-fit from `player_scores` residuals (needs completed weeks)
+
+**Deferred format / analytics**
 - [ ] IDP positions + scoring
-- [ ] TanStack Query / Zustand (when draft room needs them)
 - [ ] Dynasty picks — deferred (come back later)
 - [ ] **Dynasty draft-pick trades** — deferred with dynasty picks
+- [ ] Player trend charts / snap / target share — deferred
+
+**Lowest priority (do not schedule ahead of product/engagement)**
+- [ ] Win% σ re-fit from `player_scores` residuals (needs completed weeks; Chance already shipped)
+- [ ] TanStack Query / Zustand — only if draft-room polling/cache becomes painful
+- [ ] Web push notifications — optional free DIY Web Push later
 
 ### Trades — follow-up (after initial ship)
 
@@ -496,7 +640,7 @@ lib/
 - [x] **Scheduled trade processor** — `/api/cron/process-trades` daily on Hobby + page-load fallback; use cron-job.org for frequent runs
 - [x] **Counter-offers** — receiver can open composer prefilled from a pending trade; sending rejects the original
 - [x] **Trade history** — collapsed section on Transactions tab + Trades page
-- [x] **Trade Analyzer** — removed from product for now (Open Question #2 deferred)
+- [x] **Trade Analyzer** — removed permanently (not deferred)
 
 > Trade review stays fixed at **24 hours** (`review_24h`). Configurable multi-day review is out of scope.
 
@@ -563,4 +707,7 @@ lib/
 | 2026-07-24 | Spec status snapshot: shipped vs remaining; ESPN/nflverse marked wired; playoff two-week championship called out as next gap |
 | 2026-07-24 | Playoff two-week championship backend: rematch Game 2 rows on ensure; hydrate keeps both finalists; combined winner helper |
 | 2026-07-24 | Playoff bracket champion crowning + two-week series totals on championship cards |
+| 2026-07-25 | Product backlog: advanced player filters, standings form guide, playoffs rank column removal, in-league messaging, yet-to-play breakdown, suggested lineup, floating action bar, league name on notification popover |
+| 2026-07-25 | Engagement backlog: SOS, playoff chance %, playoff picture, matchup insights, would-have-won, team H2H tab, Hall of Fame (titles + roast awards), season rewind; exclude activity milestones + franchise pages |
+| 2026-07-25 | Spec triage: near-term vs engagement vs deferred; permanently drop friends lobby, Trade Analyzer, branding track, broader email; lowest priority = win% σ re-fit, Query/Zustand, web push |
 | 2026-07-16 | Trades: initial implementation started; follow-up items documented (vetoes, limits, cron, email) |
