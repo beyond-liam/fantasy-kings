@@ -142,10 +142,26 @@ export function ScheduleSettingsForm({
       <SettingsFormCard
         title="Regular Season Schedule"
         footer={
-          <PageFormActions float={hasChanges}>
-            {editable ? (
-              <>
-                
+          editable ? (
+            <>
+              {!hasChanges ? (
+                <div className="flex flex-wrap items-center justify-end gap-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={isPending || !isLeagueFull}
+                    onClick={() => setRegenOpen(true)}
+                  >
+                    <HugeiconsIcon
+                      icon={ArrowReloadHorizontalIcon}
+                      strokeWidth={2}
+                      data-icon="inline-start"
+                    />
+                    Regenerate Schedule
+                  </Button>
+                </div>
+              ) : null}
+              <PageFormActions float={hasChanges}>
                 <Button
                   type="button"
                   variant="outline"
@@ -184,9 +200,9 @@ export function ScheduleSettingsForm({
                   />
                   Save
                 </Button>
-              </>
-            ) : null}
-          </PageFormActions>
+              </PageFormActions>
+            </>
+          ) : undefined
         }
       >
         <FieldGroup>

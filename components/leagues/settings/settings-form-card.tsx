@@ -4,7 +4,6 @@ import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -14,14 +13,15 @@ type SettingsFormCardProps = {
   title: string;
   description?: ReactNode;
   children: ReactNode;
-  /** Save / reset actions — rendered in the card footer. */
+  /** Floating / portal actions — rendered outside the card (no footer chrome). */
   footer?: ReactNode;
   className?: string;
   contentClassName?: string;
 };
 
 /**
- * Shared league-settings shell: card with header, body, and footer actions.
+ * Shared league-settings shell: card with header and body.
+ * Actions should use `PageFormActions float={hasChanges}` (floating bar), not a card footer.
  */
 export function SettingsFormCard({
   title,
@@ -32,17 +32,21 @@ export function SettingsFormCard({
   contentClassName,
 }: SettingsFormCardProps) {
   return (
-    <Card size="sm" className={cn("gap-0 py-0", className)}>
-      <CardHeader className="border-b bg-muted/40 py-3">
-        <CardTitle className="text-base text-balance">{title}</CardTitle>
-        {description ? (
-          <CardDescription className="text-pretty">{description}</CardDescription>
-        ) : null}
-      </CardHeader>
-      <CardContent className={cn("py-4", contentClassName)}>{children}</CardContent>
-      {footer ? (
-        <CardFooter className="justify-end border-t py-3">{footer}</CardFooter>
-      ) : null}
-    </Card>
+    <>
+      <Card size="sm" className={cn("gap-0 py-0", className)}>
+        <CardHeader className="border-b bg-muted/40 py-3">
+          <CardTitle className="text-base text-balance">{title}</CardTitle>
+          {description ? (
+            <CardDescription className="text-pretty">
+              {description}
+            </CardDescription>
+          ) : null}
+        </CardHeader>
+        <CardContent className={cn("py-4", contentClassName)}>
+          {children}
+        </CardContent>
+      </Card>
+      {footer}
+    </>
   );
 }

@@ -5,11 +5,13 @@ import { useEffect, useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { MatchupStatusBadge } from "@/components/leagues/matchups/matchup-status-badge";
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+  Popover,
+  PopoverContent,
+  PopoverDescription,
+  PopoverHeader,
+  PopoverTitle,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { formatKickoffDay, formatKickoffTime } from "@/lib/nfl/schedule-week";
 import { formatRecord, teamInitials } from "@/lib/leagues/standings";
 import type {
@@ -77,49 +79,49 @@ function YetToPlayLabel({
   }
 
   return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger
-          render={
-            <button
-              type="button"
-              className="text-muted-foreground underline-offset-2 hover:underline focus-visible:underline focus-visible:outline-none"
-            />
-          }
-        >
-          {label}
-        </TooltipTrigger>
-        <TooltipContent className="max-w-xs flex-col items-start gap-1.5 py-2">
-          <p className="font-medium text-background">Still to play</p>
-          <ul className="flex w-full flex-col gap-1">
-            {players.map((player) => {
-              const kickoff = player.kickoff ? new Date(player.kickoff) : null;
-              const when =
-                kickoff && Number.isFinite(kickoff.getTime())
-                  ? `${formatKickoffDay(kickoff)} ${formatKickoffTime(kickoff)}`
-                  : null;
-              return (
-                <li
-                  key={player.id}
-                  className="flex w-full flex-col gap-0.5 text-left"
-                >
-                  <span>
-                    <span className="tabular-nums text-background/70">
-                      {player.slotPositionId}
-                    </span>{" "}
-                    {player.fullName}
-                  </span>
-                  <span className="text-[11px] text-background/70">
-                    {[player.opponentLabel, when].filter(Boolean).join(" · ") ||
-                      "Kickoff TBD"}
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+    <Popover>
+      <PopoverTrigger
+        render={
+          <button
+            type="button"
+            className="text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+          />
+        }
+      >
+        {label}
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-72 gap-2 p-3">
+        <PopoverHeader className="gap-0.5">
+          <PopoverTitle>Still to play</PopoverTitle>
+          <PopoverDescription>
+            Starters whose NFL game has not started
+          </PopoverDescription>
+        </PopoverHeader>
+        <ul className="flex flex-col gap-2">
+          {players.map((player) => {
+            const kickoff = player.kickoff ? new Date(player.kickoff) : null;
+            const when =
+              kickoff && Number.isFinite(kickoff.getTime())
+                ? `${formatKickoffDay(kickoff)} ${formatKickoffTime(kickoff)}`
+                : null;
+            return (
+              <li key={player.id} className="flex flex-col gap-0.5 text-sm">
+                <span>
+                  <span className="tabular-nums text-muted-foreground">
+                    {player.slotPositionId}
+                  </span>{" "}
+                  {player.fullName}
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {[player.opponentLabel, when].filter(Boolean).join(" · ") ||
+                    "Kickoff TBD"}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      </PopoverContent>
+    </Popover>
   );
 }
 

@@ -95,15 +95,13 @@ function FormGuideCell({ games }: { games: StandingsFormGame[] }) {
               render={
                 <span
                   className={cn(
-                    "inline-flex size-4 shrink-0 items-center justify-center rounded-sm text-[9px] font-semibold leading-none tabular-nums text-background",
+                    "inline-flex size-4 shrink-0 cursor-pointer rounded-sm",
                     game.result === "W" && "bg-success",
                     game.result === "L" && "bg-destructive",
-                    game.result === "T" && "bg-muted text-muted-foreground",
+                    game.result === "T" && "bg-slate-600",
                   )}
                   aria-label={`${formResultLabel(game.result)} vs ${game.opponentName}`}
-                >
-                  {game.result}
-                </span>
+                />
               }
             />
             <TooltipContent>
@@ -267,6 +265,27 @@ function getStandingsColumns(
       return seed != null ? `#${seed}` : PLACEHOLDER;
     },
     meta: { cellClassName: "tabular-nums w-14" },
+  };
+
+  const rankColumn: ColumnDef<StandingsTableRow> = {
+    id: "rank",
+    accessorFn: (row) => (row.claimed ? row.rank : null),
+    enableSorting: true,
+    sortingFn: (a, b) =>
+      claimedFirst(a, b, () =>
+        compareNullableNumber(
+          a.getValue<number | null>("rank"),
+          b.getValue<number | null>("rank"),
+        ),
+      ),
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="RK" tooltip="Rank" />
+    ),
+    cell: ({ row }) =>
+      row.original.claimed
+        ? (row.original.rank ?? PLACEHOLDER)
+        : PLACEHOLDER,
+    meta: { cellClassName: "tabular-nums" },
   };
 
   const columns: ColumnDef<StandingsTableRow>[] = [
@@ -491,26 +510,7 @@ function getStandingsColumns(
     },
     wpColumn,
     ...(showFaabBudget ? [faabColumn] : []),
-    {
-      id: "rank",
-      accessorFn: (row) => (row.claimed ? row.rank : null),
-      enableSorting: true,
-      sortingFn: (a, b) =>
-        claimedFirst(a, b, () =>
-          compareNullableNumber(
-            a.getValue<number | null>("rank"),
-            b.getValue<number | null>("rank"),
-          ),
-        ),
-      header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="RK" tooltip="Rank" />
-      ),
-      cell: ({ row }) =>
-        row.original.claimed
-          ? (row.original.rank ?? PLACEHOLDER)
-          : PLACEHOLDER,
-      meta: { cellClassName: "tabular-nums" },
-    },
+    ...(showSeed ? [] : [rankColumn]),
     {
       id: "form",
       accessorFn: (row) => row.form.length,
@@ -565,7 +565,7 @@ export function LeagueStandingsTable({
     { id: showSeed ? "seed" : "rank", desc: false },
   ]);
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(
-    showSeed ? { rank: false } : {},
+    {},
   );
 
   const columns = getStandingsColumns(

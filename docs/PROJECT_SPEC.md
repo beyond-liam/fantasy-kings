@@ -36,14 +36,14 @@ A mobile-first fantasy football web app for a private friend group (8–16 users
 | Team UX | Roster summary panel, IR/taxi lock alerts, floating roster actions, suggested lineup |
 | Notifications | In-app bell (with league name) + Brevo email v1 (draft + trade only) |
 | Standings | FORM guide (last 5) replaces next-opponent column |
-| Game Centre | Yet-to-play starter breakdown tooltip |
+| Game Centre | Yet-to-play starter breakdown popover |
+| Playoffs standings | Seed only (no Rank column) |
 
 ### Near-term product (build next)
 
 | Item | Notes |
 |---|---|
 | Advanced player filtering | Richer filters beyond current position / team / rookies / FA toggles |
-| Remove rank from playoffs table | Playoffs standings show seed; drop redundant Rank column |
 | In-league messaging service | League-scoped messaging (not email); design TBD |
 
 ### Engagement analytics (planned — after near-term)
@@ -596,7 +596,7 @@ lib/
 **Near-term product**
 - [ ] **Advanced player filtering** — richer filters beyond position / team / rookies / FA
 - [x] **Form guide on league table** — last 5 results (FORM column replaces OPP); tooltips with opponent/score
-- [ ] **Remove rank from playoffs table** — seed only; drop redundant Rank column
+- [x] **Remove rank from playoffs table** — seed only; drop redundant Rank column
 - [ ] **In-league messaging service** — league-scoped messaging (design TBD)
 - [x] **Yet-to-play breakdown** — Game Centre tooltip lists remaining unplayed starters
 - [x] **Use suggested lineup** — button next to Update Roster; auto-set from projections

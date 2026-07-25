@@ -1,9 +1,9 @@
 "use client";
 
 import {
+  Calendar03Icon,
   CheckmarkCircle01Icon,
   Loading03Icon,
-  Time04Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
@@ -30,11 +30,12 @@ function resolveBadge(status: MatchupLockStatus) {
         variant: "warning" as const,
         icon: Loading03Icon,
         label: "Live",
+        iconClassName: "animate-spin",
       };
     default:
       return {
         variant: "secondary" as const,
-        icon: Time04Icon,
+        icon: Calendar03Icon,
         label: "Scheduled",
       };
   }
@@ -44,11 +45,16 @@ export function MatchupStatusBadge({
   status,
   className,
 }: MatchupStatusBadgeProps) {
-  const { variant, icon, label } = resolveBadge(status);
+  const { variant, icon, label, iconClassName } = resolveBadge(status);
 
   return (
-    <Badge variant={variant} className={cn(className)}>
-      <HugeiconsIcon icon={icon} strokeWidth={2} data-icon="inline-start" />
+    <Badge variant={variant} className={cn("gap-1", className)}>
+      <HugeiconsIcon
+        icon={icon}
+        strokeWidth={2}
+        className={cn("size-3 shrink-0", iconClassName)}
+        data-icon="inline-start"
+      />
       {label}
     </Badge>
   );

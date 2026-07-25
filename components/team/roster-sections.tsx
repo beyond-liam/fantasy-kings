@@ -257,46 +257,65 @@ export function TeamRosterSections({
         <TeamRosterTable section="taxi" slots={sections.taxi} {...tableProps} />
       ) : null}
       {actionsEnabled ? (
-        <PageFormActions float>
-          <Button
-            type="button"
-            variant="outline"
-            disabled={isPending}
-            onClick={handleSuggestedLineup}
-          >
-            <HugeiconsIcon
-              icon={ShuffleIcon}
-              strokeWidth={2}
-              data-icon="inline-start"
-            />
-            Use Suggested Lineup
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            disabled={!isDirty || isPending}
-            onClick={handleReset}
-          >
-            <HugeiconsIcon
-              icon={IterationCwIcon}
-              strokeWidth={2}
-              data-icon="inline-start"
-            />
-            Reset
-          </Button>
-          <Button
-            type="button"
-            disabled={!isDirty || isPending}
-            onClick={handleUpdate}
-          >
-            <HugeiconsIcon
-              icon={TickDouble02Icon}
-              strokeWidth={2}
-              data-icon="inline-start"
-            />
-            Update Roster
-          </Button>
-        </PageFormActions>
+        <>
+          {!isDirty ? (
+            <div className="flex flex-wrap items-center justify-end gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={isPending}
+                onClick={handleSuggestedLineup}
+              >
+                <HugeiconsIcon
+                  icon={ShuffleIcon}
+                  strokeWidth={2}
+                  data-icon="inline-start"
+                />
+                Use Suggested Lineup
+              </Button>
+            </div>
+          ) : null}
+          <PageFormActions float={isDirty}>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={!isDirty || isPending}
+              onClick={handleReset}
+            >
+              <HugeiconsIcon
+                icon={IterationCwIcon}
+                strokeWidth={2}
+                data-icon="inline-start"
+              />
+              Reset
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={isPending}
+              onClick={handleSuggestedLineup}
+            >
+              <HugeiconsIcon
+                icon={ShuffleIcon}
+                strokeWidth={2}
+                data-icon="inline-start"
+              />
+              Use Suggested Lineup
+            </Button>
+            <Button
+              type="button"
+              disabled={!isDirty || isPending}
+              onClick={handleUpdate}
+            >
+              <HugeiconsIcon
+                icon={TickDouble02Icon}
+                strokeWidth={2}
+                data-icon="inline-start"
+              />
+              Update Roster
+            </Button>
+          </PageFormActions>
+        </>
       ) : null}
     </div>
   );
