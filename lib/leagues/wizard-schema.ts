@@ -41,6 +41,10 @@ export const setupStepSchema = z
     message: "Team count must be divisible by number of divisions",
     path: ["divisionCount"],
   })
+  .refine((data) => data.playoffTeamCount <= data.teamCount, {
+    message: "Playoff teams cannot exceed league size",
+    path: ["playoffTeamCount"],
+  })
   .refine(
     (data) => {
       const slug = slugifyLeagueName(data.leagueName);

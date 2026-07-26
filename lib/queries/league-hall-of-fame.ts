@@ -1,0 +1,173 @@
+import "server-only";
+
+import {
+  buildAllTimeTable,
+  countDivisionTitlesByTeam,
+  countLuckyWinsByTeam,
+  pickDivisionWinnersForSeason,
+  pickMostRegularSeasonWins,
+  pickTopCount,
+  pickWinningScoreExtremes,
+  type HofDivision,
+  type HofTeamIdentity,
+  type LeagueHallOfFameData,
+} from "@/lib/leagues/hall-of-fame";
+import { getFinalMatchupsForSeason } from "@/lib/leagues/matchups/finalize";
+import { db } from "@/lib/db";
+import { divisions, teamWeekStats } from "@/db/schema";
+import { and, asc, eq, inArray } from "drizzle-orm";
+
+export function emptyLeagueHallOfFame(): LeagueHallOfFameData {
+  return {
+    mostTitles: null,
+    middleHonor: null,
+    middleHonorKind: "regular_season_titles",
+    mostRegularSeasonWins: null,
+    allTimeTable: [],
+    chokeArtist: null,
+    fergieTime: null,
+    luckiest: null,
+    highestWinningScore: null,
+    lowestWinningScore: null,
+  };
+}
+
+async function loadSeasonDivisions(
+  leagueSeasonId: string,
+): Promise<HofDivision[]> {
+  return db
+    .select({
+      id: divisions.id,
+      name: divisions.name,
+      sortOrder: divisions.sortOrder,
+    })
+    .from(divisions)
+    .where(eq(divisions.leagueSeasonId, leagueSeasonId))
+    .orderBy(asc(divisions.sortOrder))
+    .catch(() => []);
+}
+
+/**
+ * Hall of Fame snapshot for the current season (career continuity across
+ * seasons comes later). Choke / Fergie need last-game timelines — left empty
+ * until that data path ships.
+ */
+export async function loadLeagueHallOfFame(input: {
+  leagueSeasonId: string;
+  seasonYear: number;
+  teams: HofTeamIdentity[];
+  divisionCount: number;
+  regularSeasonEndWeek: number;
+  /** Championship team id if the current bracket is crowned. */
+  championTeamId?: string | null;
+}): Promise<LeagueHallOfFameData> {
+  const claimed = input.teams.filter((t) => t.claimed);
+  if (claimed.length === 0) {
+    return emptyLeagueHallOfFame();
+  }
+
+  const finals = await getFinalMatchupsForSeason(input.leagueSeasonId).catch(
+    () => [],
+  );
+  const regularFinals = finals.filter(
+    (m) => m.week <= input.regularSeasonEndWeek,
+  );
+
+  const allTimeTable = buildAllTimeTable(claimed, regularFinals);
+  const mostRegularSeasonWins = pickMostRegularSeasonWins(allTimeTable);
+  const { highest, lowest } = pickWinningScoreExtremes(claimed, finals);
+
+  // Lucky wins: opponent OPF would have beaten your actual score.
+  const weeks = [...new Set(regularFinals.map((m) => m.week))];
+  const opfRows =
+    weeks.length === 0
+      ? []
+      : await db
+          .select({
+            teamId: teamWeekStats.teamId,
+            week: teamWeekStats.week,
+            optimumPointsFor: teamWeekStats.optimumPointsFor,
+          })
+          .from(teamWeekStats)
+          .where(
+            and(
+              eq(teamWeekStats.leagueSeasonId, input.leagueSeasonId),
+              inArray(teamWeekStats.week, weeks),
+            ),
+          )
+          .catch(() => []);
+
+  const opfByTeamWeek = new Map<string, number>();
+  for (const row of opfRows) {
+    if (row.optimumPointsFor == null) continue;
+    opfByTeamWeek.set(`${row.teamId}:${row.week}`, row.optimumPointsFor);
+  }
+
+  const luckyFinals = regularFinals.map((m) => ({
+    ...m,
+    homeOptimum: opfByTeamWeek.get(`${m.homeTeamId}:${m.week}`) ?? null,
+    awayOptimum: opfByTeamWeek.get(`${m.awayTeamId}:${m.week}`) ?? null,
+  }));
+  const luckiest = pickTopCount(
+    claimed,
+    countLuckyWinsByTeam(luckyFinals),
+  );
+
+  let mostTitles: LeagueHallOfFameData["mostTitles"] = null;
+  if (input.championTeamId) {
+    const champ = claimed.find((t) => t.teamId === input.championTeamId);
+    if (champ) {
+      mostTitles = {
+        teamId: champ.teamId,
+        teamPublicId: champ.teamPublicId,
+        teamName: champ.teamName,
+        ownerName: champ.ownerName,
+        logoUrl: champ.logoUrl,
+        value: 1,
+      };
+    }
+  }
+
+  const seasonDivisions = await loadSeasonDivisions(input.leagueSeasonId);
+  const multiDivision =
+    input.divisionCount > 1 && seasonDivisions.length > 1;
+  let middleHonor: LeagueHallOfFameData["middleHonor"] = null;
+  const middleHonorKind: LeagueHallOfFameData["middleHonorKind"] =
+    multiDivision ? "division_titles" : "regular_season_titles";
+
+  if (multiDivision) {
+    const winners = pickDivisionWinnersForSeason({
+      seasonYear: input.seasonYear,
+      divisions: seasonDivisions,
+      allTimeTable,
+      teams: claimed,
+    });
+    middleHonor = pickTopCount(
+      claimed,
+      countDivisionTitlesByTeam(winners),
+    );
+  } else if (allTimeTable[0] && allTimeTable[0].wins > 0) {
+    const top = allTimeTable[0];
+    middleHonor = {
+      teamId: top.teamId,
+      teamPublicId: top.teamPublicId,
+      teamName: top.teamName,
+      ownerName: top.ownerName,
+      logoUrl: top.logoUrl,
+      value: 1,
+    };
+  }
+
+  return {
+    mostTitles,
+    middleHonor,
+    middleHonorKind,
+    mostRegularSeasonWins,
+    allTimeTable,
+    chokeArtist: null,
+    fergieTime: null,
+    luckiest,
+    highestWinningScore: highest,
+    lowestWinningScore: lowest,
+  };
+}

@@ -60,8 +60,11 @@ import {
 import { getSeasonOpfByTeamId } from "@/lib/leagues/team-week-stats";
 import { getLeagueHomeData, isDraftUnderway } from "@/lib/queries/leagues";
 import { getLeaguePositionStats } from "@/lib/queries/league-stats";
-import { getLeagueOverviewMock } from "@/lib/leagues/league-overview-mock";
 import { loadOverviewWeekHighlights } from "@/lib/queries/league-overview-highlights";
+import {
+  emptyLeagueHallOfFame,
+  loadLeagueHallOfFame,
+} from "@/lib/queries/league-hall-of-fame";
 import { getSeasonMatchups } from "@/lib/queries/matchups";
 import { getTeamProjectedWeeklyPf } from "@/lib/queries/team-projected-strength";
 import { getNflState } from "@/lib/sleeper/api";
@@ -71,7 +74,6 @@ import { and, eq, gte } from "drizzle-orm";
 
 type LeagueHomePageProps = {
   params: Promise<{ leagueId: string }>;
-  searchParams: Promise<{ mock?: string }>;
 };
 
 export const metadata: Metadata = {
@@ -80,11 +82,8 @@ export const metadata: Metadata = {
 
 export default async function LeagueHomePage({
   params,
-  searchParams,
 }: LeagueHomePageProps) {
   const { leagueId: slug } = await params;
-  const { mock } = await searchParams;
-  const useOverviewMock = mock === "1" || mock === "true";
   const user = await getSessionUser();
   if (!user) {
     redirect(`/login?next=/league/${slug}`);
@@ -372,6 +371,29 @@ export default async function LeagueHomePage({
           week: null as number | null,
         };
 
+  const hofTeams = standingsTeams.map((team) => ({
+    teamId: team.teamId!,
+    teamPublicId: team.teamPublicId ?? null,
+    teamName: team.teamName ?? "Team",
+    ownerName: team.userId
+      ? (team.displayName?.trim() || "Manager")
+      : "Unclaimed",
+    logoUrl: team.logoUrl ?? null,
+    claimed: Boolean(team.userId && team.teamId),
+    divisionId: team.divisionId ?? null,
+  }));
+
+  const hallOfFameData = season
+    ? await loadLeagueHallOfFame({
+        leagueSeasonId: season.id,
+        seasonYear: season.seasonYear,
+        teams: hofTeams.filter((t) => Boolean(t.teamId)),
+        divisionCount: season.divisionCount,
+        regularSeasonEndWeek: season.regularSeasonEndWeek,
+        championTeamId: playoffBracket?.champion?.teamId ?? null,
+      }).catch(() => emptyLeagueHallOfFame())
+    : emptyLeagueHallOfFame();
+
   return (
     <div className="flex flex-1 flex-col gap-6 p-6">
       <div className="flex items-center gap-3">
@@ -404,19 +426,15 @@ export default async function LeagueHomePage({
         <LeagueHomeTabs
           overview={
             <LeagueOverview
-              {...(useOverviewMock
-                ? getLeagueOverviewMock(league.publicId)
-                : {
-                    leagueSlug: league.publicId,
-                    standingsRows: overviewStandings,
-                    myTeamId,
-                    highestScorer: rankByPointsFor(standings)[0] ?? null,
-                    worstDefense: rankByPointsAgainst(standings)[0] ?? null,
-                    inefficient: inefficient[0] ?? null,
-                    seasonLeaders,
-                    playersOfTheWeek: weekHighlights.playersOfTheWeek,
-                    highlightWeek: weekHighlights.week,
-                  })}
+              leagueSlug={league.publicId}
+              standingsRows={overviewStandings}
+              myTeamId={myTeamId}
+              highestScorer={rankByPointsFor(standings)[0] ?? null}
+              worstDefense={rankByPointsAgainst(standings)[0] ?? null}
+              inefficient={inefficient[0] ?? null}
+              seasonLeaders={seasonLeaders}
+              playersOfTheWeek={weekHighlights.playersOfTheWeek}
+              highlightWeek={weekHighlights.week}
             />
           }
         standings={
@@ -449,7 +467,12 @@ export default async function LeagueHomePage({
             bracket={playoffBracket}
           />
         }
-        hallOfFame={<LeagueHallOfFame />}
+        hallOfFame={
+          <LeagueHallOfFame
+            leagueSlug={league.publicId}
+            data={hallOfFameData}
+          />
+        }
         rules={
           season ? (
             <LeagueRulesSummary

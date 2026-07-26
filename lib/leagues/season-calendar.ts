@@ -1,6 +1,6 @@
 export const CHAMPIONSHIP_WEEKS = [13, 14, 15, 16, 17, 18] as const;
 export const PLAYOFF_TEAM_COUNTS = [4, 6, 8] as const;
-export const TEAM_COUNT_MIN = 8;
+export const TEAM_COUNT_MIN = 4;
 export const TEAM_COUNT_MAX = 16;
 
 export type PlayoffCalendarOptions = {

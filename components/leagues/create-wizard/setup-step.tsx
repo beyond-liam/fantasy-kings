@@ -12,10 +12,10 @@ import {
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import type { SetupStepValues } from "@/lib/leagues/wizard-schema";
+import { playoffTeamCountsForLeague, clampPlayoffTeamCount } from "@/lib/leagues/playoff-settings";
 import {
   CHAMPIONSHIP_WEEKS,
   getRegularSeasonEndWeek,
-  PLAYOFF_TEAM_COUNTS,
   TEAM_COUNT_MAX,
   TEAM_COUNT_MIN,
 } from "@/lib/leagues/season-calendar";
@@ -33,11 +33,6 @@ const DIVISION_COUNT_ITEMS = [1, 2, 3, 4].map((count) => ({
   label: String(count),
 }));
 
-const PLAYOFF_TEAM_ITEMS = PLAYOFF_TEAM_COUNTS.map((count) => ({
-  value: String(count),
-  label: String(count),
-}));
-
 const CHAMPIONSHIP_WEEK_ITEMS = CHAMPIONSHIP_WEEKS.map((week) => ({
   value: String(week),
   label: `Week ${week}`,
@@ -50,6 +45,12 @@ type SetupStepProps = {
 };
 
 export function SetupStep({ values, errors, onChange }: SetupStepProps) {
+  const playoffTeamItems = playoffTeamCountsForLeague(values.teamCount).map(
+    (count) => ({
+      value: String(count),
+      label: String(count),
+    }),
+  );
   const regularSeasonEndWeek = getRegularSeasonEndWeek(
     values.championshipWeek,
     values.playoffTeamCount,
@@ -103,7 +104,14 @@ export function SetupStep({ values, errors, onChange }: SetupStepProps) {
             value={String(values.teamCount)}
             onValueChange={(value) => {
               if (value) {
-                onChange({ teamCount: Number(value) });
+                const teamCount = Number(value);
+                onChange({
+                  teamCount,
+                  playoffTeamCount: clampPlayoffTeamCount(
+                    values.playoffTeamCount,
+                    teamCount,
+                  ),
+                });
               }
             }}
           >
@@ -156,7 +164,7 @@ export function SetupStep({ values, errors, onChange }: SetupStepProps) {
         <Field>
           <FieldLabel htmlFor="playoffTeamCount">Playoff teams</FieldLabel>
           <Select
-            items={PLAYOFF_TEAM_ITEMS}
+            items={playoffTeamItems}
             value={String(values.playoffTeamCount)}
             onValueChange={(value) => {
               if (value) {
@@ -173,7 +181,7 @@ export function SetupStep({ values, errors, onChange }: SetupStepProps) {
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>
-                {PLAYOFF_TEAM_ITEMS.map((item) => (
+                {playoffTeamItems.map((item) => (
                   <SelectItem key={item.value} value={item.value}>
                     {item.label}
                   </SelectItem>

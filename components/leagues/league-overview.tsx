@@ -245,6 +245,7 @@ export function LeagueOverview({
 
   return (
     <div className="flex flex-col gap-4">
+      <h2 className="text-lg font-semibold tracking-tight">Overview</h2>
       <div className="grid gap-4 sm:grid-cols-3">
         <OverviewCard title="Top Scorer">
           <TeamSpotlight

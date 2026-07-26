@@ -53,6 +53,7 @@ export type LeagueStandingsMember = {
   waiverPriority?: number | null;
   faabRemaining?: number | null;
   logoUrl?: string | null;
+  divisionId?: string | null;
 };
 
 export type BuildStandingsOptions = {

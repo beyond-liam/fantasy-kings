@@ -437,6 +437,7 @@ export const getLeagueHomeData = cache(async (slug: string, userId: string) => {
             waiverPriority: teams.waiverPriority,
             faabRemaining: teams.faabRemaining,
             logoUrl: teams.logoUrl,
+            divisionId: teams.divisionId,
           })
           .from(teams)
           .leftJoin(profiles, eq(teams.userId, profiles.id))

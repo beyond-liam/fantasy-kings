@@ -7,7 +7,7 @@
 
 ## 1. Vision
 
-A mobile-first fantasy football web app for a private friend group (8–16 users per league). Built to fix frustrations with existing platforms (Sleeper, ESPN, Fantrax): not data-rich enough, gimmicky, not easy to use, and — ultimately — no granular IDP position support.
+A mobile-first fantasy football web app for a private friend group (4–16 users per league). Built to fix frustrations with existing platforms (Sleeper, ESPN, Fantrax): not data-rich enough, gimmicky, not easy to use, and — ultimately — no granular IDP position support.
 
 **Long-term differentiator:** True positional flexibility (EDGE/DT/LB/CB/S as distinct positions), not bucketed categories like DL/LB/DB. IDP remains deferred; offense scoring and league rule customization are in progress.
 
@@ -174,6 +174,9 @@ Entered via dashboard league picker or `/league/[leagueId]` (6-char public id). 
 | Route | Page | Description |
 |---|---|---|
 | `/league/[leagueId]` | League | League home — tabs: Overview, Standings, Stats, Playoffs, Hall of Fame, Rules, Scoring |
+| `/league/[leagueId]/hall-of-fame/champions` | Champions | Season-by-season championship winners |
+| `/league/[leagueId]/hall-of-fame/regular-season` | RS titles | Season-by-season regular-season #1 finishes |
+| `/league/[leagueId]/hall-of-fame/division-titles` | Division titles | Division winners by season (filter by division) |
 | `/league/[leagueId]/team` | My Team | Roster / lineup / watchlist |
 | `/league/[leagueId]/team/[teamId]` | Other team | Another manager's roster (public team id); **Head-to-Head** tab vs viewer’s team when shipped |
 | `/league/[leagueId]/players` | Players | Rankings-style pool + Team/Action columns |
@@ -211,7 +214,7 @@ Both contexts have "Scores" and "Draft Room". Use distinct labels in the UI:
 
 - Multi-league, multi-tenant from day one
 - Supports redraft (build first) and dynasty **(dynasty deferred)**
-- 8–16 users per league
+- 4–16 users per league
 - Leagues are **private** — accessible only via commissioner invite link/code (no public discovery)
 - Shareable invite: `/join/{inviteCode}` shows recruiting standings; managers **Claim Team** on an open row
 - Create wizard persists season settings and creates all team slots upfront (`user_id` null until claimed)
@@ -613,7 +616,7 @@ lib/
 - [ ] **Matchup insights (remaining)** — positional edges, median/luck, bench/optimal delta, would-have-won
 - [ ] **Would have won** — alternate outcomes on matchup + H2H views
 - [x] **Team Head-to-Head tab** — viewer vs other team series on other-team page
-- [ ] **Hall of Fame** — champions, cellar, all-time, roast awards, single-game museum
+- [ ] **Hall of Fame** — wired to season finals (titles / RS wins / all-time / lucky / winning-score extremes); choke & Fergie need last-game timelines
 - [ ] **Season rewind** — end-of-year team/league recap
 
 **Shipped playoff completion (kept for history)**
@@ -717,5 +720,6 @@ lib/
 | 2026-07-25 | Engagement: season SOS on standings; remaining SOS + Odds + Status on playoffs; slim playoff cols (drop PF/PA/WP/BRM) |
 | 2026-07-25 | Audit leftovers closed: lineup lock on FA add/cut + waiver award; schedule weeklyRank + other-team Chance; plans README status |
 | 2026-07-25 | League Overview: standings glance, PF/PA/inefficiency, season leaders, POTW, TOTW |
+| 2026-07-25 | Hall of Fame overview cards wired to season finals; drop `?mock=1` Overview/HoF fixtures |
 | 2026-07-25 | Game Centre Preview: scheduled = Preview+Matchup; live/final = Matchup+Box; predictor/leaders/injuries/H2H |
 | 2026-07-16 | Trades: initial implementation started; follow-up items documented (vetoes, limits, cron, email) |
