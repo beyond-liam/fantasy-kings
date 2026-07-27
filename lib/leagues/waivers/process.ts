@@ -87,15 +87,20 @@ export async function processSeasonWaivers(input: {
 
   // Season-level lease so overlapping cron/manual runs don't double-adjudicate.
   if (!input.force) {
+    const leaseUntil = new Date(now.getTime() + 30 * 60 * 1000); // 30 minutes
     const [leased] = await db
       .update(leagueSeasons)
-      .set({ lastWaiverProcessedAt: now })
+      .set({ waiverProcessingLeaseUntil: leaseUntil })
       .where(
         and(
           eq(leagueSeasons.id, season.id),
           or(
             isNull(leagueSeasons.lastWaiverProcessedAt),
             lt(leagueSeasons.lastWaiverProcessedAt, processInstant),
+          ),
+          or(
+            isNull(leagueSeasons.waiverProcessingLeaseUntil),
+            lt(leagueSeasons.waiverProcessingLeaseUntil, now),
           ),
         ),
       )
@@ -468,7 +473,10 @@ export async function processSeasonWaivers(input: {
 
   await db
     .update(leagueSeasons)
-    .set({ lastWaiverProcessedAt: now })
+    .set({
+      lastWaiverProcessedAt: now,
+      waiverProcessingLeaseUntil: null,
+    })
     .where(eq(leagueSeasons.id, season.id));
 
   return { awarded, failed };

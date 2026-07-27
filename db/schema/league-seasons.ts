@@ -174,6 +174,10 @@ export const leagueSeasons = pgTable(
     lastWaiverProcessedAt: timestamp("last_waiver_processed_at", {
       withTimezone: true,
     }),
+    /** Lease timestamp to prevent concurrent waiver processing. */
+    waiverProcessingLeaseUntil: timestamp("waiver_processing_lease_until", {
+      withTimezone: true,
+    }),
     settings: jsonb("settings").$type<LeagueSeasonSettings>().notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
