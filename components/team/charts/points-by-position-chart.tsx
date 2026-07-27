@@ -128,9 +128,9 @@ export function PointsByPositionChart({ data }: PointsByPositionChartProps) {
                 }
               />
               <ChartLegend
-                content={(props) => {
+                content={({ payload, verticalAlign }) => {
                   const order = ["teamShare", "leagueShare"] as const;
-                  const payload = [...(props.payload ?? [])].sort((a, b) => {
+                  const sorted = [...(payload ?? [])].sort((a, b) => {
                     const ai = order.indexOf(
                       String(a.dataKey) as (typeof order)[number],
                     );
@@ -139,7 +139,12 @@ export function PointsByPositionChart({ data }: PointsByPositionChartProps) {
                     );
                     return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
                   });
-                  return <ChartLegendContent {...props} payload={payload} />;
+                  return (
+                    <ChartLegendContent
+                      payload={sorted}
+                      verticalAlign={verticalAlign}
+                    />
+                  );
                 }}
               />
               <Bar

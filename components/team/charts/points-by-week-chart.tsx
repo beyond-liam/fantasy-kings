@@ -101,8 +101,8 @@ export function PointsByWeekChart({
               />
               <ChartTooltip content={<ChartTooltipContent />} />
               <ChartLegend
-                content={(props) => {
-                  const payload = [...(props.payload ?? [])].sort((a, b) => {
+                content={({ payload, verticalAlign }) => {
+                  const sorted = [...(payload ?? [])].sort((a, b) => {
                     const ai = WEEK_LEGEND_ORDER.indexOf(
                       String(a.dataKey) as (typeof WEEK_LEGEND_ORDER)[number],
                     );
@@ -111,7 +111,12 @@ export function PointsByWeekChart({
                     );
                     return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
                   });
-                  return <ChartLegendContent {...props} payload={payload} />;
+                  return (
+                    <ChartLegendContent
+                      payload={sorted}
+                      verticalAlign={verticalAlign}
+                    />
+                  );
                 }}
               />
               <Line
