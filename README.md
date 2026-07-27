@@ -6,7 +6,7 @@ Canonical product/tech decisions live in [`docs/PROJECT_SPEC.md`](docs/PROJECT_S
 
 ## Prerequisites
 
-- Node 20+
+- Node 22+
 - **pnpm** only (do not use npm/yarn for this repo)
 - A Supabase project (free tier)
 
@@ -53,6 +53,8 @@ Open [http://localhost:3000](http://localhost:3000).
 | `pnpm lint` | ESLint |
 | `pnpm typecheck` | Typecheck |
 | `pnpm test` | Unit tests — `node:test` via `tsx --test 'lib/**/*.test.ts'` |
+| `pnpm test:db` | Database tests |
+| `pnpm build` | Production build |
 | `pnpm db:studio` | Drizzle Studio |
 
 ## Stack notes
