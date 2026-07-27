@@ -4,6 +4,7 @@ import {
   drafts,
   leagues,
   leagueSeasons,
+  playerScores,
   players,
   positions,
   profiles,
@@ -241,4 +242,33 @@ export async function seedRosterPlayer(
     throw new Error("Failed to seed roster player.");
   }
   return { id: row.id };
+}
+
+export async function seedPlayerScores(
+  testDb: TestDb,
+  input: {
+    season: string;
+    week: number;
+    kind: "projection" | "stats";
+    seasonType?: string;
+    scores: Array<{
+      playerId: string;
+      ptsPpr?: number | null;
+      ptsStd?: number | null;
+      stats?: Record<string, number | null>;
+    }>;
+  },
+) {
+  const values = input.scores.map((score) => ({
+    playerId: score.playerId,
+    season: input.season,
+    week: input.week,
+    seasonType: input.seasonType ?? "regular",
+    kind: input.kind,
+    stats: score.stats ?? {},
+    ptsPpr: score.ptsPpr ?? null,
+    ptsStd: score.ptsStd ?? null,
+  }));
+
+  await testDb.insert(playerScores).values(values);
 }

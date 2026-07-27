@@ -16,10 +16,8 @@ import {
   clientStatAllowlist,
   pickClientStats,
 } from "@/lib/rankings/pick-client-stats";
-import {
-  attachPositionRanks,
-  buildFantasyPositionRankById,
-} from "@/lib/rankings/attach-position-ranks";
+import { attachPositionRanks } from "@/lib/rankings/attach-position-ranks";
+import { getFantasyPositionRankMap } from "@/lib/rankings/position-rank-map";
 
 export type RankingsFilters = {
   season: string;
@@ -240,30 +238,18 @@ export async function getRankedPlayers(
   const scored = applyScoring(mapped, filters);
 
   // Roster/FA subset loads must still use league-wide fantasy position ranks.
+  // Use cached rank map to avoid reloading all score rows.
   let fantasyRankByPlayerId: Map<string, number> | undefined;
   if (filters.playerIds != null) {
-    const leagueBase = await loadScoreRows(
-      filters.season,
-      filters.week,
-      filters.kind,
-      undefined,
-      undefined,
-    );
-    const leagueMapped: RankedPlayerRow[] = leagueBase.map((row) => ({
-      ...row,
-      fantasyPts: null,
-      positionRank: null,
-    }));
-    fantasyRankByPlayerId = buildFantasyPositionRankById(
-      applyScoring(leagueMapped, {
-        ...filters,
-        playerIds: undefined,
-        position: undefined,
-        team: undefined,
-        rookiesOnly: false,
-        limit: undefined,
-      }),
-    );
+    const rules =
+      filters.scoringRules ??
+      getDefaultScoringRuleDefinitions(filters.scoringPreset ?? "full_ppr");
+    fantasyRankByPlayerId = await getFantasyPositionRankMap({
+      season: filters.season,
+      week: filters.week,
+      kind: filters.kind,
+      scoringRules: rules,
+    });
   }
 
   const ranked = attachPositionRanks(scored, fantasyRankByPlayerId);
