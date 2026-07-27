@@ -46,7 +46,7 @@ import {
   toTradeRosterPlayers,
 } from "@/lib/queries/trades";
 import { getTeamRosterPlayers } from "@/lib/queries/team-roster";
-import { getNflState } from "@/lib/sleeper/api";
+import { getNflState, type SleeperNflState } from "@/lib/sleeper/api";
 
 export type TradeActionResult = {
   success: boolean;
@@ -73,8 +73,18 @@ async function assertCanPropose(season: LeagueMemberTeamContext["season"]) {
     return gate.error;
   }
 
-  const nflState = await getNflState().catch(() => ({ week: 1 }));
-  const currentWeek = Math.max(1, Number(nflState.week) || 1);
+  let nflState: SleeperNflState;
+  try {
+    nflState = await getNflState();
+  } catch {
+    return "Could not verify the NFL week for the trade deadline. Try again shortly.";
+  }
+
+  const currentWeek = Math.max(1, Number(nflState.week) || 0);
+  if (!Number.isFinite(currentWeek) || currentWeek < 1) {
+    return "Could not verify the NFL week for the trade deadline. Try again shortly.";
+  }
+
   if (isTradeDeadlinePassed(currentWeek, season.tradeDeadlineWeek)) {
     return tradeDeadlineError(season.tradeDeadlineWeek!);
   }
