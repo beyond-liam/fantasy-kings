@@ -2,6 +2,7 @@
 
 import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 
 import {
   draftPicks,
@@ -21,6 +22,8 @@ import { commitDraftPick } from "@/lib/leagues/draft/pick";
 import { resolveDraftSettings } from "@/lib/leagues/draft-settings";
 import { loadDraftActionContext } from "@/lib/leagues/action-context";
 import { getDraftBySeasonId } from "@/lib/queries/draft";
+
+const draftPickSchema = z.string().uuid();
 
 type ActionResult = {
   success: boolean;
@@ -190,6 +193,14 @@ export async function makeDraftPick(
     expectPickIndex?: number;
   },
 ): Promise<MakeDraftPickResult> {
+  const parsed = draftPickSchema.safeParse(playerId);
+  if (!parsed.success) {
+    return {
+      success: false,
+      error: parsed.error.issues[0]?.message ?? "Invalid player ID.",
+    };
+  }
+
   const context = await getDraftActionContext(slug);
   if ("error" in context) {
     return { success: false, error: context.error };
@@ -254,7 +265,7 @@ export async function makeDraftPick(
     irEnabled: season.irEnabled,
     taxiEnabled: season.taxiEnabled,
     seasonTeams,
-    playerId,
+    playerId: parsed.data,
     madeByUserId: user.id,
     source,
     actingTeamId: source === "manual" ? userTeam?.id ?? null : null,

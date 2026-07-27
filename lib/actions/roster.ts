@@ -2,6 +2,7 @@
 
 import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 
 import { players, rosterPlayers, teams } from "@/db/schema";
 import { db } from "@/lib/db";
@@ -52,6 +53,27 @@ import {
 import { resolveWaiverWireSettings } from "@/lib/leagues/waiver-wire";
 import { getNflScoreboard } from "@/lib/espn/scoreboard";
 import { getNflState } from "@/lib/sleeper/api";
+
+const playerIdSchema = z.string().uuid();
+
+const cutAndAddSchema = z.object({
+  cutPlayerId: z.string().uuid(),
+  addPlayerId: z.string().uuid(),
+});
+
+const assignSlotSchema = z.object({
+  playerId: z.string().uuid(),
+  slotPositionId: z.string().min(1),
+});
+
+const rosterSlotsSchema = z.object({
+  slotAssignments: z.array(
+    z.object({
+      playerId: z.string().uuid(),
+      slotPositionId: z.string().min(1),
+    }),
+  ),
+});
 
 export type RosterCutCandidate = {
   id: string;
@@ -331,8 +353,12 @@ export async function addPlayerToRoster(
   slug: string,
   playerId: string,
 ): Promise<RosterActionResult> {
-  if (!playerId) {
-    return { success: false, error: "Missing player." };
+  const parsed = playerIdSchema.safeParse(playerId);
+  if (!parsed.success) {
+    return {
+      success: false,
+      error: parsed.error.issues[0]?.message ?? "Invalid player ID.",
+    };
   }
 
   const context = await getRosterActionContext(slug);
@@ -342,7 +368,7 @@ export async function addPlayerToRoster(
 
   const { season, team, league, user } = context;
 
-  const prepared = await prepareAdd(context, playerId);
+  const prepared = await prepareAdd(context, parsed.data);
   if (!prepared.ok) {
     return prepared.result;
   }
@@ -350,7 +376,7 @@ export async function addPlayerToRoster(
   await insertOrRestoreRosteredPlayer({
     leagueSeasonId: season.id,
     teamId: team.id,
-    playerId,
+    playerId: parsed.data,
     slotPositionId: prepared.slotPositionId,
     seasonRows: prepared.seasonRows,
     now: prepared.now,
@@ -448,8 +474,12 @@ export async function cutPlayerFromRoster(
   slug: string,
   playerId: string,
 ): Promise<RosterActionResult> {
-  if (!playerId) {
-    return { success: false, error: "Missing player." };
+  const parsed = playerIdSchema.safeParse(playerId);
+  if (!parsed.success) {
+    return {
+      success: false,
+      error: parsed.error.issues[0]?.message ?? "Invalid player ID.",
+    };
   }
 
   const context = await getRosterActionContext(slug);
@@ -459,7 +489,7 @@ export async function cutPlayerFromRoster(
 
   const { season, team, league, user } = context;
 
-  const prepared = await prepareCut(context, playerId);
+  const prepared = await prepareCut(context, parsed.data);
   if ("error" in prepared) {
     return { success: false, error: prepared.error };
   }
@@ -476,7 +506,7 @@ export async function cutPlayerFromRoster(
     type: "player_dropped",
     teamId: team.id,
     actorUserId: user.id,
-    playerId,
+    playerId: parsed.data,
     summary: `${team.name} dropped ${prepared.row.fullName}`,
     metadata: { playerName: prepared.row.fullName, teamName: team.name },
   });
@@ -491,10 +521,17 @@ export async function cutAndAddPlayer(
   cutPlayerId: string,
   addPlayerId: string,
 ): Promise<RosterActionResult> {
-  if (!cutPlayerId || !addPlayerId) {
-    return { success: false, error: "Missing player." };
+  const parsed = cutAndAddSchema.safeParse({ cutPlayerId, addPlayerId });
+  if (!parsed.success) {
+    return {
+      success: false,
+      error: parsed.error.issues[0]?.message ?? "Invalid player IDs.",
+    };
   }
-  if (cutPlayerId === addPlayerId) {
+
+  const { cutPlayerId: cutId, addPlayerId: addId } = parsed.data;
+
+  if (cutId === addId) {
     return { success: false, error: "Choose a different player to cut." };
   }
 
@@ -505,12 +542,12 @@ export async function cutAndAddPlayer(
 
   const { season, team, league, user } = context;
 
-  const cutPrepared = await prepareCut(context, cutPlayerId);
+  const cutPrepared = await prepareCut(context, cutId);
   if ("error" in cutPrepared) {
     return { success: false, error: cutPrepared.error };
   }
 
-  const addPrepared = await prepareAdd(context, addPlayerId, {
+  const addPrepared = await prepareAdd(context, addId, {
     excludeRosterRowId: cutPrepared.row.id,
   });
   if (!addPrepared.ok) {
@@ -528,7 +565,7 @@ export async function cutAndAddPlayer(
     await insertOrRestoreRosteredPlayer({
       leagueSeasonId: season.id,
       teamId: team.id,
-      playerId: addPlayerId,
+      playerId: addId,
       slotPositionId: addPrepared.slotPositionId,
       seasonRows: addPrepared.seasonRows,
       now: addPrepared.now,
@@ -541,7 +578,7 @@ export async function cutAndAddPlayer(
     type: "player_dropped",
     teamId: team.id,
     actorUserId: user.id,
-    playerId: cutPlayerId,
+    playerId: cutId,
     summary: `${team.name} dropped ${cutPrepared.row.fullName}`,
     metadata: { playerName: cutPrepared.row.fullName, teamName: team.name },
   });
@@ -564,9 +601,15 @@ export async function assignPlayerSlot(
   playerId: string,
   slotPositionId: string,
 ): Promise<RosterActionResult> {
-  if (!playerId || !slotPositionId) {
-    return { success: false, error: "Missing player or slot." };
+  const parsed = assignSlotSchema.safeParse({ playerId, slotPositionId });
+  if (!parsed.success) {
+    return {
+      success: false,
+      error: parsed.error.issues[0]?.message ?? "Invalid player or slot.",
+    };
   }
+
+  const { playerId: pid, slotPositionId: sid } = parsed.data;
 
   const context = await getRosterActionContext(slug);
   if ("error" in context) {
@@ -583,8 +626,8 @@ export async function assignPlayerSlot(
   const rosteredOnTeam = await listRosteredPlayers(team.id);
   const applied = applyLocalSlotAssignment(
     rosteredOnTeam,
-    playerId,
-    slotPositionId,
+    pid,
+    sid,
     season.settings.rosterSlots,
     season.benchSlots,
     irEligibleStatuses,
@@ -622,7 +665,16 @@ export async function updateRosterSlots(
   slug: string,
   assignments: Array<{ playerId: string; slotPositionId: string }>,
 ): Promise<RosterActionResult> {
-  if (!Array.isArray(assignments) || assignments.length === 0) {
+  const parsed = rosterSlotsSchema.safeParse({ slotAssignments: assignments });
+  if (!parsed.success) {
+    return {
+      success: false,
+      error: parsed.error.issues[0]?.message ?? "Invalid roster assignments.",
+    };
+  }
+
+  const validated = parsed.data.slotAssignments;
+  if (validated.length === 0) {
     return { success: false, error: "No roster changes to save." };
   }
 
@@ -638,7 +690,7 @@ export async function updateRosterSlots(
     teamId: team.id,
     teamName: team.name,
     actorUserId: user.id,
-    assignments,
+    assignments: validated,
     notOnRosterError: "Player is not on your roster.",
   });
 }
