@@ -8,7 +8,7 @@ Configure these in Vercel (never commit values to git):
 
 - **`CRON_SECRET`** — Required. Bearer token for all cron endpoints. Returns 503 if unset, 401 if wrong/missing.
 - **`DATABASE_URL`** — Postgres connection string (Supabase).
-- **`RESEND_API_KEY`** — For draft reminders and other alerts.
+- **`BREVO_API_KEY`**, **`BREVO_FROM_EMAIL`**, **`BREVO_FROM_NAME`** — For draft reminders and other transactional alerts.
 
 ## Cron Endpoints
 
@@ -173,7 +173,7 @@ Before Week 1:
 4. **Verify score sync finalize gate** — Ensure plan 004 (finalize playoff weeks) is complete. Without it, playoff matchups may not finalize.
 5. **Verify scoreboard outage gates** — Ensure plan 005 (harden scoreboard outage gates) is complete. Without it, empty ESPN scoreboards can block nflverse.
 6. **Test nflverse fallback** — Manually trigger `sync-scores?nflverse=1` for a completed week to verify official stats replace Sleeper.
-7. **Check Resend API key** — Draft reminders will fail silently if `RESEND_API_KEY` is missing or invalid.
+7. **Check Brevo API key** — Draft reminders will fail silently if `BREVO_API_KEY` is missing or invalid.
 
 ## Troubleshooting
 
@@ -192,7 +192,7 @@ Before Week 1:
 - Check `finalize` field in sync-scores response. If `checked > 0` but `finalized === 0`, matchups may not be due or scores are still changing.
 
 **Draft reminders not sending:**
-- Check `RESEND_API_KEY` in Vercel.
+- Check `BREVO_API_KEY` in Vercel.
 - Verify cron-job.org is hitting `/api/cron/draft-reminders` every 5 minutes.
 - Check Vercel logs for errors (e.g., rate limits, invalid email addresses).
 
