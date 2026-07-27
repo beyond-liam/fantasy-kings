@@ -3,7 +3,9 @@ import { NextResponse } from "next/server";
 import { assertCronAuthorized } from "@/lib/cron/auth";
 import { getNflScoreboard } from "@/lib/espn/scoreboard";
 import { finalizeDueMatchupsAfterScoreSync } from "@/lib/leagues/matchups/finalize";
+import { shouldFinalizeAfterSync } from "@/lib/leagues/matchups/finalize-gates";
 import { syncEspnLiveScores } from "@/lib/scores/sync-espn-scores";
+import { shouldAutoRunNflverse } from "@/lib/scores/nflverse-run-gate";
 import { syncNflverseWeekScores } from "@/lib/scores/sync-nflverse-scores";
 import { syncCurrentWeekScores } from "@/lib/scores/sync-sleeper-scores";
 
@@ -82,22 +84,24 @@ async function handle(request: Request) {
     let nflverse: Awaited<ReturnType<typeof syncNflverseWeekScores>> | null =
       null;
     if (!sleeper.skipped && !skipNflverse) {
-      let shouldRunNflverse = forceNflverse;
-      if (!shouldRunNflverse) {
+      let shouldRun = forceNflverse;
+      if (!shouldRun) {
         const seasonYear = Number.parseInt(sleeper.season, 10);
         if (Number.isFinite(seasonYear)) {
           const board = await getNflScoreboard({
             season: seasonYear,
             week: sleeper.week,
           }).catch(() => null);
+          const scoreboardOk = board !== null;
           const games = board?.games ?? [];
-          const hasLive = games.some((game) => game.status === "in");
-          const hasPost = games.some((game) => game.status === "post");
-          // Official replace once the slate is done (or empty past week).
-          shouldRunNflverse = !hasLive && (hasPost || games.length === 0);
+          shouldRun = shouldAutoRunNflverse({
+            force: forceNflverse,
+            scoreboardOk,
+            games,
+          });
         }
       }
-      if (shouldRunNflverse) {
+      if (shouldRun) {
         nflverse = await syncNflverseWeekScores({
           week: sleeper.week,
           season: sleeper.season,
@@ -113,7 +117,12 @@ async function handle(request: Request) {
     let finalize: Awaited<
       ReturnType<typeof finalizeDueMatchupsAfterScoreSync>
     > | null = null;
-    if (!sleeper.skipped && upserted > 0) {
+    if (
+      shouldFinalizeAfterSync({
+        sleeperSkipped: sleeper.skipped,
+        upserted,
+      })
+    ) {
       finalize = await finalizeDueMatchupsAfterScoreSync({
         seasonYear: sleeper.season,
         week: sleeper.week,

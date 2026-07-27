@@ -12,6 +12,7 @@ import { ensurePlayoffMatchupsAdvanced } from "@/lib/leagues/playoffs/ensure-mat
 import { resolveTiebreakerSettings } from "@/lib/leagues/tiebreakers";
 import { getWeekMatchups } from "@/lib/queries/matchups";
 import { enrichWeekMatchupBoard } from "@/lib/queries/week-matchup-board";
+import { finalizeMaxWeek } from "./finalize-gates";
 
 export type FinalizeMatchupsResult = {
   seasonsChecked: number;
@@ -323,11 +324,10 @@ export async function finalizeDueMatchupsAfterScoreSync(input: {
     );
     const allowOfficialCorrections = tiebreakers.applyOfficialStatChanges;
 
-    const maxWeek = Math.min(
-      input.week,
-      season.regularSeasonEndWeek,
-      18,
-    );
+    const maxWeek = finalizeMaxWeek({
+      inputWeek: input.week,
+      regularSeasonEndWeek: season.regularSeasonEndWeek,
+    });
     for (let week = 1; week <= maxWeek; week++) {
       // Skip weeks that are already fully final — unless corrections are on.
       const [{ pending }] = await db
@@ -374,6 +374,7 @@ export async function finalizeDueMatchupsAfterScoreSync(input: {
       corrected += result.corrected;
     }
 
+    // Plan 004: surface advancement errors (swallowed here).
     await ensurePlayoffMatchupsAdvanced({
       leagueSeasonId: season.id,
       currentNflWeek: input.week,
