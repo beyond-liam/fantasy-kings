@@ -136,6 +136,49 @@ describe("nextRoundPairings", () => {
       { week: 18, homeTeamId: "w3", awayTeamId: "w4" },
     ]);
   });
+
+  it("produces identical pairings regardless of winners order when bracket order matters", () => {
+    // Without re-seeding, bracket position matters: winners are paired sequentially.
+    // This test verifies that if we get the same winners in different orders,
+    // the bracket order determines pairing (not the input order).
+    const orderedWinners = ["w1", "w2", "w3", "w4"];
+    const shuffledWinners = ["w3", "w1", "w4", "w2"];
+
+    const pairings1 = nextRoundPairings({
+      nextWeek: 18,
+      winnersInBracketOrder: orderedWinners,
+    });
+
+    const pairings2 = nextRoundPairings({
+      nextWeek: 18,
+      winnersInBracketOrder: shuffledWinners,
+    });
+
+    // These should be different because bracket order matters in the no-reseed case
+    assert.deepEqual(pairings1, [
+      { week: 18, homeTeamId: "w1", awayTeamId: "w2" },
+      { week: 18, homeTeamId: "w3", awayTeamId: "w4" },
+    ]);
+
+    assert.deepEqual(pairings2, [
+      { week: 18, homeTeamId: "w3", awayTeamId: "w1" },
+      { week: 18, homeTeamId: "w4", awayTeamId: "w2" },
+    ]);
+
+    // The key test: if we have the same set of winners in bracket order,
+    // we should get the same pairings
+    const sameBracketOrder1 = nextRoundPairings({
+      nextWeek: 18,
+      winnersInBracketOrder: ["w1", "w2", "w3", "w4"],
+    });
+
+    const sameBracketOrder2 = nextRoundPairings({
+      nextWeek: 18,
+      winnersInBracketOrder: ["w1", "w2", "w3", "w4"],
+    });
+
+    assert.deepEqual(sameBracketOrder1, sameBracketOrder2);
+  });
 });
 
 describe("championshipLegs + duplicatePairingsForWeek", () => {

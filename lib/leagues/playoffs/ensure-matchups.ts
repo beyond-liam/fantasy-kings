@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, eq, gte } from "drizzle-orm";
+import { and, asc, eq, gte } from "drizzle-orm";
 
 import { leagueSeasons, matchups, teams } from "@/db/schema";
 import { db } from "@/lib/db";
@@ -81,7 +81,8 @@ export async function ensurePlayoffMatchupsAdvanced(input: {
         eq(matchups.leagueSeasonId, season.id),
         gte(matchups.week, range.startWeek),
       ),
-    );
+    )
+    .orderBy(asc(matchups.week), asc(matchups.id));
 
   let inserted = 0;
   let playoffSeeds: PlayoffSeedTeam[] = [];
@@ -221,7 +222,24 @@ export async function ensurePlayoffMatchupsAdvanced(input: {
       scoringRules: season.settings.scoringRules,
     });
 
-    const winners = weekRows
+    // Sort matchups deterministically by best (lowest) seed in each pairing,
+    // then by home seed, to ensure consistent winner ordering for bracket advancement.
+    const sortedWeekRows = weekRows.toSorted((a, b) => {
+      const aSeeds = [
+        seedByTeamId.get(a.homeTeamId) ?? Number.MAX_SAFE_INTEGER,
+        seedByTeamId.get(a.awayTeamId) ?? Number.MAX_SAFE_INTEGER,
+      ];
+      const bSeeds = [
+        seedByTeamId.get(b.homeTeamId) ?? Number.MAX_SAFE_INTEGER,
+        seedByTeamId.get(b.awayTeamId) ?? Number.MAX_SAFE_INTEGER,
+      ];
+      const aMin = Math.min(...aSeeds);
+      const bMin = Math.min(...bSeeds);
+      if (aMin !== bMin) return aMin - bMin;
+      return aSeeds[0]! - bSeeds[0]!;
+    });
+
+    const winners = sortedWeekRows
       .map((row) =>
         winnerOfFinalMatchup({
           homeTeamId: row.homeTeamId,
