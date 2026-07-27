@@ -556,72 +556,67 @@ export const getPlayerProfile = cache(
       if (league) {
         leagueSlug = league.publicId;
         const seasonRow = await getLeagueSeason(league.id);
-        if (seasonRow) {
-          scoringRules = resolveScoringRuleDefinitions(
-            seasonRow.scoringPreset as ScoringPreset,
-            seasonRow.settings.scoringRules,
-          );
+        if (seasonRow && user) {
+          const membership = await getLeagueMembership(league.id, user.id);
+          if (membership) {
+            scoringRules = resolveScoringRuleDefinitions(
+              seasonRow.scoringPreset as ScoringPreset,
+              seasonRow.settings.scoringRules,
+            );
 
-          if (user) {
-            const membership = await getLeagueMembership(league.id, user.id);
-            if (membership) {
-              const ownershipMap = await getLeaguePlayerOwnershipMap(
-                seasonRow.id,
-                user.id,
-              );
-              const owned = resolvePlayerOwnership(ownershipMap, player.id);
-              const wire = resolveWaiverWireSettings(
-                seasonRow.settings.waiverWire,
-              );
-              const acquisitionKind = resolvePlayerAcquisitionKind({
-                waiversEnabled: Boolean(seasonRow.waiversEnabled),
-                waiverWire: wire,
-                rosterTransactionsEnabled:
-                  isRosterTransactionsEnabled(seasonRow),
-                fantasyTeamId: owned.fantasyTeamId,
-                onWaivers: owned.onWaivers,
-                nflTeam: player.nflTeam,
-              });
+            const ownershipMap = await getLeaguePlayerOwnershipMap(
+              seasonRow.id,
+              user.id,
+            );
+            const owned = resolvePlayerOwnership(ownershipMap, player.id);
+            const wire = resolveWaiverWireSettings(
+              seasonRow.settings.waiverWire,
+            );
+            const acquisitionKind = resolvePlayerAcquisitionKind({
+              waiversEnabled: Boolean(seasonRow.waiversEnabled),
+              waiverWire: wire,
+              rosterTransactionsEnabled:
+                isRosterTransactionsEnabled(seasonRow),
+              fantasyTeamId: owned.fantasyTeamId,
+              onWaivers: owned.onWaivers,
+              nflTeam: player.nflTeam,
+            });
 
-              const userTeam = await getUserTeamForSeason(
-                seasonRow.id,
-                user.id,
-              );
-              let hasPendingClaim = false;
-              if (userTeam) {
-                const watchIds = await getTeamWatchlistPlayerIds(userTeam.id);
-                isWatched = watchIds.includes(player.id);
+            const userTeam = await getUserTeamForSeason(seasonRow.id, user.id);
+            let hasPendingClaim = false;
+            if (userTeam) {
+              const watchIds = await getTeamWatchlistPlayerIds(userTeam.id);
+              isWatched = watchIds.includes(player.id);
 
-                const [pending] = await db
-                  .select({ id: waiverClaims.id })
-                  .from(waiverClaims)
-                  .where(
-                    and(
-                      eq(waiverClaims.teamId, userTeam.id),
-                      eq(waiverClaims.playerId, player.id),
-                      eq(waiverClaims.status, "pending"),
-                    ),
-                  )
-                  .limit(1);
-                hasPendingClaim = Boolean(pending);
-              }
-
-              ownership = {
-                fantasyTeamId: owned.fantasyTeamId,
-                fantasyTeamName: owned.fantasyTeamName,
-                fantasyTeamSlug: owned.fantasyTeamSlug,
-                isOwnedByCurrentUser: owned.isOwnedByCurrentUser,
-                onWaivers: owned.onWaivers,
-                acquisitionKind,
-                hasPendingClaim,
-              };
-
-              activity = await loadPlayerTransactionHistory({
-                leagueSeasonId: seasonRow.id,
-                playerId: player.id,
-                playerName: player.fullName,
-              });
+              const [pending] = await db
+                .select({ id: waiverClaims.id })
+                .from(waiverClaims)
+                .where(
+                  and(
+                    eq(waiverClaims.teamId, userTeam.id),
+                    eq(waiverClaims.playerId, player.id),
+                    eq(waiverClaims.status, "pending"),
+                  ),
+                )
+                .limit(1);
+              hasPendingClaim = Boolean(pending);
             }
+
+            ownership = {
+              fantasyTeamId: owned.fantasyTeamId,
+              fantasyTeamName: owned.fantasyTeamName,
+              fantasyTeamSlug: owned.fantasyTeamSlug,
+              isOwnedByCurrentUser: owned.isOwnedByCurrentUser,
+              onWaivers: owned.onWaivers,
+              acquisitionKind,
+              hasPendingClaim,
+            };
+
+            activity = await loadPlayerTransactionHistory({
+              leagueSeasonId: seasonRow.id,
+              playerId: player.id,
+              playerName: player.fullName,
+            });
           }
         }
       }

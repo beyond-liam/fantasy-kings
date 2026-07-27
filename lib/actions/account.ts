@@ -129,10 +129,11 @@ export async function updateUserSettings(
     const supabase = await createClient();
     const { error } = await supabase.auth.updateUser({ email: nextEmail });
     if (error) {
+      console.error("Email update failed:", error.message);
       return {
         success: false,
-        error: error.message || "Could not update email.",
-        fieldErrors: { email: error.message || "Could not update email." },
+        error: "Could not update email.",
+        fieldErrors: { email: "Could not update email." },
       };
     }
     emailPendingConfirm = true;
