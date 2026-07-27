@@ -102,6 +102,10 @@ These apply for the entire project:
 - **UI on real data** once ingest is verified (Rankings was the first screen wired this way).
 - **Typed mock data** only for screens that still lack backend wiring (matchups, trades, activity, draft).
 
+### Operations Documentation
+
+See [`docs/ops/cron-runbook.md`](../ops/cron-runbook.md) for cron job setup, environment variables, and score sync pipeline operations.
+
 ---
 
 ## 3. Locked Tech Stack
