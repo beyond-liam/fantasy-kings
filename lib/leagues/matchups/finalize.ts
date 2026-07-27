@@ -9,6 +9,7 @@ import { resolveScoringRuleDefinitions } from "@/lib/leagues/scoring/rules";
 import type { ScoringPreset } from "@/lib/leagues/scoring/types";
 import type { RosterSlotConfig } from "@/db/schema/league-seasons";
 import { ensurePlayoffMatchupsAdvanced } from "@/lib/leagues/playoffs/ensure-matchups";
+import { resolvePlayoffSettings } from "@/lib/leagues/playoff-settings";
 import { resolveTiebreakerSettings } from "@/lib/leagues/tiebreakers";
 import { getWeekMatchups } from "@/lib/queries/matchups";
 import { enrichWeekMatchupBoard } from "@/lib/queries/week-matchup-board";
@@ -20,6 +21,7 @@ export type FinalizeMatchupsResult = {
   finalized: number;
   inProgress: number;
   corrected: number;
+  playoffAdvanceErrors: Array<{ leagueSeasonId: string; error: string }>;
 };
 
 type SeasonFinalizeRow = {
@@ -280,6 +282,7 @@ export async function finalizeDueMatchupsAfterScoreSync(input: {
       finalized: 0,
       inProgress: 0,
       corrected: 0,
+      playoffAdvanceErrors: [],
     };
   }
 
@@ -288,6 +291,8 @@ export async function finalizeDueMatchupsAfterScoreSync(input: {
       id: leagueSeasons.id,
       seasonYear: leagueSeasons.seasonYear,
       regularSeasonEndWeek: leagueSeasons.regularSeasonEndWeek,
+      championshipWeek: leagueSeasons.championshipWeek,
+      playoffTeamCount: leagueSeasons.playoffTeamCount,
       scoringPreset: leagueSeasons.scoringPreset,
       settings: leagueSeasons.settings,
       benchSlots: leagueSeasons.benchSlots,
@@ -303,6 +308,8 @@ export async function finalizeDueMatchupsAfterScoreSync(input: {
   let finalized = 0;
   let inProgress = 0;
   let corrected = 0;
+  const playoffAdvanceErrors: Array<{ leagueSeasonId: string; error: string }> =
+    [];
 
   const scoreboardCache = new Map<number, ScheduleGame[]>();
 
@@ -324,9 +331,17 @@ export async function finalizeDueMatchupsAfterScoreSync(input: {
     );
     const allowOfficialCorrections = tiebreakers.applyOfficialStatChanges;
 
+    const playoffs = resolvePlayoffSettings(
+      (season.settings as LeagueSeasonSettings | null)?.playoffs,
+    );
+    const playoffEndWeek = playoffs.enabled
+      ? season.championshipWeek
+      : undefined;
+
     const maxWeek = finalizeMaxWeek({
       inputWeek: input.week,
       regularSeasonEndWeek: season.regularSeasonEndWeek,
+      playoffEndWeek,
     });
     for (let week = 1; week <= maxWeek; week++) {
       // Skip weeks that are already fully final — unless corrections are on.
@@ -374,11 +389,23 @@ export async function finalizeDueMatchupsAfterScoreSync(input: {
       corrected += result.corrected;
     }
 
-    // Plan 004: surface advancement errors (swallowed here).
-    await ensurePlayoffMatchupsAdvanced({
-      leagueSeasonId: season.id,
-      currentNflWeek: input.week,
-    }).catch(() => null);
+    try {
+      await ensurePlayoffMatchupsAdvanced({
+        leagueSeasonId: season.id,
+        currentNflWeek: input.week,
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Playoff advance failed";
+      console.error(
+        `Failed to advance playoff matchups for season ${season.id}:`,
+        error,
+      );
+      playoffAdvanceErrors.push({
+        leagueSeasonId: season.id,
+        error: message,
+      });
+    }
   }
 
   return {
@@ -387,6 +414,7 @@ export async function finalizeDueMatchupsAfterScoreSync(input: {
     finalized,
     inProgress,
     corrected,
+    playoffAdvanceErrors,
   };
 }
 

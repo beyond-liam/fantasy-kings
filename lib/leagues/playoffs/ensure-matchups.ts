@@ -299,14 +299,17 @@ async function insertPairings(
     leagueSeasonId,
     pairings.length,
   );
-  await db.insert(matchups).values(
-    pairings.map((row, index) => ({
-      leagueSeasonId,
-      publicId: publicIds[index]!,
-      week: row.week,
-      homeTeamId: row.homeTeamId,
-      awayTeamId: row.awayTeamId,
-    })),
-  );
+  await db
+    .insert(matchups)
+    .values(
+      pairings.map((row, index) => ({
+        leagueSeasonId,
+        publicId: publicIds[index]!,
+        week: row.week,
+        homeTeamId: row.homeTeamId,
+        awayTeamId: row.awayTeamId,
+      })),
+    )
+    .onConflictDoNothing();
   return pairings.length;
 }

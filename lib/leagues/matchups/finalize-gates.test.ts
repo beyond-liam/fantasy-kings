@@ -3,16 +3,31 @@ import { describe, it } from "node:test";
 import { finalizeMaxWeek, shouldFinalizeAfterSync } from "./finalize-gates";
 
 describe("finalizeMaxWeek", () => {
-  it("caps at regularSeasonEndWeek", () => {
+  it("caps at regularSeasonEndWeek when no playoffs", () => {
     assert.equal(
       finalizeMaxWeek({ inputWeek: 15, regularSeasonEndWeek: 14 }),
       14,
     );
   });
 
+  it("caps at playoffEndWeek when provided", () => {
+    assert.equal(
+      finalizeMaxWeek({
+        inputWeek: 16,
+        regularSeasonEndWeek: 14,
+        playoffEndWeek: 16,
+      }),
+      16,
+    );
+  });
+
   it("caps at week 18", () => {
     assert.equal(
-      finalizeMaxWeek({ inputWeek: 20, regularSeasonEndWeek: 19 }),
+      finalizeMaxWeek({
+        inputWeek: 20,
+        regularSeasonEndWeek: 19,
+        playoffEndWeek: 19,
+      }),
       18,
     );
   });
@@ -24,13 +39,21 @@ describe("finalizeMaxWeek", () => {
     );
   });
 
-  it("does not include regularSeasonEndWeek + 1 (playoff week)", () => {
+  it("includes playoff weeks through championship when input allows", () => {
     assert.equal(
-      finalizeMaxWeek({ inputWeek: 15, regularSeasonEndWeek: 14 }),
-      14,
+      finalizeMaxWeek({
+        inputWeek: 16,
+        regularSeasonEndWeek: 14,
+        playoffEndWeek: 16,
+      }),
+      16,
     );
-    assert.notEqual(
-      finalizeMaxWeek({ inputWeek: 15, regularSeasonEndWeek: 14 }),
+    assert.equal(
+      finalizeMaxWeek({
+        inputWeek: 15,
+        regularSeasonEndWeek: 14,
+        playoffEndWeek: 16,
+      }),
       15,
     );
   });
@@ -39,21 +62,14 @@ describe("finalizeMaxWeek", () => {
 describe("shouldFinalizeAfterSync", () => {
   it("returns false when Sleeper skipped", () => {
     assert.equal(
-      shouldFinalizeAfterSync({ sleeperSkipped: true, upserted: 100 }),
+      shouldFinalizeAfterSync({ sleeperSkipped: true }),
       false,
     );
   });
 
-  it("returns false when upserted is 0", () => {
+  it("returns true when not skipped (regardless of upsert count)", () => {
     assert.equal(
-      shouldFinalizeAfterSync({ sleeperSkipped: false, upserted: 0 }),
-      false,
-    );
-  });
-
-  it("returns true when not skipped and upserted > 0", () => {
-    assert.equal(
-      shouldFinalizeAfterSync({ sleeperSkipped: false, upserted: 50 }),
+      shouldFinalizeAfterSync({ sleeperSkipped: false }),
       true,
     );
   });

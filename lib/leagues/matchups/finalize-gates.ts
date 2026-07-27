@@ -1,19 +1,22 @@
 /**
  * Determine the maximum week to finalize after a score sync.
  *
- * Caps at regularSeasonEndWeek to avoid finalizing playoff weeks
- * (which need bracket logic, not simple score comparison).
+ * Caps at playoffEndWeek (or regularSeasonEndWeek if no playoffs) to include
+ * playoff weeks through championship when input.week allows.
  * Also caps at week 18 (NFL max).
  *
  * @param inputWeek - Week just synced
  * @param regularSeasonEndWeek - Last regular season week for this league
- * @returns Maximum week to finalize (1..18, ≤ regularSeasonEndWeek)
+ * @param playoffEndWeek - Last playoff week (championship week) if playoffs enabled
+ * @returns Maximum week to finalize (1..18, ≤ seasonCap)
  */
 export function finalizeMaxWeek(input: {
   inputWeek: number;
   regularSeasonEndWeek: number;
+  playoffEndWeek?: number;
 }): number {
-  return Math.min(input.inputWeek, input.regularSeasonEndWeek, 18);
+  const seasonCap = input.playoffEndWeek ?? input.regularSeasonEndWeek;
+  return Math.min(input.inputWeek, seasonCap, 18);
 }
 
 /**
@@ -21,16 +24,13 @@ export function finalizeMaxWeek(input: {
  *
  * Current behavior:
  * - Sleeper skipped → no finalize
- * - No records upserted → no finalize
- * - Otherwise → finalize
+ * - Otherwise → finalize (regardless of upsert count)
  *
  * @param sleeperSkipped - Sleeper sync returned skipped=true
- * @param upserted - Total player_scores upserted (Sleeper + ESPN + nflverse)
  * @returns true if finalize should run
  */
 export function shouldFinalizeAfterSync(input: {
   sleeperSkipped: boolean;
-  upserted: number;
 }): boolean {
-  return !input.sleeperSkipped && input.upserted > 0;
+  return !input.sleeperSkipped;
 }

@@ -109,18 +109,12 @@ async function handle(request: Request) {
       }
     }
 
-    const upserted =
-      sleeper.upserted +
-      (espn && !espn.skipped ? espn.upserted : 0) +
-      (nflverse && !nflverse.skipped ? nflverse.upserted : 0);
-
     let finalize: Awaited<
       ReturnType<typeof finalizeDueMatchupsAfterScoreSync>
     > | null = null;
     if (
       shouldFinalizeAfterSync({
         sleeperSkipped: Boolean(sleeper.skipped),
-        upserted,
       })
     ) {
       finalize = await finalizeDueMatchupsAfterScoreSync({
