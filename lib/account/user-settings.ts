@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { validateImageUrl } from "@/lib/ui/image-url";
+
 export type UserSettingsFormValues = {
   email: string;
   username: string;
@@ -28,13 +30,28 @@ export const userSettingsFormSchema = z
   })
   .superRefine((data, ctx) => {
     if (data.avatarMode !== "url" && data.avatarMode !== "upload") return;
-    if (/^https?:\/\/.+/i.test(data.avatarUrl.trim())) return;
-    ctx.addIssue({
-      code: "custom",
-      path: ["avatarUrl"],
-      message:
-        data.avatarMode === "upload"
-          ? "Choose an image to upload"
-          : "Enter a valid image URL",
+
+    if (data.avatarMode === "upload") {
+      if (!data.avatarUrl.trim()) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["avatarUrl"],
+          message: "Choose an image to upload",
+        });
+      }
+      return;
+    }
+
+    // URL mode - validate HTTPS and optional Supabase allowlist
+    const validation = validateImageUrl(data.avatarUrl, {
+      allowlistSupabase: false, // Allow external HTTPS URLs for flexibility
     });
+
+    if (!validation.valid) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["avatarUrl"],
+        message: validation.error,
+      });
+    }
   });
