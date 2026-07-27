@@ -1,0 +1,161 @@
+"use server";
+
+import { and, eq, isNull } from "drizzle-orm";
+
+import { leagueSeasons, teams } from "@/db/schema";
+import { db } from "@/lib/db";
+import {
+  diffSettingsValues,
+  logSettingsUpdated,
+} from "@/lib/leagues/settings-activity";
+import {
+  resolveWaiverWireSettings,
+  toPersistedWaiverWire,
+  waiverWireFormSchema,
+  type WaiverWireFormValues,
+} from "@/lib/leagues/waiver-wire";
+
+import {
+  getCommissionerSeason,
+  revalidateSettingsPaths,
+  type ActionResult,
+} from "./_shared";
+
+export async function updateWaiverWireRules(
+  slug: string,
+  values: WaiverWireFormValues,
+): Promise<ActionResult> {
+  const parsed = waiverWireFormSchema.safeParse(values);
+  if (!parsed.success) {
+    const issue = parsed.error.issues[0];
+    return {
+      success: false,
+      error: issue?.message ?? "Invalid waiver settings.",
+      fieldError:
+        issue?.path[0] === "processDays" || issue?.path[0] === "faabBudget"
+          ? issue.message
+          : undefined,
+    };
+  }
+
+  const result = await getCommissionerSeason(slug);
+  if ("error" in result) {
+    return { success: false, error: result.error };
+  }
+
+  const { season, user } = result;
+  const next = parsed.data;
+  const beforeWire = resolveWaiverWireSettings(season.settings.waiverWire);
+  const before = {
+    waiversEnabled: season.waiversEnabled,
+    waiverType: season.waiverType,
+    faabBudget: season.faabBudget,
+    processDays: beforeWire.processDays,
+    waiverPool: beforeWire.waiverPool,
+    dropWaiverHours: beforeWire.dropWaiverHours,
+    resetOrderWeekly: beforeWire.resetOrderWeekly,
+  };
+  const afterWire = toPersistedWaiverWire(next);
+  const after = {
+    waiversEnabled: next.waiversEnabled,
+    waiverType: next.waiverType,
+    faabBudget:
+      next.waiversEnabled && next.waiverType === "faab" ? next.faabBudget : null,
+    processDays: afterWire.processDays,
+    waiverPool: afterWire.waiverPool,
+    dropWaiverHours: afterWire.dropWaiverHours,
+    resetOrderWeekly: afterWire.resetOrderWeekly,
+  };
+
+  await db
+    .update(leagueSeasons)
+    .set({
+      waiversEnabled: next.waiversEnabled,
+      waiverType: next.waiverType,
+      faabBudget:
+        next.waiversEnabled && next.waiverType === "faab"
+          ? next.faabBudget
+          : null,
+      settings: {
+        ...season.settings,
+        waiverWire: afterWire,
+      },
+    })
+    .where(eq(leagueSeasons.id, season.id));
+
+  // Seed FAAB only for teams that don't have a budget yet (don't reset spends).
+  if (next.waiversEnabled && next.waiverType === "faab") {
+    await db
+      .update(teams)
+      .set({ faabRemaining: next.faabBudget })
+      .where(
+        and(eq(teams.leagueSeasonId, season.id), isNull(teams.faabRemaining)),
+      );
+  } else {
+    await db
+      .update(teams)
+      .set({ faabRemaining: null })
+      .where(eq(teams.leagueSeasonId, season.id));
+  }
+
+  await logSettingsUpdated({
+    leagueSeasonId: season.id,
+    actorUserId: user.id,
+    section: "waivers",
+    label: "Waiver wire",
+    changes: diffSettingsValues(before, after, [
+      { path: "waiversEnabled", label: "Waivers enabled" },
+      { path: "waiverType", label: "Waiver type" },
+      { path: "faabBudget", label: "FAAB budget" },
+      { path: "processDays", label: "Process days" },
+      { path: "waiverPool", label: "Waiver pool" },
+      { path: "dropWaiverHours", label: "Drop waiver hours" },
+      { path: "resetOrderWeekly", label: "Reset order weekly" },
+    ]),
+  });
+
+  revalidateSettingsPaths(slug);
+
+  return { success: true };
+}
+
+export async function updateWaiverOrder(
+  slug: string,
+  teamIdsInOrder: string[],
+): Promise<ActionResult> {
+  if (!Array.isArray(teamIdsInOrder) || teamIdsInOrder.length === 0) {
+    return { success: false, error: "Waiver order is empty." };
+  }
+
+  const result = await getCommissionerSeason(slug);
+  if ("error" in result) {
+    return { success: false, error: result.error };
+  }
+
+  const { season } = result;
+
+  const existing = await db
+    .select({ id: teams.id })
+    .from(teams)
+    .where(eq(teams.leagueSeasonId, season.id));
+
+  const existingIds = new Set(existing.map((row) => row.id));
+  if (teamIdsInOrder.length !== existingIds.size) {
+    return { success: false, error: "Waiver order must include every team." };
+  }
+  for (const id of teamIdsInOrder) {
+    if (!existingIds.has(id)) {
+      return { success: false, error: "Waiver order includes an unknown team." };
+    }
+  }
+
+  for (let index = 0; index < teamIdsInOrder.length; index++) {
+    await db
+      .update(teams)
+      .set({ waiverPriority: index + 1 })
+      .where(eq(teams.id, teamIdsInOrder[index]!));
+  }
+
+  revalidateSettingsPaths(slug);
+  return { success: true };
+}
