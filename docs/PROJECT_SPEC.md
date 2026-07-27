@@ -1,7 +1,7 @@
 # Fantasy Kings — Project Specification
 
 > Living document. Update this file as requirements, decisions, and scope change.
-> Last updated: 2026-07-25
+> Last updated: 2026-07-27
 
 ---
 
@@ -39,6 +39,7 @@ A mobile-first fantasy football web app for a private friend group (4–16 users
 | Game Centre | Yet-to-play + scheduled Preview dashboard (predictor, leaders, injuries, H2H) |
 | Playoffs standings | Seed only (no Rank column) |
 | Messages | League threads + replies; nav unread red dot; mark all read |
+| Engagement | SOS (season/remaining), playoff chance %, playoff picture badges, Game Centre Preview, Overview (spotlights + roast), HoF (titles + roast + extremes), Team H2H tab, Team Stats charts 1–4 + KPI strip |
 
 ### Near-term product (build next)
 
@@ -46,19 +47,12 @@ A mobile-first fantasy football web app for a private friend group (4–16 users
 |---|---|
 | Advanced player filtering | Richer filters beyond current position / team / rookies / FA toggles |
 
-### Engagement analytics (planned — after near-term)
+### Engagement analytics (remaining)
 
 | Item | Notes |
 |---|---|
-| Strength of schedule | Projected opponent win% (starter PF → logistic); season vs remaining; pre-season both match |
-| Playoff chance % | Monte Carlo on remaining schedule; Odds column color-coded |
-| Playoff picture | In / Bubble / Out badges (win-bound clinch/eliminate) |
-| Matchup insights | Rivalry record, last N meetings, proj winner/margin, positional edges, top starter each side, median/luck, shared NFL games, injury impact, bench/optimal delta |
-| “Would have won” | Alternate H2H outcomes (vs field / median / optimal) on matchup + team H2H |
-| Team Head-to-Head tab | On other-team page: historical record vs viewer’s team + meeting list |
-| Hall of Fame | League museum — champions, cellar, all-time, roast awards, single-game museum (see §6) |
-| Overview weekly roast row | Top Scorer / Luckiest Winner / Underachiever for the latest scored week |
-| Team page — Team Stats tab | Chart dashboard (decision-first); charts 1–2 shipping, more planned |
+| Matchup insights | Positional edges, median/luck, bench/optimal delta, would-have-won alternate outcomes |
+| Team Stats charts 5–6 | Scoring concentration, win margins (optional) |
 | Season rewind | End-of-year team/league recap |
 
 ### Explicitly deferred (do not schedule soon)
@@ -100,7 +94,6 @@ These apply for the entire project:
 - **Data first** for player-facing screens — import real player data, then build UI against the database.
 - **Schema in parallel** — types and tables before ingest scripts.
 - **UI on real data** once ingest is verified (Rankings was the first screen wired this way).
-- **Typed mock data** only for screens that still lack backend wiring (matchups, trades, activity, draft).
 
 ### Operations Documentation
 
@@ -656,8 +649,8 @@ lib/
 - [x] **Team Head-to-Head tab** — viewer vs other team series on other-team page
 - [x] **Hall of Fame** — titles / RS / division / all-time / lucky / winning-score extremes; choke & Fergie via last-kickoff swings (current lineup + week actuals)
 - [x] **Overview weekly roast row** — Top Scorer / Luckiest Winner (lowest PF + won) / Underachiever (most bench left + lost); shows after first scored week (`?mock=1` preview)
-- [x] **Team page — Team Stats charts 1–4** — Points by week; Points by position; Matchup luck; Points left on bench (OPF−PF + flip weeks); chart headline metrics (avg score / strongest pos / luck verdict / should-be record); consistency KPI card
-- [ ] **Team page — Team Stats charts 5–6 + KPI strip** — concentration, margins/cards
+- [x] **Team page — Team Stats charts 1–4** — Points by week; Points by position; Matchup luck; Points left on bench (OPF−PF + flip weeks); chart headline metrics (avg score / strongest pos / luck verdict / should-be record); margin KPI strip (avg win/loss margins)
+- [ ] **Team page — Team Stats charts 5–6** — concentration, win margins chart (optional)
 - [ ] **Season rewind** — end-of-year team/league recap
 
 **Shipped playoff completion (kept for history)**
@@ -769,3 +762,4 @@ lib/
 | 2026-07-27 | Team Stats: chart headline metrics; avg weekly score moves off KPI strip |
 | 2026-07-25 | Game Centre Preview: scheduled = Preview+Matchup; live/final = Matchup+Box; predictor/leaders/injuries/H2H |
 | 2026-07-16 | Trades: initial implementation started; follow-up items documented (vetoes, limits, cron, email) |
+|| 2026-07-27 | Spec sync: move shipped engagement (SOS, playoff chance, HoF, roast, Team Stats 1–4, KPI strip) to shipped; mark margin KPI strip done; remove stale typed-mock sequencing; engagement remaining = advanced filters, matchup insights, concentration charts, season rewind |
