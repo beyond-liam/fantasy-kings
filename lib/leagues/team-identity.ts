@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { validateImageUrl } from "@/lib/ui/image-url";
+
 export type TeamIdentityFormValues = {
   name: string;
   logoMode: "keep" | "upload" | "url" | "remove";
@@ -14,13 +16,28 @@ export const teamIdentityFormSchema = z
   })
   .superRefine((data, ctx) => {
     if (data.logoMode !== "url" && data.logoMode !== "upload") return;
-    if (/^https?:\/\/.+/i.test(data.logoUrl.trim())) return;
-    ctx.addIssue({
-      code: "custom",
-      path: ["logoUrl"],
-      message:
-        data.logoMode === "upload"
-          ? "Choose an image to upload"
-          : "Enter a valid image URL",
+
+    if (data.logoMode === "upload") {
+      if (!data.logoUrl.trim()) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["logoUrl"],
+          message: "Choose an image to upload",
+        });
+      }
+      return;
+    }
+
+    // URL mode - validate HTTPS and optional Supabase allowlist
+    const validation = validateImageUrl(data.logoUrl, {
+      allowlistSupabase: false, // Allow external HTTPS URLs for flexibility
     });
+
+    if (!validation.valid) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["logoUrl"],
+        message: validation.error,
+      });
+    }
   });
