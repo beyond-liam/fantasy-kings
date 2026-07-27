@@ -19,7 +19,11 @@ TanStack Query and Zustand are **not** installed — defer until draft room / cl
 pnpm lint
 pnpm typecheck
 pnpm test
+pnpm test:db
+pnpm build
 ```
+
+Note: CI runs same sequence (`.github/workflows/verify.yml`).
 
 ## Docs
 
