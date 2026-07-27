@@ -34,6 +34,7 @@ export async function getNflState(options?: {
   fresh?: boolean;
 }): Promise<SleeperNflState> {
   const response = await fetch(`${SLEEPER_APP_BASE}/state/nfl`, {
+    signal: AbortSignal.timeout(10000),
     ...(options?.fresh
       ? { cache: "no-store" as const }
       : { next: { revalidate: 3600 } }),

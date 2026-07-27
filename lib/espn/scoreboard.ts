@@ -312,6 +312,7 @@ export async function getNflScoreboard(options: {
   url.searchParams.set("week", String(week));
 
   const response = await fetch(url, {
+    signal: AbortSignal.timeout(12000),
     next: { revalidate: 60 },
   });
 

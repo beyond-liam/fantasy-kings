@@ -76,7 +76,7 @@ import { and, eq, gte } from "drizzle-orm";
 
 type LeagueHomePageProps = {
   params: Promise<{ leagueId: string }>;
-  searchParams: Promise<{ mock?: string }>;
+  searchParams: Promise<{ tab?: string; mock?: string }>;
 };
 
 export const metadata: Metadata = {
@@ -88,8 +88,9 @@ export default async function LeagueHomePage({
   searchParams,
 }: LeagueHomePageProps) {
   const { leagueId: slug } = await params;
-  const { mock } = await searchParams;
+  const { mock, tab } = await searchParams;
   const useOverviewMock = mock === "1" || mock === "true";
+  const activeTab = tab || "overview";
   const user = await getSessionUser();
   if (!user) {
     redirect(`/login?next=/league/${slug}`);
@@ -125,7 +126,9 @@ export default async function LeagueHomePage({
     redirect("/leagues");
   }
 
-  const statsPromise = getLeaguePositionStats(slug, user.id);
+  const needsPlayoffBracket = activeTab === "playoffs";
+  const needsOverviewData =
+    activeTab === "overview" || activeTab === "hall-of-fame";
 
   const { league, season, members, draftStatus, standingsTeams } = data;
   const claimedCount = standingsTeams.filter((team) => team.userId).length;
@@ -136,10 +139,15 @@ export default async function LeagueHomePage({
     season?.waiverType === "faab" &&
     season.faabBudget != null &&
     season.faabBudget > 0;
-  const seasonMatchups =
+
+  // Start parallel operations for base standings data
+  const [statsPromise, seasonMatchups] = await Promise.all([
+    getLeaguePositionStats(slug, user.id),
     season != null
-      ? await getSeasonMatchups(season.id).catch(() => [])
-      : [];
+      ? getSeasonMatchups(season.id).catch(() => [])
+      : Promise.resolve([]),
+  ]);
+
   const regularSeasonEndWeek = season?.regularSeasonEndWeek ?? 14;
   const finals = seasonMatchups
     .filter(
@@ -192,7 +200,9 @@ export default async function LeagueHomePage({
       season.scoringPreset as ScoringPreset,
       season.settings.scoringRules,
     );
-    const nflState = await getNflState().catch(() => null);
+    const [nflState] = await Promise.all([
+      getNflState().catch(() => null),
+    ]);
     const projectionWeek = Math.max(1, Number(nflState?.week) || 1);
     projectedWeeklyPf = await getTeamProjectedWeeklyPf({
       teamIds: claimedTeamIds,
@@ -239,22 +249,22 @@ export default async function LeagueHomePage({
     remainingMatchups: playoffSettings.enabled ? remainingMatchups : [],
     strengthByTeamId,
   });
-  const seedTeams =
-    season && playoffSettings.enabled
-      ? bracketTeamsFromStandings(playoffStandings, playoffTeamCount)
-      : [];
-  let playoffBracket =
-    season && playoffSettings.enabled
-      ? buildPlayoffBracket({
-          teams: seedTeams,
-          playoffTeamCount,
-          championshipWeek: season.championshipWeek,
-          twoWeekChampionship: playoffSettings.twoWeekChampionship,
-          enabled: true,
-        })
-      : null;
 
-  if (season && playoffBracket) {
+  // Defer playoff bracket computation to playoffs tab only
+  let playoffBracket = null;
+  if (needsPlayoffBracket && season && playoffSettings.enabled) {
+    const seedTeams = bracketTeamsFromStandings(
+      playoffStandings,
+      playoffTeamCount,
+    );
+    playoffBracket = buildPlayoffBracket({
+      teams: seedTeams,
+      playoffTeamCount,
+      championshipWeek: season.championshipWeek,
+      twoWeekChampionship: playoffSettings.twoWeekChampionship,
+      enabled: true,
+    });
+
     const range = getPlayoffWeekRange(
       season.championshipWeek,
       playoffTeamCount,
@@ -282,7 +292,7 @@ export default async function LeagueHomePage({
         )
         .catch(() => []);
 
-      if (playoffRows.length > 0) {
+      if (playoffRows.length > 0 && playoffBracket) {
         playoffBracket = hydratePlayoffBracket(
           playoffBracket,
           playoffRows,
@@ -291,6 +301,7 @@ export default async function LeagueHomePage({
       }
     }
   }
+
   const myTeamPublicId =
     members.find((member) => member.userId === user.id)?.teamPublicId ?? null;
   const myTeamId =
@@ -306,57 +317,70 @@ export default async function LeagueHomePage({
     focusIndex,
   );
 
-  const seasonOpf =
-    season != null
-      ? await getSeasonOpfByTeamId(season.id).catch(() => new Map())
-      : new Map();
+  // Parallelize overview and hall of fame data loading
+  let seasonOpf = new Map<string, { byPosition: Record<string, number> }>();
+  let seasonLeaders: ReturnType<typeof buildSeasonPositionLeaders> = [];
+  let inefficient: ReturnType<typeof rankByInefficiency> = [];
+  let weekHighlights: Awaited<ReturnType<typeof loadOverviewWeekHighlights>> | {
+    playersOfTheWeek: {
+      passer: null;
+      rusher: null;
+      receiver: null;
+    };
+    week: null;
+  } = {
+    playersOfTheWeek: {
+      passer: null,
+      rusher: null,
+      receiver: null,
+    },
+    week: null,
+  };
+  let hofTeams: Array<{
+    teamId: string;
+    teamPublicId: string | null;
+    teamName: string;
+    ownerName: string;
+    logoUrl: string | null;
+    claimed: boolean;
+    divisionId: string | null;
+  }> = [];
+  let hallOfFameData: Awaited<ReturnType<typeof loadLeagueHallOfFame>> | ReturnType<typeof emptyLeagueHallOfFame> = emptyLeagueHallOfFame();
+  let weeklyRoast: Awaited<ReturnType<typeof loadOverviewWeeklyRoast>> | ReturnType<typeof getOverviewWeeklyRoastMock> | null = null;
 
-  const seasonLeaders = buildSeasonPositionLeaders(
-    claimedStandings
-      .filter((row): row is typeof row & { teamId: string } =>
-        Boolean(row.teamId),
-      )
-      .map((row) => ({
-        teamId: row.teamId,
-        teamPublicId: row.teamPublicId,
-        teamName: row.teamName,
-        logoUrl: row.logoUrl,
-        claimed: row.claimed,
-        byPosition: seasonOpf.get(row.teamId)?.byPosition ?? {},
-      })),
-  );
+  if (needsOverviewData && season) {
+    const scoringRulesForOverview = resolveScoringRuleDefinitions(
+      season.scoringPreset as ScoringPreset,
+      season.settings.scoringRules,
+    );
 
-  const inefficient = rankByInefficiency(
-    (stats?.rows ?? []).map((row) => ({
-      teamId: row.teamId,
-      teamPublicId: row.teamPublicId,
-      teamName: row.teamName,
-      ownerName: row.ownerName,
-      logoUrl: row.logoUrl,
-      claimed: row.claimed,
-      seasonPointsFor: row.seasonPointsFor,
-      seasonOptimumPointsFor: row.seasonOptimumPointsFor,
-    })),
-  );
+    const [nflStateForOverview, seasonOpfResult] = await Promise.all([
+      getNflState().catch(() => null),
+      getSeasonOpfByTeamId(season.id).catch(() => new Map()),
+    ]);
 
-  const scoringRulesForOverview = season
-    ? resolveScoringRuleDefinitions(
-        season.scoringPreset as ScoringPreset,
-        season.settings.scoringRules,
-      )
-    : null;
+    seasonOpf = seasonOpfResult;
+    const highlightWeek = Math.max(
+      1,
+      Number(nflStateForOverview?.week) || 1,
+    );
 
-  const nflStateForOverview = season
-    ? await getNflState().catch(() => null)
-    : null;
-  const highlightWeek = Math.max(
-    1,
-    Number(nflStateForOverview?.week) || 1,
-  );
+    // Compute hofTeams before async operations
+    hofTeams = standingsTeams.map((team) => ({
+      teamId: team.teamId!,
+      teamPublicId: team.teamPublicId ?? null,
+      teamName: team.teamName ?? "Team",
+      ownerName: team.userId
+        ? (team.displayName?.trim() || "Manager")
+        : "Unclaimed",
+      logoUrl: team.logoUrl ?? null,
+      claimed: Boolean(team.userId && team.teamId),
+      divisionId: team.divisionId ?? null,
+    }));
 
-  const weekHighlights =
-    season && scoringRulesForOverview
-      ? await loadOverviewWeekHighlights({
+    const [weekHighlightsResult, hallOfFameResult, weeklyRoastResult] =
+      await Promise.all([
+        loadOverviewWeekHighlights({
           seasonYear: season.seasonYear,
           week: highlightWeek,
           scoringRules: scoringRulesForOverview,
@@ -367,56 +391,131 @@ export default async function LeagueHomePage({
             receiver: null,
           },
           week: highlightWeek,
-        }))
-      : {
-          playersOfTheWeek: {
-            passer: null,
-            rusher: null,
-            receiver: null,
-          },
-          week: null as number | null,
-        };
+        })),
+        (async () => {
+          const seedTeams = bracketTeamsFromStandings(
+            playoffStandings,
+            playoffTeamCount,
+          );
+          let bracketForHof = null;
+          if (playoffSettings.enabled) {
+            bracketForHof = buildPlayoffBracket({
+              teams: seedTeams,
+              playoffTeamCount,
+              championshipWeek: season.championshipWeek,
+              twoWeekChampionship: playoffSettings.twoWeekChampionship,
+              enabled: true,
+            });
 
-  const hofTeams = standingsTeams.map((team) => ({
-    teamId: team.teamId!,
-    teamPublicId: team.teamPublicId ?? null,
-    teamName: team.teamName ?? "Team",
-    ownerName: team.userId
-      ? (team.displayName?.trim() || "Manager")
-      : "Unclaimed",
-    logoUrl: team.logoUrl ?? null,
-    claimed: Boolean(team.userId && team.teamId),
-    divisionId: team.divisionId ?? null,
-  }));
+            const range = getPlayoffWeekRange(
+              season.championshipWeek,
+              playoffTeamCount,
+              {
+                enabled: true,
+                twoWeekChampionship: playoffSettings.twoWeekChampionship,
+              },
+            );
+            if (range) {
+              const playoffRows = await db
+                .select({
+                  week: matchups.week,
+                  homeTeamId: matchups.homeTeamId,
+                  awayTeamId: matchups.awayTeamId,
+                  homePts: matchups.homePts,
+                  awayPts: matchups.awayPts,
+                  status: matchups.status,
+                })
+                .from(matchups)
+                .where(
+                  and(
+                    eq(matchups.leagueSeasonId, season.id),
+                    gte(matchups.week, range.startWeek),
+                  ),
+                )
+                .catch(() => []);
 
-  const hallOfFameData = season
-    ? await loadLeagueHallOfFame({
-        leagueSeasonId: season.id,
-        seasonYear: season.seasonYear,
-        teams: hofTeams.filter((t) => Boolean(t.teamId)),
-        divisionCount: season.divisionCount,
-        regularSeasonEndWeek: season.regularSeasonEndWeek,
-        championTeamId: playoffBracket?.champion?.teamId ?? null,
-      }).catch(() => emptyLeagueHallOfFame())
-    : emptyLeagueHallOfFame();
+              if (playoffRows.length > 0 && bracketForHof) {
+                bracketForHof = hydratePlayoffBracket(
+                  bracketForHof,
+                  playoffRows,
+                  seedTeams,
+                );
+              }
+            }
+          }
 
-  const weeklyRoast = useOverviewMock
-    ? getOverviewWeeklyRoastMock()
-    : season
-      ? await loadOverviewWeeklyRoast({
-          leagueSeasonId: season.id,
-          regularSeasonEndWeek: season.regularSeasonEndWeek,
-          teams: hofTeams
-            .filter((t) => t.claimed)
-            .map((t) => ({
-              teamId: t.teamId,
-              teamPublicId: t.teamPublicId,
-              teamName: t.teamName,
-              ownerName: t.ownerName,
-              logoUrl: t.logoUrl,
-            })),
-        }).catch(() => null)
-      : null;
+          return loadLeagueHallOfFame({
+            leagueSeasonId: season.id,
+            seasonYear: season.seasonYear,
+            teams: hofTeams.filter((t) => Boolean(t.teamId)),
+            divisionCount: season.divisionCount,
+            regularSeasonEndWeek: season.regularSeasonEndWeek,
+            championTeamId: bracketForHof?.champion?.teamId ?? null,
+          }).catch(() => emptyLeagueHallOfFame());
+        })(),
+        useOverviewMock
+          ? Promise.resolve(getOverviewWeeklyRoastMock())
+          : loadOverviewWeeklyRoast({
+              leagueSeasonId: season.id,
+              regularSeasonEndWeek: season.regularSeasonEndWeek,
+              teams: standingsTeams
+                .filter((t) => t.userId && t.teamId)
+                .map((t) => ({
+                  teamId: t.teamId!,
+                  teamPublicId: t.teamPublicId ?? null,
+                  teamName: t.teamName ?? "Team",
+                  ownerName: t.displayName?.trim() || "Manager",
+                  logoUrl: t.logoUrl ?? null,
+                })),
+            }).catch(() => null),
+      ]);
+
+    weekHighlights = weekHighlightsResult;
+    hallOfFameData = hallOfFameResult;
+    weeklyRoast = weeklyRoastResult;
+
+    seasonLeaders = buildSeasonPositionLeaders(
+      claimedStandings
+        .filter((row): row is typeof row & { teamId: string } =>
+          Boolean(row.teamId),
+        )
+        .map((row) => ({
+          teamId: row.teamId,
+          teamPublicId: row.teamPublicId,
+          teamName: row.teamName,
+          logoUrl: row.logoUrl,
+          claimed: row.claimed,
+          byPosition: seasonOpf.get(row.teamId)?.byPosition ?? {},
+        })),
+    );
+
+    inefficient = rankByInefficiency(
+      (stats?.rows ?? []).map((row) => ({
+        teamId: row.teamId,
+        teamPublicId: row.teamPublicId,
+        teamName: row.teamName,
+        ownerName: row.ownerName,
+        logoUrl: row.logoUrl,
+        claimed: row.claimed,
+        seasonPointsFor: row.seasonPointsFor,
+        seasonOptimumPointsFor: row.seasonOptimumPointsFor,
+      })),
+    );
+  } else if (!needsOverviewData) {
+    // Minimal data for non-overview tabs
+    hofTeams = standingsTeams.map((team) => ({
+      teamId: team.teamId!,
+      teamPublicId: team.teamPublicId ?? null,
+      teamName: team.teamName ?? "Team",
+      ownerName: team.userId
+        ? (team.displayName?.trim() || "Manager")
+        : "Unclaimed",
+      logoUrl: team.logoUrl ?? null,
+      claimed: Boolean(team.userId && team.teamId),
+      divisionId: team.divisionId ?? null,
+    }));
+    hallOfFameData = emptyLeagueHallOfFame();
+  }
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-6">
@@ -493,10 +592,12 @@ export default async function LeagueHomePage({
           />
         }
         hallOfFame={
-          <LeagueHallOfFame
-            leagueSlug={league.publicId}
-            data={hallOfFameData}
-          />
+          hallOfFameData ? (
+            <LeagueHallOfFame
+              leagueSlug={league.publicId}
+              data={hallOfFameData}
+            />
+          ) : undefined
         }
         rules={
           season ? (
