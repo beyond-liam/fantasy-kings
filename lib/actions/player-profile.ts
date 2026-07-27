@@ -1,5 +1,6 @@
 "use server";
 
+import { getSessionUser } from "@/lib/auth/session";
 import { getPlayerProfile } from "@/lib/queries/player-profile";
 
 export async function loadPlayerProfile(input: {
@@ -7,6 +8,11 @@ export async function loadPlayerProfile(input: {
   leagueSlug?: string | null;
   season?: string | null;
 }) {
+  const user = await getSessionUser();
+  if (!user) {
+    return { success: false as const, error: "Sign in to view player profiles." };
+  }
+
   if (!input.playerId.trim()) {
     return { success: false as const, error: "Missing player." };
   }
@@ -24,10 +30,10 @@ export async function loadPlayerProfile(input: {
 
     return { success: true as const, profile };
   } catch (error) {
+    console.error(error);
     return {
       success: false as const,
-      error:
-        error instanceof Error ? error.message : "Could not load player profile.",
+      error: "Could not load player profile.",
     };
   }
 }
