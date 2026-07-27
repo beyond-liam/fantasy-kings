@@ -1,4 +1,5 @@
 import { and, eq, inArray, sql } from "drizzle-orm";
+import { cache } from "react";
 
 import { leagueSeasons, matchups } from "@/db/schema";
 import type { LeagueSeasonSettings } from "@/db/schema/league-seasons";
@@ -419,25 +420,27 @@ export async function finalizeDueMatchupsAfterScoreSync(input: {
 }
 
 /** Load final matchups for standings. */
-export async function getFinalMatchupsForSeason(leagueSeasonId: string) {
-  return db
-    .select({
-      id: matchups.id,
-      week: matchups.week,
-      homeTeamId: matchups.homeTeamId,
-      awayTeamId: matchups.awayTeamId,
-      homePts: matchups.homePts,
-      awayPts: matchups.awayPts,
-    })
-    .from(matchups)
-    .where(
-      and(
-        eq(matchups.leagueSeasonId, leagueSeasonId),
-        eq(matchups.status, "final"),
-      ),
-    )
-    .orderBy(matchups.week);
-}
+export const getFinalMatchupsForSeason = cache(
+  async (leagueSeasonId: string) => {
+    return db
+      .select({
+        id: matchups.id,
+        week: matchups.week,
+        homeTeamId: matchups.homeTeamId,
+        awayTeamId: matchups.awayTeamId,
+        homePts: matchups.homePts,
+        awayPts: matchups.awayPts,
+      })
+      .from(matchups)
+      .where(
+        and(
+          eq(matchups.leagueSeasonId, leagueSeasonId),
+          eq(matchups.status, "final"),
+        ),
+      )
+      .orderBy(matchups.week);
+  },
+);
 
 /** Batch finals for many seasons (leagues list). */
 export async function getFinalMatchupsForSeasons(
