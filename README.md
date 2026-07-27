@@ -65,3 +65,7 @@ Open [http://localhost:3000](http://localhost:3000).
 ## Agent / contributor guidance
 
 See [`AGENTS.md`](AGENTS.md) and Section 2 of the project spec (smallest increments, stop for approval).
+
+## Operations
+
+See [`docs/ops/cron-runbook.md`](docs/ops/cron-runbook.md) for cron job setup and score sync pipeline operations.
