@@ -21,6 +21,7 @@ import {
 import { normalizeNflTeamAbbrev } from "@/lib/nfl/matchups";
 import type { LeagueMatchupRow } from "@/lib/queries/matchups";
 import { getRankedPlayers } from "@/lib/queries/players";
+import { allStartersFinal } from "@/lib/queries/lineup-finalization";
 
 export type MatchupBoardSide = {
   teamId: string;
@@ -212,24 +213,6 @@ function anyStarterStarted(
     if (!abbrev) return false;
     const progress = progressByNflTeam.get(abbrev);
     return progress?.status === "in" || progress?.status === "post";
-  });
-}
-
-/**
- * Check if all starters in a lineup have finished games.
- * Empty lineup → false.
- * Missing progress → true (treats as final; current behavior).
- */
-export function allStartersFinal(
-  lineup: WinProbPlayer[],
-  progressByNflTeam: Map<string, GameProgress>,
-) {
-  if (lineup.length === 0) return false;
-  return lineup.every((player) => {
-    const abbrev = normalizeNflTeamAbbrev(player.nflTeam);
-    if (!abbrev) return true;
-    const progress = progressByNflTeam.get(abbrev);
-    return progress == null || progress.status === "post";
   });
 }
 

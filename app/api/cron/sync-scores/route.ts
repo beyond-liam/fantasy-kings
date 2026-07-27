@@ -119,7 +119,7 @@ async function handle(request: Request) {
     > | null = null;
     if (
       shouldFinalizeAfterSync({
-        sleeperSkipped: sleeper.skipped,
+        sleeperSkipped: Boolean(sleeper.skipped),
         upserted,
       })
     ) {

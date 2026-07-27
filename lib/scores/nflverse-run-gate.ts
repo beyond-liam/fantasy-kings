@@ -1,5 +1,3 @@
-import type { ScheduleGame } from "@/lib/espn/scoreboard";
-
 /**
  * Determine if nflverse official stats should run after Sleeper sync.
  *
@@ -19,7 +17,7 @@ import type { ScheduleGame } from "@/lib/espn/scoreboard";
 export function shouldAutoRunNflverse(input: {
   force: boolean;
   scoreboardOk: boolean;
-  games: ScheduleGame[];
+  games: Array<{ status: string }>;
 }): boolean {
   if (input.force) return true;
 
