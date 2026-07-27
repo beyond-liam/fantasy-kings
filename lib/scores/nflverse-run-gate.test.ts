@@ -36,17 +36,25 @@ describe("shouldAutoRunNflverse", () => {
     );
   });
 
-  it("runs when games array is empty and scoreboardOk=true", () => {
+  it("skips when games are mixed pre and post (requires ALL post)", () => {
+    const mixedGames = [{ status: "pre" }, { status: "post" }];
     assert.equal(
-      shouldAutoRunNflverse({ force: false, scoreboardOk: true, games: [] }),
-      true,
+      shouldAutoRunNflverse({ force: false, scoreboardOk: true, games: mixedGames }),
+      false,
     );
   });
 
-  it("runs when scoreboardOk=false (current behavior, treats outage as done)", () => {
+  it("skips when games array is empty even with scoreboardOk=true (fail-closed)", () => {
+    assert.equal(
+      shouldAutoRunNflverse({ force: false, scoreboardOk: true, games: [] }),
+      false,
+    );
+  });
+
+  it("skips when scoreboardOk=false (fail-closed, no visibility)", () => {
     assert.equal(
       shouldAutoRunNflverse({ force: false, scoreboardOk: false, games: [] }),
-      true,
+      false,
     );
   });
 });

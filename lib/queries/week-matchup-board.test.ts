@@ -70,7 +70,7 @@ describe("allStartersFinal", () => {
     assert.equal(allStartersFinal(lineup, progress), false);
   });
 
-  it("treats missing progress as final (current behavior)", () => {
+  it("treats missing progress as NOT final (fail-closed)", () => {
     const lineup: WinProbPlayer[] = [
       {
         id: "1",
@@ -91,6 +91,6 @@ describe("allStartersFinal", () => {
       ["SF", { status: "post", fractionPlayed: 1 }],
       // KC missing from progress map
     ]);
-    assert.equal(allStartersFinal(lineup, progress), true);
+    assert.equal(allStartersFinal(lineup, progress), false);
   });
 });

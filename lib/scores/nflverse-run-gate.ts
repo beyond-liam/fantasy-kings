@@ -6,13 +6,12 @@
  * @param games - Games from scoreboard (empty array if fetch failed)
  * @returns true if nflverse should replace Sleeper stats
  *
- * Current behavior (including bug):
+ * Fail-closed behavior (plan 005):
  * - force=true → always run
- * - scoreboardOk=false (fetch failed) → games=[] → runs (treats outage as "week done")
- * - hasLive → skip (games still in progress)
- * - hasPost or empty → run (slate complete or past week)
- *
- * Plan 005 will fix scoreboardOk=false → skip instead of run.
+ * - scoreboardOk=false → skip (no visibility into game state)
+ * - any game status="in" → skip (games still in progress)
+ * - games.length=0 even with scoreboardOk=true → skip (no games to finalize)
+ * - all games status="post" → run (slate complete)
  */
 export function shouldAutoRunNflverse(input: {
   force: boolean;
@@ -20,11 +19,11 @@ export function shouldAutoRunNflverse(input: {
   games: Array<{ status: string }>;
 }): boolean {
   if (input.force) return true;
+  if (!input.scoreboardOk) return false;
 
   const hasLive = input.games.some((game) => game.status === "in");
-  const hasPost = input.games.some((game) => game.status === "post");
+  if (hasLive) return false;
 
-  // Current bug: scoreboardOk false is treated same as empty games array.
-  // Plan 005: return false when !scoreboardOk.
-  return !hasLive && (hasPost || input.games.length === 0);
+  // Only run if we have games AND all are post
+  return input.games.length > 0 && input.games.every((game) => game.status === "post");
 }
