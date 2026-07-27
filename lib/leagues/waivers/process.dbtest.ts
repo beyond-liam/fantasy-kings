@@ -4,6 +4,7 @@ import { before, describe, it } from "node:test";
 import { eq } from "drizzle-orm";
 
 import { leagueSeasons, rosterPlayers, teams, waiverClaims } from "@/db/schema";
+import { isWaiverProcessDue } from "@/lib/leagues/waivers/calendar";
 import { processSeasonWaivers } from "@/lib/leagues/waivers/process";
 import { createTestDb, type TestDb } from "@/lib/test/harness";
 import {
@@ -285,5 +286,148 @@ describe("processSeasonWaivers", () => {
       .where(eq(rosterPlayers.playerId, rbToDrop!.id));
     assert.equal(droppedRow?.status, "rostered");
     assert.equal(droppedRow?.teamId, seasonTeams[0]!.id);
+  });
+
+  it("does not set lastWaiverProcessedAt before claims finish adjudicating", async () => {
+    const { season } = await seedLeagueSeason(testDb, {
+      teamCount: 1,
+      waiverType: "priority",
+    });
+    const seasonTeams = await seedTeams(testDb, {
+      leagueSeasonId: season.id,
+      count: 1,
+    });
+    const [freeAgent] = await seedPlayers(testDb, [
+      { fullName: "Free Agent Test", primaryPositionId: "WR" },
+    ]);
+
+    await testDb.insert(waiverClaims).values({
+      leagueSeasonId: season.id,
+      teamId: seasonTeams[0]!.id,
+      playerId: freeAgent!.id,
+      dropPlayerId: null,
+      bid: null,
+      createdAt: ELIGIBLE_CLAIM_CREATED_AT,
+    });
+
+    const result = await processSeasonWaivers({
+      season,
+      leagueSlug: "test-league",
+      now: NOW,
+    });
+    assert.deepEqual(result, { awarded: 1, failed: 0 });
+
+    const [updatedSeason] = await testDb
+      .select()
+      .from(leagueSeasons)
+      .where(eq(leagueSeasons.id, season.id));
+    
+    // Should have stamped lastWaiverProcessedAt after successful processing
+    assert.equal(updatedSeason?.lastWaiverProcessedAt?.getTime(), NOW.getTime());
+    // Should have cleared the lease
+    assert.equal(updatedSeason?.waiverProcessingLeaseUntil, null);
+  });
+
+  it("concurrent call while lease held returns without double-award", async () => {
+    const { season } = await seedLeagueSeason(testDb, {
+      teamCount: 1,
+      waiverType: "priority",
+    });
+    const seasonTeams = await seedTeams(testDb, {
+      leagueSeasonId: season.id,
+      count: 1,
+    });
+    const [freeAgent] = await seedPlayers(testDb, [
+      { fullName: "Concurrent Test WR", primaryPositionId: "WR" },
+    ]);
+
+    await testDb.insert(waiverClaims).values({
+      leagueSeasonId: season.id,
+      teamId: seasonTeams[0]!.id,
+      playerId: freeAgent!.id,
+      dropPlayerId: null,
+      bid: null,
+      createdAt: ELIGIBLE_CLAIM_CREATED_AT,
+    });
+
+    // First call acquires lease and processes
+    const result1 = await processSeasonWaivers({
+      season,
+      leagueSlug: "test-league",
+      now: NOW,
+    });
+    assert.deepEqual(result1, { awarded: 1, failed: 0 });
+
+    // Simulate concurrent second call - should return early due to stamped lastWaiverProcessedAt
+    const result2 = await processSeasonWaivers({
+      season: {
+        ...season,
+        lastWaiverProcessedAt: NOW, // Reflect what first call wrote
+      },
+      leagueSlug: "test-league",
+      now: NOW,
+    });
+    assert.deepEqual(result2, { awarded: 0, failed: 0 });
+
+    // Verify only one roster entry was created
+    const rosterRows = await testDb
+      .select()
+      .from(rosterPlayers)
+      .where(eq(rosterPlayers.playerId, freeAgent!.id));
+    assert.equal(rosterRows.length, 1);
+  });
+
+  it("leaves process still due when lease expires without stamping lastWaiverProcessedAt", async () => {
+    const { season } = await seedLeagueSeason(testDb, {
+      teamCount: 1,
+      waiverType: "priority",
+    });
+    await seedTeams(testDb, {
+      leagueSeasonId: season.id,
+      count: 1,
+    });
+
+    // Use a time within the 60-minute grace window (30 minutes after process time)
+    const nowWithinGrace = new Date(Date.UTC(2026, 6, 15, 10, 30, 0));
+
+    // Simulate a crashed run that acquired lease but never finished
+    const leaseTime = new Date(nowWithinGrace.getTime() - 35 * 60 * 1000); // 35 minutes ago (expired)
+    await testDb
+      .update(leagueSeasons)
+      .set({
+        waiverProcessingLeaseUntil: leaseTime,
+        lastWaiverProcessedAt: null,
+      })
+      .where(eq(leagueSeasons.id, season.id));
+
+    const [seasonRow] = await testDb
+      .select()
+      .from(leagueSeasons)
+      .where(eq(leagueSeasons.id, season.id));
+
+    // Process should still be due because lastWaiverProcessedAt was never set
+    const isDue = isWaiverProcessDue({
+      processDays: ["wed"],
+      lastWaiverProcessedAt: seasonRow?.lastWaiverProcessedAt,
+      now: nowWithinGrace,
+    });
+    assert.equal(isDue, true);
+
+    // A new call should be able to acquire the lease and process
+    const result = await processSeasonWaivers({
+      season: {
+        ...season,
+        lastWaiverProcessedAt: seasonRow?.lastWaiverProcessedAt ?? null,
+      },
+      leagueSlug: "test-league",
+      now: nowWithinGrace,
+    });
+    assert.deepEqual(result, { awarded: 0, failed: 0 });
+
+    const [finalSeason] = await testDb
+      .select()
+      .from(leagueSeasons)
+      .where(eq(leagueSeasons.id, season.id));
+    assert.equal(finalSeason?.lastWaiverProcessedAt?.getTime(), nowWithinGrace.getTime());
   });
 });
