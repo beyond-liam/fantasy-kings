@@ -16,6 +16,10 @@ import {
   clientStatAllowlist,
   pickClientStats,
 } from "@/lib/rankings/pick-client-stats";
+import {
+  attachPositionRanks,
+  buildFantasyPositionRankById,
+} from "@/lib/rankings/attach-position-ranks";
 
 export type RankingsFilters = {
   season: string;
@@ -233,7 +237,36 @@ export async function getRankedPlayers(
     positionRank: null,
   }));
 
-  const ranked = attachPositionRanks(applyScoring(mapped, filters));
+  const scored = applyScoring(mapped, filters);
+
+  // Roster/FA subset loads must still use league-wide fantasy position ranks.
+  let fantasyRankByPlayerId: Map<string, number> | undefined;
+  if (filters.playerIds != null) {
+    const leagueBase = await loadScoreRows(
+      filters.season,
+      filters.week,
+      filters.kind,
+      undefined,
+      undefined,
+    );
+    const leagueMapped: RankedPlayerRow[] = leagueBase.map((row) => ({
+      ...row,
+      fantasyPts: null,
+      positionRank: null,
+    }));
+    fantasyRankByPlayerId = buildFantasyPositionRankById(
+      applyScoring(leagueMapped, {
+        ...filters,
+        playerIds: undefined,
+        position: undefined,
+        team: undefined,
+        rookiesOnly: false,
+        limit: undefined,
+      }),
+    );
+  }
+
+  const ranked = attachPositionRanks(scored, fantasyRankByPlayerId);
   if (filters.preserveStats) {
     return ranked;
   }
@@ -300,43 +333,4 @@ export async function getLeagueScoredPlayers(
   });
 
   return { players: rankedPlayers, scoringPreset };
-}
-
-function attachPositionRanks(
-  rows: RankedPlayerRow[],
-): RankedPlayerRow[] {
-  const grouped = new Map<string, RankedPlayerRow[]>();
-
-  for (const row of rows) {
-    const group = grouped.get(row.primaryPositionId) ?? [];
-    group.push(row);
-    grouped.set(row.primaryPositionId, group);
-  }
-
-  const rankByPlayerId = new Map<string, number>();
-
-  for (const [, group] of grouped) {
-    const sorted = [...group].sort(
-      (a, b) => (b.fantasyPts ?? 0) - (a.fantasyPts ?? 0),
-    );
-
-    sorted.forEach((row, index) => {
-      rankByPlayerId.set(row.id, index + 1);
-    });
-  }
-
-  return rows.map((row) => {
-    const sleeperRank =
-      row.stats.pos_rank_ppr ??
-      row.stats.pos_rank_std ??
-      row.stats.pos_adp_dd_ppr ??
-      row.stats.pos_rank_half_ppr;
-
-    const positionRank =
-      sleeperRank && sleeperRank > 0 && sleeperRank < 999
-        ? Math.round(sleeperRank)
-        : (rankByPlayerId.get(row.id) ?? null);
-
-    return { ...row, positionRank };
-  });
 }

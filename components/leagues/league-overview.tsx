@@ -29,6 +29,7 @@ import type {
   OverviewInefficiencyRow,
   OverviewPositionLeader,
   OverviewTeamMetric,
+  OverviewWeeklyRoast,
 } from "@/lib/leagues/league-overview";
 import {
   formatPoints,
@@ -55,6 +56,8 @@ export type LeagueOverviewProps = {
     receiver: OverviewPlayerHighlight | null;
   };
   highlightWeek: number | null;
+  /** Latest scored week roast; null before any finalized week. */
+  weeklyRoast: OverviewWeeklyRoast | null;
 };
 
 function OverviewCard({
@@ -239,19 +242,66 @@ export function LeagueOverview({
   seasonLeaders,
   playersOfTheWeek,
   highlightWeek,
+  weeklyRoast,
 }: LeagueOverviewProps) {
   const weekLabel =
     highlightWeek != null ? ` · W${highlightWeek}` : "";
+  const showThisWeek = weeklyRoast != null;
 
   return (
     <div className="flex flex-col gap-4">
-      <h2 className="text-lg font-semibold tracking-tight">Overview</h2>
+      {showThisWeek ? (
+        <>
+          <h2 className="text-lg font-semibold tracking-tight">
+            This Week
+            <span className="text-muted-foreground">
+              {" "}
+              · W{weeklyRoast.week}
+            </span>
+          </h2>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <OverviewCard title="Top Scorer">
+              <TeamSpotlight
+                row={weeklyRoast.biggestScorer}
+                leagueSlug={leagueSlug}
+                empty="No scores this week."
+                formatValue={(value) => formatPoints(value)}
+                valueHint="points for"
+              />
+            </OverviewCard>
+            <OverviewCard title="Luckiest Winner">
+              <TeamSpotlight
+                row={weeklyRoast.luckiestWinner}
+                leagueSlug={leagueSlug}
+                empty="No winners yet."
+                formatValue={(value) => formatPoints(value)}
+                valueHint="winning score"
+              />
+            </OverviewCard>
+            <OverviewCard title="Underachiever">
+              <TeamSpotlight
+                row={weeklyRoast.underachiever}
+                leagueSlug={leagueSlug}
+                empty="No bench bombs among losers."
+                formatValue={(value) => formatPoints(value)}
+                valueClassName="text-destructive"
+                valueHint="left on bench"
+              />
+            </OverviewCard>
+          </div>
+          <h2 className="mt-6 text-lg font-semibold tracking-tight">
+            Season Overview
+          </h2>
+        </>
+      ) : (
+        <h2 className="text-lg font-semibold tracking-tight">Overview</h2>
+      )}
       <div className="grid gap-4 sm:grid-cols-3">
         <OverviewCard title="Top Scorer">
           <TeamSpotlight
             row={highestScorer}
             leagueSlug={leagueSlug}
-            empty="No scoring yet."
+            empty="Scores show after weekly scores land."
             formatValue={(value) => formatPoints(value)}
             valueHint="points for"
           />
@@ -260,7 +310,7 @@ export function LeagueOverview({
           <TeamSpotlight
             row={worstDefense}
             leagueSlug={leagueSlug}
-            empty="No points against yet."
+            empty="Scores show after weekly scores land."
             formatValue={(value) => formatPoints(value)}
             valueHint="points against"
           />

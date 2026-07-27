@@ -13,8 +13,10 @@ import {
   type LeagueHallOfFameData,
 } from "@/lib/leagues/hall-of-fame";
 import { getFinalMatchupsForSeason } from "@/lib/leagues/matchups/finalize";
+import type { ScoringPreset } from "@/lib/leagues/scoring";
+import { loadHofLateGameSwingCounts } from "@/lib/queries/hof-late-game-swings";
 import { db } from "@/lib/db";
-import { divisions, teamWeekStats } from "@/db/schema";
+import { divisions, leagueSeasons, teamWeekStats } from "@/db/schema";
 import { and, asc, eq, inArray } from "drizzle-orm";
 
 export function emptyLeagueHallOfFame(): LeagueHallOfFameData {
@@ -49,8 +51,7 @@ async function loadSeasonDivisions(
 
 /**
  * Hall of Fame snapshot for the current season (career continuity across
- * seasons comes later). Choke / Fergie need last-game timelines — left empty
- * until that data path ships.
+ * seasons comes later).
  */
 export async function loadLeagueHallOfFame(input: {
   leagueSeasonId: string;
@@ -158,14 +159,53 @@ export async function loadLeagueHallOfFame(input: {
     };
   }
 
+  let chokeArtist: LeagueHallOfFameData["chokeArtist"] = null;
+  let fergieTime: LeagueHallOfFameData["fergieTime"] = null;
+
+  const [seasonRow] = await db
+    .select({
+      scoringPreset: leagueSeasons.scoringPreset,
+      settings: leagueSeasons.settings,
+      benchSlots: leagueSeasons.benchSlots,
+      irEnabled: leagueSeasons.irEnabled,
+      irSlots: leagueSeasons.irSlots,
+      taxiEnabled: leagueSeasons.taxiEnabled,
+      taxiSlots: leagueSeasons.taxiSlots,
+    })
+    .from(leagueSeasons)
+    .where(eq(leagueSeasons.id, input.leagueSeasonId))
+    .limit(1)
+    .catch(() => []);
+
+  if (seasonRow && regularFinals.length > 0) {
+    const swings = await loadHofLateGameSwingCounts({
+      seasonYear: input.seasonYear,
+      scoringPreset: seasonRow.scoringPreset as ScoringPreset,
+      scoringRules: seasonRow.settings.scoringRules,
+      rosterSlots: seasonRow.settings.rosterSlots,
+      benchSlots: seasonRow.benchSlots,
+      irEnabled: seasonRow.irEnabled,
+      irSlots: seasonRow.irSlots,
+      irEligibleStatuses: seasonRow.settings.irEligibleStatuses,
+      taxiEnabled: seasonRow.taxiEnabled,
+      taxiSlots: seasonRow.taxiSlots,
+      finals: regularFinals,
+    }).catch(() => ({
+      choke: new Map<string, number>(),
+      fergie: new Map<string, number>(),
+    }));
+    chokeArtist = pickTopCount(claimed, swings.choke);
+    fergieTime = pickTopCount(claimed, swings.fergie);
+  }
+
   return {
     mostTitles,
     middleHonor,
     middleHonorKind,
     mostRegularSeasonWins,
     allTimeTable,
-    chokeArtist: null,
-    fergieTime: null,
+    chokeArtist,
+    fergieTime,
     luckiest,
     highestWinningScore: highest,
     lowestWinningScore: lowest,

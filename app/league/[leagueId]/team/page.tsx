@@ -56,6 +56,8 @@ import { getUnseenTeamWaiverResults } from "@/lib/queries/activity";
 import { getDraftedRosterForTeam } from "@/lib/queries/draft";
 import { getLeagueHomeData } from "@/lib/queries/leagues";
 import { getRankedPlayers } from "@/lib/queries/players";
+import { getTeamStatsCharts } from "@/lib/queries/team-stats-charts";
+import { getTeamStatsChartsMock } from "@/lib/leagues/team-stats-charts-mock";
 import {
   getLeaguePlayerOwnershipMap,
   getTeamRosteredPlayerIds,
@@ -94,7 +96,7 @@ import { getNflState } from "@/lib/sleeper/api";
 
 type MyTeamPageProps = {
   params: Promise<{ leagueId: string }>;
-  searchParams: Promise<{ tab?: string }>;
+  searchParams: Promise<{ tab?: string; mock?: string }>;
 };
 
 export const metadata: Metadata = {
@@ -115,7 +117,8 @@ export default async function MyTeamPage({
   searchParams,
 }: MyTeamPageProps) {
   const { leagueId: slug } = await params;
-  const { tab } = await searchParams;
+  const { tab, mock } = await searchParams;
+  const useChartsMock = mock === "1" || mock === "true";
   const activeTab = resolveActiveTab(tab);
   const user = await getSessionUser();
 
@@ -364,12 +367,22 @@ export default async function MyTeamPage({
             playerIds: rosterIds,
           }).catch(() => [])
         : [];
+    const charts = useChartsMock
+      ? getTeamStatsChartsMock()
+      : await getTeamStatsCharts({
+          leagueSlug: slug,
+          teamId: team.id,
+        }).catch(() => null);
     const rosterIdSet = new Set(rosterIds);
     const scoredPlayers = seasonProjections
       .filter((player) => rosterIdSet.has(player.id))
       .map(withOpponent);
     statsPanel = (
-      <TeamStatsSections players={scoredPlayers} leagueSlug={slug} />
+      <TeamStatsSections
+        players={scoredPlayers}
+        leagueSlug={slug}
+        charts={charts}
+      />
     );
   }
 

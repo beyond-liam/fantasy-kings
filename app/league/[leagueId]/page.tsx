@@ -65,6 +65,8 @@ import {
   emptyLeagueHallOfFame,
   loadLeagueHallOfFame,
 } from "@/lib/queries/league-hall-of-fame";
+import { loadOverviewWeeklyRoast } from "@/lib/queries/overview-weekly-roast";
+import { getOverviewWeeklyRoastMock } from "@/lib/leagues/overview-weekly-roast-mock";
 import { getSeasonMatchups } from "@/lib/queries/matchups";
 import { getTeamProjectedWeeklyPf } from "@/lib/queries/team-projected-strength";
 import { getNflState } from "@/lib/sleeper/api";
@@ -74,6 +76,7 @@ import { and, eq, gte } from "drizzle-orm";
 
 type LeagueHomePageProps = {
   params: Promise<{ leagueId: string }>;
+  searchParams: Promise<{ mock?: string }>;
 };
 
 export const metadata: Metadata = {
@@ -82,8 +85,11 @@ export const metadata: Metadata = {
 
 export default async function LeagueHomePage({
   params,
+  searchParams,
 }: LeagueHomePageProps) {
   const { leagueId: slug } = await params;
+  const { mock } = await searchParams;
+  const useOverviewMock = mock === "1" || mock === "true";
   const user = await getSessionUser();
   if (!user) {
     redirect(`/login?next=/league/${slug}`);
@@ -394,6 +400,24 @@ export default async function LeagueHomePage({
       }).catch(() => emptyLeagueHallOfFame())
     : emptyLeagueHallOfFame();
 
+  const weeklyRoast = useOverviewMock
+    ? getOverviewWeeklyRoastMock()
+    : season
+      ? await loadOverviewWeeklyRoast({
+          leagueSeasonId: season.id,
+          regularSeasonEndWeek: season.regularSeasonEndWeek,
+          teams: hofTeams
+            .filter((t) => t.claimed)
+            .map((t) => ({
+              teamId: t.teamId,
+              teamPublicId: t.teamPublicId,
+              teamName: t.teamName,
+              ownerName: t.ownerName,
+              logoUrl: t.logoUrl,
+            })),
+        }).catch(() => null)
+      : null;
+
   return (
     <div className="flex flex-1 flex-col gap-6 p-6">
       <div className="flex items-center gap-3">
@@ -435,6 +459,7 @@ export default async function LeagueHomePage({
               seasonLeaders={seasonLeaders}
               playersOfTheWeek={weekHighlights.playersOfTheWeek}
               highlightWeek={weekHighlights.week}
+              weeklyRoast={weeklyRoast}
             />
           }
         standings={

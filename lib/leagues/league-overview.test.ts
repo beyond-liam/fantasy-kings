@@ -3,6 +3,8 @@ import { describe, it } from "node:test";
 
 import {
   buildSeasonPositionLeaders,
+  latestScoredWeek,
+  pickWeeklyRoast,
   rankByInefficiency,
   rankByPointsAgainst,
   rankByPointsFor,
@@ -72,6 +74,12 @@ describe("overview rankings", () => {
     assert.equal(rankByPointsFor(standings, 2)[0]?.teamId, "b");
     assert.equal(rankByPointsAgainst(standings, 2)[0]?.teamId, "b");
 
+    assert.equal(
+      rankByPointsFor([
+        row({ id: "z", teamName: "Z", pointsFor: 0, pointsAgainst: 0 }),
+      ]).length,
+      0,
+    );
     const ineff = rankByInefficiency(
       [
         {
@@ -123,5 +131,69 @@ describe("overview rankings", () => {
     assert.equal(leaders.find((l) => l.positionId === "QB")?.teamId, "a");
     assert.equal(leaders.find((l) => l.positionId === "RB")?.teamId, "b");
     assert.equal(leaders.find((l) => l.positionId === "WR")?.teamId, "b");
+  });
+});
+
+describe("weekly roast", () => {
+  it("picks biggest scorer, luckiest winner, and underachiever", () => {
+    const roast = pickWeeklyRoast({
+      week: 1,
+      teams: [
+        {
+          teamId: "a",
+          teamPublicId: "a",
+          teamName: "Alpha",
+          ownerName: "A",
+          logoUrl: null,
+        },
+        {
+          teamId: "b",
+          teamPublicId: "b",
+          teamName: "Beta",
+          ownerName: "B",
+          logoUrl: null,
+        },
+        {
+          teamId: "c",
+          teamPublicId: "c",
+          teamName: "Charlie",
+          ownerName: "C",
+          logoUrl: null,
+        },
+        {
+          teamId: "d",
+          teamPublicId: "d",
+          teamName: "Delta",
+          ownerName: "D",
+          logoUrl: null,
+        },
+      ],
+      results: [
+        { teamId: "a", pointsFor: 140, won: true, lost: false },
+        { teamId: "b", pointsFor: 90, won: false, lost: true },
+        { teamId: "c", pointsFor: 82, won: true, lost: false },
+        { teamId: "d", pointsFor: 100, won: false, lost: true },
+      ],
+      benchLeftByTeamId: new Map([
+        ["b", 18],
+        ["d", 35],
+      ]),
+    });
+    assert.equal(roast.biggestScorer?.teamId, "a");
+    assert.equal(roast.luckiestWinner?.teamId, "c");
+    assert.equal(roast.underachiever?.teamId, "d");
+    assert.equal(roast.underachiever?.value, 35);
+  });
+
+  it("finds latest scored week", () => {
+    assert.equal(
+      latestScoredWeek([
+        { week: 1, homePts: 100, awayPts: 90 },
+        { week: 2, homePts: null, awayPts: null },
+        { week: 3, homePts: 110, awayPts: 105 },
+      ]),
+      3,
+    );
+    assert.equal(latestScoredWeek([]), null);
   });
 });

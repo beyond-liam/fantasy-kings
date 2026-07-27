@@ -213,7 +213,7 @@ export function LeagueHallOfFame({ leagueSlug, data }: LeagueHallOfFameProps) {
           <TeamSpotlight
             row={data.chokeArtist}
             leagueSlug={leagueSlug}
-            empty="Needs last-game timelines — coming soon."
+            empty="No late collapses yet."
             formatValue={(value) => String(value)}
             valueClassName="text-destructive"
             valueHint="late collapses"
@@ -223,7 +223,7 @@ export function LeagueHallOfFame({ leagueSlug, data }: LeagueHallOfFameProps) {
           <TeamSpotlight
             row={data.fergieTime}
             leagueSlug={leagueSlug}
-            empty="Needs last-game timelines — coming soon."
+            empty="No late comebacks yet."
             formatValue={(value) => String(value)}
             valueHint="late comebacks"
           />

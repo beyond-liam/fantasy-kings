@@ -7,6 +7,7 @@ import {
   ArrowLeftRightIcon,
   ArrowTurnBackwardIcon,
   Cancel01Icon,
+  Delete02Icon,
   OctagonXIcon,
   TickDouble02Icon,
   UserSwitchIcon,
@@ -286,7 +287,7 @@ export function TradeList({
               {countdown ? (
                 <CardDescription>{countdown}</CardDescription>
               ) : null}
-              <CardAction>
+              <CardAction className="self-center">
                 <TradeStatusBadge
                   status={trade.status}
                   vetoCount={
@@ -437,11 +438,11 @@ export function TradeList({
                     }
                   >
                     <HugeiconsIcon
-                      icon={Cancel01Icon}
+                      icon={Delete02Icon}
                       strokeWidth={2}
                       data-icon="inline-start"
                     />
-                    Cancel
+                    Cancel Trade
                   </Button>
                 ) : null}
                 {showVeto ? (

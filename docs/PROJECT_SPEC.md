@@ -57,6 +57,8 @@ A mobile-first fantasy football web app for a private friend group (4–16 users
 | “Would have won” | Alternate H2H outcomes (vs field / median / optimal) on matchup + team H2H |
 | Team Head-to-Head tab | On other-team page: historical record vs viewer’s team + meeting list |
 | Hall of Fame | League museum — champions, cellar, all-time, roast awards, single-game museum (see §6) |
+| Overview weekly roast row | Top Scorer / Luckiest Winner / Underachiever for the latest scored week |
+| Team page — Team Stats tab | Chart dashboard (decision-first); charts 1–2 shipping, more planned |
 | Season rewind | End-of-year team/league recap |
 
 ### Explicitly deferred (do not schedule soon)
@@ -310,6 +312,38 @@ Both contexts have "Scores" and "Draft Room". Use distinct labels in the UI:
 **Other team page**
 - Head-to-Head tab: career record vs viewer’s team, every meeting, avg margin, streaks, best/worst game
 - Include “would have won” style alternate views where data allows
+
+**League Overview**
+- Standings glance, season spotlights, season leaders, POTW (shipped)
+- Weekly roast row (updates each scored week): **Top Scorer** (highest PF that week), **Luckiest Winner** (lowest PF among winners), **Underachiever** (most bench points left + lost)
+
+**Team page — Stats**
+- Player Stats tab — roster position tables with league-wide ranks (shipped)
+- Team Stats tab — secondary tab; chart dashboard (decision-first; see below)
+
+**Team Stats charts (decision lens)**  
+Every chart/card must answer: *what does this tell me, and how do I improve roster / start-sit decisions?* Prefer league-relative signals over vanity totals.
+
+Shipped:
+1. **Points by week** — multi-line: your PF, league high / median / low each week (from finalized matchups). Headline: average weekly score. Season pulse; don’t overreact to one week below median.
+2. **Points by position** — horizontal bars: share of your starter PF by slot vs league-average share; tooltip = points + %. Headline: strongest slot vs league share. Roster-construction signal (where to spend FAAB / trade).
+3. **Matchup luck** — ± bars: actual H2H result minus all-play expected win% from weekly PF rank (`round((actual − expected) × 100)`). Positive = lucky; negative = unlucky. Zero-luck weeks show a tiny slate stub so the week stays visible. Headline: qualitative season luck (Lucky / Quite unlucky / …).
+4. **Points left on bench** — weekly OPF − PF from `team_week_stats`; tooltip flags weeks where optimum would have flipped a loss. Headline: should-be (optimal) record vs actual.
+
+KPI strip (shipped):
+- **Average win margin** / **Average loss margin** — means from finals (no consistency)
+- **Scoring consistency** — sample stddev as `+/- X` with excellent/good/fair/poor label inline
+
+Planned charts (not yet built):
+5. **Scoring concentration** — top scorers’ share of PF vs rest. Star reliance → handcuffs/depth; flat → can trade a stud for two starters.
+6. **Win margins** chart (optional) — weekly +/− bars; KPI strip covers averages already.
+
+Planned KPI / metric cards (supporting, not chart-worthy):
+- PF / PPG / PF rank; games swung by start/sit; bench pts left (season + /wk); boom/bust weeks (above/below median); SOS / opp PF faced; closest win / worst loss; top position share teaser; season net luck / expected vs actual record
+
+Layout (target): Margin KPI strip → 2×2 chart grid (week / position / luck / bench) → concentration later
+
+Explicitly out of Team Stats v1: radar/H2H vibe charts, OPF-vs-OPF as headline record, player snap/target trends (deferred/paid). Distinguish from HoF “Luckiest” (opponent OPF) and Overview “Luckiest Winner” (lowest PF among winners).
 
 **Hall of Fame (league museum)** — serious plaques
 - Playoff champions (true winners) + runner-up by season
@@ -598,7 +632,7 @@ lib/
 ### Deferred / remaining
 
 **Near-term product**
-- [ ] **Advanced player filtering** — richer filters beyond position / team / rookies / FA
+- [ ] **Advanced player filtering** — richer filters beyond position / team / rookies / FA (DEFERRED)
 - [x] **Form guide on league table** — last 5 results (FORM column replaces OPP); tooltips with opponent/score
 - [x] **Remove rank from playoffs table** — seed only; drop redundant Rank column
 - [x] **In-league messaging** — league threads/replies; nav unread red dot; mark all read; `@` mentions → bell notifications
@@ -613,10 +647,13 @@ lib/
 - [x] **Playoff picture** — Status badges (In / Bubble / Out) on playoffs table
 - [x] **Matchup Preview (scheduled)** — Preview + Matchup tabs; predictor, season leaders, injury report, rivalry history, last 5
 - [x] **League Overview** — standings glance (±2 neighbors); top scorer / worst D / inefficiency %; passing/rushing/receiving leaders (yards+TD fantasy pts); season leaders; POTW spotlights
-- [ ] **Matchup insights (remaining)** — positional edges, median/luck, bench/optimal delta, would-have-won
-- [ ] **Would have won** — alternate outcomes on matchup + H2H views
+- [ ] **Matchup insights (remaining)** — positional edges, median/luck, bench/optimal delta, would-have-won (DEFERRED)
+- [ ] **Would have won** — alternate outcomes on matchup + H2H views (DEFERRED)
 - [x] **Team Head-to-Head tab** — viewer vs other team series on other-team page
-- [ ] **Hall of Fame** — wired to season finals (titles / RS wins / all-time / lucky / winning-score extremes); choke & Fergie need last-game timelines
+- [x] **Hall of Fame** — titles / RS / division / all-time / lucky / winning-score extremes; choke & Fergie via last-kickoff swings (current lineup + week actuals)
+- [x] **Overview weekly roast row** — Top Scorer / Luckiest Winner (lowest PF + won) / Underachiever (most bench left + lost); shows after first scored week (`?mock=1` preview)
+- [x] **Team page — Team Stats charts 1–4** — Points by week; Points by position; Matchup luck; Points left on bench (OPF−PF + flip weeks); chart headline metrics (avg score / strongest pos / luck verdict / should-be record); consistency KPI card
+- [ ] **Team page — Team Stats charts 5–6 + KPI strip** — concentration, margins/cards
 - [ ] **Season rewind** — end-of-year team/league recap
 
 **Shipped playoff completion (kept for history)**
@@ -627,7 +664,7 @@ lib/
 - [ ] IDP positions + scoring
 - [ ] Dynasty picks — deferred (come back later)
 - [ ] **Dynasty draft-pick trades** — deferred with dynasty picks
-- [ ] Player trend charts / snap / target share — deferred
+- [ ] Player trend charts / snap / target share (DEFERRED)
 
 **Lowest priority (do not schedule ahead of product/engagement)**
 - [ ] Win% σ re-fit from `player_scores` residuals (needs completed weeks; Chance already shipped)
@@ -721,5 +758,10 @@ lib/
 | 2026-07-25 | Audit leftovers closed: lineup lock on FA add/cut + waiver award; schedule weeklyRank + other-team Chance; plans README status |
 | 2026-07-25 | League Overview: standings glance, PF/PA/inefficiency, season leaders, POTW, TOTW |
 | 2026-07-25 | Hall of Fame overview cards wired to season finals; drop `?mock=1` Overview/HoF fixtures |
+| 2026-07-26 | HoF choke / Fergie: last-kickoff lead swings from current starters + week actuals + ESPN kickoffs |
+| 2026-07-26 | Plan: Overview weekly roast row (Biggest Scorer / Luckiest Winner / Underachiever); team Stats Team Stats tab (charts TBC) |
+| 2026-07-27 | Team Stats: Matchup luck chart (all-play expected win% vs H2H result) |
+| 2026-07-27 | Team Stats: Points left on bench chart; zero-luck slate stubs |
+| 2026-07-27 | Team Stats: chart headline metrics; avg weekly score moves off KPI strip |
 | 2026-07-25 | Game Centre Preview: scheduled = Preview+Matchup; live/final = Matchup+Box; predictor/leaders/injuries/H2H |
 | 2026-07-16 | Trades: initial implementation started; follow-up items documented (vetoes, limits, cron, email) |

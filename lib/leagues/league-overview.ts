@@ -52,7 +52,7 @@ export function rankByPointsFor(
   limit = 1,
 ): OverviewTeamMetric[] {
   return rows
-    .filter((row) => row.claimed && row.teamId)
+    .filter((row) => row.claimed && row.teamId && row.pointsFor > 0)
     .toSorted((a, b) => b.pointsFor - a.pointsFor || a.teamName.localeCompare(b.teamName))
     .slice(0, limit)
     .map((row) => ({
@@ -70,7 +70,7 @@ export function rankByPointsAgainst(
   limit = 1,
 ): OverviewTeamMetric[] {
   return rows
-    .filter((row) => row.claimed && row.teamId)
+    .filter((row) => row.claimed && row.teamId && row.pointsAgainst > 0)
     .toSorted(
       (a, b) =>
         b.pointsAgainst - a.pointsAgainst ||
@@ -197,4 +197,145 @@ export function buildSeasonPositionLeaders(
     });
   }
   return leaders;
+}
+
+export type OverviewWeeklyResult = {
+  teamId: string;
+  pointsFor: number;
+  won: boolean;
+  lost: boolean;
+};
+
+export type OverviewWeeklyRoast = {
+  week: number;
+  biggestScorer: OverviewTeamMetric | null;
+  luckiestWinner: OverviewTeamMetric | null;
+  underachiever: OverviewTeamMetric | null;
+};
+
+function metricFromTeam(
+  team: {
+    teamId: string;
+    teamPublicId: string | null;
+    teamName: string;
+    ownerName: string;
+    logoUrl: string | null;
+  },
+  value: number,
+): OverviewTeamMetric {
+  return {
+    teamId: team.teamId,
+    teamPublicId: team.teamPublicId,
+    teamName: team.teamName,
+    ownerName: team.ownerName,
+    logoUrl: team.logoUrl,
+    value: Math.round(value * 10) / 10,
+  };
+}
+
+/**
+ * Weekly roast plaques for the latest finalized fantasy week.
+ * Underachiever = most bench points left (OPF − PF) among losers.
+ */
+export function pickWeeklyRoast(input: {
+  week: number;
+  teams: Array<{
+    teamId: string;
+    teamPublicId: string | null;
+    teamName: string;
+    ownerName: string;
+    logoUrl: string | null;
+  }>;
+  results: OverviewWeeklyResult[];
+  /** Bench points left that week (typically max(0, OPF − PF)). */
+  benchLeftByTeamId: Map<string, number>;
+}): OverviewWeeklyRoast {
+  const byId = new Map(input.teams.map((team) => [team.teamId, team]));
+  const scored = input.results.filter((row) => byId.has(row.teamId));
+
+  let biggestScorer: OverviewTeamMetric | null = null;
+  let luckiestWinner: OverviewTeamMetric | null = null;
+  let underachiever: OverviewTeamMetric | null = null;
+
+  for (const row of scored) {
+    const team = byId.get(row.teamId)!;
+    if (
+      !biggestScorer ||
+      row.pointsFor > biggestScorer.value ||
+      (row.pointsFor === biggestScorer.value &&
+        team.teamName.localeCompare(biggestScorer.teamName) < 0)
+    ) {
+      biggestScorer = metricFromTeam(team, row.pointsFor);
+    }
+    if (row.won) {
+      if (
+        !luckiestWinner ||
+        row.pointsFor < luckiestWinner.value ||
+        (row.pointsFor === luckiestWinner.value &&
+          team.teamName.localeCompare(luckiestWinner.teamName) < 0)
+      ) {
+        luckiestWinner = metricFromTeam(team, row.pointsFor);
+      }
+    }
+    if (row.lost) {
+      const benchLeft = input.benchLeftByTeamId.get(row.teamId) ?? 0;
+      if (benchLeft <= 0) continue;
+      if (
+        !underachiever ||
+        benchLeft > underachiever.value ||
+        (benchLeft === underachiever.value &&
+          team.teamName.localeCompare(underachiever.teamName) < 0)
+      ) {
+        underachiever = metricFromTeam(team, benchLeft);
+      }
+    }
+  }
+
+  return {
+    week: input.week,
+    biggestScorer,
+    luckiestWinner,
+    underachiever,
+  };
+}
+
+/** Latest week that has at least one final with scores. */
+export function latestScoredWeek(
+  finals: Array<{ week: number; homePts: number | null; awayPts: number | null }>,
+): number | null {
+  let latest: number | null = null;
+  for (const row of finals) {
+    if (row.homePts == null || row.awayPts == null) continue;
+    if (latest == null || row.week > latest) latest = row.week;
+  }
+  return latest;
+}
+
+export function weeklyResultsFromFinals(
+  finals: Array<{
+    week: number;
+    homeTeamId: string;
+    awayTeamId: string;
+    homePts: number | null;
+    awayPts: number | null;
+  }>,
+  week: number,
+): OverviewWeeklyResult[] {
+  const results: OverviewWeeklyResult[] = [];
+  for (const m of finals) {
+    if (m.week !== week || m.homePts == null || m.awayPts == null) continue;
+    results.push({
+      teamId: m.homeTeamId,
+      pointsFor: m.homePts,
+      won: m.homePts > m.awayPts,
+      lost: m.homePts < m.awayPts,
+    });
+    results.push({
+      teamId: m.awayTeamId,
+      pointsFor: m.awayPts,
+      won: m.awayPts > m.homePts,
+      lost: m.awayPts < m.homePts,
+    });
+  }
+  return results;
 }

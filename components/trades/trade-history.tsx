@@ -171,7 +171,7 @@ export function TradeHistory({
                   <CardDescription>
                     {formatTradeDate(trade.createdAt)}
                   </CardDescription>
-                  <CardAction>
+                  <CardAction className="self-center">
                     <TradeStatusBadge status={trade.status} />
                   </CardAction>
                 </CardHeader>

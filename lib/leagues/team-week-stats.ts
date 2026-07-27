@@ -1,6 +1,6 @@
 import "server-only";
 
-import { eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 
 import { teamWeekStats } from "@/db/schema";
 import { db } from "@/lib/db";
@@ -78,4 +78,30 @@ export async function getSeasonOpfByTeamId(leagueSeasonId: string): Promise<
   }
 
   return map;
+}
+
+export async function getTeamWeeklyScoreSnapshots(input: {
+  leagueSeasonId: string;
+  teamId: string;
+}): Promise<
+  Array<{
+    week: number;
+    pointsFor: number | null;
+    optimumPointsFor: number | null;
+  }>
+> {
+  return db
+    .select({
+      week: teamWeekStats.week,
+      pointsFor: teamWeekStats.pointsFor,
+      optimumPointsFor: teamWeekStats.optimumPointsFor,
+    })
+    .from(teamWeekStats)
+    .where(
+      and(
+        eq(teamWeekStats.leagueSeasonId, input.leagueSeasonId),
+        eq(teamWeekStats.teamId, input.teamId),
+      ),
+    )
+    .orderBy(teamWeekStats.week);
 }
