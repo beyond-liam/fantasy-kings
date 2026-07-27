@@ -1,4 +1,5 @@
 import type { TeamScheduleRow } from "@/lib/queries/matchups";
+import { expandFinalMatchupRows } from "@/lib/leagues/matchups/expand-finals";
 
 export type ScheduleDisplayRow = TeamScheduleRow & {
   weekRangeLabel: string;
@@ -41,11 +42,10 @@ export function weeklyRanksByWeekFromFinals(
 ): Map<number, number> {
   const scoresByWeek = new Map<number, Array<{ teamId: string; pts: number }>>();
 
-  for (const row of finals) {
-    if (row.homePts == null || row.awayPts == null) continue;
+  const expandedRows = expandFinalMatchupRows(finals);
+  for (const row of expandedRows) {
     const weekScores = scoresByWeek.get(row.week) ?? [];
-    weekScores.push({ teamId: row.homeTeamId, pts: row.homePts });
-    weekScores.push({ teamId: row.awayTeamId, pts: row.awayPts });
+    weekScores.push({ teamId: row.teamId, pts: row.pts });
     scoresByWeek.set(row.week, weekScores);
   }
 

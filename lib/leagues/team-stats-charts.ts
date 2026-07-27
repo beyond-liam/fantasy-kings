@@ -2,6 +2,7 @@ import {
   formatLeaderPositionFullLabel,
   formatLeaderPositionLabel,
 } from "@/lib/leagues/league-position-stats";
+import { expandFinalMatchupRows } from "@/lib/leagues/matchups/expand-finals";
 
 export type FinalScoreRow = {
   week: number;
@@ -70,19 +71,14 @@ export function buildWeeklyPointsBand(input: {
   const byWeek = new Map<number, number[]>();
   const teamByWeek = new Map<number, number>();
 
-  for (const row of input.finals) {
-    if (row.homePts == null || row.awayPts == null) {
-      continue;
-    }
-
+  const expandedRows = expandFinalMatchupRows(input.finals);
+  for (const row of expandedRows) {
     const scores = byWeek.get(row.week) ?? [];
-    scores.push(row.homePts, row.awayPts);
+    scores.push(row.pts);
     byWeek.set(row.week, scores);
 
-    if (row.homeTeamId === input.teamId) {
-      teamByWeek.set(row.week, row.homePts);
-    } else if (row.awayTeamId === input.teamId) {
-      teamByWeek.set(row.week, row.awayPts);
+    if (row.teamId === input.teamId) {
+      teamByWeek.set(row.week, row.pts);
     }
   }
 
@@ -160,26 +156,32 @@ export function buildWeeklyLuck(input: {
 
   const byWeek = new Map<number, WeekTeam[]>();
 
+  // Build opponent mapping first
+  const opponentMap = new Map<string, { opponentId: string; opponentPoints: number }>();
   for (const row of input.finals) {
-    if (row.homePts == null || row.awayPts == null) {
-      continue;
-    }
+    if (row.homePts == null || row.awayPts == null) continue;
+    opponentMap.set(`${row.week}-${row.homeTeamId}`, { 
+      opponentId: row.awayTeamId, 
+      opponentPoints: row.awayPts 
+    });
+    opponentMap.set(`${row.week}-${row.awayTeamId}`, { 
+      opponentId: row.homeTeamId, 
+      opponentPoints: row.homePts 
+    });
+  }
 
+  const expandedRows = expandFinalMatchupRows(input.finals);
+  for (const row of expandedRows) {
     const list = byWeek.get(row.week) ?? [];
-    list.push(
-      {
-        teamId: row.homeTeamId,
-        points: row.homePts,
-        opponentId: row.awayTeamId,
-        opponentPoints: row.awayPts,
-      },
-      {
-        teamId: row.awayTeamId,
-        points: row.awayPts,
-        opponentId: row.homeTeamId,
-        opponentPoints: row.homePts,
-      },
-    );
+    const opponent = opponentMap.get(`${row.week}-${row.teamId}`);
+    if (!opponent) continue;
+    
+    list.push({
+      teamId: row.teamId,
+      points: row.pts,
+      opponentId: opponent.opponentId,
+      opponentPoints: opponent.opponentPoints,
+    });
     byWeek.set(row.week, list);
   }
 
