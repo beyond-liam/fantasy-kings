@@ -1,5 +1,6 @@
 import type { TeamSpotlightRow } from "@/components/leagues/team-spotlight";
 import type { FinalMatchupRecord } from "@/lib/leagues/standings";
+import { expandFinalMatchupRowsWithOpponent } from "@/lib/leagues/matchups/expand-finals";
 
 export type HofTeamIdentity = {
   teamId: string;
@@ -78,24 +79,20 @@ export function buildAllTimeTable(
     teams.filter((t) => t.claimed).map((t) => [t.teamId, { ...emptyStats() }]),
   );
 
-  for (const m of finals) {
-    if (m.homePts == null || m.awayPts == null) continue;
-    const home = byId.get(m.homeTeamId);
-    const away = byId.get(m.awayTeamId);
-    if (!home || !away) continue;
-    home.pointsFor += m.homePts;
-    home.pointsAgainst += m.awayPts;
-    away.pointsFor += m.awayPts;
-    away.pointsAgainst += m.homePts;
-    if (m.homePts > m.awayPts) {
-      home.wins += 1;
-      away.losses += 1;
-    } else if (m.awayPts > m.homePts) {
-      away.wins += 1;
-      home.losses += 1;
+  const expandedRows = expandFinalMatchupRowsWithOpponent(finals);
+  for (const row of expandedRows) {
+    const stats = byId.get(row.teamId);
+    if (!stats) continue;
+
+    stats.pointsFor += row.pts;
+    stats.pointsAgainst += row.opponentPts;
+
+    if (row.pts > row.opponentPts) {
+      stats.wins += 1;
+    } else if (row.pts < row.opponentPts) {
+      stats.losses += 1;
     } else {
-      home.ties += 1;
-      away.ties += 1;
+      stats.ties += 1;
     }
   }
 

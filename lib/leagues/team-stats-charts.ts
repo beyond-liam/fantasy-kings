@@ -2,6 +2,7 @@ import {
   formatLeaderPositionFullLabel,
   formatLeaderPositionLabel,
 } from "@/lib/leagues/league-position-stats";
+import { expandFinalMatchupRows, expandFinalMatchupRowsWithOpponent } from "@/lib/leagues/matchups/expand-finals";
 
 export type FinalScoreRow = {
   week: number;
@@ -70,19 +71,14 @@ export function buildWeeklyPointsBand(input: {
   const byWeek = new Map<number, number[]>();
   const teamByWeek = new Map<number, number>();
 
-  for (const row of input.finals) {
-    if (row.homePts == null || row.awayPts == null) {
-      continue;
-    }
-
+  const expandedRows = expandFinalMatchupRows(input.finals);
+  for (const row of expandedRows) {
     const scores = byWeek.get(row.week) ?? [];
-    scores.push(row.homePts, row.awayPts);
+    scores.push(row.pts);
     byWeek.set(row.week, scores);
 
-    if (row.homeTeamId === input.teamId) {
-      teamByWeek.set(row.week, row.homePts);
-    } else if (row.awayTeamId === input.teamId) {
-      teamByWeek.set(row.week, row.awayPts);
+    if (row.teamId === input.teamId) {
+      teamByWeek.set(row.week, row.pts);
     }
   }
 
@@ -160,26 +156,32 @@ export function buildWeeklyLuck(input: {
 
   const byWeek = new Map<number, WeekTeam[]>();
 
+  // Build opponent mapping first
+  const opponentMap = new Map<string, { opponentId: string; opponentPoints: number }>();
   for (const row of input.finals) {
-    if (row.homePts == null || row.awayPts == null) {
-      continue;
-    }
+    if (row.homePts == null || row.awayPts == null) continue;
+    opponentMap.set(`${row.week}-${row.homeTeamId}`, { 
+      opponentId: row.awayTeamId, 
+      opponentPoints: row.awayPts 
+    });
+    opponentMap.set(`${row.week}-${row.awayTeamId}`, { 
+      opponentId: row.homeTeamId, 
+      opponentPoints: row.homePts 
+    });
+  }
 
+  const expandedRows = expandFinalMatchupRows(input.finals);
+  for (const row of expandedRows) {
     const list = byWeek.get(row.week) ?? [];
-    list.push(
-      {
-        teamId: row.homeTeamId,
-        points: row.homePts,
-        opponentId: row.awayTeamId,
-        opponentPoints: row.awayPts,
-      },
-      {
-        teamId: row.awayTeamId,
-        points: row.awayPts,
-        opponentId: row.homeTeamId,
-        opponentPoints: row.homePts,
-      },
-    );
+    const opponent = opponentMap.get(`${row.week}-${row.teamId}`);
+    if (!opponent) continue;
+    
+    list.push({
+      teamId: row.teamId,
+      points: row.pts,
+      opponentId: opponent.opponentId,
+      opponentPoints: opponent.opponentPoints,
+    });
     byWeek.set(row.week, list);
   }
 
@@ -308,27 +310,18 @@ export function buildOpponentByWeekFromFinals(input: {
     { opponentPoints: number; result: "W" | "L" | "T" }
   >();
 
-  for (const row of input.finals) {
-    if (row.homePts == null || row.awayPts == null) {
-      continue;
-    }
-
-    let points: number;
-    let opponentPoints: number;
-    if (row.homeTeamId === input.teamId) {
-      points = row.homePts;
-      opponentPoints = row.awayPts;
-    } else if (row.awayTeamId === input.teamId) {
-      points = row.awayPts;
-      opponentPoints = row.homePts;
-    } else {
-      continue;
-    }
+  const expandedRows = expandFinalMatchupRowsWithOpponent(input.finals);
+  for (const row of expandedRows) {
+    if (row.teamId !== input.teamId) continue;
 
     const result: "W" | "L" | "T" =
-      points > opponentPoints ? "W" : points < opponentPoints ? "L" : "T";
+      row.pts > row.opponentPts
+        ? "W"
+        : row.pts < row.opponentPts
+          ? "L"
+          : "T";
     map.set(row.week, {
-      opponentPoints: Math.round(opponentPoints * 10) / 10,
+      opponentPoints: Math.round(row.opponentPts * 10) / 10,
       result,
     });
   }
@@ -401,25 +394,12 @@ export function buildTeamStatsKpis(input: {
   const lossMargins: number[] = [];
   const weeklyScores: number[] = [];
 
-  for (const row of input.finals) {
-    if (row.homePts == null || row.awayPts == null) {
-      continue;
-    }
+  const expandedRows = expandFinalMatchupRowsWithOpponent(input.finals);
+  for (const row of expandedRows) {
+    if (row.teamId !== input.teamId) continue;
 
-    let points: number;
-    let opponentPoints: number;
-    if (row.homeTeamId === input.teamId) {
-      points = row.homePts;
-      opponentPoints = row.awayPts;
-    } else if (row.awayTeamId === input.teamId) {
-      points = row.awayPts;
-      opponentPoints = row.homePts;
-    } else {
-      continue;
-    }
-
-    const score = round1(points);
-    const margin = round1(points - opponentPoints);
+    const score = round1(row.pts);
+    const margin = round1(row.pts - row.opponentPts);
     weeklyScores.push(score);
     if (margin > 0) {
       winMargins.push(margin);
