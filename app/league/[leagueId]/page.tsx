@@ -89,7 +89,8 @@ export default async function LeagueHomePage({
 }: LeagueHomePageProps) {
   const { leagueId: slug } = await params;
   const { mock, tab } = await searchParams;
-  const useOverviewMock = mock === "1" || mock === "true";
+  const useOverviewMock =
+    process.env.NODE_ENV === "development" && (mock === "1" || mock === "true");
   const activeTab = tab || "overview";
   const user = await getSessionUser();
   if (!user) {

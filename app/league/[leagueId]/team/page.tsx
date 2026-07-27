@@ -118,7 +118,8 @@ export default async function MyTeamPage({
 }: MyTeamPageProps) {
   const { leagueId: slug } = await params;
   const { tab, mock } = await searchParams;
-  const useChartsMock = mock === "1" || mock === "true";
+  const useChartsMock =
+    process.env.NODE_ENV === "development" && (mock === "1" || mock === "true");
   const activeTab = resolveActiveTab(tab);
   const user = await getSessionUser();
 
