@@ -1,4 +1,5 @@
 import type { LeagueStandingsRow } from "@/lib/leagues/standings";
+import { expandFinalMatchupRowsWithOpponent } from "@/lib/leagues/matchups/expand-finals";
 
 const OVERVIEW_POSITIONS = ["QB", "RB", "WR", "TE"] as const;
 
@@ -322,19 +323,14 @@ export function weeklyResultsFromFinals(
   week: number,
 ): OverviewWeeklyResult[] {
   const results: OverviewWeeklyResult[] = [];
-  for (const m of finals) {
-    if (m.week !== week || m.homePts == null || m.awayPts == null) continue;
+  const expandedRows = expandFinalMatchupRowsWithOpponent(finals);
+  for (const row of expandedRows) {
+    if (row.week !== week) continue;
     results.push({
-      teamId: m.homeTeamId,
-      pointsFor: m.homePts,
-      won: m.homePts > m.awayPts,
-      lost: m.homePts < m.awayPts,
-    });
-    results.push({
-      teamId: m.awayTeamId,
-      pointsFor: m.awayPts,
-      won: m.awayPts > m.homePts,
-      lost: m.awayPts < m.homePts,
+      teamId: row.teamId,
+      pointsFor: row.pts,
+      won: row.pts > row.opponentPts,
+      lost: row.pts < row.opponentPts,
     });
   }
   return results;
