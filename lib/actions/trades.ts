@@ -2,6 +2,7 @@
 
 import { and, eq, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 
 import { teams, tradePlayers, waiverClaims } from "@/db/schema";
 import { db } from "@/lib/db";
@@ -47,6 +48,16 @@ import {
 } from "@/lib/queries/trades";
 import { getTeamRosterPlayers } from "@/lib/queries/team-roster";
 import { getNflState, type SleeperNflState } from "@/lib/sleeper/api";
+
+const tradeProposalSchema = z.object({
+  receivingTeamId: z.string().uuid(),
+  proposingOfferIds: z.array(z.string().uuid()).max(20),
+  receivingOfferIds: z.array(z.string().uuid()).max(20),
+  proposingDropIds: z.array(z.string().uuid()).max(20),
+  receivingDropIds: z.array(z.string().uuid()).max(20),
+  comment: z.string().trim().max(2000).optional(),
+  counterOfTradeId: z.string().uuid().optional(),
+});
 
 export type TradeActionResult = {
   success: boolean;
@@ -269,10 +280,20 @@ export async function proposeTrade(
     counterOfTradeId?: string;
   },
 ): Promise<TradeActionResult> {
+  const parsed = tradeProposalSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      success: false,
+      error: parsed.error.issues[0]?.message ?? "Invalid trade proposal.",
+    };
+  }
+
   const context = await getTradeContext(slug);
   if ("error" in context) {
     return { success: false, error: context.error };
   }
+
+  const validated = parsed.data;
 
   const { user, league, season, team } = context;
 
@@ -294,13 +315,13 @@ export async function proposeTrade(
     return { success: false, error: limitError };
   }
 
-  if (input.receivingTeamId === team.id) {
+  if (validated.receivingTeamId === team.id) {
     return { success: false, error: "Choose a different team to trade with." };
   }
 
   let counterOfTradeId: string | undefined;
-  if (input.counterOfTradeId) {
-    const original = await getTradeById(input.counterOfTradeId);
+  if (validated.counterOfTradeId) {
+    const original = await getTradeById(validated.counterOfTradeId);
     if (
       !original ||
       original.leagueSeasonId !== season.id ||
@@ -312,7 +333,7 @@ export async function proposeTrade(
         error: "Original trade is no longer available to counter.",
       };
     }
-    if (original.proposingTeamId !== input.receivingTeamId) {
+    if (original.proposingTeamId !== validated.receivingTeamId) {
       return {
         success: false,
         error: "Counter must be sent to the original proposing team.",
@@ -326,7 +347,7 @@ export async function proposeTrade(
     .from(teams)
     .where(
       and(
-        eq(teams.id, input.receivingTeamId),
+        eq(teams.id, validated.receivingTeamId),
         eq(teams.leagueSeasonId, season.id),
       ),
     )
@@ -346,10 +367,10 @@ export async function proposeTrade(
   }
 
   const allIds = [
-    ...input.proposingOfferIds,
-    ...input.receivingOfferIds,
-    ...input.proposingDropIds,
-    ...input.receivingDropIds,
+    ...validated.proposingOfferIds,
+    ...validated.receivingOfferIds,
+    ...validated.proposingDropIds,
+    ...validated.receivingDropIds,
   ];
 
   const lockError = await assertPlayersAvailable(allIds, team.id);
@@ -370,10 +391,10 @@ export async function proposeTrade(
     receivingTeamLabel: partner.name,
     proposingRoster,
     receivingRoster,
-    proposingOfferIds: input.proposingOfferIds,
-    receivingOfferIds: input.receivingOfferIds,
-    proposingDropIds: input.proposingDropIds,
-    receivingDropIds: input.receivingDropIds,
+    proposingOfferIds: validated.proposingOfferIds,
+    receivingOfferIds: validated.receivingOfferIds,
+    proposingDropIds: validated.proposingDropIds,
+    receivingDropIds: validated.receivingDropIds,
     rosterSlots: season.settings.rosterSlots,
     benchSlots: season.benchSlots,
     enforceRosterMinimums: rules.enforceRosterMinimums,
@@ -395,11 +416,11 @@ export async function proposeTrade(
       teamName: team.name,
     },
     receivingTeam: partner,
-    proposingOfferIds: input.proposingOfferIds,
-    receivingOfferIds: input.receivingOfferIds,
-    proposingDropIds: input.proposingDropIds,
-    receivingDropIds: input.receivingDropIds,
-    comment: input.comment?.trim() || null,
+    proposingOfferIds: validated.proposingOfferIds,
+    receivingOfferIds: validated.receivingOfferIds,
+    proposingDropIds: validated.proposingDropIds,
+    receivingDropIds: validated.receivingDropIds,
+    comment: validated.comment || null,
     counterOfTradeId,
   });
 

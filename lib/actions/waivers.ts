@@ -2,6 +2,7 @@
 
 import { and, eq, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 
 import {
   players,
@@ -33,6 +34,14 @@ import {
 import { resolveWaiverWireSettings } from "@/lib/leagues/waiver-wire";
 import { getNflScoreboard } from "@/lib/espn/scoreboard";
 import { getNflState } from "@/lib/sleeper/api";
+
+const waiverClaimSchema = z.object({
+  playerId: z.string().uuid(),
+  bid: z.number().int().nonnegative().optional().nullable(),
+  dropPlayerId: z.string().uuid().optional().nullable(),
+});
+
+const cancelClaimSchema = z.string().uuid();
 
 export type WaiverActionResult = {
   success: boolean;
@@ -148,10 +157,15 @@ export async function fileWaiverClaim(
     dropPlayerId?: string | null;
   },
 ): Promise<WaiverActionResult> {
-  const playerId = input.playerId?.trim();
-  if (!playerId) {
-    return { success: false, error: "Missing player." };
+  const parsed = waiverClaimSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      success: false,
+      error: parsed.error.issues[0]?.message ?? "Invalid waiver claim.",
+    };
   }
+
+  const validated = parsed.data;
 
   const context = await loadLeagueMemberTeamContext(slug, {
     requireFreeAgencyOpen: true,
@@ -187,7 +201,7 @@ export async function fileWaiverClaim(
       injuryStatus: players.injuryStatus,
     })
     .from(players)
-    .where(eq(players.id, playerId))
+    .where(eq(players.id, validated.playerId))
     .limit(1);
 
   if (!player) {
@@ -196,7 +210,7 @@ export async function fileWaiverClaim(
 
   const now = Date.now();
   const wire = resolveWaiverWireSettings(season.settings.waiverWire);
-  const seasonRows = await findSeasonRosterRows(season.id, playerId);
+  const seasonRows = await findSeasonRosterRows(season.id, validated.playerId);
   const rostered = seasonRows.find((row) => row.status === "rostered");
   if (rostered) {
     return {
@@ -258,7 +272,7 @@ export async function fileWaiverClaim(
   const activeCount = countActiveRosterPlayers(rosteredOnTeam);
   const needsDrop = activeCount >= maxRoster;
 
-  const dropPlayerId = input.dropPlayerId?.trim() || null;
+  const dropPlayerId = validated.dropPlayerId ?? null;
   if (needsDrop && !dropPlayerId) {
     return {
       success: false,
@@ -267,7 +281,7 @@ export async function fileWaiverClaim(
   }
 
   if (dropPlayerId) {
-    if (dropPlayerId === playerId) {
+    if (dropPlayerId === validated.playerId) {
       return { success: false, error: "Choose a different player to drop." };
     }
     const dropOnRoster = rosteredOnTeam.find((row) => row.id === dropPlayerId);
@@ -292,7 +306,7 @@ export async function fileWaiverClaim(
 
   let bid: number | null = null;
   if (season.waiverType === "faab") {
-    const rawBid = input.bid;
+    const rawBid = validated.bid;
     if (rawBid == null || !Number.isFinite(rawBid)) {
       return { success: false, error: "Enter a FAAB bid." };
     }
@@ -322,7 +336,7 @@ export async function fileWaiverClaim(
     .where(
       and(
         eq(waiverClaims.teamId, team.id),
-        eq(waiverClaims.playerId, playerId),
+        eq(waiverClaims.playerId, validated.playerId),
         eq(waiverClaims.status, "pending"),
       ),
     )
@@ -353,7 +367,7 @@ export async function fileWaiverClaim(
     await db.insert(waiverClaims).values({
       leagueSeasonId: season.id,
       teamId: team.id,
-      playerId,
+      playerId: validated.playerId,
       dropPlayerId,
       bid,
       sortOrder: Number(maxRow?.value ?? 0) + 1,
@@ -369,8 +383,12 @@ export async function cancelWaiverClaim(
   slug: string,
   claimId: string,
 ): Promise<WaiverActionResult> {
-  if (!claimId) {
-    return { success: false, error: "Missing claim." };
+  const parsed = cancelClaimSchema.safeParse(claimId);
+  if (!parsed.success) {
+    return {
+      success: false,
+      error: parsed.error.issues[0]?.message ?? "Invalid claim ID.",
+    };
   }
 
   const context = await loadLeagueMemberTeamContext(slug);
@@ -389,7 +407,7 @@ export async function cancelWaiverClaim(
     .from(waiverClaims)
     .innerJoin(players, eq(waiverClaims.playerId, players.id))
     .where(
-      and(eq(waiverClaims.id, claimId), eq(waiverClaims.teamId, team.id)),
+      and(eq(waiverClaims.id, parsed.data), eq(waiverClaims.teamId, team.id)),
     )
     .limit(1);
 
