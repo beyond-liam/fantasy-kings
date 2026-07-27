@@ -648,7 +648,7 @@ lib/
 - [ ] **Would have won** — alternate outcomes on matchup + H2H views (DEFERRED)
 - [x] **Team Head-to-Head tab** — viewer vs other team series on other-team page
 - [x] **Hall of Fame** — titles / RS / division / all-time / lucky / winning-score extremes; choke & Fergie via last-kickoff swings (current lineup + week actuals)
-- [x] **Overview weekly roast row** — Top Scorer / Luckiest Winner (lowest PF + won) / Underachiever (most bench left + lost); shows after first scored week (`?mock=1` preview)
+- [x] **Overview weekly roast row** — Top Scorer / Luckiest Winner (lowest PF + won) / Underachiever (most bench left + lost); shows after first scored week (dev-only `?mock=1`)
 - [x] **Team page — Team Stats charts 1–4** — Points by week; Points by position; Matchup luck; Points left on bench (OPF−PF + flip weeks); chart headline metrics (avg score / strongest pos / luck verdict / should-be record); margin KPI strip (avg win/loss margins)
 - [ ] **Team page — Team Stats charts 5–6** — concentration, win margins chart (optional)
 - [ ] **Season rewind** — end-of-year team/league recap
