@@ -11,11 +11,23 @@ const nextConfig: NextConfig = {
   },
 
   async headers() {
-    // Extract Supabase domain from environment variable
+    // Build CSP connect-src for Supabase Auth/Realtime
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-    const supabaseDomain = supabaseUrl
-      ? new URL(supabaseUrl).hostname
-      : "*.supabase.co";
+    let connectSrc = "'self'";
+
+    if (supabaseUrl) {
+      try {
+        const { hostname } = new URL(supabaseUrl);
+        // Include https:// and wss:// for specific hostname + fallback wildcard
+        connectSrc += ` https://${hostname} wss://${hostname} https://*.supabase.co wss://*.supabase.co`;
+      } catch {
+        // Invalid URL, use wildcard fallback only
+        connectSrc += " https://*.supabase.co wss://*.supabase.co";
+      }
+    } else {
+      // No env var, use wildcard fallback
+      connectSrc += " https://*.supabase.co wss://*.supabase.co";
+    }
 
     return [
       {
@@ -45,7 +57,7 @@ const nextConfig: NextConfig = {
             key: "Content-Security-Policy",
             value: [
               "default-src 'self'",
-              `connect-src 'self' ${supabaseDomain}`,
+              `connect-src ${connectSrc}`,
               "img-src 'self' data: https:",
               "font-src 'self' data:",
               "style-src 'self' 'unsafe-inline'",
