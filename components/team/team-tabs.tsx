@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
+import { PageSkeleton } from "@/components/layout/page-skeleton";
 import { Badge } from "@/components/ui/badge";
 import {
   Empty,
@@ -59,13 +60,7 @@ function ComingSoon({ description }: { description: string }) {
 }
 
 function TabLoading() {
-  return (
-    <Empty>
-      <EmptyHeader>
-        <EmptyDescription>Loading…</EmptyDescription>
-      </EmptyHeader>
-    </Empty>
-  );
+  return <PageSkeleton />;
 }
 
 function resolvePanel(node: ReactNode | undefined, fallback: ReactNode) {

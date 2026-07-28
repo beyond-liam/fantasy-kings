@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { Suspense, type ReactNode } from "react";
 
+import { PageSkeleton } from "@/components/layout/page-skeleton";
 import { IrLockAlert } from "@/components/team/ir-lock-alert";
-import { MyTeamTabFallback } from "@/components/team/my-team-tab-fallback";
 import { MyTeamDraftPicksPanel } from "@/components/team/panels/my-team-draft-picks";
 import { MyTeamRosterPanel } from "@/components/team/panels/my-team-roster";
 import { MyTeamSchedulePanel } from "@/components/team/panels/my-team-schedule";
@@ -62,7 +62,7 @@ function resolveActiveTab(tab: string | undefined): MyTeamTabValue {
 }
 
 function wrapActivePanel(panel: ReactNode) {
-  return <Suspense fallback={<MyTeamTabFallback />}>{panel}</Suspense>;
+  return <Suspense fallback={<PageSkeleton />}>{panel}</Suspense>;
 }
 
 export default async function MyTeamPage({
