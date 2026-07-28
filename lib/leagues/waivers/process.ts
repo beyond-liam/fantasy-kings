@@ -11,21 +11,11 @@ import {
 } from "@/db/schema";
 import type { LeagueSeasonSettings } from "@/db/schema/league-seasons";
 import { db } from "@/lib/db";
-import { resolveIrEligibleStatuses } from "@/lib/leagues/ir-eligibility";
 import {
-  findBlockedAcquisitionAdd,
-  findBlockedAcquisitionCut,
-  isStarterSlot,
-} from "@/lib/leagues/lineup-lock-enforce";
-import { parseLineupLockMode } from "@/lib/leagues/lineup-lock";
-import { loadStartedNflTeamsForLineupLock } from "@/lib/leagues/lineup-lock-started";
-import {
-  countActivePositionPlayers,
-  countActiveRosterPlayers,
-  getMaxRosterSize,
-  getPositionRosterMax,
-} from "@/lib/leagues/roster-capacity";
-import { pickDefaultSlotPosition, occupiedBySlot } from "@/lib/leagues/roster-slots";
+  assertActiveRosterCapacity,
+  assertCutAllowedUnderLineupLock,
+  resolveAcquisitionSlotPosition,
+} from "@/lib/leagues/roster/acquisition";
 import {
   assertReserveAcquisitionsAllowed,
   findSeasonRosterRows,
@@ -50,11 +40,8 @@ import {
   isClaimEligibleForProcess,
 } from "@/lib/leagues/waivers/calendar";
 import { seasonUsesFaab } from "@/lib/leagues/waivers/faab";
-import {
-  createNotifications,
-  transactionsHref,
-  type CreateNotificationInput,
-} from "@/lib/notifications/create";
+import { announceWaiverProcessed } from "@/lib/alerts/waivers";
+import { transactionsHref } from "@/lib/notifications/create";
 
 export type ProcessableSeason = {
   id: string;
@@ -244,7 +231,13 @@ export async function processSeasonWaivers(input: {
 
     const claimById = new Map(pending.map((row) => [row.id, row]));
     const successfulWinners: string[] = [];
-    const notificationRows: CreateNotificationInput[] = [];
+    const notificationRows: Array<{
+      recipientUserId: string;
+      title: string;
+      body: string;
+      claimId: string;
+      playerId: string;
+    }> = [];
     const href = transactionsHref(leagueSlug);
 
     for (const outcome of adjudication.outcomes) {
@@ -303,11 +296,8 @@ export async function processSeasonWaivers(input: {
         if (teamInfo?.userId) {
           notificationRows.push({
             recipientUserId: teamInfo.userId,
-            leagueSeasonId: season.id,
-            type: "waiver_processed",
             title: "Waiver claim failed",
             body: failSummary,
-            href,
             claimId: claim.id,
             playerId: claim.playerId,
           });
@@ -377,11 +367,8 @@ export async function processSeasonWaivers(input: {
         if (teamInfo?.userId) {
           notificationRows.push({
             recipientUserId: teamInfo.userId,
-            leagueSeasonId: season.id,
-            type: "waiver_processed",
             title: "Waiver claim failed",
             body: failSummary,
-            href,
             claimId: claim.id,
             playerId: claim.playerId,
           });
@@ -420,11 +407,8 @@ export async function processSeasonWaivers(input: {
       if (teamInfo?.userId) {
         notificationRows.push({
           recipientUserId: teamInfo.userId,
-          leagueSeasonId: season.id,
-          type: "waiver_processed",
           title: "Waiver claim awarded",
           body: awardSummary,
-          href,
           claimId: claim.id,
           playerId: claim.playerId,
         });
@@ -451,7 +435,14 @@ export async function processSeasonWaivers(input: {
     }
 
     if (notificationRows.length > 0) {
-      await createNotifications(notificationRows);
+      await announceWaiverProcessed(
+        notificationRows.map((row) => ({
+          ...row,
+          leagueSeasonId: season.id,
+          leaguePublicId: leagueSlug,
+          href,
+        })),
+      );
     }
 
     if (season.waiverType === "priority" && successfulWinners.length > 0) {
@@ -536,76 +527,42 @@ async function applyAwardedClaim(input: {
     );
   }
 
-  const maxRoster = getMaxRosterSize(
-    season.settings.rosterSlots,
-    season.benchSlots,
-  );
-  if (countActiveRosterPlayers(rosteredOnTeam) >= maxRoster) {
-    return "Roster is full after processing this claim.";
-  }
-
-  const positionMax = getPositionRosterMax(
-    season.settings.rosterSlots,
-    player.primaryPositionId,
-  );
-  const positionCount = countActivePositionPlayers(
+  const capacityError = assertActiveRosterCapacity({
     rosteredOnTeam,
-    player.primaryPositionId,
-  );
-  if (
-    positionMax !== Number.POSITIVE_INFINITY &&
-    positionCount >= positionMax
-  ) {
-    return `At max ${player.primaryPositionId}s — choose a different drop.`;
+    rosterSlots: season.settings.rosterSlots,
+    benchSlots: season.benchSlots,
+    playerPrimaryPositionId: player.primaryPositionId,
+  });
+  if (capacityError) {
+    return capacityError;
   }
 
-  const mode = parseLineupLockMode(season.settings.lineupLockMode);
-  const startedTeams = await loadStartedNflTeamsForLineupLock();
-
-  if (dropRow && startedTeams) {
-    const previousSlot = dropRow.slotPositionId ?? dropRow.primaryPositionId;
-    const dropBlocked = findBlockedAcquisitionCut({
-      mode,
-      startedTeams,
+  if (dropRow) {
+    const dropBlocked = await assertCutAllowedUnderLineupLock({
+      lineupLockMode: season.settings.lineupLockMode,
       fullName: dropRow.fullName,
       nflTeam: dropRow.nflTeam,
-      previousSlot,
+      previousSlot: dropRow.slotPositionId ?? dropRow.primaryPositionId,
     });
     if (dropBlocked) {
       return dropBlocked;
     }
   }
 
-  const occupied = occupiedBySlot(rosteredOnTeam);
-  const slotArgs = {
-    playerPositionId: player.primaryPositionId,
-    injuryStatus: player.injuryStatus,
-    irEligibleStatuses: resolveIrEligibleStatuses(
-      season.settings.irEligibleStatuses,
-    ),
+  const slotResolved = await resolveAcquisitionSlotPosition({
+    player,
+    rosteredOnTeam,
     rosterSlots: season.settings.rosterSlots,
     benchSlots: season.benchSlots,
     irEnabled: season.irEnabled,
     taxiEnabled: season.taxiEnabled,
-    occupiedBySlot: occupied,
-  };
-  let slotPositionId = pickDefaultSlotPosition(slotArgs);
-
-  if (startedTeams && isStarterSlot(slotPositionId)) {
-    const starterBlocked = findBlockedAcquisitionAdd({
-      mode,
-      startedTeams,
-      fullName: player.fullName,
-      nflTeam: player.nflTeam,
-      nextSlot: slotPositionId,
-    });
-    if (starterBlocked) {
-      slotPositionId = pickDefaultSlotPosition({
-        ...slotArgs,
-        reserveOnly: true,
-      });
-    }
+    irEligibleStatuses: season.settings.irEligibleStatuses,
+    lineupLockMode: season.settings.lineupLockMode,
+  });
+  if (!slotResolved.ok) {
+    return slotResolved.error;
   }
+  const slotPositionId = slotResolved.slotPositionId;
 
   await db.transaction(async (tx) => {
     if (dropRow) {

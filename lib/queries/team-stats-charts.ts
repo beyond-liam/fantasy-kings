@@ -1,6 +1,5 @@
 import "server-only";
 
-import { getFinalMatchupsForSeason } from "@/lib/leagues/matchups/finalize";
 import { getLeaderPositionColumns } from "@/lib/leagues/league-position-stats";
 import {
   buildOpponentByWeekFromFinals,
@@ -17,11 +16,7 @@ import {
   type WeeklyLuckPoint,
   type WeeklyPointsBandPoint,
 } from "@/lib/leagues/team-stats-charts";
-import { getTeamSeasonStarterPoints } from "@/lib/leagues/team-stats-starter-points";
-import {
-  getSeasonOpfByTeamId,
-  getTeamWeeklyScoreSnapshots,
-} from "@/lib/leagues/team-week-stats";
+import { loadTeamWeekHistory } from "@/lib/leagues/team-week-history";
 import { getLeagueBySlug, getLeagueSeason } from "@/lib/queries/leagues";
 
 export type TeamStatsChartsData = {
@@ -48,25 +43,14 @@ export async function getTeamStatsCharts(input: {
     return null;
   }
 
-  const [finals, seasonOpf, weekSnapshots, starterPoints] = await Promise.all([
-    getFinalMatchupsForSeason(season.id).catch(
-      (): Awaited<ReturnType<typeof getFinalMatchupsForSeason>> => [],
-    ),
-    getSeasonOpfByTeamId(season.id).catch(
-      (): Awaited<ReturnType<typeof getSeasonOpfByTeamId>> => new Map(),
-    ),
-    getTeamWeeklyScoreSnapshots({
-      leagueSeasonId: season.id,
-      teamId: input.teamId,
-    }).catch(() => []),
-    getTeamSeasonStarterPoints({
+  const { finals, seasonOpf, weekSnapshots, starterPoints } =
+    await loadTeamWeekHistory({
       leagueSeasonId: season.id,
       teamId: input.teamId,
       seasonYear: season.seasonYear,
       scoringPreset: season.scoringPreset,
       scoringRules: season.settings.scoringRules,
-    }).catch(() => []),
-  ]);
+    });
 
   const weeklyPoints = buildWeeklyPointsBand({
     teamId: input.teamId,

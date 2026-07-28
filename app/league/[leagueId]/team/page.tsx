@@ -80,7 +80,7 @@ import { enrichScheduleWinChances } from "@/lib/queries/schedule-win-chance";
 import {
   getFinalMatchupsForSeason,
   recordsFromFinalMatchups,
-} from "@/lib/leagues/matchups/finalize";
+} from "@/lib/leagues/matchups/finals";
 import { buildScheduleDisplayRows, weeklyRanksByWeekFromFinals } from "@/lib/leagues/schedule-display";
 import {
   getLeagueWatchlistPlayerIds,

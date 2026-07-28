@@ -1,7 +1,7 @@
 # Fantasy Kings — Project Specification
 
 > Living document. Update this file as requirements, decisions, and scope change.
-> Last updated: 2026-07-27
+> Last updated: 2026-07-28
 
 ---
 
@@ -46,6 +46,7 @@ A mobile-first fantasy football web app for a private friend group (4–16 users
 | Item | Notes |
 |---|---|
 | Advanced player filtering | Richer filters beyond current position / team / rookies / FA toggles |
+| Empty-state consistency | Use `components/ui/empty` everywhere an empty state is expected; migrate ad-hoc placeholders (chart “Appears after…”, plain muted copy, etc.) |
 
 ### Engagement analytics (remaining)
 
@@ -140,6 +141,7 @@ Do not substitute without explicit approval.
 | Auth | Passwordless magic link / OTP via Supabase (**wired**) |
 | UI reference | No mockup required — shadcn components |
 | Visual system | Dark-only shadcn + Figtree — **no separate branding track** |
+| Empty states | Always use shadcn **`Empty`** (`components/ui/empty`) wherever an empty/zero-data state is shown |
 | Scoring | **Offense engine + league rules UI shipped**; IDP scoring deferred |
 | Mock draft | Solo vs need-aware ADP bots only — **no friends lobby** |
 | Trade Analyzer | **Removed permanently** (not deferred) |
@@ -194,6 +196,14 @@ Both contexts have "Scores" and "Draft Room". Use distinct labels in the UI:
 
 - App: **"NFL Scores"** / **"Mock Draft"**
 - League: **"Matchups"** or **"Fantasy Scores"** / **"League Draft"**
+
+### UI empty states (required)
+
+Wherever the UI shows that there is nothing to display yet (no rows, no charts, no messages, no schedule, filtered-out lists, missing entitlements, etc.), use the shared shadcn **`Empty`** primitive from `components/ui/empty` (`Empty` / `EmptyHeader` / `EmptyTitle` / `EmptyDescription` / `EmptyMedia` / `EmptyContent` as needed).
+
+**Do not** invent one-off empty UIs (plain muted paragraphs, dashed placeholder boxes with only raw text, ad-hoc centered copy) for those cases. Match existing good call sites (data-table empty row, messages, schedule, watchlist, team tabs).
+
+Chart cards and other surfaces that currently use dashed “Appears after…” placeholders should be migrated to `Empty` when touched or in a dedicated pass.
 
 ---
 
@@ -630,6 +640,7 @@ lib/
 
 **Near-term product**
 - [ ] **Advanced player filtering** — richer filters beyond position / team / rookies / FA (DEFERRED)
+- [ ] **Empty-state consistency** — use shadcn `Empty` everywhere zero-data is shown; migrate ad-hoc placeholders
 - [x] **Form guide on league table** — last 5 results (FORM column replaces OPP); tooltips with opponent/score
 - [x] **Remove rank from playoffs table** — seed only; drop redundant Rank column
 - [x] **In-league messaging** — league threads/replies; nav unread red dot; mark all read; `@` mentions → bell notifications
@@ -667,6 +678,9 @@ lib/
 - [ ] Win% σ re-fit from `player_scores` residuals (needs completed weeks; Chance already shipped)
 - [ ] TanStack Query / Zustand — only if draft-room polling/cache becomes painful
 - [ ] Web push notifications — optional free DIY Web Push later
+
+**UI consistency**
+- [ ] **Empty states** — audit all empty/zero-data surfaces; use shadcn `Empty` (`components/ui/empty`) only — no ad-hoc dashed boxes / muted paragraphs for those cases
 
 ### Trades — follow-up (after initial ship)
 
@@ -762,6 +776,7 @@ lib/
 | 2026-07-27 | Team Stats: chart headline metrics; avg weekly score moves off KPI strip |
 | 2026-07-25 | Game Centre Preview: scheduled = Preview+Matchup; live/final = Matchup+Box; predictor/leaders/injuries/H2H |
 | 2026-07-16 | Trades: initial implementation started; follow-up items documented (vetoes, limits, cron, email) |
-|| 2026-07-27 | Spec sync: move shipped engagement (SOS, playoff chance, HoF, roast, Team Stats 1–4, KPI strip) to shipped; mark margin KPI strip done; remove stale typed-mock sequencing; engagement remaining = advanced filters, matchup insights, concentration charts, season rewind |
-|| 2026-07-28 | Lineup snapshots: freeze starters at finalize so official score corrections re-score frozen starters instead of rewriting history from live roster |
-|| 2026-07-28 | Team Stats: scoring concentration chart (top-3 starter PF share from lineup snapshots) |
+| 2026-07-27 | Spec sync: move shipped engagement (SOS, playoff chance, HoF, roast, Team Stats 1–4, KPI strip) to shipped; mark margin KPI strip done; remove stale typed-mock sequencing; engagement remaining = advanced filters, matchup insights, concentration charts, season rewind |
+| 2026-07-28 | Lineup snapshots: freeze starters at finalize so official score corrections re-score frozen starters instead of rewriting history from live roster |
+| 2026-07-28 | Team Stats: scoring concentration chart (top-3 starter PF share from lineup snapshots) |
+| 2026-07-28 | Architecture deepenings: Matchup finals/week-scoring modules; Team acquisition helpers; Team week history; Waiver → League Alert; Playoff decide-next-round; league-size bot names |

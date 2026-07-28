@@ -5,16 +5,15 @@ import { and, asc, eq, gte } from "drizzle-orm";
 import { leagueSeasons, matchups, teams } from "@/db/schema";
 import { db } from "@/lib/db";
 import { allocateMatchupPublicIds } from "@/lib/leagues/ensure-public-ids";
-import { getFinalMatchupsForSeason } from "@/lib/leagues/matchups/finalize";
+import { getFinalMatchupsForSeason } from "@/lib/leagues/matchups/finals";
 import { resolvePlayoffSettings } from "@/lib/leagues/playoff-settings";
 import {
   championshipLegs,
   duplicatePairingsForWeek,
   firstRoundPairings,
-  nextRoundPairings,
-  winnerOfFinalMatchup,
   type PlayoffSeedTeam,
 } from "@/lib/leagues/playoffs/advance";
+import { decideNextPlayoffRound } from "@/lib/leagues/playoffs/decide-next-round";
 import { buildLeagueStandings } from "@/lib/leagues/standings-from-matchups";
 import type { LeagueStandingsMember } from "@/lib/leagues/standings";
 import { getPlayoffWeekRange } from "@/lib/leagues/season-calendar";
@@ -245,53 +244,27 @@ export async function ensurePlayoffMatchupsAdvanced(input: {
       frozenLineups,
     });
 
-    // Sort matchups deterministically by best (lowest) seed in each pairing,
-    // then by home seed, to ensure consistent winner ordering for bracket advancement.
-    const sortedWeekRows = weekRows.toSorted((a, b) => {
-      const aSeeds = [
-        seedByTeamId.get(a.homeTeamId) ?? Number.MAX_SAFE_INTEGER,
-        seedByTeamId.get(a.awayTeamId) ?? Number.MAX_SAFE_INTEGER,
-      ];
-      const bSeeds = [
-        seedByTeamId.get(b.homeTeamId) ?? Number.MAX_SAFE_INTEGER,
-        seedByTeamId.get(b.awayTeamId) ?? Number.MAX_SAFE_INTEGER,
-      ];
-      const aMin = Math.min(...aSeeds);
-      const bMin = Math.min(...bSeeds);
-      if (aMin !== bMin) return aMin - bMin;
-      return aSeeds[0]! - bSeeds[0]!;
-    });
-
-    const winners = sortedWeekRows
-      .map((row) =>
-        winnerOfFinalMatchup({
-          homeTeamId: row.homeTeamId,
-          awayTeamId: row.awayTeamId,
-          homePts: row.homePts,
-          awayPts: row.awayPts,
-          status: row.status,
-          gameTiebreakers: tiebreakers.gameTiebreakers,
-          homeMetrics: metricsByTeam.get(row.homeTeamId) ?? null,
-          awayMetrics: metricsByTeam.get(row.awayTeamId) ?? null,
-        }),
-      )
-      .filter((id): id is string => id != null);
-
-    if (winners.length === 0) continue;
-    if (winners.length !== weekRows.length) continue;
-
     const byeTeamIds =
       season.playoffTeamCount === 6 && week === range.startWeek
         ? playoffSeeds.slice(0, 2).map((seed) => seed.teamId)
         : [];
 
-    const pairings = nextRoundPairings({
+    const decision = decideNextPlayoffRound({
+      weekRows,
+      nextWeekAlreadyExists: nextRows.length > 0,
+      isChampionshipRematchAdvance: Boolean(
+        legs && week === legs.leg1Week && nextWeek === legs.leg2Week,
+      ),
+      seedByTeamId,
+      gameTiebreakers: tiebreakers.gameTiebreakers,
+      metricsByTeam,
       nextWeek,
-      winnersInBracketOrder: winners,
       byeTeamIds,
       reSeedAfterEachRound: playoffs.reSeedAfterEachRound,
-      seedByTeamId,
     });
+
+    if (decision.action === "skip") continue;
+    const pairings = decision.pairings;
 
     inserted += await insertPairings(season.id, pairings);
     for (const pairing of pairings) {

@@ -10,7 +10,7 @@ import { getNflScoreboard } from "@/lib/espn/scoreboard";
 import {
   getFinalMatchupsForSeason,
   recordsFromFinalMatchups,
-} from "@/lib/leagues/matchups/finalize";
+} from "@/lib/leagues/matchups/finals";
 import {
   parseWeekQueryParam,
   parseYearQueryParam,

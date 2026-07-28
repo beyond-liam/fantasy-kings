@@ -12,6 +12,7 @@ import {
 } from "@/db/schema";
 import { db } from "@/lib/db";
 import { areDivisionsBalanced } from "@/lib/leagues/membership";
+import { nextBotTeamName } from "@/lib/leagues/league-size";
 import { clampPlayoffTeamCount, resolvePlayoffSettings } from "@/lib/leagues/playoff-settings";
 import { replaceSeasonMatchups } from "@/lib/leagues/schedule/persist";
 import { clampPlayEachOtherTimes, resolveScheduleSettings } from "@/lib/leagues/schedule/settings";
@@ -24,24 +25,6 @@ import {
   revalidateSettingsPaths,
   type ActionResult,
 } from "./_shared";
-
-const BOT_TEAM_NAMES = [
-  "Gridiron Gang",
-  "Red Zone Renegades",
-  "Blitz Brigade",
-  "Pocket Passers",
-  "End Zone Express",
-  "Fourth Down Faithful",
-  "Hashmark Heroes",
-  "Sunday Scramblers",
-  "Goal Line Guardians",
-  "Trophy Hunters",
-  "Pigskin Prophets",
-  "Audible Outlaws",
-  "Two Minute Drill",
-  "Nose Tackle Nasties",
-  "Fantasy Phenoms",
-] as const;
 
 export type OpenFreeAgencyMode = "draft_later" | "no_draft";
 
@@ -110,16 +93,10 @@ export async function fillEmptySlotsWithBotTeams(
       .filter((slug): slug is string => Boolean(slug)),
   );
 
-  function nextBotTeamName(slotNumber: number) {
-    for (const name of BOT_TEAM_NAMES) {
-      if (!takenNames.has(name.toLowerCase())) {
-        takenNames.add(name.toLowerCase());
-        return name;
-      }
-    }
-    const fallback = `Bot Team ${slotNumber}`;
-    takenNames.add(fallback.toLowerCase());
-    return fallback;
+  function allocateBotTeamName(slotNumber: number) {
+    const name = nextBotTeamName(takenNames, slotNumber - 1);
+    takenNames.add(name.toLowerCase());
+    return name;
   }
 
   await db.transaction(async (tx) => {
@@ -129,7 +106,7 @@ export async function fillEmptySlotsWithBotTeams(
     for (const openTeam of openTeams) {
       botIndex += 1;
       const userId = crypto.randomUUID();
-      const teamName = nextBotTeamName(botIndex);
+      const teamName = allocateBotTeamName(botIndex);
       const teamSlug = allocateUniqueTeamSlug(teamName, takenSlugs, userId);
       takenSlugs.add(teamSlug);
 
@@ -158,7 +135,7 @@ export async function fillEmptySlotsWithBotTeams(
     for (let i = 0; i < missingRows; i++) {
       botIndex += 1;
       const userId = crypto.randomUUID();
-      const teamName = nextBotTeamName(botIndex);
+      const teamName = allocateBotTeamName(botIndex);
       const teamSlug = allocateUniqueTeamSlug(teamName, takenSlugs, userId);
       takenSlugs.add(teamSlug);
 

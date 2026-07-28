@@ -13,15 +13,20 @@ Shared vocabulary for product and architecture. Prefer these names over file-lev
 | **Draft** | Live or email/slow board for a League Season (schedule, clock, autopick) |
 | **Trade** | Proposal between two Teams; may enter review/veto before execute |
 | **Waiver** | Claim on a free agent; adjudicated then applied on process day (`lib/leagues/waivers/process.ts` → `processSeasonWaivers`) |
+| **Matchup week scoring** | Starter totals + finality (`lib/leagues/matchups/week-scoring.ts`); finals reads in `finals.ts`; persist/cron in `finalize.ts` |
+| **Team acquisition** | Shared add/cut capacity + lineup-lock slotting (`lib/leagues/roster/acquisition.ts`) used by FA actions and Waiver awards |
+| **Team week history** | Finals + OPF + snapshots for Team Stats (`lib/leagues/team-week-history.ts`) |
 | **League Alert** | Domain event fan-out: resolve recipients once, then in-app + email adapters |
 
 ## League Alert
 
-Actions and crons **announce** domain moments (`announceTradeProposed`, `announceDraftStarted`, …). They do not call Brevo or insert notification rows directly for those moments.
+Actions and crons **announce** domain moments (`announceTradeProposed`, `announceDraftStarted`, `announceWaiverProcessed`, …). They do not call Brevo or insert notification rows directly for those moments.
 
 - **Interface:** `deliverAlert` / `announce*` helpers in `lib/alerts/`
 - **Adapters:** in-app (`createNotifications`), email (Brevo via `lib/email/*`)
 - **Recipients:** `lib/alerts/recipients.ts` (season owners, team owners)
+
+Waiver process awards/failures use `announceWaiverProcessed` (in-app only — email scope stays draft + trade).
 
 In-app-only leftovers (reject/cancel/etc.) may still use `notifyUsers` until migrated.
 

@@ -1,5 +1,4 @@
-import { and, eq, inArray, sql } from "drizzle-orm";
-import { cache } from "react";
+import { and, eq, sql } from "drizzle-orm";
 
 import { leagueSeasons, matchups } from "@/db/schema";
 import type { LeagueSeasonSettings } from "@/db/schema/league-seasons";
@@ -15,6 +14,12 @@ import { resolveTiebreakerSettings } from "@/lib/leagues/tiebreakers";
 import { getWeekMatchups } from "@/lib/queries/matchups";
 import { enrichWeekMatchupBoard } from "@/lib/queries/week-matchup-board";
 import { finalizeMaxWeek } from "./finalize-gates";
+
+export {
+  getFinalMatchupsForSeason,
+  getFinalMatchupsForSeasons,
+  recordsFromFinalMatchups,
+} from "./finals";
 
 export type FinalizeMatchupsResult = {
   seasonsChecked: number;
@@ -517,113 +522,3 @@ export async function finalizeDueMatchupsAfterScoreSync(input: {
 }
 
 /** Load final matchups for standings. */
-export const getFinalMatchupsForSeason = cache(
-  async (leagueSeasonId: string) => {
-    return db
-      .select({
-        id: matchups.id,
-        week: matchups.week,
-        homeTeamId: matchups.homeTeamId,
-        awayTeamId: matchups.awayTeamId,
-        homePts: matchups.homePts,
-        awayPts: matchups.awayPts,
-      })
-      .from(matchups)
-      .where(
-        and(
-          eq(matchups.leagueSeasonId, leagueSeasonId),
-          eq(matchups.status, "final"),
-        ),
-      )
-      .orderBy(matchups.week);
-  },
-);
-
-/** Batch finals for many seasons (leagues list). */
-export async function getFinalMatchupsForSeasons(
-  leagueSeasonIds: string[],
-): Promise<Map<string, Awaited<ReturnType<typeof getFinalMatchupsForSeason>>>> {
-  const map = new Map<
-    string,
-    Awaited<ReturnType<typeof getFinalMatchupsForSeason>>
-  >();
-  if (leagueSeasonIds.length === 0) {
-    return map;
-  }
-
-  for (const id of leagueSeasonIds) {
-    map.set(id, []);
-  }
-
-  const rows = await db
-    .select({
-      leagueSeasonId: matchups.leagueSeasonId,
-      id: matchups.id,
-      week: matchups.week,
-      homeTeamId: matchups.homeTeamId,
-      awayTeamId: matchups.awayTeamId,
-      homePts: matchups.homePts,
-      awayPts: matchups.awayPts,
-    })
-    .from(matchups)
-    .where(
-      and(
-        inArray(matchups.leagueSeasonId, leagueSeasonIds),
-        eq(matchups.status, "final"),
-      ),
-    )
-    .orderBy(matchups.week);
-
-  for (const row of rows) {
-    const list = map.get(row.leagueSeasonId) ?? [];
-    list.push({
-      id: row.id,
-      week: row.week,
-      homeTeamId: row.homeTeamId,
-      awayTeamId: row.awayTeamId,
-      homePts: row.homePts,
-      awayPts: row.awayPts,
-    });
-    map.set(row.leagueSeasonId, list);
-  }
-
-  return map;
-}
-
-/** Records map for matchup board enrichment. */
-export function recordsFromFinalMatchups(
-  finals: Array<{
-    homeTeamId: string;
-    awayTeamId: string;
-    homePts: number | null;
-    awayPts: number | null;
-  }>,
-): Map<string, { wins: number; losses: number; ties: number }> {
-  const map = new Map<string, { wins: number; losses: number; ties: number }>();
-
-  const bump = (
-    teamId: string,
-    field: "wins" | "losses" | "ties",
-  ) => {
-    const row = map.get(teamId) ?? { wins: 0, losses: 0, ties: 0 };
-    row[field] += 1;
-    map.set(teamId, row);
-  };
-
-  for (const matchup of finals) {
-    if (matchup.homePts == null || matchup.awayPts == null) continue;
-    const diff = matchup.homePts - matchup.awayPts;
-    if (Math.abs(diff) <= 0.05) {
-      bump(matchup.homeTeamId, "ties");
-      bump(matchup.awayTeamId, "ties");
-    } else if (diff > 0) {
-      bump(matchup.homeTeamId, "wins");
-      bump(matchup.awayTeamId, "losses");
-    } else {
-      bump(matchup.awayTeamId, "wins");
-      bump(matchup.homeTeamId, "losses");
-    }
-  }
-
-  return map;
-}

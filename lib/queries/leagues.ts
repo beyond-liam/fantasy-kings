@@ -13,7 +13,7 @@ import { db } from "@/lib/db";
 import { getDraftBySeasonId } from "@/lib/queries/draft";
 import type { LeagueStandingsMember } from "@/lib/leagues/standings";
 import { buildLeagueStandings } from "@/lib/leagues/standings-from-matchups";
-import { getFinalMatchupsForSeasons } from "@/lib/leagues/matchups/finalize";
+import { getFinalMatchupsForSeasons } from "@/lib/leagues/matchups/finals";
 
 export type DraftUnderwayStatus = "live" | "paused";
 

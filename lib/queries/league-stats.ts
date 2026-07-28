@@ -4,7 +4,7 @@ import { cache } from "react";
 import { playerExternalIds, players, rosterPlayers, teams } from "@/db/schema";
 import { profiles } from "@/db/schema/users";
 import { db } from "@/lib/db";
-import { getFinalMatchupsForSeason } from "@/lib/leagues/matchups/finalize";
+import { getFinalMatchupsForSeason } from "@/lib/leagues/matchups/finals";
 import { computeOptimumLineup } from "@/lib/leagues/game-centre/optimum";
 import {
   buildLeaguePositionStatsRows,

@@ -23,10 +23,12 @@ import {
 import {
   applyLocalSlotAssignment,
   getSlotCapacity,
-  occupiedBySlot,
-  pickDefaultSlotPosition,
   slotAcceptsPlayer,
 } from "@/lib/leagues/roster-slots";
+import {
+  assertCutAllowedUnderLineupLock,
+  resolveAcquisitionSlotPosition,
+} from "@/lib/leagues/roster/acquisition";
 import {
   assertReserveAcquisitionsAllowed,
   findSeasonRosterRows,
@@ -36,12 +38,7 @@ import {
 } from "@/lib/leagues/roster-writes";
 import { resolveIrEligibleStatuses } from "@/lib/leagues/ir-eligibility";
 import { resolveTaxiMaxYearsExp } from "@/lib/leagues/taxi-eligibility";
-import {
-  findBlockedAcquisitionAdd,
-  findBlockedAcquisitionCut,
-  findBlockedLineupMoves,
-  isStarterSlot,
-} from "@/lib/leagues/lineup-lock-enforce";
+import { findBlockedLineupMoves } from "@/lib/leagues/lineup-lock-enforce";
 import { parseLineupLockMode } from "@/lib/leagues/lineup-lock";
 import { loadStartedNflTeamsForLineupLock } from "@/lib/leagues/lineup-lock-started";
 import { getAcquisitionKind } from "@/lib/leagues/waivers/acquisition";
@@ -287,52 +284,19 @@ async function prepareAdd(
     };
   }
 
-  const occupied = occupiedBySlot(rosteredOnTeam);
-  const slotArgs = {
-    playerPositionId: player.primaryPositionId,
-    injuryStatus: player.injuryStatus,
-    irEligibleStatuses: resolveIrEligibleStatuses(
-      season.settings.irEligibleStatuses,
-    ),
+  const slotResolved = await resolveAcquisitionSlotPosition({
+    player,
+    rosteredOnTeam,
     rosterSlots: season.settings.rosterSlots,
     benchSlots: season.benchSlots,
     irEnabled: season.irEnabled,
     taxiEnabled: season.taxiEnabled,
-    occupiedBySlot: occupied,
-  };
-  let slotPositionId = pickDefaultSlotPosition(slotArgs);
-
-  const mode = parseLineupLockMode(season.settings.lineupLockMode);
-  if (isStarterSlot(slotPositionId)) {
-    const startedTeams = await loadStartedNflTeamsForLineupLock();
-    if (startedTeams) {
-      const starterBlocked = findBlockedAcquisitionAdd({
-        mode,
-        startedTeams,
-        fullName: player.fullName,
-        nflTeam: player.nflTeam,
-        nextSlot: slotPositionId,
-      });
-      if (starterBlocked) {
-        slotPositionId = pickDefaultSlotPosition({
-          ...slotArgs,
-          reserveOnly: true,
-        });
-        const reserveBlocked = findBlockedAcquisitionAdd({
-          mode,
-          startedTeams,
-          fullName: player.fullName,
-          nflTeam: player.nflTeam,
-          nextSlot: slotPositionId,
-        });
-        if (reserveBlocked) {
-          return {
-            ok: false,
-            result: { success: false, error: reserveBlocked },
-          };
-        }
-      }
-    }
+    irEligibleStatuses: season.settings.irEligibleStatuses,
+    lineupLockMode: season.settings.lineupLockMode,
+    failIfReserveBlocked: true,
+  });
+  if (!slotResolved.ok) {
+    return { ok: false, result: { success: false, error: slotResolved.error } };
   }
 
   return {
@@ -344,7 +308,7 @@ async function prepareAdd(
       injuryStatus: player.injuryStatus,
     },
     seasonRows,
-    slotPositionId,
+    slotPositionId: slotResolved.slotPositionId,
     now,
   };
 }
@@ -447,20 +411,14 @@ async function prepareCut(
   }
 
   const previousSlot = row.slotPositionId ?? row.primaryPositionId;
-  if (isStarterSlot(previousSlot)) {
-    const startedTeams = await loadStartedNflTeamsForLineupLock();
-    if (startedTeams) {
-      const cutBlocked = findBlockedAcquisitionCut({
-        mode: parseLineupLockMode(season.settings.lineupLockMode),
-        startedTeams,
-        fullName: row.fullName,
-        nflTeam: row.nflTeam,
-        previousSlot,
-      });
-      if (cutBlocked) {
-        return { error: cutBlocked };
-      }
-    }
+  const cutBlocked = await assertCutAllowedUnderLineupLock({
+    lineupLockMode: season.settings.lineupLockMode,
+    fullName: row.fullName,
+    nflTeam: row.nflTeam,
+    previousSlot,
+  });
+  if (cutBlocked) {
+    return { error: cutBlocked };
   }
 
   return {

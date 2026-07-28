@@ -21,7 +21,7 @@ import {
 import { normalizeNflTeamAbbrev } from "@/lib/nfl/matchups";
 import type { LeagueMatchupRow } from "@/lib/queries/matchups";
 import { getRankedPlayers } from "@/lib/queries/players";
-import { allStartersFinal } from "@/lib/queries/lineup-finalization";
+import { isMatchupResultFinal } from "@/lib/leagues/matchups/week-scoring";
 
 export type MatchupBoardSide = {
   teamId: string;
@@ -568,23 +568,19 @@ export async function enrichWeekMatchupBoard(
       }));
     }
 
-    const resultFinal =
-      input.week < input.currentWeek ||
-      (away.actualPts != null &&
-        home.actualPts != null &&
-        allStartersFinal(
-          [...awayStarters, ...homeStarters],
-          progressByNflTeam,
-        ));
+    const resultFinal = isMatchupResultFinal({
+      week: input.week,
+      currentWeek: input.currentWeek,
+      awayActualPts: away.actualPts,
+      homeActualPts: home.actualPts,
+      starters: [...awayStarters, ...homeStarters],
+      progressByNflTeam,
+    });
 
-    if (
-      resultFinal &&
-      away.actualPts != null &&
-      home.actualPts != null
-    ) {
-      if (away.actualPts < home.actualPts - 0.05) {
+    if (resultFinal) {
+      if (away.actualPts! < home.actualPts! - 0.05) {
         away.isLoser = true;
-      } else if (home.actualPts < away.actualPts - 0.05) {
+      } else if (home.actualPts! < away.actualPts! - 0.05) {
         home.isLoser = true;
       }
     }
@@ -595,10 +591,7 @@ export async function enrichWeekMatchupBoard(
       week: m.week,
       status: m.status,
       finalizedAt: m.finalizedAt?.toISOString() ?? null,
-      resultFinal:
-        Boolean(resultFinal) &&
-        away.actualPts != null &&
-        home.actualPts != null,
+      resultFinal,
       leagueSeasonId: input.leagueSeasonId,
       homeTeamId: m.homeTeamId,
       awayTeamId: m.awayTeamId,

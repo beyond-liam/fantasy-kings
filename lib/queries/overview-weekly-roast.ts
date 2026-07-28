@@ -6,7 +6,7 @@ import {
   weeklyResultsFromFinals,
   type OverviewWeeklyRoast,
 } from "@/lib/leagues/league-overview";
-import { getFinalMatchupsForSeason } from "@/lib/leagues/matchups/finalize";
+import { getFinalMatchupsForSeason } from "@/lib/leagues/matchups/finals";
 import { db } from "@/lib/db";
 import { teamWeekStats } from "@/db/schema";
 import { and, eq } from "drizzle-orm";

@@ -12,7 +12,7 @@ import {
   type HofTeamIdentity,
   type LeagueHallOfFameData,
 } from "@/lib/leagues/hall-of-fame";
-import { getFinalMatchupsForSeason } from "@/lib/leagues/matchups/finalize";
+import { getFinalMatchupsForSeason } from "@/lib/leagues/matchups/finals";
 import type { ScoringPreset } from "@/lib/leagues/scoring";
 import { loadHofLateGameSwingCounts } from "@/lib/queries/hof-late-game-swings";
 import { db } from "@/lib/db";

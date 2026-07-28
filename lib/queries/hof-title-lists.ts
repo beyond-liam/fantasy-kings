@@ -15,7 +15,7 @@ import {
   type HofDivisionTitleSeason,
   type HofRegularSeasonTitle,
 } from "@/lib/leagues/hof-title-history";
-import { getFinalMatchupsForSeason } from "@/lib/leagues/matchups/finalize";
+import { getFinalMatchupsForSeason } from "@/lib/leagues/matchups/finals";
 import {
   bracketTeamsFromStandings,
   buildPlayoffBracket,

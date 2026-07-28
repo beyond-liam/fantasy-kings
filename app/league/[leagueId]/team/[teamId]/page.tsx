@@ -29,7 +29,7 @@ import { ensureSeasonTeamPublicIds } from "@/lib/leagues/ensure-public-ids";
 import {
   getFinalMatchupsForSeason,
   recordsFromFinalMatchups,
-} from "@/lib/leagues/matchups/finalize";
+} from "@/lib/leagues/matchups/finals";
 import {
   buildScheduleDisplayRows,
   weeklyRanksByWeekFromFinals,
