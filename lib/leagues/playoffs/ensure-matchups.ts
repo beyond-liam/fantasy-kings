@@ -214,12 +214,35 @@ export async function ensurePlayoffMatchupsAdvanced(input: {
         weekRows.flatMap((row) => [row.homeTeamId, row.awayTeamId]),
       ),
     ];
+
+    // Load frozen lineups for this week when present
+    const { loadTeamWeekLineups } = await import("@/lib/leagues/matchups/lineup-snapshots");
+    const frozenSnapshots = await loadTeamWeekLineups(db, {
+      leagueSeasonId: season.id,
+      teamIds,
+      week,
+    });
+
+    // Convert snapshots to the format expected by loadTeamWeekGameTieMetrics
+    const frozenLineups = frozenSnapshots.size > 0
+      ? new Map(
+          [...frozenSnapshots.entries()].map(([teamId, snapshots]) => [
+            teamId,
+            snapshots.map((s) => ({
+              playerId: s.playerId,
+              slotPositionId: s.slotPositionId,
+            })),
+          ])
+        )
+      : undefined;
+
     const metricsByTeam = await loadTeamWeekGameTieMetrics({
       teamIds,
       seasonYear: season.seasonYear,
       week,
       scoringPreset: season.scoringPreset,
       scoringRules: season.settings.scoringRules,
+      frozenLineups,
     });
 
     // Sort matchups deterministically by best (lowest) seed in each pairing,

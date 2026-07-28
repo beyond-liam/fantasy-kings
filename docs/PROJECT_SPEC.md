@@ -763,3 +763,4 @@ lib/
 | 2026-07-25 | Game Centre Preview: scheduled = Preview+Matchup; live/final = Matchup+Box; predictor/leaders/injuries/H2H |
 | 2026-07-16 | Trades: initial implementation started; follow-up items documented (vetoes, limits, cron, email) |
 || 2026-07-27 | Spec sync: move shipped engagement (SOS, playoff chance, HoF, roast, Team Stats 1–4, KPI strip) to shipped; mark margin KPI strip done; remove stale typed-mock sequencing; engagement remaining = advanced filters, matchup insights, concentration charts, season rewind |
+|| 2026-07-28 | Lineup snapshots: freeze starters at finalize so official score corrections re-score frozen starters instead of rewriting history from live roster |

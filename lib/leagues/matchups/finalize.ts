@@ -193,8 +193,12 @@ export async function persistEnrichedMatchups(
   games: Array<{
     id: string;
     resultFinal: boolean;
-    home: { actualPts: number | null };
-    away: { actualPts: number | null };
+    home: { actualPts: number | null; starters?: Array<{ playerId: string; slotPositionId?: string | null }> };
+    away: { actualPts: number | null; starters?: Array<{ playerId: string; slotPositionId?: string | null }> };
+    leagueSeasonId: string;
+    homeTeamId: string;
+    awayTeamId: string;
+    week: number;
   }>,
 ): Promise<{ finalized: number; inProgress: number; corrected: number }> {
   let finalized = 0;
@@ -218,6 +222,26 @@ export async function persistEnrichedMatchups(
       awayPts,
       status,
     });
+
+    // On first finalize, capture starter snapshots
+    if (outcome === "finalized" && game.home.starters && game.away.starters) {
+      const { upsertTeamWeekLineup } = await import("./lineup-snapshots");
+      await Promise.all([
+        upsertTeamWeekLineup(db, {
+          leagueSeasonId: game.leagueSeasonId,
+          teamId: game.homeTeamId,
+          week: game.week,
+          starters: game.home.starters,
+        }),
+        upsertTeamWeekLineup(db, {
+          leagueSeasonId: game.leagueSeasonId,
+          teamId: game.awayTeamId,
+          week: game.week,
+          starters: game.away.starters,
+        }),
+      ]);
+    }
+
     if (outcome === "corrected") corrected += 1;
     else if (outcome === "finalized") finalized += 1;
     else if (outcome === "in_progress") inProgress += 1;
@@ -234,9 +258,18 @@ export async function finalizeSeasonWeekMatchups(input: {
   week: number;
   currentWeek: number;
   scoreboardGames: ScheduleGame[];
+  allowOfficialCorrections?: boolean;
 }): Promise<{ finalized: number; inProgress: number; corrected: number }> {
   const rows = await getWeekMatchups(input.season.id, input.week);
   if (rows.length === 0) {
+    return { finalized: 0, inProgress: 0, corrected: 0 };
+  }
+
+  // Check if all matchups are already final
+  const allFinal = rows.every((m) => m.status === "final");
+  
+  // Early return: all final + corrections off
+  if (allFinal && !input.allowOfficialCorrections) {
     return { finalized: 0, inProgress: 0, corrected: 0 };
   }
 
@@ -245,7 +278,44 @@ export async function finalizeSeasonWeekMatchups(input: {
     input.season.settings.scoringRules as never,
   );
 
+  // Correction path: load frozen lineups
+  let frozenLineupsByTeam: Map<string, Array<{ playerId: string; slotPositionId?: string | null }>> | undefined;
+  if (allFinal && input.allowOfficialCorrections) {
+    const { loadTeamWeekLineups } = await import("./lineup-snapshots");
+    const teamIds = Array.from(
+      new Set(rows.flatMap((m) => [m.homeTeamId, m.awayTeamId]))
+    );
+    const snapshots = await loadTeamWeekLineups(db, {
+      leagueSeasonId: input.season.id,
+      teamIds,
+      week: input.week,
+    });
+
+    // If no snapshots exist for this week, skip correction entirely
+    if (snapshots.size === 0) {
+      console.warn(
+        `No snapshots found for season ${input.season.id} week ${input.week}; skipping correction to avoid rewriting history from live roster`
+      );
+      return { finalized: 0, inProgress: 0, corrected: 0 };
+    }
+
+    // Map teamId → array of { playerId, slotPositionId }
+    frozenLineupsByTeam = new Map();
+    for (const [teamId, lineupRows] of snapshots.entries()) {
+      frozenLineupsByTeam.set(
+        teamId,
+        lineupRows.map((r) => ({
+          playerId: r.playerId,
+          slotPositionId: r.slotPositionId ?? undefined,
+        }))
+      );
+    }
+  }
+
+  const includeStarters = !allFinal; // Capture starters only on first finalize
+
   const board = await enrichWeekMatchupBoard({
+    leagueSeasonId: input.season.id,
     matchups: rows,
     week: input.week,
     currentWeek: input.currentWeek,
@@ -259,6 +329,8 @@ export async function finalizeSeasonWeekMatchups(input: {
     taxiEnabled: input.season.taxiEnabled,
     taxiSlots: input.season.taxiSlots,
     scoreboardGames: input.scoreboardGames,
+    frozenLineupsByTeam,
+    includeStarters,
   });
 
   return persistEnrichedMatchups(board);
@@ -384,6 +456,7 @@ export async function finalizeDueMatchupsAfterScoreSync(input: {
         week,
         currentWeek: input.week,
         scoreboardGames,
+        allowOfficialCorrections,
       });
       finalized += result.finalized;
       inProgress += result.inProgress;

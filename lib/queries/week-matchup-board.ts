@@ -37,6 +37,8 @@ export type MatchupBoardSide = {
   /** null = game not started / no actuals yet (show —). */
   actualPts: number | null;
   isLoser: boolean;
+  /** Optional starters for snapshot persistence (only when includeStarters=true). */
+  starters?: Array<{ playerId: string; slotPositionId?: string | null }>;
 };
 
 export type MatchupBoardGame = {
@@ -51,9 +53,13 @@ export type MatchupBoardGame = {
   resultFinal: boolean;
   away: MatchupBoardSide;
   home: MatchupBoardSide;
+  leagueSeasonId: string;
+  homeTeamId: string;
+  awayTeamId: string;
 };
 
 export type EnrichWeekMatchupBoardInput = {
+  leagueSeasonId: string;
   matchups: LeagueMatchupRow[];
   week: number;
   currentWeek: number;
@@ -71,6 +77,10 @@ export type EnrichWeekMatchupBoardInput = {
     string,
     { wins: number; losses: number; ties: number }
   >;
+  /** Frozen lineups for correction path. Map teamId → array of frozen starters. */
+  frozenLineupsByTeam?: Map<string, Array<{ playerId: string; slotPositionId?: string | null }>>;
+  /** When true, include starters in return value for snapshot persistence. */
+  includeStarters?: boolean;
 };
 
 function buildProgressByNflTeam(
@@ -330,13 +340,98 @@ export async function enrichWeekMatchupBoard(
     input.recordsByTeamId ??
     new Map<string, { wins: number; losses: number; ties: number }>();
 
-  const rostersByTeam = await getRosterPlayersForTeams(teamIds);
-  const startersByTeam = new Map<string, TeamRosterPlayer[]>();
-  for (const teamId of teamIds) {
-    startersByTeam.set(
-      teamId,
-      startersForTeam(rostersByTeam.get(teamId) ?? [], input),
+  // Frozen lineup path: load player details for snapshot IDs
+  let startersByTeam: Map<string, TeamRosterPlayer[]>;
+  if (input.frozenLineupsByTeam) {
+    startersByTeam = new Map();
+    const allFrozenPlayerIds = [...input.frozenLineupsByTeam.values()]
+      .flat()
+      .map((s) => s.playerId);
+
+    if (allFrozenPlayerIds.length === 0) {
+      // No frozen players → return empty games
+      return input.matchups.map((m) => ({
+        id: m.id,
+        publicId: m.publicId,
+        week: m.week,
+        status: m.status,
+        finalizedAt: m.finalizedAt?.toISOString() ?? null,
+        resultFinal: false,
+        leagueSeasonId: input.leagueSeasonId,
+        homeTeamId: m.homeTeamId,
+        awayTeamId: m.awayTeamId,
+        away: emptySide(
+          m.awayTeamId,
+          m.awayTeamName,
+          m.awayTeamSlug,
+          m.awayTeamLogoUrl,
+          recordsByTeamId,
+        ),
+        home: emptySide(
+          m.homeTeamId,
+          m.homeTeamName,
+          m.homeTeamSlug,
+          m.homeTeamLogoUrl,
+          recordsByTeamId,
+        ),
+      }));
+    }
+
+    // Load player details
+    const playerRows = await db
+      .select({
+        id: players.id,
+        fullName: players.fullName,
+        nflTeam: players.nflTeam,
+        primaryPositionId: players.primaryPositionId,
+        byeWeek: players.byeWeek,
+        injuryStatus: players.injuryStatus,
+        sleeperId: playerExternalIds.externalId,
+      })
+      .from(players)
+      .leftJoin(
+        playerExternalIds,
+        and(
+          eq(playerExternalIds.playerId, players.id),
+          eq(playerExternalIds.provider, "sleeper"),
+        ),
+      )
+      .where(inArray(players.id, allFrozenPlayerIds));
+
+    const playerDetailsById = new Map(
+      playerRows.map((row) => [row.id, row]),
     );
+
+    // Build starters from frozen lineups
+    for (const [teamId, frozenStarters] of input.frozenLineupsByTeam.entries()) {
+      const teamStarters: TeamRosterPlayer[] = [];
+      for (const { playerId, slotPositionId } of frozenStarters) {
+        const details = playerDetailsById.get(playerId);
+        if (details) {
+          teamStarters.push({
+            id: details.id,
+            fullName: details.fullName,
+            nflTeam: details.nflTeam,
+            primaryPositionId: details.primaryPositionId,
+            byeWeek: details.byeWeek,
+            injuryStatus: details.injuryStatus,
+            sleeperId: details.sleeperId,
+            slotPositionId: slotPositionId ?? null,
+          });
+        }
+      }
+      startersByTeam.set(teamId, teamStarters);
+    }
+  } else {
+    // Live roster path
+    const rostersByTeam = await getRosterPlayersForTeams(teamIds);
+    startersByTeam = new Map();
+    for (const teamId of teamIds) {
+      startersByTeam.set(
+        teamId,
+        startersForTeam(rostersByTeam.get(teamId) ?? [], input),
+      );
+    }
   }
 
   const allStarterIds = [
@@ -355,6 +450,9 @@ export async function enrichWeekMatchupBoard(
       status: m.status,
       finalizedAt: m.finalizedAt?.toISOString() ?? null,
       resultFinal: false,
+      leagueSeasonId: input.leagueSeasonId,
+      homeTeamId: m.homeTeamId,
+      awayTeamId: m.awayTeamId,
       away: emptySide(
         m.awayTeamId,
         m.awayTeamName,
@@ -454,6 +552,20 @@ export async function enrichWeekMatchupBoard(
       recordsByTeamId,
     });
 
+    // Include starters for snapshot persistence when requested
+    if (input.includeStarters) {
+      const awayRoster = startersByTeam.get(m.awayTeamId) ?? [];
+      const homeRoster = startersByTeam.get(m.homeTeamId) ?? [];
+      away.starters = awayRoster.map((p) => ({
+        playerId: p.id,
+        slotPositionId: p.slotPositionId ?? null,
+      }));
+      home.starters = homeRoster.map((p) => ({
+        playerId: p.id,
+        slotPositionId: p.slotPositionId ?? null,
+      }));
+    }
+
     const resultFinal =
       input.week < input.currentWeek ||
       (away.actualPts != null &&
@@ -485,6 +597,9 @@ export async function enrichWeekMatchupBoard(
         Boolean(resultFinal) &&
         away.actualPts != null &&
         home.actualPts != null,
+      leagueSeasonId: input.leagueSeasonId,
+      homeTeamId: m.homeTeamId,
+      awayTeamId: m.awayTeamId,
       away,
       home,
     };
