@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import { Figtree } from "next/font/google";
+import { Suspense } from "react";
 import "./globals.css";
+import { AppAccountSlot } from "@/components/layout/app-account-slot";
 import { AppChrome } from "@/components/layout/app-chrome";
+import { AppTopNav } from "@/components/layout/app-top-nav";
 import { Toaster } from "@/components/ui/sonner";
-import { getSessionAccountSummary } from "@/lib/actions/account";
 import { cn } from "@/lib/utils";
 
 const figtree = Figtree({
@@ -20,20 +22,26 @@ export const metadata: Metadata = {
   description: "Fantasy football for your friend group",
 };
 
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const account = await getSessionAccountSummary();
-
   return (
     <html
       lang="en"
       className={cn("dark h-full antialiased font-sans font-synthesis-none", figtree.variable)}
     >
       <body className="flex h-dvh flex-col overflow-hidden overscroll-none">
-        <AppChrome account={account}>{children}</AppChrome>
+        <AppChrome
+          accountSlot={
+            <Suspense fallback={<AppTopNav initialAccount={null} />}>
+              <AppAccountSlot />
+            </Suspense>
+          }
+        >
+          {children}
+        </AppChrome>
         <Toaster />
       </body>
     </html>

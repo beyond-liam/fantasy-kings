@@ -24,13 +24,15 @@ export async function LeagueDraftNotifierSlot({
     return null;
   }
 
-  const membership = await getLeagueMembership(league.id, user.id);
-  if (!membership) {
+  const [membership, season] = await Promise.all([
+    getLeagueMembership(league.id, user.id),
+    getLeagueSeason(league.id),
+  ]);
+  if (!membership || !season) {
     return null;
   }
 
-  const season = await getLeagueSeason(league.id);
-  const draft = season ? await getDraftBySeasonId(season.id) : null;
+  const draft = await getDraftBySeasonId(season.id);
   if (!draft || !isDraftUnderway(draft.status)) {
     return null;
   }

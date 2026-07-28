@@ -3,7 +3,6 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
   Logout01Icon,
@@ -24,7 +23,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { NotificationsMenu } from "@/components/layout/notifications-menu";
-import { getSessionAccountSummary } from "@/lib/actions/account";
 import { signOut } from "@/lib/actions/leagues";
 import { teamInitials } from "@/lib/leagues/standings";
 
@@ -84,18 +82,7 @@ export function AppTopNav({
   initialAccount: AppAccountSummary;
 }) {
   const pathname = usePathname();
-  const [account, setAccount] = useState(initialAccount);
-
-  useEffect(() => {
-    let cancelled = false;
-    void getSessionAccountSummary().then((summary) => {
-      if (cancelled) return;
-      setAccount(summary);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [pathname]);
+  const account = initialAccount;
 
   return (
     <header className="app-chrome-nav fixed inset-x-0 top-0 z-50 border-b border-border bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/80">

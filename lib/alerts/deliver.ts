@@ -69,7 +69,12 @@ export async function deliverAlert(input: {
         playerId: input.inApp!.playerId ?? null,
       }),
     );
-    await createNotifications(rows);
+    // Cron/sync paths keep in-app writes inline; user mutations defer.
+    if (input.email?.sync) {
+      await createNotifications(rows);
+    } else {
+      queueInAppAfter(rows);
+    }
   }
 
   if (!input.email) {
@@ -82,6 +87,21 @@ export async function deliverAlert(input: {
 
   queueEmailsAfter(recipients, input.email);
   return { emailed: 0 };
+}
+
+function queueInAppAfter(rows: CreateNotificationInput[]) {
+  try {
+    after(() => {
+      void createNotifications(rows).catch((error) => {
+        console.error("[alerts] in-app adapter failed", error);
+      });
+    });
+  } catch {
+    // Outside a Next.js request — write inline so tests/scripts still notify.
+    void createNotifications(rows).catch((error) => {
+      console.error("[alerts] in-app adapter failed", error);
+    });
+  }
 }
 
 function queueEmailsAfter(userIds: string[], email: EmailAlert) {

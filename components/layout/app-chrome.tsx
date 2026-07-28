@@ -1,20 +1,16 @@
 "use client";
 
 import { usePathname } from "next/navigation";
+import type { ReactNode } from "react";
 
-import { AppTopNav } from "@/components/layout/app-top-nav";
 import { PageTransition } from "@/components/layout/page-transition";
-import { OnboardingDialog } from "@/components/auth/onboarding-dialog";
-import type { AppAccountSummary } from "@/components/layout/app-top-nav";
-
-export type { AppAccountSummary };
 
 export function AppChrome({
   children,
-  account,
+  accountSlot,
 }: Readonly<{
   children: React.ReactNode;
-  account: AppAccountSummary;
+  accountSlot: ReactNode;
 }>) {
   const pathname = usePathname();
   const hideNav = pathname.startsWith("/login");
@@ -25,8 +21,7 @@ export function AppChrome({
 
   return (
     <>
-      <AppTopNav initialAccount={account} />
-      {account ? <OnboardingDialog /> : null}
+      {accountSlot}
       {/* flex-1 must sit outside ViewTransition or the height chain collapses */}
       <div className="flex min-h-0 flex-1 flex-col pt-14">
         <PageTransition>{children}</PageTransition>

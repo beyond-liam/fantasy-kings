@@ -86,7 +86,10 @@ export async function loadLeagueActionContext(
   }
 
   const needMembership = shouldRequireMembership(options);
-  const membership = await getLeagueMembership(league.id, user.id);
+  const [membership, season] = await Promise.all([
+    getLeagueMembership(league.id, user.id),
+    getLeagueSeason(league.id),
+  ]);
 
   if (needMembership && !membership) {
     return { error: "You are not a member of this league." };
@@ -109,7 +112,6 @@ export async function loadLeagueActionContext(
     }
   }
 
-  const season = await getLeagueSeason(league.id);
   if (!season) {
     return { error: "League season not found." };
   }

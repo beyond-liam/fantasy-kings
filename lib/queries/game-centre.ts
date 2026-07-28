@@ -18,12 +18,11 @@ import {
   type FilledRosterSlot,
   type TeamRosterPlayer,
 } from "@/lib/leagues/roster-fill";
-import {
-  explainPlayerPoints,
-  type PlayerPointsExplanation,
-} from "@/lib/leagues/scoring/calculate";
 import { resolveScoringRuleDefinitions } from "@/lib/leagues/scoring/rules";
-import type { ScoringPreset } from "@/lib/leagues/scoring/types";
+import type {
+  ScoringPreset,
+  ScoringRuleDefinition,
+} from "@/lib/leagues/scoring/types";
 import {
   matchupWinChance,
   resolveGameProgress,
@@ -54,6 +53,12 @@ import {
 } from "@/lib/queries/roster";
 import { getTeamRosterPlayers } from "@/lib/queries/team-roster";
 import { getUserTeamForSeason } from "@/lib/queries/watchlist";
+import {
+  clientStatAllowlist,
+  pickClientStats,
+} from "@/lib/rankings/pick-client-stats";
+
+const GAME_CENTRE_STAT_ALLOWLIST = clientStatAllowlist();
 
 export type GameCentrePlayer = {
   id: string;
@@ -71,7 +76,7 @@ export type GameCentrePlayer = {
   kickoff: string | null;
   gameStatus: ScheduleGame["status"] | null;
   locked: boolean;
-  scoringBreakdown: PlayerPointsExplanation | null;
+  /** Trimmed actual week stats for box score + client-side breakdown. */
   stats: Record<string, number | null>;
 };
 
@@ -131,6 +136,8 @@ export type GameCentreData = {
   leagueSlug: string;
   status: "scheduled" | "in_progress" | "final";
   finalizedAt: string | null;
+  /** League scoring rules for client-side breakdown dialog. */
+  scoringRules: ScoringRuleDefinition[];
   away: GameCentreTeamSide;
   home: GameCentreTeamSide;
   duelRows: GameCentreDuelRow[];
@@ -207,7 +214,6 @@ function mapPlayer(input: {
   week: number;
   seasonYear: number;
   startedTeams: Set<string>;
-  scoringRules: Parameters<typeof explainPlayerPoints>[2];
   games: ScheduleGame[];
 }): GameCentrePlayer {
   const {
@@ -220,7 +226,6 @@ function mapPlayer(input: {
     week,
     seasonYear,
     startedTeams,
-    scoringRules,
     games,
   } = input;
 
@@ -242,15 +247,10 @@ function mapPlayer(input: {
   const started = locked;
   const actualRow = actualStatsById.get(player.id);
   // Box score uses actual week stats only — never projections.
-  const stats = actualRow?.stats ?? {};
-  const scoringBreakdown =
-    started && actualPts != null && actualRow
-      ? explainPlayerPoints(
-          actualRow.stats,
-          player.primaryPositionId,
-          scoringRules,
-        )
-      : null;
+  const stats = pickClientStats(
+    actualRow?.stats ?? {},
+    GAME_CENTRE_STAT_ALLOWLIST,
+  );
 
   return {
     id: player.id,
@@ -267,7 +267,6 @@ function mapPlayer(input: {
     kickoff,
     gameStatus,
     locked,
-    scoringBreakdown,
     stats,
   };
 }
@@ -319,14 +318,14 @@ export async function getGameCentreData(input: {
   const league = await getLeagueBySlug(input.leagueSlug);
   if (!league) return null;
 
-  const membership = await getLeagueMembership(league.id, input.userId);
-  if (!membership) return null;
-
-  const matchup = await getMatchupByKey({
-    leagueId: league.id,
-    matchupKey: input.matchupId,
-  });
-  if (!matchup) return null;
+  const [membership, matchup] = await Promise.all([
+    getLeagueMembership(league.id, input.userId),
+    getMatchupByKey({
+      leagueId: league.id,
+      matchupKey: input.matchupId,
+    }),
+  ]);
+  if (!membership || !matchup) return null;
 
   const season = await getLeagueSeasonByYear(league.id, matchup.seasonYear);
   if (!season) return null;
@@ -450,7 +449,6 @@ export async function getGameCentreData(input: {
     week: matchup.week,
     seasonYear: season.seasonYear,
     startedTeams,
-    scoringRules,
     games,
   };
 
@@ -681,6 +679,7 @@ export async function getGameCentreData(input: {
     leagueSlug: input.leagueSlug,
     status: matchup.status,
     finalizedAt: matchup.finalizedAt?.toISOString() ?? null,
+    scoringRules,
     away: awaySide,
     home: homeSide,
     duelRows,

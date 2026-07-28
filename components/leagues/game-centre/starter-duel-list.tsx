@@ -121,7 +121,6 @@ function ScoreCluster({
   const actualClickable =
     player != null &&
     actual != null &&
-    player.scoringBreakdown != null &&
     onActualClick;
 
   const check = showAdv ? (

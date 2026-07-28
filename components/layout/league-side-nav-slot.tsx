@@ -13,13 +13,39 @@ import { getUserTeamForSeason } from "@/lib/queries/watchlist";
 /** Resolves commissioner role without blocking league page children. */
 export async function LeagueSideNavSlot({ slug }: { slug: string }) {
   const user = await getSessionUser();
-  const league = user ? await getLeagueBySlug(slug) : null;
-  const membership =
-    user && league ? await getLeagueMembership(league.id, user.id) : null;
-  const season = league ? await getLeagueSeason(league.id) : null;
-  const team =
-    user && season ? await getUserTeamForSeason(season.id, user.id) : null;
+  if (!user) {
+    return (
+      <LeagueSideNav
+        slug={slug}
+        isCommissioner={false}
+        tradesAttention={false}
+        messagesAttention={false}
+      />
+    );
+  }
+
+  const league = await getLeagueBySlug(slug);
+  if (!league) {
+    return (
+      <LeagueSideNav
+        slug={slug}
+        isCommissioner={false}
+        tradesAttention={false}
+        messagesAttention={false}
+      />
+    );
+  }
+
+  const [membership, season] = await Promise.all([
+    getLeagueMembership(league.id, user.id),
+    getLeagueSeason(league.id),
+  ]);
   const isCommissioner = hasCommissionerPowers(membership?.role);
+
+  const team =
+    season != null
+      ? await getUserTeamForSeason(season.id, user.id)
+      : null;
 
   const [tradeIndicator, messageIndicator] = await Promise.all([
     season && team
@@ -30,7 +56,7 @@ export async function LeagueSideNavSlot({ slug }: { slug: string }) {
           tradeProcessing: season.tradeProcessing,
         })
       : Promise.resolve({ showDot: false }),
-    season && user
+    season
       ? getMessageNavIndicator({
           leagueSeasonId: season.id,
           userId: user.id,

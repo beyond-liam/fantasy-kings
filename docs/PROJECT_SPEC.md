@@ -784,3 +784,4 @@ lib/
 | 2026-07-28 | Perf: shared score-row cache + SQL filters; mock draft code-split + pool cap; lazy PlayerProfile/Game Centre dialogs; React.cache getNflState; parallel league layout guard |
 | 2026-07-28 | Perf: league home Suspense tab panels; server-paginated rankings/players (50/page); Lighthouse smoke/league scripts + ops doc |
 | 2026-07-28 | Postgres best practices: RLS on post-0009 tables; fail-fast DATABASE_URL; matchup FK/partial + secondary FK indexes; score-row hard cap; skip ranks on board/win%; finalize batching |
+| 2026-07-28 | React best practices: parallelize nav/GC/action-context; React.cache hot helpers; Suspense account chrome + My Team tabs; slim GC payload; after() in-app alerts/mentions |

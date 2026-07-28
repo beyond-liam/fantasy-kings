@@ -98,27 +98,29 @@ export const getSeasonMatchups = cache(
 );
 
 /** Matchups for a single fantasy week. */
-export async function getWeekMatchups(
-  leagueSeasonId: string,
-  week: number,
-): Promise<LeagueMatchupRow[]> {
-  await ensureSeasonMatchupPublicIds(leagueSeasonId);
+export const getWeekMatchups = cache(
+  async (
+    leagueSeasonId: string,
+    week: number,
+  ): Promise<LeagueMatchupRow[]> => {
+    await ensureSeasonMatchupPublicIds(leagueSeasonId);
 
-  const rows = await db
-    .select(matchupSelect)
-    .from(matchups)
-    .innerJoin(homeTeams, eq(matchups.homeTeamId, homeTeams.id))
-    .innerJoin(awayTeams, eq(matchups.awayTeamId, awayTeams.id))
-    .where(
-      and(
-        eq(matchups.leagueSeasonId, leagueSeasonId),
-        eq(matchups.week, week),
-      ),
-    )
-    .orderBy(asc(awayTeams.name));
+    const rows = await db
+      .select(matchupSelect)
+      .from(matchups)
+      .innerJoin(homeTeams, eq(matchups.homeTeamId, homeTeams.id))
+      .innerJoin(awayTeams, eq(matchups.awayTeamId, awayTeams.id))
+      .where(
+        and(
+          eq(matchups.leagueSeasonId, leagueSeasonId),
+          eq(matchups.week, week),
+        ),
+      )
+      .orderBy(asc(awayTeams.name));
 
-  return rows.map(mapMatchupRow);
-}
+    return rows.map(mapMatchupRow);
+  },
+);
 
 type MatchupDetail = LeagueMatchupRow & {
   leagueSeasonId: string;
@@ -158,57 +160,59 @@ export async function getMatchupById(
  * Resolve a matchup from a URL key (6-char public id or legacy UUID),
  * scoped to a league.
  */
-export async function getMatchupByKey(input: {
-  leagueId: string;
-  matchupKey: string;
-}): Promise<MatchupDetail | null> {
-  const key = input.matchupKey.trim();
-  if (!key) {
-    return null;
-  }
-
-  if (isPublicIdFormat(key)) {
-    const [row] = await db
-      .select({
-        ...matchupSelect,
-        leagueSeasonId: matchups.leagueSeasonId,
-        leagueId: leagueSeasons.leagueId,
-        seasonYear: leagueSeasons.seasonYear,
-      })
-      .from(matchups)
-      .innerJoin(
-        leagueSeasons,
-        eq(matchups.leagueSeasonId, leagueSeasons.id),
-      )
-      .innerJoin(homeTeams, eq(matchups.homeTeamId, homeTeams.id))
-      .innerJoin(awayTeams, eq(matchups.awayTeamId, awayTeams.id))
-      .where(
-        and(
-          eq(leagueSeasons.leagueId, input.leagueId),
-          eq(matchups.publicId, key),
-        ),
-      )
-      .limit(1);
-
-    if (!row) {
+export const getMatchupByKey = cache(
+  async (input: {
+    leagueId: string;
+    matchupKey: string;
+  }): Promise<MatchupDetail | null> => {
+    const key = input.matchupKey.trim();
+    if (!key) {
       return null;
     }
 
-    return mapMatchupRow(row);
-  }
+    if (isPublicIdFormat(key)) {
+      const [row] = await db
+        .select({
+          ...matchupSelect,
+          leagueSeasonId: matchups.leagueSeasonId,
+          leagueId: leagueSeasons.leagueId,
+          seasonYear: leagueSeasons.seasonYear,
+        })
+        .from(matchups)
+        .innerJoin(
+          leagueSeasons,
+          eq(matchups.leagueSeasonId, leagueSeasons.id),
+        )
+        .innerJoin(homeTeams, eq(matchups.homeTeamId, homeTeams.id))
+        .innerJoin(awayTeams, eq(matchups.awayTeamId, awayTeams.id))
+        .where(
+          and(
+            eq(leagueSeasons.leagueId, input.leagueId),
+            eq(matchups.publicId, key),
+          ),
+        )
+        .limit(1);
 
-  const byId = await getMatchupById(key);
-  if (!byId || byId.leagueId !== input.leagueId) {
-    return null;
-  }
+      if (!row) {
+        return null;
+      }
 
-  if (!byId.publicId) {
-    await ensureSeasonMatchupPublicIds(byId.leagueSeasonId);
-    return getMatchupById(key);
-  }
+      return mapMatchupRow(row);
+    }
 
-  return byId;
-}
+    const byId = await getMatchupById(key);
+    if (!byId || byId.leagueId !== input.leagueId) {
+      return null;
+    }
+
+    if (!byId.publicId) {
+      await ensureSeasonMatchupPublicIds(byId.leagueSeasonId);
+      return getMatchupById(key);
+    }
+
+    return byId;
+  },
+);
 
 /** One team's full regular-season schedule (opponent + home/away). */
 export async function getTeamSchedule(

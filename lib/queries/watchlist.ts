@@ -49,24 +49,24 @@ export const getUserTeamForSeason = cache(
   },
 );
 
-export async function getUserTeamForLeague(slug: string, userId: string) {
-  const league = await getLeagueBySlug(slug);
-  if (!league) {
-    return null;
-  }
+export const getUserTeamForLeague = cache(
+  async (slug: string, userId: string) => {
+    const league = await getLeagueBySlug(slug);
+    if (!league) {
+      return null;
+    }
 
-  const membership = await getLeagueMembership(league.id, userId);
-  if (!membership) {
-    return null;
-  }
+    const [membership, season] = await Promise.all([
+      getLeagueMembership(league.id, userId),
+      getLeagueSeason(league.id),
+    ]);
+    if (!membership || !season) {
+      return null;
+    }
 
-  const season = await getLeagueSeason(league.id);
-  if (!season) {
-    return null;
-  }
-
-  return getUserTeamForSeason(season.id, userId);
-}
+    return getUserTeamForSeason(season.id, userId);
+  },
+);
 
 export async function getTeamWatchlistPlayerIds(teamId: string) {
   const rows = await db

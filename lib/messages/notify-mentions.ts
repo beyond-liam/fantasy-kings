@@ -1,5 +1,6 @@
 import "server-only";
 
+import { after } from "next/server";
 import { and, eq, isNotNull } from "drizzle-orm";
 
 import { leagueMembers, profiles } from "@/db/schema";
@@ -69,7 +70,15 @@ export async function notifyMessageMentions(input: {
     href,
   }));
 
-  await createNotifications(rows);
+  try {
+    after(() => {
+      void createNotifications(rows).catch((error) => {
+        console.error("[messages] mention notifications failed", error);
+      });
+    });
+  } catch {
+    await createNotifications(rows);
+  }
 }
 
 export function authorLabelFromProfile(profile: {

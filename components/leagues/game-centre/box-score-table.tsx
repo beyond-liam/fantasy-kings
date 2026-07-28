@@ -91,10 +91,7 @@ function PtsCell({
   player: GameCentrePlayer;
   onActualClick?: (player: GameCentrePlayer) => void;
 }) {
-  const clickable =
-    player.actualPts != null &&
-    player.scoringBreakdown != null &&
-    onActualClick;
+  const clickable = player.actualPts != null && onActualClick;
 
   if (clickable) {
     return (

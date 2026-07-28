@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import { BoxScoreTable } from "@/components/leagues/game-centre/box-score-table";
 import { MatchupHeader } from "@/components/leagues/game-centre/matchup-header";
@@ -10,6 +10,7 @@ import { MatchupPreviewDashboard } from "@/components/leagues/game-centre/matchu
 import { MatchupRosterList } from "@/components/leagues/game-centre/starter-duel-list";
 import { WaiverTips } from "@/components/leagues/game-centre/waiver-tips";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { explainPlayerPoints } from "@/lib/leagues/scoring/calculate";
 import type {
   GameCentreData,
   GameCentrePlayer,
@@ -72,6 +73,15 @@ export function GameCentre({ data }: GameCentreProps) {
   const [optimumOpen, setOptimumOpen] = useState(false);
   const [breakdownPlayer, setBreakdownPlayer] =
     useState<GameCentrePlayer | null>(null);
+
+  const breakdownExplanation = useMemo(() => {
+    if (!breakdownPlayer || breakdownPlayer.actualPts == null) return null;
+    return explainPlayerPoints(
+      breakdownPlayer.stats,
+      breakdownPlayer.primaryPositionId,
+      data.scoringRules,
+    );
+  }, [breakdownPlayer, data.scoringRules]);
 
   const setTab = (next: string | number | null) => {
     const value = String(next ?? (scheduled ? "preview" : "matchup"));
@@ -184,7 +194,7 @@ export function GameCentre({ data }: GameCentreProps) {
         }}
         playerName={breakdownPlayer?.fullName ?? ""}
         week={data.week}
-        explanation={breakdownPlayer?.scoringBreakdown ?? null}
+        explanation={breakdownExplanation}
       />
     </div>
   );
