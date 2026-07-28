@@ -245,6 +245,41 @@ export function getTeamStatsChartsMock(): TeamStatsChartsData {
       },
     ],
     gamesFlippedByBench: 2,
+    scoringConcentration: {
+      topN: 3,
+      topShare: 58.4,
+      totalPoints: 1024.6,
+      slices: [
+        {
+          key: "p1",
+          label: "Ja'Marr Chase",
+          points: 241.8,
+          share: 23.6,
+          isRest: false,
+        },
+        {
+          key: "p2",
+          label: "Josh Allen",
+          points: 198.4,
+          share: 19.4,
+          isRest: false,
+        },
+        {
+          key: "p3",
+          label: "Breece Hall",
+          points: 158.2,
+          share: 15.4,
+          isRest: false,
+        },
+        {
+          key: "rest",
+          label: "Rest of starters",
+          points: 426.2,
+          share: 41.6,
+          isRest: true,
+        },
+      ],
+    },
     kpis: {
       avgWinMargin: { average: 45.8, sampleSize: 6 },
       avgLossMargin: { average: -18.3, sampleSize: 2 },

@@ -57,6 +57,19 @@ const BenchWasteChart = dynamic(
   },
 );
 
+const ScoringConcentrationChart = dynamic(
+  () =>
+    import("@/components/team/charts/scoring-concentration-chart").then(
+      (m) => m.ScoringConcentrationChart,
+    ),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-80 animate-pulse rounded-xl bg-muted/40" />
+    ),
+  },
+);
+
 type TeamStatsDashboardProps = {
   charts: TeamStatsChartsData;
 };
@@ -74,6 +87,7 @@ export function TeamStatsDashboard({ charts }: TeamStatsDashboardProps) {
         <MatchupLuckChart data={charts.weeklyLuck} />
         <BenchWasteChart data={charts.benchWaste} />
       </div>
+      <ScoringConcentrationChart data={charts.scoringConcentration} />
     </div>
   );
 }

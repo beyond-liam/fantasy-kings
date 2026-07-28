@@ -4,6 +4,7 @@ import { describe, it } from "node:test";
 import {
   buildOptimalRecordSummary,
   buildPositionMix,
+  buildScoringConcentration,
   buildTeamStatsKpis,
   buildWeeklyBenchWaste,
   buildWeeklyLuck,
@@ -351,5 +352,49 @@ describe("buildOptimalRecordSummary", () => {
     assert.deepEqual(records?.actual, { wins: 1, losses: 2, ties: 0 });
     assert.deepEqual(records?.optimal, { wins: 2, losses: 1, ties: 0 });
     assert.equal(formatRecordSummary(records!.optimal), "2–1");
+  });
+});
+
+describe("buildScoringConcentration", () => {
+  it("computes top-N share and rest slice from known totals", () => {
+    const result = buildScoringConcentration({
+      players: [
+        { playerId: "a", fullName: "Alpha", points: 100 },
+        { playerId: "b", fullName: "Bravo", points: 80 },
+        { playerId: "c", fullName: "Charlie", points: 60 },
+        { playerId: "d", fullName: "Delta", points: 40 },
+        { playerId: "e", fullName: "Echo", points: 20 },
+      ],
+      topN: 3,
+    });
+
+    assert.equal(result.totalPoints, 300);
+    assert.equal(result.topShare, 80);
+    assert.equal(result.slices.length, 4);
+    assert.equal(result.slices[0]?.label, "Alpha");
+    assert.equal(result.slices[0]?.share, 33.3);
+    assert.equal(result.slices[3]?.isRest, true);
+    assert.equal(result.slices[3]?.points, 60);
+    assert.equal(result.slices[3]?.share, 20);
+  });
+
+  it("returns empty for no points", () => {
+    const result = buildScoringConcentration({ players: [] });
+    assert.equal(result.slices.length, 0);
+    assert.equal(result.topShare, null);
+    assert.equal(result.totalPoints, 0);
+  });
+
+  it("omits rest when fewer than topN scorers", () => {
+    const result = buildScoringConcentration({
+      players: [
+        { playerId: "a", fullName: "Alpha", points: 50 },
+        { playerId: "b", fullName: "Bravo", points: 50 },
+      ],
+      topN: 3,
+    });
+    assert.equal(result.topShare, 100);
+    assert.equal(result.slices.length, 2);
+    assert.ok(result.slices.every((s) => !s.isRest));
   });
 });

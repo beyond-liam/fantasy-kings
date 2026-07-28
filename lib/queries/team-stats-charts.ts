@@ -5,16 +5,19 @@ import { getLeaderPositionColumns } from "@/lib/leagues/league-position-stats";
 import {
   buildOpponentByWeekFromFinals,
   buildPositionMix,
+  buildScoringConcentration,
   buildTeamStatsKpis,
   buildWeeklyBenchWaste,
   buildWeeklyLuck,
   buildWeeklyPointsBand,
   type PositionMixPoint,
+  type ScoringConcentration,
   type TeamStatsKpis,
   type WeeklyBenchWastePoint,
   type WeeklyLuckPoint,
   type WeeklyPointsBandPoint,
 } from "@/lib/leagues/team-stats-charts";
+import { getTeamSeasonStarterPoints } from "@/lib/leagues/team-stats-starter-points";
 import {
   getSeasonOpfByTeamId,
   getTeamWeeklyScoreSnapshots,
@@ -27,6 +30,7 @@ export type TeamStatsChartsData = {
   weeklyLuck: WeeklyLuckPoint[];
   benchWaste: WeeklyBenchWastePoint[];
   gamesFlippedByBench: number;
+  scoringConcentration: ScoringConcentration;
   kpis: TeamStatsKpis;
 };
 
@@ -44,7 +48,7 @@ export async function getTeamStatsCharts(input: {
     return null;
   }
 
-  const [finals, seasonOpf, weekSnapshots] = await Promise.all([
+  const [finals, seasonOpf, weekSnapshots, starterPoints] = await Promise.all([
     getFinalMatchupsForSeason(season.id).catch(
       (): Awaited<ReturnType<typeof getFinalMatchupsForSeason>> => [],
     ),
@@ -54,6 +58,13 @@ export async function getTeamStatsCharts(input: {
     getTeamWeeklyScoreSnapshots({
       leagueSeasonId: season.id,
       teamId: input.teamId,
+    }).catch(() => []),
+    getTeamSeasonStarterPoints({
+      leagueSeasonId: season.id,
+      teamId: input.teamId,
+      seasonYear: season.seasonYear,
+      scoringPreset: season.scoringPreset,
+      scoringRules: season.settings.scoringRules,
     }).catch(() => []),
   ]);
 
@@ -93,6 +104,10 @@ export async function getTeamStatsCharts(input: {
     positionColumns,
   });
 
+  const scoringConcentration = buildScoringConcentration({
+    players: starterPoints,
+  });
+
   const kpis = buildTeamStatsKpis({
     teamId: input.teamId,
     finals,
@@ -104,6 +119,7 @@ export async function getTeamStatsCharts(input: {
     weeklyLuck,
     benchWaste,
     gamesFlippedByBench,
+    scoringConcentration,
     kpis,
   };
 }

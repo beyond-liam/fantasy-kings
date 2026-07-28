@@ -52,7 +52,7 @@ A mobile-first fantasy football web app for a private friend group (4–16 users
 | Item | Notes |
 |---|---|
 | Matchup insights | Positional edges, median/luck, bench/optimal delta, would-have-won alternate outcomes |
-| Team Stats charts 5–6 | Scoring concentration, win margins (optional) |
+| Team Stats chart 6 | Win margins chart (optional; KPI strip covers averages) |
 | Season rewind | End-of-year team/league recap |
 
 ### Explicitly deferred (do not schedule soon)
@@ -326,19 +326,19 @@ Shipped:
 2. **Points by position** — horizontal bars: share of your starter PF by slot vs league-average share; tooltip = points + %. Headline: strongest slot vs league share. Roster-construction signal (where to spend FAAB / trade).
 3. **Matchup luck** — ± bars: actual H2H result minus all-play expected win% from weekly PF rank (`round((actual − expected) × 100)`). Positive = lucky; negative = unlucky. Zero-luck weeks show a tiny slate stub so the week stays visible. Headline: qualitative season luck (Lucky / Quite unlucky / …).
 4. **Points left on bench** — weekly OPF − PF from `team_week_stats`; tooltip flags weeks where optimum would have flipped a loss. Headline: should-be (optimal) record vs actual.
+5. **Scoring concentration** — top-3 starter PF share vs rest from week-locked lineup snapshots; headline = top-3 %. Star reliance → handcuffs/depth; flat → can trade a stud for two starters.
 
 KPI strip (shipped):
 - **Average win margin** / **Average loss margin** — means from finals (no consistency)
 - **Scoring consistency** — sample stddev as `+/- X` with excellent/good/fair/poor label inline
 
-Planned charts (not yet built):
-5. **Scoring concentration** — top scorers’ share of PF vs rest. Star reliance → handcuffs/depth; flat → can trade a stud for two starters.
-6. **Win margins** chart (optional) — weekly +/− bars; KPI strip covers averages already.
+Optional / deferred:
+6. **Win margins** chart — weekly +/− bars; KPI strip covers averages already.
 
 Planned KPI / metric cards (supporting, not chart-worthy):
 - PF / PPG / PF rank; games swung by start/sit; bench pts left (season + /wk); boom/bust weeks (above/below median); SOS / opp PF faced; closest win / worst loss; top position share teaser; season net luck / expected vs actual record
 
-Layout (target): Margin KPI strip → 2×2 chart grid (week / position / luck / bench) → concentration later
+Layout (target): Margin KPI strip → 2×2 chart grid (week / position / luck / bench) → concentration
 
 Explicitly out of Team Stats v1: radar/H2H vibe charts, OPF-vs-OPF as headline record, player snap/target trends (deferred/paid). Distinguish from HoF “Luckiest” (opponent OPF) and Overview “Luckiest Winner” (lowest PF among winners).
 
@@ -649,8 +649,8 @@ lib/
 - [x] **Team Head-to-Head tab** — viewer vs other team series on other-team page
 - [x] **Hall of Fame** — titles / RS / division / all-time / lucky / winning-score extremes; choke & Fergie via last-kickoff swings (current lineup + week actuals)
 - [x] **Overview weekly roast row** — Top Scorer / Luckiest Winner (lowest PF + won) / Underachiever (most bench left + lost); shows after first scored week (dev-only `?mock=1`)
-- [x] **Team page — Team Stats charts 1–4** — Points by week; Points by position; Matchup luck; Points left on bench (OPF−PF + flip weeks); chart headline metrics (avg score / strongest pos / luck verdict / should-be record); margin KPI strip (avg win/loss margins)
-- [ ] **Team page — Team Stats charts 5–6** — concentration, win margins chart (optional)
+- [x] **Team page — Team Stats charts 1–5** — Points by week; Points by position; Matchup luck; Points left on bench (OPF−PF + flip weeks); Scoring concentration (top-3 share from lineup snapshots); chart headline metrics; margin KPI strip
+- [ ] **Team page — Team Stats chart 6** — win margins chart (optional; KPI strip covers averages)
 - [ ] **Season rewind** — end-of-year team/league recap
 
 **Shipped playoff completion (kept for history)**
@@ -764,3 +764,4 @@ lib/
 | 2026-07-16 | Trades: initial implementation started; follow-up items documented (vetoes, limits, cron, email) |
 || 2026-07-27 | Spec sync: move shipped engagement (SOS, playoff chance, HoF, roast, Team Stats 1–4, KPI strip) to shipped; mark margin KPI strip done; remove stale typed-mock sequencing; engagement remaining = advanced filters, matchup insights, concentration charts, season rewind |
 || 2026-07-28 | Lineup snapshots: freeze starters at finalize so official score corrections re-score frozen starters instead of rewriting history from live roster |
+|| 2026-07-28 | Team Stats: scoring concentration chart (top-3 starter PF share from lineup snapshots) |
