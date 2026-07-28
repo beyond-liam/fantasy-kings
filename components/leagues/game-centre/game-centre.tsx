@@ -7,8 +7,6 @@ import { useState } from "react";
 import { BoxScoreTable } from "@/components/leagues/game-centre/box-score-table";
 import { MatchupHeader } from "@/components/leagues/game-centre/matchup-header";
 import { MatchupPreviewDashboard } from "@/components/leagues/game-centre/matchup-preview-dashboard";
-import { OptimumLineupDialog } from "@/components/leagues/game-centre/optimum-lineup-dialog";
-import { ScoringBreakdownDialog } from "@/components/leagues/game-centre/scoring-breakdown-dialog";
 import { MatchupRosterList } from "@/components/leagues/game-centre/starter-duel-list";
 import { WaiverTips } from "@/components/leagues/game-centre/waiver-tips";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -21,6 +19,22 @@ const ScoreLineChart = dynamic(
   () =>
     import("@/components/leagues/game-centre/score-line-chart").then(
       (m) => m.ScoreLineChart,
+    ),
+  { ssr: false },
+);
+
+const OptimumLineupDialog = dynamic(
+  () =>
+    import("@/components/leagues/game-centre/optimum-lineup-dialog").then(
+      (m) => m.OptimumLineupDialog,
+    ),
+  { ssr: false },
+);
+
+const ScoringBreakdownDialog = dynamic(
+  () =>
+    import("@/components/leagues/game-centre/scoring-breakdown-dialog").then(
+      (m) => m.ScoringBreakdownDialog,
     ),
   { ssr: false },
 );

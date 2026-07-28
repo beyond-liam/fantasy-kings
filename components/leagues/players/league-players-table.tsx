@@ -22,6 +22,10 @@ import { getStartedNflTeamAbbreviations } from "@/lib/leagues/waivers/game-lock"
 import { resolvePlayerAcquisitionKind } from "@/lib/leagues/waivers/resolve-kind";
 import type { PositionFilter } from "@/lib/rankings/column-config";
 import {
+  PLAYERS_PAGE_SIZE,
+  playersPageOffset,
+} from "@/lib/rankings/players-page";
+import {
   getNflTeams,
   getRankedPlayers,
   type RankedPlayerRow,
@@ -56,6 +60,7 @@ type LeaguePlayersTableProps = {
   scoringRules: ScoringRuleDefinition[];
   sort: string;
   sortDesc: boolean;
+  page: number;
   currentSeason: string;
   previousSeason: string;
   waiversEnabled: boolean;
@@ -83,6 +88,7 @@ export async function LeaguePlayersTable({
   scoringRules,
   sort,
   sortDesc,
+  page,
   currentSeason,
   previousSeason,
   waiversEnabled,
@@ -233,6 +239,14 @@ export async function LeaguePlayersTable({
 
   const seasons = Array.from(new Set([currentSeason, previousSeason]));
 
+  // Ownership / FA filters must run after the score load; then hydrate one page only.
+  const filteredPlayers = freeAgentsOnly
+    ? players.filter((row) => !row.fantasyTeamId)
+    : players;
+  const totalCount = filteredPlayers.length;
+  const offset = playersPageOffset(page);
+  const pageRows = filteredPlayers.slice(offset, offset + PLAYERS_PAGE_SIZE);
+
   return (
     <>
       {setupError ? (
@@ -254,7 +268,7 @@ export async function LeaguePlayersTable({
 
       <PlayersDataTable
         currentSeason={currentSeason}
-        data={players}
+        data={pageRows}
         initialWatchlistIds={watchlistIds}
         leagueSlug={slug}
         previousSeason={previousSeason}
@@ -264,6 +278,9 @@ export async function LeaguePlayersTable({
         tradesEnabled={tradesEnabled && actionsEnabled}
         acquisitionsLocked={acquisitionsLocked}
         acquisitionLockReason={acquisitionLockReason}
+        page={page}
+        pageSize={PLAYERS_PAGE_SIZE}
+        totalCount={totalCount}
         view={{
           season: seasonYear,
           week: weekParam === "0" ? "season" : weekParam,

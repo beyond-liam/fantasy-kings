@@ -12,6 +12,8 @@ export const SERVER_RANKINGS_PARAMS = new Set([
   "position",
   "team",
   "rookies",
+  "page",
+  "fa",
 ]);
 
 export function useRankingsParams() {
@@ -30,10 +32,14 @@ export function useRankingsParams() {
         current.startsWith("?") ? current.slice(1) : current,
       );
       let touchesServer = false;
+      let touchesNonPageServer = false;
 
       for (const [key, value] of Object.entries(updates)) {
         if (SERVER_RANKINGS_PARAMS.has(key)) {
           touchesServer = true;
+          if (key !== "page") {
+            touchesNonPageServer = true;
+          }
         }
 
         if (value === null) {
@@ -41,6 +47,11 @@ export function useRankingsParams() {
         } else {
           params.set(key, value);
         }
+      }
+
+      // Filter / season changes restart at page 1.
+      if (touchesNonPageServer && !("page" in updates)) {
+        params.delete("page");
       }
 
       const query = params.toString();

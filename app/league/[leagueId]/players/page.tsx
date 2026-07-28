@@ -9,6 +9,7 @@ import {
 } from "@/lib/leagues/scoring";
 import type { ScoringPreset } from "@/lib/leagues/scoring";
 import { parsePositionFilter } from "@/lib/rankings/column-config";
+import { parsePlayersPage } from "@/lib/rankings/players-page";
 import {
   DEFAULT_SORT_COLUMN,
   DEFAULT_SORT_DESC,
@@ -32,6 +33,7 @@ type LeaguePlayersPageProps = {
     fa?: string;
     sort?: string;
     sortDir?: string;
+    page?: string;
   }>;
 };
 
@@ -92,6 +94,7 @@ export default async function LeaguePlayersPage({
       ? DEFAULT_SORT_COLUMN
       : (query.sort ?? DEFAULT_SORT_COLUMN);
   const sortDesc = query.sortDir ? query.sortDir !== "asc" : DEFAULT_SORT_DESC;
+  const page = parsePlayersPage(query.page);
 
   const scoringPreset = season.scoringPreset as ScoringPreset;
   const scoringRules = resolveScoringRuleDefinitions(
@@ -124,6 +127,7 @@ export default async function LeaguePlayersPage({
           scoringRules={scoringRules}
           sort={sort}
           sortDesc={sortDesc}
+          page={page}
           currentSeason={currentSeason}
           previousSeason={previousSeason}
           waiversEnabled={season.waiversEnabled}

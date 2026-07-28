@@ -1,11 +1,19 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useState, type MouseEvent } from "react";
 
 import { PlayerAvatar } from "@/components/rankings/player-avatar";
-import { PlayerProfileDialog } from "@/components/players/player-profile-dialog";
 import { resolvePlayerByeWeek } from "@/lib/nfl/bye-weeks";
 import { cn } from "@/lib/utils";
+
+const PlayerProfileDialog = dynamic(
+  () =>
+    import("@/components/players/player-profile-dialog").then(
+      (m) => m.PlayerProfileDialog,
+    ),
+  { ssr: false },
+);
 
 type PlayerIdentityProps = {
   fullName: string;

@@ -3,6 +3,7 @@ import { Suspense } from "react";
 
 import { RankingsTable } from "@/components/rankings/rankings-table";
 import { parsePositionFilter } from "@/lib/rankings/column-config";
+import { parsePlayersPage } from "@/lib/rankings/players-page";
 import {
   DEFAULT_SORT_COLUMN,
   DEFAULT_SORT_DESC,
@@ -21,6 +22,7 @@ type RankingsPageProps = {
     scoring?: string;
     sort?: string;
     sortDir?: string;
+    page?: string;
   }>;
 };
 
@@ -46,6 +48,7 @@ export default async function RankingsPage({ searchParams }: RankingsPageProps) 
   const sort =
     params.sort === "pts_ppr" ? DEFAULT_SORT_COLUMN : (params.sort ?? DEFAULT_SORT_COLUMN);
   const sortDesc = params.sortDir ? params.sortDir !== "asc" : DEFAULT_SORT_DESC;
+  const page = parsePlayersPage(params.page);
   const seasons = Array.from(new Set([currentSeason, previousSeason]));
 
   return (
@@ -68,6 +71,7 @@ export default async function RankingsPage({ searchParams }: RankingsPageProps) 
           scoring={scoring}
           sort={sort}
           sortDesc={sortDesc}
+          page={page}
         />
       </Suspense>
     </div>

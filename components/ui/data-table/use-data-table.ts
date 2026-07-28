@@ -50,9 +50,14 @@ export function useDataTable<TData>({
   columnVisibility,
   onColumnVisibilityChange,
   pageSize = 25,
+  manualPagination,
+  pageCount,
   ...options
-}: UseDataTableOptions<TData>): TanstackTable<TData> {
-  return useReactTable({
+}: UseDataTableOptions<TData> & {
+  manualPagination?: boolean;
+  pageCount?: number;
+}): TanstackTable<TData> {
+  const table = useReactTable({
     data,
     columns,
     defaultColumn: {
@@ -74,8 +79,13 @@ export function useDataTable<TData>({
     onColumnVisibilityChange,
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
     getSortedRowModel: getSortedRowModel(),
+    manualPagination,
+    pageCount,
+    ...(manualPagination
+      ? {}
+      : { getPaginationRowModel: getPaginationRowModel() }),
     ...options,
   });
+  return table;
 }

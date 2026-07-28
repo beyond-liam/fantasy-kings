@@ -7,14 +7,15 @@ import { HugeiconsIcon } from "@hugeicons/react";
 
 import { InviteLinkCard } from "@/components/leagues/invite-link-card";
 import { DraftUnderwayAlert } from "@/components/leagues/draft/draft-underway-alert";
-import { LeagueHallOfFame } from "@/components/leagues/hall-of-fame/league-hall-of-fame";
+import { LeagueHomeHofTab } from "@/components/leagues/home/league-home-hof-tab";
+import { LeagueHomeOverviewTab } from "@/components/leagues/home/league-home-overview-tab";
+import { LeagueHomePlayoffsTab } from "@/components/leagues/home/league-home-playoffs-tab";
+import { LeagueHomeStandingsTab } from "@/components/leagues/home/league-home-standings-tab";
+import { LeagueHomeStatsTab } from "@/components/leagues/home/league-home-stats-tab";
 import { LeagueHomeTabs } from "@/components/leagues/league-home-tabs";
-import { LeagueOverview } from "@/components/leagues/league-overview";
-import { LeagueStandingsTable } from "@/components/leagues/standings/standings-table";
-import { LeagueStatsTable } from "@/components/leagues/stats/league-stats-table";
-import { LeaguePlayoffsSection } from "@/components/leagues/playoffs/league-playoffs-section";
 import { LeagueRulesSummary } from "@/components/leagues/rules/league-rules-summary";
 import { LeagueScoringSummary } from "@/components/leagues/scoring/league-scoring-summary";
+import { PageSkeleton } from "@/components/layout/page-skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -25,54 +26,11 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { getSessionUser } from "@/lib/auth/session";
-import {
-  buildLeagueStandings,
-} from "@/lib/leagues/standings-from-matchups";
 import { teamInitials } from "@/lib/leagues/standings";
 import { formatLeagueLabel } from "@/lib/leagues/format";
-import {
-  bracketTeamsFromStandings,
-  buildPlayoffBracket,
-} from "@/lib/leagues/playoff-bracket";
-import { hydratePlayoffBracket } from "@/lib/leagues/playoff-bracket-hydrate";
-import {
-  attachSosToStandings,
-  buildPlayoffStandingsRows,
-  resolvePlayoffCutoffSeed,
-} from "@/lib/leagues/playoff-standings";
-import {
-  clampPlayoffTeamCount,
-  resolvePlayoffSettings,
-} from "@/lib/leagues/playoff-settings";
-import { resolveTeamStrengthForSos } from "@/lib/leagues/sos";
-import {
-  resolveScoringRuleDefinitions,
-  type ScoringPreset,
-} from "@/lib/leagues/scoring";
-import { getPlayoffWeekRange } from "@/lib/leagues/season-calendar";
-import {
-  buildSeasonPositionLeaders,
-  rankByInefficiency,
-  rankByPointsAgainst,
-  rankByPointsFor,
-  sliceStandingsAroundFocus,
-} from "@/lib/leagues/league-overview";
-import { getSeasonOpfByTeamId } from "@/lib/leagues/team-week-stats";
+import type { ScoringPreset } from "@/lib/leagues/scoring";
 import { getLeagueHomeData, isDraftUnderway } from "@/lib/queries/leagues";
-import { getLeaguePositionStats } from "@/lib/queries/league-stats";
-import { loadOverviewWeekHighlights } from "@/lib/queries/league-overview-highlights";
-import {
-  emptyLeagueHallOfFame,
-  loadLeagueHallOfFame,
-} from "@/lib/queries/league-hall-of-fame";
-import { loadOverviewWeeklyRoast } from "@/lib/queries/overview-weekly-roast";
-import { getOverviewWeeklyRoastMock } from "@/lib/leagues/overview-weekly-roast-mock";
-import { getSeasonMatchups } from "@/lib/queries/matchups";
-import { getTeamProjectedWeeklyPf } from "@/lib/queries/team-projected-strength";
-import { getNflState } from "@/lib/sleeper/api";
-import { db } from "@/lib/db";
-import { matchups } from "@/db/schema";
-import { and, eq, gte } from "drizzle-orm";
+import type { LeagueHomeStandingsBundleInput } from "@/lib/queries/league-home-standings";
 
 type LeagueHomePageProps = {
   params: Promise<{ leagueId: string }>;
@@ -88,10 +46,9 @@ export default async function LeagueHomePage({
   searchParams,
 }: LeagueHomePageProps) {
   const { leagueId: slug } = await params;
-  const { mock, tab } = await searchParams;
+  const { mock } = await searchParams;
   const useOverviewMock =
     process.env.NODE_ENV === "development" && (mock === "1" || mock === "true");
-  const activeTab = tab || "overview";
   const user = await getSessionUser();
   if (!user) {
     redirect(`/login?next=/league/${slug}`);
@@ -127,10 +84,6 @@ export default async function LeagueHomePage({
     redirect("/leagues");
   }
 
-  const needsPlayoffBracket = activeTab === "playoffs";
-  const needsOverviewData =
-    activeTab === "overview" || activeTab === "hall-of-fame";
-
   const { league, season, members, draftStatus, standingsTeams } = data;
   const claimedCount = standingsTeams.filter((team) => team.userId).length;
   const isFull = season != null && claimedCount >= season.teamCount;
@@ -141,382 +94,33 @@ export default async function LeagueHomePage({
     season.faabBudget != null &&
     season.faabBudget > 0;
 
-  // Start parallel operations for base standings data
-  const [statsPromise, seasonMatchups] = await Promise.all([
-    getLeaguePositionStats(slug, user.id),
-    season != null
-      ? getSeasonMatchups(season.id).catch(() => [])
-      : Promise.resolve([]),
-  ]);
-
-  const regularSeasonEndWeek = season?.regularSeasonEndWeek ?? 14;
-  const finals = seasonMatchups
-    .filter(
-      (row) =>
-        row.status === "final" &&
-        row.week <= regularSeasonEndWeek &&
-        row.homePts != null &&
-        row.awayPts != null,
-    )
-    .map((row) => ({
-      id: row.id,
-      week: row.week,
-      homeTeamId: row.homeTeamId,
-      awayTeamId: row.awayTeamId,
-      homePts: row.homePts,
-      awayPts: row.awayPts,
-    }));
-  const sosMatchups = seasonMatchups
-    .filter((row) => row.week <= regularSeasonEndWeek)
-    .map((row) => ({
-      week: row.week,
-      homeTeamId: row.homeTeamId,
-      awayTeamId: row.awayTeamId,
-      played: row.status === "final",
-    }));
-  const remainingMatchups = sosMatchups
-    .filter((row) => !row.played)
-    .map((row) => ({
-      homeTeamId: row.homeTeamId,
-      awayTeamId: row.awayTeamId,
-    }));
-  const baseStandings = buildLeagueStandings(
-    standingsTeams,
-    {
-      teamCount: season?.teamCount ?? members.length,
-      faabBudget: showFaabBudget ? season.faabBudget : null,
-    },
-    finals,
-    season?.settings.tiebreakers,
-  );
-  const claimedTeamIds = baseStandings
-    .filter((row): row is typeof row & { teamId: string } =>
-      Boolean(row.claimed && row.teamId),
-    )
-    .map((row) => row.teamId);
-
-  let projectedWeeklyPf = new Map<string, number>();
-  if (season && claimedTeamIds.length > 0) {
-    const scoringRules = resolveScoringRuleDefinitions(
-      season.scoringPreset as ScoringPreset,
-      season.settings.scoringRules,
-    );
-    const [nflState] = await Promise.all([
-      getNflState().catch(() => null),
-    ]);
-    const projectionWeek = Math.max(1, Number(nflState?.week) || 1);
-    projectedWeeklyPf = await getTeamProjectedWeeklyPf({
-      teamIds: claimedTeamIds,
-      seasonYear: String(season.seasonYear),
-      week: projectionWeek,
-      scoringRules,
-      rosterSlots: season.settings.rosterSlots,
-      benchSlots: season.benchSlots,
-      irEnabled: season.irEnabled,
-      irSlots: season.irSlots,
-      irEligibleStatuses: season.settings.irEligibleStatuses,
-      taxiEnabled: season.taxiEnabled,
-      taxiSlots: season.taxiSlots,
-    }).catch(() => new Map());
-  }
-
-  const strengthByTeamId = resolveTeamStrengthForSos({
-    teamIds: claimedTeamIds,
-    pointsForAvgByTeamId: new Map(
-      baseStandings
-        .filter((row) => row.teamId && row.claimed)
-        .map((row) => [row.teamId!, row.pointsForAvg] as const),
-    ),
-    projectedWeeklyPfByTeamId: projectedWeeklyPf,
-  });
-
-  const standings = attachSosToStandings(
-    baseStandings,
-    sosMatchups,
-    projectedWeeklyPf,
-  );
-  const playoffSettings = resolvePlayoffSettings(season?.settings.playoffs);
-  const playoffTeamCount =
-    season != null
-      ? clampPlayoffTeamCount(season.playoffTeamCount, season.teamCount)
-      : 0;
-  const playoffCutoffSeed = resolvePlayoffCutoffSeed({
-    enabled: playoffSettings.enabled,
-    playoffTeamCount,
-    teamCount: standings.length,
-  });
-  const playoffStandings = buildPlayoffStandingsRows(standings, {
-    playoffSpots: playoffSettings.enabled ? playoffTeamCount : 0,
-    remainingMatchups: playoffSettings.enabled ? remainingMatchups : [],
-    strengthByTeamId,
-  });
-
-  // Defer playoff bracket computation to playoffs tab only
-  let playoffBracket = null;
-  if (needsPlayoffBracket && season && playoffSettings.enabled) {
-    const seedTeams = bracketTeamsFromStandings(
-      playoffStandings,
-      playoffTeamCount,
-    );
-    playoffBracket = buildPlayoffBracket({
-      teams: seedTeams,
-      playoffTeamCount,
-      championshipWeek: season.championshipWeek,
-      twoWeekChampionship: playoffSettings.twoWeekChampionship,
-      enabled: true,
-    });
-
-    const range = getPlayoffWeekRange(
-      season.championshipWeek,
-      playoffTeamCount,
-      {
-        enabled: true,
-        twoWeekChampionship: playoffSettings.twoWeekChampionship,
-      },
-    );
-    if (range) {
-      const playoffRows = await db
-        .select({
-          week: matchups.week,
-          homeTeamId: matchups.homeTeamId,
-          awayTeamId: matchups.awayTeamId,
-          homePts: matchups.homePts,
-          awayPts: matchups.awayPts,
-          status: matchups.status,
-        })
-        .from(matchups)
-        .where(
-          and(
-            eq(matchups.leagueSeasonId, season.id),
-            gte(matchups.week, range.startWeek),
-          ),
-        )
-        .catch(() => []);
-
-      if (playoffRows.length > 0 && playoffBracket) {
-        playoffBracket = hydratePlayoffBracket(
-          playoffBracket,
-          playoffRows,
-          seedTeams,
-        );
-      }
-    }
-  }
-
   const myTeamPublicId =
     members.find((member) => member.userId === user.id)?.teamPublicId ?? null;
   const myTeamId =
     members.find((member) => member.userId === user.id)?.teamId ?? null;
-  const stats = await statsPromise;
 
-  const claimedStandings = standings.filter((row) => row.claimed);
-  const focusIndex = myTeamId
-    ? claimedStandings.findIndex((row) => row.teamId === myTeamId)
-    : -1;
-  const overviewStandings = sliceStandingsAroundFocus(
-    claimedStandings,
-    focusIndex,
-  );
-
-  // Parallelize overview and hall of fame data loading
-  let seasonOpf = new Map<string, { byPosition: Record<string, number> }>();
-  let seasonLeaders: ReturnType<typeof buildSeasonPositionLeaders> = [];
-  let inefficient: ReturnType<typeof rankByInefficiency> = [];
-  let weekHighlights: Awaited<ReturnType<typeof loadOverviewWeekHighlights>> | {
-    playersOfTheWeek: {
-      passer: null;
-      rusher: null;
-      receiver: null;
-    };
-    week: null;
-  } = {
-    playersOfTheWeek: {
-      passer: null,
-      rusher: null,
-      receiver: null,
-    },
-    week: null,
+  const bundleInput: LeagueHomeStandingsBundleInput = {
+    leagueSeasonId: season?.id ?? null,
+    standingsTeams,
+    teamCount: season?.teamCount ?? members.length,
+    showFaabBudget,
+    faabBudget: season?.faabBudget ?? null,
+    regularSeasonEndWeek: season?.regularSeasonEndWeek ?? 14,
+    tiebreakers: season?.settings.tiebreakers,
+    seasonYear: season?.seasonYear ?? null,
+    scoringPreset: (season?.scoringPreset as ScoringPreset | undefined) ?? null,
+    scoringRules: season?.settings.scoringRules,
+    rosterSlots: season?.settings.rosterSlots ?? [],
+    benchSlots: season?.benchSlots ?? 6,
+    irEnabled: season?.irEnabled ?? false,
+    irSlots: season?.irSlots ?? 0,
+    irEligibleStatuses: season?.settings.irEligibleStatuses,
+    taxiEnabled: season?.taxiEnabled ?? false,
+    taxiSlots: season?.taxiSlots ?? 0,
+    playoffTeamCount: season?.playoffTeamCount ?? 0,
+    championshipWeek: season?.championshipWeek ?? 17,
+    playoffs: season?.settings.playoffs,
   };
-  let hofTeams: Array<{
-    teamId: string;
-    teamPublicId: string | null;
-    teamName: string;
-    ownerName: string;
-    logoUrl: string | null;
-    claimed: boolean;
-    divisionId: string | null;
-  }> = [];
-  let hallOfFameData: Awaited<ReturnType<typeof loadLeagueHallOfFame>> | ReturnType<typeof emptyLeagueHallOfFame> = emptyLeagueHallOfFame();
-  let weeklyRoast: Awaited<ReturnType<typeof loadOverviewWeeklyRoast>> | ReturnType<typeof getOverviewWeeklyRoastMock> | null = null;
-
-  if (needsOverviewData && season) {
-    const scoringRulesForOverview = resolveScoringRuleDefinitions(
-      season.scoringPreset as ScoringPreset,
-      season.settings.scoringRules,
-    );
-
-    const [nflStateForOverview, seasonOpfResult] = await Promise.all([
-      getNflState().catch(() => null),
-      getSeasonOpfByTeamId(season.id).catch(() => new Map()),
-    ]);
-
-    seasonOpf = seasonOpfResult;
-    const highlightWeek = Math.max(
-      1,
-      Number(nflStateForOverview?.week) || 1,
-    );
-
-    // Compute hofTeams before async operations
-    hofTeams = standingsTeams.map((team) => ({
-      teamId: team.teamId!,
-      teamPublicId: team.teamPublicId ?? null,
-      teamName: team.teamName ?? "Team",
-      ownerName: team.userId
-        ? (team.displayName?.trim() || "Manager")
-        : "Unclaimed",
-      logoUrl: team.logoUrl ?? null,
-      claimed: Boolean(team.userId && team.teamId),
-      divisionId: team.divisionId ?? null,
-    }));
-
-    const [weekHighlightsResult, hallOfFameResult, weeklyRoastResult] =
-      await Promise.all([
-        loadOverviewWeekHighlights({
-          seasonYear: season.seasonYear,
-          week: highlightWeek,
-          scoringRules: scoringRulesForOverview,
-        }).catch(() => ({
-          playersOfTheWeek: {
-            passer: null,
-            rusher: null,
-            receiver: null,
-          },
-          week: highlightWeek,
-        })),
-        (async () => {
-          const seedTeams = bracketTeamsFromStandings(
-            playoffStandings,
-            playoffTeamCount,
-          );
-          let bracketForHof = null;
-          if (playoffSettings.enabled) {
-            bracketForHof = buildPlayoffBracket({
-              teams: seedTeams,
-              playoffTeamCount,
-              championshipWeek: season.championshipWeek,
-              twoWeekChampionship: playoffSettings.twoWeekChampionship,
-              enabled: true,
-            });
-
-            const range = getPlayoffWeekRange(
-              season.championshipWeek,
-              playoffTeamCount,
-              {
-                enabled: true,
-                twoWeekChampionship: playoffSettings.twoWeekChampionship,
-              },
-            );
-            if (range) {
-              const playoffRows = await db
-                .select({
-                  week: matchups.week,
-                  homeTeamId: matchups.homeTeamId,
-                  awayTeamId: matchups.awayTeamId,
-                  homePts: matchups.homePts,
-                  awayPts: matchups.awayPts,
-                  status: matchups.status,
-                })
-                .from(matchups)
-                .where(
-                  and(
-                    eq(matchups.leagueSeasonId, season.id),
-                    gte(matchups.week, range.startWeek),
-                  ),
-                )
-                .catch(() => []);
-
-              if (playoffRows.length > 0 && bracketForHof) {
-                bracketForHof = hydratePlayoffBracket(
-                  bracketForHof,
-                  playoffRows,
-                  seedTeams,
-                );
-              }
-            }
-          }
-
-          return loadLeagueHallOfFame({
-            leagueSeasonId: season.id,
-            seasonYear: season.seasonYear,
-            teams: hofTeams.filter((t) => Boolean(t.teamId)),
-            divisionCount: season.divisionCount,
-            regularSeasonEndWeek: season.regularSeasonEndWeek,
-            championTeamId: bracketForHof?.champion?.teamId ?? null,
-          }).catch(() => emptyLeagueHallOfFame());
-        })(),
-        useOverviewMock
-          ? Promise.resolve(getOverviewWeeklyRoastMock())
-          : loadOverviewWeeklyRoast({
-              leagueSeasonId: season.id,
-              regularSeasonEndWeek: season.regularSeasonEndWeek,
-              teams: standingsTeams
-                .filter((t) => t.userId && t.teamId)
-                .map((t) => ({
-                  teamId: t.teamId!,
-                  teamPublicId: t.teamPublicId ?? null,
-                  teamName: t.teamName ?? "Team",
-                  ownerName: t.displayName?.trim() || "Manager",
-                  logoUrl: t.logoUrl ?? null,
-                })),
-            }).catch(() => null),
-      ]);
-
-    weekHighlights = weekHighlightsResult;
-    hallOfFameData = hallOfFameResult;
-    weeklyRoast = weeklyRoastResult;
-
-    seasonLeaders = buildSeasonPositionLeaders(
-      claimedStandings
-        .filter((row): row is typeof row & { teamId: string } =>
-          Boolean(row.teamId),
-        )
-        .map((row) => ({
-          teamId: row.teamId,
-          teamPublicId: row.teamPublicId,
-          teamName: row.teamName,
-          logoUrl: row.logoUrl,
-          claimed: row.claimed,
-          byPosition: seasonOpf.get(row.teamId)?.byPosition ?? {},
-        })),
-    );
-
-    inefficient = rankByInefficiency(
-      (stats?.rows ?? []).map((row) => ({
-        teamId: row.teamId,
-        teamPublicId: row.teamPublicId,
-        teamName: row.teamName,
-        ownerName: row.ownerName,
-        logoUrl: row.logoUrl,
-        claimed: row.claimed,
-        seasonPointsFor: row.seasonPointsFor,
-        seasonOptimumPointsFor: row.seasonOptimumPointsFor,
-      })),
-    );
-  } else if (!needsOverviewData) {
-    // Minimal data for non-overview tabs
-    hofTeams = standingsTeams.map((team) => ({
-      teamId: team.teamId!,
-      teamPublicId: team.teamPublicId ?? null,
-      teamName: team.teamName ?? "Team",
-      ownerName: team.userId
-        ? (team.displayName?.trim() || "Manager")
-        : "Unclaimed",
-      logoUrl: team.logoUrl ?? null,
-      claimed: Boolean(team.userId && team.teamId),
-      divisionId: team.divisionId ?? null,
-    }));
-    hallOfFameData = emptyLeagueHallOfFame();
-  }
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-6">
@@ -549,92 +153,91 @@ export default async function LeagueHomePage({
       <Suspense fallback={null}>
         <LeagueHomeTabs
           overview={
-            <LeagueOverview
-              leagueSlug={league.publicId}
-              standingsRows={overviewStandings}
-              myTeamId={myTeamId}
-              highestScorer={rankByPointsFor(standings)[0] ?? null}
-              worstDefense={rankByPointsAgainst(standings)[0] ?? null}
-              inefficient={inefficient[0] ?? null}
-              seasonLeaders={seasonLeaders}
-              playersOfTheWeek={weekHighlights.playersOfTheWeek}
-              highlightWeek={weekHighlights.week}
-              weeklyRoast={weeklyRoast}
-            />
+            <Suspense fallback={<PageSkeleton />}>
+              <LeagueHomeOverviewTab
+                bundleInput={bundleInput}
+                leagueSlug={league.publicId}
+                userId={user.id}
+                myTeamId={myTeamId}
+                standingsTeams={standingsTeams}
+                useOverviewMock={useOverviewMock}
+              />
+            </Suspense>
           }
-        standings={
-          <LeagueStandingsTable
-            rows={standings}
-            showFaabBudget={showFaabBudget}
-            leagueSlug={league.publicId}
-            myTeamSlug={myTeamPublicId}
-          />
-        }
-        stats={
-          stats ? (
-            <LeagueStatsTable
-              rows={stats.rows}
-              positionColumns={stats.positionColumns}
-              leagueSlug={league.publicId}
-              myTeamPublicId={myTeamPublicId}
-              week={stats.week}
-              scoresAvailable={stats.scoresAvailable}
-            />
-          ) : undefined
-        }
-        playoffs={
-          <LeaguePlayoffsSection
-            rows={playoffStandings}
-            showFaabBudget={showFaabBudget}
-            leagueSlug={league.publicId}
-            myTeamPublicId={myTeamPublicId}
-            playoffCutoffSeed={playoffCutoffSeed}
-            bracket={playoffBracket}
-          />
-        }
-        hallOfFame={
-          hallOfFameData ? (
-            <LeagueHallOfFame
-              leagueSlug={league.publicId}
-              data={hallOfFameData}
-            />
-          ) : undefined
-        }
-        rules={
-          season ? (
-            <LeagueRulesSummary
-              season={{
-                playoffTeamCount: season.playoffTeamCount,
-                championshipWeek: season.championshipWeek,
-                regularSeasonEndWeek: season.regularSeasonEndWeek,
-                rosterMode: season.rosterMode,
-                benchSlots: season.benchSlots,
-                irEnabled: season.irEnabled,
-                irSlots: season.irSlots,
-                taxiEnabled: season.taxiEnabled,
-                taxiSlots: season.taxiSlots,
-                waiversEnabled: season.waiversEnabled,
-                waiverType: season.waiverType,
-                faabBudget: season.faabBudget,
-                tradesEnabled: season.tradesEnabled,
-                tradeProcessing: season.tradeProcessing,
-                tradeDeadlineWeek: season.tradeDeadlineWeek,
-                draftType: season.draftType,
-                draftStartAt: season.draftStartAt,
-                pickTimeLimitSeconds: season.pickTimeLimitSeconds,
-                settings: season.settings,
-              }}
-            />
-          ) : undefined
-        }
-        scoring={
-          season ? (
-            <LeagueScoringSummary
-              scoringPreset={season.scoringPreset}
-              scoringRules={season.settings.scoringRules}
-            />
-          ) : undefined
-        }
+          standings={
+            <Suspense fallback={<PageSkeleton />}>
+              <LeagueHomeStandingsTab
+                bundleInput={bundleInput}
+                leagueSlug={league.publicId}
+                myTeamPublicId={myTeamPublicId}
+                showFaabBudget={showFaabBudget}
+              />
+            </Suspense>
+          }
+          stats={
+            <Suspense fallback={<PageSkeleton />}>
+              <LeagueHomeStatsTab
+                leagueSlug={league.publicId}
+                userId={user.id}
+                myTeamPublicId={myTeamPublicId}
+              />
+            </Suspense>
+          }
+          playoffs={
+            <Suspense fallback={<PageSkeleton />}>
+              <LeagueHomePlayoffsTab
+                bundleInput={bundleInput}
+                leagueSlug={league.publicId}
+                myTeamPublicId={myTeamPublicId}
+                showFaabBudget={showFaabBudget}
+              />
+            </Suspense>
+          }
+          hallOfFame={
+            <Suspense fallback={<PageSkeleton />}>
+              <LeagueHomeHofTab
+                bundleInput={bundleInput}
+                leagueSlug={league.publicId}
+                standingsTeams={standingsTeams}
+                divisionCount={season?.divisionCount ?? 1}
+              />
+            </Suspense>
+          }
+          rules={
+            season ? (
+              <LeagueRulesSummary
+                season={{
+                  playoffTeamCount: season.playoffTeamCount,
+                  championshipWeek: season.championshipWeek,
+                  regularSeasonEndWeek: season.regularSeasonEndWeek,
+                  rosterMode: season.rosterMode,
+                  benchSlots: season.benchSlots,
+                  irEnabled: season.irEnabled,
+                  irSlots: season.irSlots,
+                  taxiEnabled: season.taxiEnabled,
+                  taxiSlots: season.taxiSlots,
+                  waiversEnabled: season.waiversEnabled,
+                  waiverType: season.waiverType,
+                  faabBudget: season.faabBudget,
+                  tradesEnabled: season.tradesEnabled,
+                  tradeProcessing: season.tradeProcessing,
+                  tradeDeadlineWeek: season.tradeDeadlineWeek,
+                  draftType: season.draftType,
+                  draftStartAt: season.draftStartAt,
+                  pickTimeLimitSeconds: season.pickTimeLimitSeconds,
+                  settings: season.settings,
+                }}
+              />
+            ) : undefined
+          }
+          scoring={
+            season ? (
+              <LeagueScoringSummary
+                scoringPreset={season.scoringPreset}
+                scoringRules={season.settings.scoringRules}
+              />
+            ) : undefined
+          }
         />
       </Suspense>
     </div>

@@ -1,5 +1,6 @@
 import { and, asc, eq, or } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
+import { cache } from "react";
 
 import { leagueSeasons, matchups, teams } from "@/db/schema";
 import { db } from "@/lib/db";
@@ -80,21 +81,21 @@ function mapMatchupRow<T extends {
 }
 
 /** All regular-season matchups for a league season, with team names. */
-export async function getSeasonMatchups(
-  leagueSeasonId: string,
-): Promise<LeagueMatchupRow[]> {
-  await ensureSeasonMatchupPublicIds(leagueSeasonId);
+export const getSeasonMatchups = cache(
+  async (leagueSeasonId: string): Promise<LeagueMatchupRow[]> => {
+    await ensureSeasonMatchupPublicIds(leagueSeasonId);
 
-  const rows = await db
-    .select(matchupSelect)
-    .from(matchups)
-    .innerJoin(homeTeams, eq(matchups.homeTeamId, homeTeams.id))
-    .innerJoin(awayTeams, eq(matchups.awayTeamId, awayTeams.id))
-    .where(eq(matchups.leagueSeasonId, leagueSeasonId))
-    .orderBy(asc(matchups.week), asc(awayTeams.name));
+    const rows = await db
+      .select(matchupSelect)
+      .from(matchups)
+      .innerJoin(homeTeams, eq(matchups.homeTeamId, homeTeams.id))
+      .innerJoin(awayTeams, eq(matchups.awayTeamId, awayTeams.id))
+      .where(eq(matchups.leagueSeasonId, leagueSeasonId))
+      .orderBy(asc(matchups.week), asc(awayTeams.name));
 
-  return rows.map(mapMatchupRow);
-}
+    return rows.map(mapMatchupRow);
+  },
+);
 
 /** Matchups for a single fantasy week. */
 export async function getWeekMatchups(

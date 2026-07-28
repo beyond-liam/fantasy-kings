@@ -11,6 +11,8 @@
     "typecheck": "tsc --noEmit",
     "test": "tsx --test 'lib/**/*.test.ts'",
     "test:db": "tsx --conditions react-server --test 'lib/**/*.dbtest.ts'",
+    "lighthouse:smoke": "node scripts/lighthouse-league.mjs smoke",
+    "lighthouse:league": "node scripts/lighthouse-league.mjs league",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",

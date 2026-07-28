@@ -780,3 +780,5 @@ lib/
 | 2026-07-28 | Lineup snapshots: freeze starters at finalize so official score corrections re-score frozen starters instead of rewriting history from live roster |
 | 2026-07-28 | Team Stats: scoring concentration chart (top-3 starter PF share from lineup snapshots) |
 | 2026-07-28 | Architecture deepenings: Matchup finals/week-scoring modules; Team acquisition helpers; Team week history; Waiver → League Alert; Playoff decide-next-round; league-size bot names |
+| 2026-07-28 | Perf: shared score-row cache + SQL filters; mock draft code-split + pool cap; lazy PlayerProfile/Game Centre dialogs; React.cache getNflState; parallel league layout guard |
+| 2026-07-28 | Perf: league home Suspense tab panels; server-paginated rankings/players (50/page); Lighthouse smoke/league scripts + ops doc |

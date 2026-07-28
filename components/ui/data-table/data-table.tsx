@@ -7,7 +7,7 @@ import {
   type Table as TanstackTable,
 } from "@tanstack/react-table";
 
-import { DataTablePagination } from "@/components/ui/data-table/data-table-pagination";
+import { DataTablePagination, type ServerPaginationState } from "@/components/ui/data-table/data-table-pagination";
 import {
   DataTableHeaderProvider,
   DEFAULT_DATA_TABLE_HEADER_CLASS,
@@ -37,6 +37,7 @@ type DataTableProps<TData> = {
   emptyMessage?: string;
   rowLabel?: DataTableRowLabel;
   showPagination?: boolean;
+  serverPagination?: ServerPaginationState;
   className?: string;
   headerClassName?: string;
   layout?: "auto" | "fixed";
@@ -85,6 +86,7 @@ export function DataTable<TData>({
   emptyMessage = "No results.",
   rowLabel,
   showPagination = true,
+  serverPagination,
   className,
   headerClassName = DEFAULT_DATA_TABLE_HEADER_CLASS,
   layout = "auto",
@@ -188,7 +190,11 @@ export function DataTable<TData>({
             </Table>
           </TableShell>
           {showPagination ? (
-            <DataTablePagination table={table} rowLabel={rowLabel} />
+            <DataTablePagination
+              table={table}
+              rowLabel={rowLabel}
+              serverPagination={serverPagination}
+            />
           ) : null}
         </div>
       </DataTableHeaderProvider>

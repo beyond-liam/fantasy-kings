@@ -1,3 +1,5 @@
+import { cache } from "react";
+
 const SLEEPER_APP_BASE = "https://api.sleeper.app/v1";
 const SLEEPER_COM_BASE = "https://api.sleeper.com";
 
@@ -29,20 +31,32 @@ export type SleeperScoreRow = {
   };
 };
 
-export async function getNflState(options?: {
-  /** Bypass Next fetch cache (cron / ingest). */
-  fresh?: boolean;
-}): Promise<SleeperNflState> {
+const fetchNflState = cache(async (): Promise<SleeperNflState> => {
   const response = await fetch(`${SLEEPER_APP_BASE}/state/nfl`, {
     signal: AbortSignal.timeout(10000),
-    ...(options?.fresh
-      ? { cache: "no-store" as const }
-      : { next: { revalidate: 3600 } }),
+    next: { revalidate: 3600 },
   });
   if (!response.ok) {
     throw new Error(`Sleeper state failed: ${response.status}`);
   }
   return response.json();
+});
+
+export async function getNflState(options?: {
+  /** Bypass Next fetch cache (cron / ingest). */
+  fresh?: boolean;
+}): Promise<SleeperNflState> {
+  if (options?.fresh) {
+    const response = await fetch(`${SLEEPER_APP_BASE}/state/nfl`, {
+      signal: AbortSignal.timeout(10000),
+      cache: "no-store",
+    });
+    if (!response.ok) {
+      throw new Error(`Sleeper state failed: ${response.status}`);
+    }
+    return response.json();
+  }
+  return fetchNflState();
 }
 
 function scorePath(kind: "projection" | "stats", season: string, week: number | null) {

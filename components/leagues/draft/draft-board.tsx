@@ -1,8 +1,8 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useState } from "react";
 
-import { PlayerProfileDialog } from "@/components/players/player-profile-dialog";
 import { PlayerAvatar } from "@/components/rankings/player-avatar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import type { DraftPickRow } from "@/lib/queries/draft";
@@ -10,6 +10,14 @@ import type { DraftScheduleSlot } from "@/lib/leagues/draft/board";
 import { teamInitials } from "@/lib/leagues/standings";
 import { resolvePlayerByeWeek } from "@/lib/nfl/bye-weeks";
 import { cn } from "@/lib/utils";
+
+const PlayerProfileDialog = dynamic(
+  () =>
+    import("@/components/players/player-profile-dialog").then(
+      (m) => m.PlayerProfileDialog,
+    ),
+  { ssr: false },
+);
 
 type DraftBoardProps = {
   slug: string;

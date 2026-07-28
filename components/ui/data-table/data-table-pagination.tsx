@@ -19,9 +19,18 @@ type DataTableRowLabel = {
   plural: string;
 };
 
+export type ServerPaginationState = {
+  page: number;
+  pageSize: number;
+  totalCount: number;
+  onPageChange: (page: number) => void;
+};
+
 type DataTablePaginationProps<TData> = {
   table: Table<TData>;
   rowLabel?: DataTableRowLabel;
+  /** When set, pagination navigates via URL / server instead of client row models. */
+  serverPagination?: ServerPaginationState;
 };
 
 const PAGE_SIZE_ITEMS = [
@@ -33,7 +42,60 @@ const PAGE_SIZE_ITEMS = [
 export function DataTablePagination<TData>({
   table,
   rowLabel = { singular: "row", plural: "rows" },
+  serverPagination,
 }: DataTablePaginationProps<TData>) {
+  if (serverPagination) {
+    const { page, pageSize, totalCount, onPageChange } = serverPagination;
+    const pageCount = Math.max(1, Math.ceil(totalCount / pageSize));
+    const label = totalCount === 1 ? rowLabel.singular : rowLabel.plural;
+
+    return (
+      <div className="flex flex-col gap-3 px-2 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm text-muted-foreground">
+          <span className="tabular-nums">{totalCount}</span> {label}
+          {totalCount > 0 ? (
+            <>
+              {" · Page "}
+              <span className="tabular-nums">{page}</span>
+              {" of "}
+              <span className="tabular-nums">{pageCount}</span>
+            </>
+          ) : null}
+        </p>
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => onPageChange(page - 1)}
+            disabled={page <= 1}
+          >
+            <HugeiconsIcon
+              icon={ArrowLeft01Icon}
+              strokeWidth={2}
+              data-icon="inline-start"
+            />
+            Previous
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => onPageChange(page + 1)}
+            disabled={page >= pageCount}
+          >
+            Next
+            <HugeiconsIcon
+              icon={ArrowRight01Icon}
+              strokeWidth={2}
+              data-icon="inline-end"
+            />
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   const { pageIndex, pageSize } = table.getState().pagination;
   const pageCount = table.getPageCount();
   const rowCount = table.getFilteredRowModel().rows.length;
@@ -56,7 +118,7 @@ export function DataTablePagination<TData>({
         <div className="flex items-center gap-2">
           <span className="text-sm text-muted-foreground">Rows</span>
           <Select
-            items={PAGE_SIZE_ITEMS}
+            items={[...PAGE_SIZE_ITEMS]}
             value={String(pageSize)}
             onValueChange={(value) => {
               if (value) {
@@ -80,6 +142,7 @@ export function DataTablePagination<TData>({
         </div>
         <div className="flex items-center gap-2">
           <Button
+            type="button"
             variant="outline"
             size="sm"
             onClick={() => table.previousPage()}
@@ -93,6 +156,7 @@ export function DataTablePagination<TData>({
             Previous
           </Button>
           <Button
+            type="button"
             variant="outline"
             size="sm"
             onClick={() => table.nextPage()}

@@ -36,6 +36,10 @@ type PlayersDataTableProps = {
   tradesEnabled?: boolean;
   acquisitionsLocked?: boolean;
   acquisitionLockReason?: string;
+  /** Server-driven page of `data` (do not hydrate the full filtered set). */
+  page?: number;
+  pageSize?: number;
+  totalCount?: number;
 };
 
 type ClientView = Pick<
@@ -88,10 +92,14 @@ export function PlayersDataTable({
   tradesEnabled = true,
   acquisitionsLocked = false,
   acquisitionLockReason,
+  page = 1,
+  pageSize,
+  totalCount,
 }: PlayersDataTableProps) {
   const updateParams = useRankingsParams();
   const showWatchlist = Boolean(leagueSlug);
   const isLeagueView = Boolean(leagueSlug);
+  const serverPaginated = totalCount != null && pageSize != null;
 
   const [clientView, setClientView] = useState<ClientView>(() => ({
     position: serverView.position,
@@ -169,9 +177,13 @@ export function PlayersDataTable({
     ],
   );
 
-  // Position/team/rookies refetch on the server. FA stays client-only (ownership).
-  // Keep defensive position/team/rookies checks in case URL and payload briefly diverge.
+  // Position/team/rookies refetch on the server. FA also refetches (server param).
+  // Keep defensive checks in case URL and payload briefly diverge.
   const filteredData = useMemo(() => {
+    if (serverPaginated) {
+      // Server already applied filters + page slice.
+      return data;
+    }
     return data.filter((row) => {
       if (row.primaryPositionId !== clientView.position) {
         return false;
@@ -202,6 +214,7 @@ export function PlayersDataTable({
     clientView.rookiesOnly,
     clientView.freeAgentsOnly,
     isLeagueView,
+    serverPaginated,
   ]);
 
   const sorting = useMemo(
@@ -231,6 +244,11 @@ export function PlayersDataTable({
     },
     columnFilters,
     onColumnFiltersChange: setColumnFilters,
+    pageSize: serverPaginated ? pageSize : undefined,
+    manualPagination: serverPaginated,
+    pageCount: serverPaginated
+      ? Math.max(1, Math.ceil(totalCount / pageSize))
+      : undefined,
   });
 
   const content = (
@@ -255,6 +273,20 @@ export function PlayersDataTable({
         layout="fixed"
         emptyMessage="No players match your filters."
         rowLabel={{ singular: "player", plural: "players" }}
+        serverPagination={
+          serverPaginated
+            ? {
+                page,
+                pageSize,
+                totalCount,
+                onPageChange: (nextPage) => {
+                  updateParams({
+                    page: nextPage <= 1 ? null : String(nextPage),
+                  });
+                },
+              }
+            : undefined
+        }
       />
     </div>
   );
