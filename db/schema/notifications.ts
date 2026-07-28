@@ -61,6 +61,11 @@ export const notifications = pgTable(
       table.clearedAt,
       table.createdAt,
     ),
+    index("notifications_league_season_id_idx").on(table.leagueSeasonId),
+    index("notifications_trade_id_idx").on(table.tradeId),
+    index("notifications_claim_id_idx").on(table.claimId),
+    index("notifications_player_id_idx").on(table.playerId),
+    index("notifications_matchup_id_idx").on(table.matchupId),
   ],
 );
 

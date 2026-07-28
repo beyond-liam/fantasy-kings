@@ -1,4 +1,5 @@
 import {
+  index,
   integer,
   pgEnum,
   pgTable,
@@ -80,6 +81,7 @@ export const draftPicks = pgTable(
   (table) => [
     uniqueIndex("draft_picks_draft_overall_idx").on(table.draftId, table.overall),
     uniqueIndex("draft_picks_draft_player_idx").on(table.draftId, table.playerId),
+    index("draft_picks_team_id_idx").on(table.teamId),
   ],
 );
 

@@ -586,6 +586,7 @@ lib/
 - [x] Supabase project setup + env vars
 - [x] Drizzle config + initial schema
 - [x] Postgres hardening: pooler runtime URL, hot-path indexes, roster season unique, RLS deny-by-default for Data API
+- [x] Postgres best-practices follow-up: RLS on post-0009 tables; no DIRECT_URL runtime fallback; matchup FK/partial indexes; score-row hard cap; finalize batching
 - [x] App shell (dual nav: app-level + league-level)
 - [x] Schema: profiles, leagues, league_members, positions, players
 - [x] Schema: `player_external_ids`, `sleeper_search_rank` on players
@@ -782,3 +783,4 @@ lib/
 | 2026-07-28 | Architecture deepenings: Matchup finals/week-scoring modules; Team acquisition helpers; Team week history; Waiver → League Alert; Playoff decide-next-round; league-size bot names |
 | 2026-07-28 | Perf: shared score-row cache + SQL filters; mock draft code-split + pool cap; lazy PlayerProfile/Game Centre dialogs; React.cache getNflState; parallel league layout guard |
 | 2026-07-28 | Perf: league home Suspense tab panels; server-paginated rankings/players (50/page); Lighthouse smoke/league scripts + ops doc |
+| 2026-07-28 | Postgres best practices: RLS on post-0009 tables; fail-fast DATABASE_URL; matchup FK/partial + secondary FK indexes; score-row hard cap; skip ranks on board/win%; finalize batching |

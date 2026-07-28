@@ -479,6 +479,7 @@ export async function enrichWeekMatchupBoard(
       kind: "projection",
       scoringRules: input.scoringRules,
       playerIds: allStarterIds,
+      includePositionRanks: false,
     }).catch(() => []),
     input.week <= input.currentWeek
       ? getRankedPlayers({
@@ -487,6 +488,7 @@ export async function enrichWeekMatchupBoard(
           kind: "stats",
           scoringRules: input.scoringRules,
           playerIds: allStarterIds,
+          includePositionRanks: false,
         }).catch(() => [])
       : Promise.resolve([]),
   ]);

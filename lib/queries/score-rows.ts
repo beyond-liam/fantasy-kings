@@ -28,6 +28,8 @@ const SCORE_CACHE_TTL_MS = {
   stats: 60 * 1000,
 } as const;
 const SCORE_CACHE_MAX_ENTRIES = 48;
+/** Hard cap for unbounded week loads (covers a full NFL scoring week). */
+export const SCORE_ROWS_HARD_CAP = 800;
 const scoreRowsCache = new Map<
   string,
   { rows: ScoreRow[]; loadedAt: number }
@@ -78,6 +80,20 @@ function scoreRowsCacheKey(filters: LoadScoreRowsFilters) {
   return key;
 }
 
+function resolveScoreRowsLimit(filters: LoadScoreRowsFilters): number {
+  if (filters.playerIds != null) {
+    const scoped = Math.max(filters.playerIds.length, 1);
+    if (filters.limit != null && filters.limit > 0) {
+      return Math.min(filters.limit, SCORE_ROWS_HARD_CAP, scoped);
+    }
+    return Math.min(scoped, SCORE_ROWS_HARD_CAP);
+  }
+  if (filters.limit != null && filters.limit > 0) {
+    return Math.min(filters.limit, SCORE_ROWS_HARD_CAP);
+  }
+  return SCORE_ROWS_HARD_CAP;
+}
+
 /** Load (and cache) player_scores joined to players for a week. */
 export async function loadScoreRows(
   filters: LoadScoreRowsFilters,
@@ -86,7 +102,8 @@ export async function loadScoreRows(
     return [];
   }
 
-  const key = scoreRowsCacheKey(filters);
+  const effectiveLimit = resolveScoreRowsLimit(filters);
+  const key = scoreRowsCacheKey({ ...filters, limit: effectiveLimit });
   const cached = scoreRowsCache.get(key);
   if (
     cached &&
@@ -156,10 +173,7 @@ export async function loadScoreRows(
     query = query.offset(filters.offset);
   }
 
-  const rows =
-    filters.limit != null && filters.limit > 0
-      ? await query.limit(filters.limit)
-      : await query;
+  const rows = await query.limit(effectiveLimit);
 
   const mapped: ScoreRow[] = rows.map((row) => ({
     ...row,

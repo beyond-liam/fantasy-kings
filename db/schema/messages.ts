@@ -81,6 +81,7 @@ export const messagePosts = pgTable(
       table.threadId,
       table.createdAt,
     ),
+    index("message_posts_author_user_id_idx").on(table.authorUserId),
   ],
 );
 
@@ -104,6 +105,7 @@ export const messageThreadReads = pgTable(
       table.userId,
       table.threadId,
     ),
+    index("message_thread_reads_thread_id_idx").on(table.threadId),
   ],
 );
 

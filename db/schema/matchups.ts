@@ -1,5 +1,7 @@
+import { sql } from "drizzle-orm";
 import {
   doublePrecision,
+  index,
   integer,
   pgEnum,
   pgTable,
@@ -61,5 +63,13 @@ export const matchups = pgTable(
       table.leagueSeasonId,
       table.publicId,
     ),
+    index("matchups_home_team_id_idx").on(table.homeTeamId),
+    index("matchups_away_team_id_idx").on(table.awayTeamId),
+    index("matchups_season_final_idx")
+      .on(table.leagueSeasonId, table.week)
+      .where(sql`${table.status} = 'final'`),
+    index("matchups_season_week_nonfinal_idx")
+      .on(table.leagueSeasonId, table.week)
+      .where(sql`${table.status} <> 'final'`),
   ],
 );

@@ -40,6 +40,7 @@ export const teamWeekLineups = pgTable(
       table.teamId,
       table.week
     ),
+    index('team_week_lineups_player_id_idx').on(table.playerId),
   ]
 )
 

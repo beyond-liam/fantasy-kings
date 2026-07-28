@@ -90,5 +90,10 @@ export const leagueActivity = pgTable(
       table.type,
       table.createdAt,
     ),
+    index("league_activity_team_id_idx").on(table.teamId),
+    index("league_activity_actor_user_id_idx").on(table.actorUserId),
+    index("league_activity_player_id_idx").on(table.playerId),
+    index("league_activity_claim_id_idx").on(table.claimId),
+    index("league_activity_trade_id_idx").on(table.tradeId),
   ],
 );

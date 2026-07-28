@@ -1,5 +1,6 @@
 import {
   doublePrecision,
+  index,
   integer,
   jsonb,
   pgTable,
@@ -43,5 +44,6 @@ export const teamWeekStats = pgTable(
       table.teamId,
       table.week,
     ),
+    index("team_week_stats_team_id_idx").on(table.teamId),
   ],
 );

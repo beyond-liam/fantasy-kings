@@ -34,6 +34,12 @@ export type RankingsFilters = {
   limit?: number;
   /** Skip this many rows after filters (SQL offset). */
   offset?: number;
+  /**
+   * When scoping via `playerIds`, also load league-wide fantasy position ranks.
+   * Default true for table UIs; set false when only fantasyPts are needed
+   * (matchup board, win% — avoids a second full-week score load).
+   */
+  includePositionRanks?: boolean;
   scoringPreset?: ScoringPreset;
   scoringRules?: ScoringRuleDefinition[];
   /** Keep full normalized stats (skip client allowlist trim). */
@@ -109,9 +115,10 @@ export async function getRankedPlayers(
 
   const scored = applyScoring(mapped, filters);
 
-  // Roster/FA subset loads must still use league-wide fantasy position ranks.
+  // Roster/FA subset loads must still use league-wide fantasy position ranks
+  // unless the caller only needs points (board / win%).
   let fantasyRankByPlayerId: Map<string, number> | undefined;
-  if (filters.playerIds != null) {
+  if (filters.playerIds != null && filters.includePositionRanks !== false) {
     const rules =
       filters.scoringRules ??
       getDefaultScoringRuleDefinitions(filters.scoringPreset ?? "full_ppr");

@@ -222,6 +222,7 @@ export async function enrichScheduleWinChances(
           kind: "projection",
           scoringRules: input.scoringRules,
           playerIds: allStarterIds,
+          includePositionRanks: false,
         }).catch(() => []),
         week <= input.currentWeek
           ? getRankedPlayers({
@@ -230,6 +231,7 @@ export async function enrichScheduleWinChances(
               kind: "stats",
               scoringRules: input.scoringRules,
               playerIds: allStarterIds,
+              includePositionRanks: false,
             }).catch(() => [])
           : Promise.resolve([]),
       ]);
