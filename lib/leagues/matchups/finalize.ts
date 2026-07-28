@@ -184,6 +184,8 @@ async function persistMatchupStatus(input: {
     return "finalized";
   }
 
+  // Already-final re-entry with no correction must not look like a first finalize.
+  if (alreadyFinal) return "unchanged";
   if (input.status === "final") return "finalized";
   if (input.status === "in_progress") return "in_progress";
   return "unchanged";
@@ -193,11 +195,17 @@ export async function persistEnrichedMatchups(
   games: Array<{
     id: string;
     resultFinal: boolean;
-    home: { actualPts: number | null; starters?: Array<{ playerId: string; slotPositionId?: string | null }> };
-    away: { actualPts: number | null; starters?: Array<{ playerId: string; slotPositionId?: string | null }> };
-    leagueSeasonId: string;
-    homeTeamId: string;
-    awayTeamId: string;
+    home: {
+      actualPts: number | null;
+      starters?: Array<{ playerId: string; slotPositionId?: string | null }>;
+    };
+    away: {
+      actualPts: number | null;
+      starters?: Array<{ playerId: string; slotPositionId?: string | null }>;
+    };
+    leagueSeasonId?: string;
+    homeTeamId?: string;
+    awayTeamId?: string;
     week: number;
   }>,
 ): Promise<{ finalized: number; inProgress: number; corrected: number }> {
@@ -223,23 +231,35 @@ export async function persistEnrichedMatchups(
       status,
     });
 
-    // On first finalize, capture starter snapshots
-    if (outcome === "finalized" && game.home.starters && game.away.starters) {
+    if (
+      outcome === "finalized" &&
+      game.leagueSeasonId &&
+      game.homeTeamId &&
+      game.awayTeamId
+    ) {
       const { upsertTeamWeekLineup } = await import("./lineup-snapshots");
-      await Promise.all([
-        upsertTeamWeekLineup(db, {
-          leagueSeasonId: game.leagueSeasonId,
-          teamId: game.homeTeamId,
-          week: game.week,
-          starters: game.home.starters,
-        }),
-        upsertTeamWeekLineup(db, {
-          leagueSeasonId: game.leagueSeasonId,
-          teamId: game.awayTeamId,
-          week: game.week,
-          starters: game.away.starters,
-        }),
-      ]);
+      const writes: Promise<void>[] = [];
+      if (game.home.starters?.length) {
+        writes.push(
+          upsertTeamWeekLineup({
+            leagueSeasonId: game.leagueSeasonId,
+            teamId: game.homeTeamId,
+            week: game.week,
+            starters: game.home.starters,
+          }),
+        );
+      }
+      if (game.away.starters?.length) {
+        writes.push(
+          upsertTeamWeekLineup({
+            leagueSeasonId: game.leagueSeasonId,
+            teamId: game.awayTeamId,
+            week: game.week,
+            starters: game.away.starters,
+          }),
+        );
+      }
+      await Promise.all(writes);
     }
 
     if (outcome === "corrected") corrected += 1;
@@ -278,6 +298,10 @@ export async function finalizeSeasonWeekMatchups(input: {
     input.season.settings.scoringRules as never,
   );
 
+  // Always re-read player_scores for finalize/correction (module cache can be warm).
+  const { clearScoreRowsCache } = await import("@/lib/queries/players");
+  clearScoreRowsCache();
+
   // Correction path: load frozen lineups
   let frozenLineupsByTeam: Map<string, Array<{ playerId: string; slotPositionId?: string | null }>> | undefined;
   if (allFinal && input.allowOfficialCorrections) {
@@ -285,7 +309,7 @@ export async function finalizeSeasonWeekMatchups(input: {
     const teamIds = Array.from(
       new Set(rows.flatMap((m) => [m.homeTeamId, m.awayTeamId]))
     );
-    const snapshots = await loadTeamWeekLineups(db, {
+    const snapshots = await loadTeamWeekLineups({
       leagueSeasonId: input.season.id,
       teamIds,
       week: input.week,

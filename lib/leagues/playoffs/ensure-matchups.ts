@@ -217,7 +217,7 @@ export async function ensurePlayoffMatchupsAdvanced(input: {
 
     // Load frozen lineups for this week when present
     const { loadTeamWeekLineups } = await import("@/lib/leagues/matchups/lineup-snapshots");
-    const frozenSnapshots = await loadTeamWeekLineups(db, {
+    const frozenSnapshots = await loadTeamWeekLineups({
       leagueSeasonId: season.id,
       teamIds,
       week,

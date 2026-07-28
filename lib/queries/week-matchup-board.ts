@@ -53,13 +53,15 @@ export type MatchupBoardGame = {
   resultFinal: boolean;
   away: MatchupBoardSide;
   home: MatchupBoardSide;
-  leagueSeasonId: string;
-  homeTeamId: string;
-  awayTeamId: string;
+  /** Present when finalize passes leagueSeasonId for snapshot persistence. */
+  leagueSeasonId?: string;
+  homeTeamId?: string;
+  awayTeamId?: string;
 };
 
 export type EnrichWeekMatchupBoardInput = {
-  leagueSeasonId: string;
+  /** Required when persisting lineup snapshots from finalize. */
+  leagueSeasonId?: string;
   matchups: LeagueMatchupRow[];
   week: number;
   currentWeek: number;
