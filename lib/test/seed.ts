@@ -4,6 +4,7 @@ import {
   drafts,
   leagues,
   leagueSeasons,
+  matchups,
   playerScores,
   players,
   positions,
@@ -15,6 +16,7 @@ import type {
   LeagueSeasonSettings,
   RosterSlotConfig,
 } from "@/db/schema/league-seasons";
+import type { matchupStatusEnum } from "@/db/schema/matchups";
 import type { rosterPlayerStatusEnum } from "@/db/schema/roster-players";
 import { DEFAULT_DRAFT_SETTINGS } from "@/lib/leagues/draft-settings";
 import { buildStandardRosterSlots } from "@/lib/leagues/defaults";
@@ -271,4 +273,66 @@ export async function seedPlayerScores(
   }));
 
   await testDb.insert(playerScores).values(values);
+}
+
+export async function seedMatchup(
+  testDb: TestDb,
+  input: {
+    leagueSeasonId: string;
+    week: number;
+    homeTeamId: string;
+    awayTeamId: string;
+    status?: (typeof matchupStatusEnum.enumValues)[number];
+    homePts?: number | null;
+    awayPts?: number | null;
+  },
+) {
+  const [row] = await testDb
+    .insert(matchups)
+    .values({
+      leagueSeasonId: input.leagueSeasonId,
+      week: input.week,
+      homeTeamId: input.homeTeamId,
+      awayTeamId: input.awayTeamId,
+      status: input.status ?? "scheduled",
+      homePts: input.homePts ?? null,
+      awayPts: input.awayPts ?? null,
+      publicId: `tm-${randomUUID().slice(0, 8)}`,
+    })
+    .returning({ id: matchups.id });
+  if (!row) {
+    throw new Error("Failed to seed matchup.");
+  }
+  return { id: row.id };
+}
+
+export async function seedPlayerScore(
+  testDb: TestDb,
+  input: {
+    playerId: string;
+    season: string;
+    week: number;
+    kind: "stats" | "projection";
+    stats?: Record<string, number | null>;
+    ptsPpr?: number | null;
+    ptsStd?: number | null;
+  },
+) {
+  const [row] = await testDb
+    .insert(playerScores)
+    .values({
+      playerId: input.playerId,
+      season: input.season,
+      week: input.week,
+      kind: input.kind,
+      seasonType: "regular",
+      stats: input.stats ?? {},
+      ptsPpr: input.ptsPpr ?? null,
+      ptsStd: input.ptsStd ?? null,
+    })
+    .returning({ id: playerScores.id });
+  if (!row) {
+    throw new Error("Failed to seed player score.");
+  }
+  return { id: row.id };
 }
