@@ -53,6 +53,12 @@ export function TeamStatsSections({
               weeklyLuck: [],
               benchWaste: [],
               gamesFlippedByBench: 0,
+              scoringConcentration: {
+                slices: [],
+                topShare: null,
+                topN: 3,
+                totalPoints: 0,
+              },
               kpis: {
                 avgWinMargin: { average: null, sampleSize: 0 },
                 avgLossMargin: { average: null, sampleSize: 0 },

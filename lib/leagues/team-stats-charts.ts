@@ -541,3 +541,97 @@ export function buildOptimalRecordSummary(
 
   return { actual, optimal };
 }
+
+/** How many top scorers fold into the concentration headline. */
+export const SCORING_CONCENTRATION_TOP_N = 3;
+
+export type StarterPlayerSeasonPoints = {
+  playerId: string;
+  fullName: string;
+  points: number;
+};
+
+export type ScoringConcentrationSlice = {
+  key: string;
+  label: string;
+  points: number;
+  /** 0–100 share of season starter PF. */
+  share: number;
+  /** True for the aggregated “everyone else” row. */
+  isRest: boolean;
+};
+
+export type ScoringConcentration = {
+  slices: ScoringConcentrationSlice[];
+  /** Top-N share of starter PF (0–100), or null when empty. */
+  topShare: number | null;
+  topN: number;
+  totalPoints: number;
+};
+
+/**
+ * Season starter PF concentration: top-N named scorers vs rest.
+ * Input is season totals from week-locked lineup snapshots (not live roster).
+ */
+export function buildScoringConcentration(input: {
+  players: StarterPlayerSeasonPoints[];
+  topN?: number;
+}): ScoringConcentration {
+  const topN = input.topN ?? SCORING_CONCENTRATION_TOP_N;
+  const ranked = input.players
+    .filter((p) => p.points > 0)
+    .toSorted((a, b) => {
+      const diff = b.points - a.points;
+      if (diff !== 0) return diff;
+      return a.fullName.localeCompare(b.fullName);
+    });
+
+  const totalPoints = round1(
+    ranked.reduce((sum, p) => sum + p.points, 0),
+  );
+
+  if (totalPoints <= 0 || ranked.length === 0) {
+    return {
+      slices: [],
+      topShare: null,
+      topN,
+      totalPoints: 0,
+    };
+  }
+
+  const top = ranked.slice(0, topN);
+  const restPlayers = ranked.slice(topN);
+  const restPoints = round1(
+    restPlayers.reduce((sum, p) => sum + p.points, 0),
+  );
+
+  const slices: ScoringConcentrationSlice[] = top.map((p) => ({
+    key: p.playerId,
+    label: p.fullName,
+    points: round1(p.points),
+    share: Math.round((p.points / totalPoints) * 1000) / 10,
+    isRest: false,
+  }));
+
+  if (restPoints > 0) {
+    slices.push({
+      key: "rest",
+      label: "Rest of starters",
+      points: restPoints,
+      share: Math.round((restPoints / totalPoints) * 1000) / 10,
+      isRest: true,
+    });
+  }
+
+  const topShare =
+    Math.round(
+      (top.reduce((sum, p) => sum + p.points, 0) / totalPoints) * 1000,
+    ) / 10;
+
+  return {
+    slices,
+    topShare,
+    topN,
+    totalPoints,
+  };
+}
