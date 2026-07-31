@@ -14,7 +14,6 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { makeDraftPick } from "@/lib/actions/draft";
-import { toastDraftPick } from "@/lib/leagues/draft/pick-toast";
 
 type DraftPlayerActionProps = {
   slug: string;
@@ -62,18 +61,6 @@ export function DraftPlayerAction({
       if (!result.success) {
         toast.error(result.error ?? "Could not make pick.");
         return;
-      }
-      if (
-        result.overall != null &&
-        result.playerFullName &&
-        result.teamName
-      ) {
-        toastDraftPick({
-          slug,
-          overall: result.overall,
-          playerFullName: result.playerFullName,
-          teamName: result.teamName,
-        });
       }
       router.refresh();
     });

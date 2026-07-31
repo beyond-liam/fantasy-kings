@@ -1,6 +1,7 @@
 import * as React from "react"
 
-const MOBILE_BREAKPOINT = 768
+import { useInitialIsMobile } from "@/components/layout/viewport-provider"
+import { MOBILE_BREAKPOINT } from "@/lib/viewport"
 
 function subscribe(callback: () => void) {
   const mql = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`)
@@ -12,10 +13,13 @@ function getSnapshot() {
   return window.innerWidth < MOBILE_BREAKPOINT
 }
 
-function getServerSnapshot() {
-  return false
-}
-
 export function useIsMobile() {
+  const initialIsMobile = useInitialIsMobile()
+  // Hydration reads this too, so the first client render matches the SSR HTML.
+  const getServerSnapshot = React.useCallback(
+    () => initialIsMobile,
+    [initialIsMobile]
+  )
+
   return React.useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot)
 }

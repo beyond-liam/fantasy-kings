@@ -1,11 +1,20 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft01Icon,
+  DashboardSquare01Icon,
   LicenseDraftIcon,
+  StudentCardIcon,
+  UserMultiple03Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { toast } from "sonner";
@@ -14,6 +23,10 @@ import {
   DraftClockCard,
   DraftClockSeconds,
 } from "@/components/draft/draft-clock-card";
+import {
+  MobileTabDrawer,
+  type MobileTabDrawerItem,
+} from "@/components/layout/mobile-tab-drawer";
 import { DraftBoard } from "@/components/leagues/draft/draft-board";
 import { DraftPlayerPool } from "@/components/leagues/draft/draft-player-pool";
 import { DraftRosterTab } from "@/components/leagues/draft/draft-roster-tab";
@@ -37,11 +50,18 @@ import { buildPersistedRosterSlots } from "@/lib/leagues/roster";
 import { pickBotPlayer } from "@/lib/mock-draft/bot";
 import {
   getMockDraftRounds,
+  MOCK_DRAFT_STORAGE_KEY,
   readMockDraftConfig,
   type MockDraftConfig,
 } from "@/lib/mock-draft/settings";
 import type { DraftPickRow } from "@/lib/queries/draft";
 import type { RankedPlayerRow } from "@/lib/queries/players";
+
+const MOCK_DRAFT_TABS: readonly MobileTabDrawerItem[] = [
+  { value: "board", label: "Draft Board", icon: DashboardSquare01Icon },
+  { value: "pool", label: "Player Pool", icon: UserMultiple03Icon },
+  { value: "roster", label: "Roster", icon: StudentCardIcon },
+];
 
 function playDraftSound(src: string) {
   try {
@@ -63,6 +83,39 @@ type MockTeam = {
   isUser: boolean;
 };
 
+/**
+ * Settings live in sessionStorage, so the server can't see them. Reading via a
+ * store keeps hydration matching the server HTML instead of throwing a mismatch.
+ */
+let cachedRaw: string | null | undefined;
+let cachedConfig: MockDraftConfig | null = null;
+
+function subscribeToConfig() {
+  return () => {};
+}
+
+function getConfigSnapshot() {
+  // Re-parse only when the stored value changes so the reference stays stable.
+  const raw = window.sessionStorage.getItem(MOCK_DRAFT_STORAGE_KEY);
+  if (raw !== cachedRaw) {
+    cachedRaw = raw;
+    cachedConfig = readMockDraftConfig();
+  }
+  return cachedConfig;
+}
+
+function getServerConfigSnapshot(): MockDraftConfig | null {
+  return null;
+}
+
+function getMountedSnapshot() {
+  return true;
+}
+
+function getServerMountedSnapshot() {
+  return false;
+}
+
 function buildTeams(config: MockDraftConfig): MockTeam[] {
   return Array.from({ length: config.teamCount }, (_, index) => {
     const slot = index + 1;
@@ -78,13 +131,21 @@ function buildTeams(config: MockDraftConfig): MockTeam[] {
 
 export function MockDraftRoom({ players }: MockDraftRoomProps) {
   const router = useRouter();
-  const [config] = useState<MockDraftConfig | null>(() => readMockDraftConfig());
+  const config = useSyncExternalStore(
+    subscribeToConfig,
+    getConfigSnapshot,
+    getServerConfigSnapshot,
+  );
+  const mounted = useSyncExternalStore(
+    subscribeToConfig,
+    getMountedSnapshot,
+    getServerMountedSnapshot,
+  );
   const [currentPickIndex, setCurrentPickIndex] = useState(0);
   const [picks, setPicks] = useState<DraftPickRow[]>([]);
   const [status, setStatus] = useState<"live" | "complete">("live");
-  const [secondsLeft, setSecondsLeft] = useState(
-    () => readMockDraftConfig()?.pickClockSeconds ?? 60,
-  );
+  const [pickClockSeconds, setPickClockSeconds] = useState<number | null>(null);
+  const secondsLeft = pickClockSeconds ?? config?.pickClockSeconds ?? 60;
   const pickingRef = useRef(false);
   const [tab, setTab] = useState("board");
 
@@ -218,13 +279,10 @@ export function MockDraftRoom({ players }: MockDraftRoomProps) {
         return nextIndex;
       }
       if (config) {
-        setSecondsLeft(config.pickClockSeconds);
+        setPickClockSeconds(config.pickClockSeconds);
       }
       return nextIndex;
     });
-    toast.message(
-      `${slot.teamName} drafted ${player.fullName} (${player.primaryPositionId})`,
-    );
   };
 
   const runBotPick = () => {
@@ -290,11 +348,15 @@ export function MockDraftRoom({ players }: MockDraftRoomProps) {
       return () => window.clearTimeout(timer);
     }
     const timer = window.setTimeout(() => {
-      setSecondsLeft((value) => value - 1);
+      setPickClockSeconds((value) => (value ?? config.pickClockSeconds) - 1);
     }, 1000);
     return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [config, status, isUserTurn, secondsLeft, onTheClock?.overall]);
+
+  if (!mounted) {
+    return null;
+  }
 
   if (!config) {
     return (
@@ -326,8 +388,8 @@ export function MockDraftRoom({ players }: MockDraftRoomProps) {
 
   return (
     <div className="flex flex-col gap-6 p-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="flex flex-col gap-1">
+      <div className="flex flex-col gap-4 md:flex-row md:flex-wrap md:items-start md:justify-between">
+        <div className="flex min-w-0 flex-col gap-1">
           <div className="flex items-center gap-2">
             <Button
               type="button"
@@ -356,6 +418,7 @@ export function MockDraftRoom({ players }: MockDraftRoomProps) {
                 ? "On the clock"
                 : "Up next"
           }
+          className="max-md:w-full max-md:min-w-0"
           showStopwatch={status !== "complete"}
         >
           {status === "complete" ? (
@@ -388,11 +451,21 @@ export function MockDraftRoom({ players }: MockDraftRoomProps) {
       </div>
 
       <Tabs value={tab} onValueChange={(value) => setTab(String(value))}>
-        <TabsList>
-          <TabsTrigger value="board">Draft Board</TabsTrigger>
-          <TabsTrigger value="pool">Player Pool</TabsTrigger>
-          <TabsTrigger value="roster">Roster</TabsTrigger>
+        <TabsList className="hidden md:inline-flex">
+          {MOCK_DRAFT_TABS.map((item) => (
+            <TabsTrigger key={item.value} value={item.value}>
+              {item.label}
+            </TabsTrigger>
+          ))}
         </TabsList>
+
+        <MobileTabDrawer
+          items={MOCK_DRAFT_TABS}
+          value={tab}
+          onSelect={setTab}
+          title="Draft sections"
+          description="Choose which draft section to view"
+        />
 
         <TabsContent value="board" className="pt-4">
           {tab === "board" ? (

@@ -130,6 +130,7 @@ function AppMobileNav({
             Navigate Fantasy Kings
           </SheetDescription>
           <SheetClose
+            nativeButton={false}
             render={
               <Link
                 href="/dashboard"
@@ -197,6 +198,7 @@ function AppMobileNav({
               return (
                 <SheetClose
                   key={item.href}
+                  nativeButton={false}
                   render={
                     <Link
                       href={item.href}
@@ -251,6 +253,7 @@ function AppMobileNav({
               leagues.map((league) => (
                 <SheetClose
                   key={league.id}
+                  nativeButton={false}
                   render={
                     <Link
                       href={`/league/${league.publicId}`}
@@ -294,6 +297,7 @@ function AppMobileNav({
         {account ? (
           <div className="mt-auto flex shrink-0 flex-col gap-1 border-t p-4">
             <SheetClose
+              nativeButton={false}
               render={
                 <Link
                   href="/settings"
@@ -411,7 +415,7 @@ export function AppTopNav({
             <Button
               nativeButton={false}
               render={<Link href="/login" />}
-              variant="outline"
+              variant="ghost"
               size="sm"
             >
               <HugeiconsIcon

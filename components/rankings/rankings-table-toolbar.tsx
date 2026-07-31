@@ -1,7 +1,7 @@
 "use client";
 
 import type { Table } from "@tanstack/react-table";
-import { useMemo } from "react";
+import { useMemo, type ReactNode } from "react";
 
 import {
   PILL_CLASSNAME,
@@ -144,6 +144,63 @@ function FilterSwitches({
   });
 }
 
+type ToolbarSelectOption = { label: string; value: string };
+
+type ToolbarSelectConfig = {
+  id: string;
+  label: string;
+  items: ToolbarSelectOption[];
+  value: string;
+  onSelect: (value: string) => void;
+  /** Desktop trigger width; mobile always fills the drawer. */
+  width: string;
+  renderOption?: (option: ToolbarSelectOption) => ReactNode;
+};
+
+function ToolbarSelect({
+  config,
+  className,
+  id,
+}: {
+  config: ToolbarSelectConfig;
+  className: string;
+  id?: string;
+}) {
+  const { items, value, onSelect, label, renderOption } = config;
+
+  return (
+    <Select
+      items={items}
+      value={value}
+      onValueChange={(next) => {
+        if (next) onSelect(String(next));
+      }}
+    >
+      <SelectTrigger id={id} size="sm" className={className} aria-label={label}>
+        {renderOption ? (
+          <SelectValue>
+            {(current) => {
+              const option = items.find((item) => item.value === current);
+              return option ? renderOption(option) : null;
+            }}
+          </SelectValue>
+        ) : (
+          <SelectValue />
+        )}
+      </SelectTrigger>
+      <SelectContent>
+        <SelectGroup>
+          {items.map((item) => (
+            <SelectItem key={item.value} value={item.value}>
+              {renderOption ? renderOption(item) : item.label}
+            </SelectItem>
+          ))}
+        </SelectGroup>
+      </SelectContent>
+    </Select>
+  );
+}
+
 export function RankingsTableToolbar<TData>({
   table,
   teams,
@@ -200,6 +257,61 @@ export function RankingsTableToolbar<TData>({
     });
   };
 
+  const yearSelect: ToolbarSelectConfig = {
+    id: "year",
+    label: "Year",
+    items: seasonItems,
+    value: view.season,
+    width: "w-24",
+    onSelect: (value) =>
+      updateParams({ season: value === currentSeason ? null : value }),
+  };
+
+  const weekSelect: ToolbarSelectConfig = {
+    id: "week",
+    label: "Season / week",
+    items: WEEK_ITEMS,
+    value: view.week,
+    width: "w-32",
+    onSelect: (value) =>
+      updateParams({ week: value === "season" ? null : value }),
+  };
+
+  const scoringSelect: ToolbarSelectConfig = {
+    id: "scoring",
+    label: "Scoring",
+    items: scoringItems,
+    value: view.scoring,
+    width: "w-32",
+    onSelect: (value) =>
+      updateParams({ scoring: value === "full_ppr" ? null : value }),
+  };
+
+  const teamSelect: ToolbarSelectConfig = {
+    id: "team",
+    label: "Team",
+    items: teamItems,
+    value: view.team,
+    width: "w-56",
+    onSelect: (value) => updateParams({ team: value === "ALL" ? null : value }),
+    renderOption: (option) =>
+      option.value === "ALL" ? (
+        option.label
+      ) : (
+        <NflTeamOption abbrev={option.value} />
+      ),
+  };
+
+  const primarySelects = [
+    yearSelect,
+    weekSelect,
+    ...(showScoringSelect ? [scoringSelect] : []),
+  ];
+  const drawerSelects = [
+    ...primarySelects,
+    ...(showTeamFilter ? [teamSelect] : []),
+  ];
+
   const searchInput = (
     <>
       <InputGroupAddon align="inline-start">
@@ -227,83 +339,14 @@ export function RankingsTableToolbar<TData>({
 
   return (
     <div className="flex w-full flex-col gap-3 md:flex-row md:flex-wrap md:items-center md:justify-between">
-      <div className="flex flex-wrap items-center gap-3">
-        <Select
-          items={seasonItems}
-          value={view.season}
-          onValueChange={(value) => {
-            if (value) {
-              updateParams({
-                season: value === currentSeason ? null : value,
-              });
-            }
-          }}
-        >
-          <SelectTrigger size="sm" className="w-24 max-md:hidden">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectGroup>
-              {seasonItems.map((item) => (
-                <SelectItem key={item.value} value={item.value}>
-                  {item.label}
-                </SelectItem>
-              ))}
-            </SelectGroup>
-          </SelectContent>
-        </Select>
-
-        {showScoringSelect ? (
-          <Select
-            items={scoringItems}
-            value={view.scoring}
-            onValueChange={(value) => {
-              if (value) {
-                updateParams({
-                  scoring: value === "full_ppr" ? null : value,
-                });
-              }
-            }}
-          >
-            <SelectTrigger size="sm" className="w-32">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectGroup>
-                {scoringItems.map((item) => (
-                  <SelectItem key={item.value} value={item.value}>
-                    {item.label}
-                  </SelectItem>
-                ))}
-              </SelectGroup>
-            </SelectContent>
-          </Select>
-        ) : null}
-
-        <Select
-          items={WEEK_ITEMS}
-          value={view.week}
-          onValueChange={(value) => {
-            if (value) {
-              updateParams({
-                week: value === "season" ? null : value,
-              });
-            }
-          }}
-        >
-          <SelectTrigger size="sm" className="w-32 max-md:hidden">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectGroup>
-              {WEEK_ITEMS.map((item) => (
-                <SelectItem key={item.value} value={item.value}>
-                  {item.label}
-                </SelectItem>
-              ))}
-            </SelectGroup>
-          </SelectContent>
-        </Select>
+      <div className="flex flex-wrap items-center gap-3 max-md:hidden">
+        {primarySelects.map((config) => (
+          <ToolbarSelect
+            key={config.id}
+            config={config}
+            className={config.width}
+          />
+        ))}
       </div>
 
       <div className="no-scrollbar flex items-center gap-1.5 overflow-x-auto overscroll-x-contain md:hidden">
@@ -348,6 +391,18 @@ export function RankingsTableToolbar<TData>({
               </DrawerDescription>
             </DrawerHeader>
             <div className="flex flex-col gap-4 p-4 pt-2">
+              {drawerSelects.map((config) => (
+                <Field key={config.id} className="gap-2">
+                  <FieldLabel htmlFor={`mobile-${config.id}`}>
+                    {config.label}
+                  </FieldLabel>
+                  <ToolbarSelect
+                    config={config}
+                    id={`mobile-${config.id}`}
+                    className="w-full"
+                  />
+                </Field>
+              ))}
               <FilterSwitches
                 idPrefix="mobile"
                 view={view}
@@ -374,42 +429,7 @@ export function RankingsTableToolbar<TData>({
         />
 
         {showTeamFilter ? (
-          <Select
-            items={teamItems}
-            value={view.team}
-            onValueChange={(value) => {
-              if (value) {
-                updateParams({
-                  team: value === "ALL" ? null : value,
-                });
-              }
-            }}
-          >
-            <SelectTrigger size="sm" className="w-56">
-              <SelectValue>
-                {(value) =>
-                  value && value !== "ALL" ? (
-                    <NflTeamOption abbrev={String(value)} />
-                  ) : (
-                    "All teams"
-                  )
-                }
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              <SelectGroup>
-                {teamItems.map((item) => (
-                  <SelectItem key={item.value} value={item.value}>
-                    {item.value === "ALL" ? (
-                      item.label
-                    ) : (
-                      <NflTeamOption abbrev={item.value} />
-                    )}
-                  </SelectItem>
-                ))}
-              </SelectGroup>
-            </SelectContent>
-          </Select>
+          <ToolbarSelect config={teamSelect} className={teamSelect.width} />
         ) : null}
 
         <Select

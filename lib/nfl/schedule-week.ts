@@ -108,6 +108,16 @@ export function formatKickoffDay(date: Date): string {
   }).format(date);
 }
 
+/** Short weekday for compact match headers (e.g. "Wed 9 Sept"). */
+export function formatKickoffDayShort(date: Date): string {
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone: NFL_TZ,
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+  }).format(date);
+}
+
 export function formatKickoffTime(date: Date): string {
   return new Intl.DateTimeFormat("en-US", {
     timeZone: NFL_TZ,

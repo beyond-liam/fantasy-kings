@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { PlayerAvatar } from "@/components/rankings/player-avatar";
 import { LicenseDraftIcon } from "@hugeicons/core-free-icons";
@@ -61,8 +61,27 @@ export function DraftBoard({
   status,
 }: DraftBoardProps) {
   const [profilePlayerId, setProfilePlayerId] = useState<string | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const onClockRef = useRef<HTMLTableCellElement>(null);
   const pickByOverall = new Map(picks.map((pick) => [pick.overall, pick]));
   const orderedTeams = [...teams].sort((a, b) => a.draftSlot - b.draftSlot);
+
+  // Keep the pick on the clock in view without hijacking the page scroll.
+  useEffect(() => {
+    const container = scrollRef.current;
+    const cell = onClockRef.current;
+    if (!container || !cell) return;
+    if (container.scrollWidth <= container.clientWidth) return;
+
+    const containerBox = container.getBoundingClientRect();
+    const cellBox = cell.getBoundingClientRect();
+    const delta =
+      cellBox.left +
+      cellBox.width / 2 -
+      (containerBox.left + containerBox.width / 2);
+
+    container.scrollBy({ left: delta, behavior: "smooth" });
+  }, [currentPickIndex, status]);
 
   if (orderedTeams.length === 0) {
     return (
@@ -85,7 +104,7 @@ export function DraftBoard({
 
   return (
     <>
-      <div className="overflow-x-auto rounded-xl border bg-card/40">
+      <div ref={scrollRef} className="overflow-x-auto rounded-xl border bg-card/40">
         <table className="w-max min-w-full table-fixed border-collapse text-sm">
           <colgroup>
             {orderedTeams.map((team) => (
@@ -203,6 +222,7 @@ export function DraftBoard({
                     return (
                       <td
                         key={team.id}
+                        ref={isOnClock ? onClockRef : undefined}
                         className="overflow-hidden p-1 align-middle"
                         style={{ width: columnWidth, maxWidth: columnWidth }}
                       >

@@ -138,7 +138,7 @@ export function MockDraftSettings() {
       ) : null}
 
       <Tabs defaultValue="draft">
-        <TabsList>
+        <TabsList className="max-md:w-full">
           <TabsTrigger value="draft">Draft Settings</TabsTrigger>
           <TabsTrigger value="roster">Roster Settings</TabsTrigger>
         </TabsList>

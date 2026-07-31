@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import Link from "next/link";
 import { ArrowLeft01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -5,7 +6,10 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { ScheduleGame } from "@/lib/espn/scoreboard";
-import { formatKickoffDay, formatKickoffTime } from "@/lib/nfl/schedule-week";
+import {
+  formatKickoffDayShort,
+  formatKickoffTime,
+} from "@/lib/nfl/schedule-week";
 import { cn } from "@/lib/utils";
 
 type GameScoreboardHeaderProps = {
@@ -58,6 +62,86 @@ function TeamSide({
   );
 }
 
+/** Compact ESPN-style bar: logo · abbrev + score/record · kickoff · abbrev · logo. */
+function MobileScoreboard({ game }: GameScoreboardHeaderProps) {
+  const kickoff = new Date(game.kickoff);
+  const showScore = game.status !== "pre";
+
+  return (
+    <div className="flex items-center gap-2 rounded-xl bg-card px-3 py-3 shadow-xs ring-1 ring-foreground/10 md:hidden">
+      {([game.away, game.home] as const).map((side, index) => {
+        const isHome = index === 1;
+        const logo = (
+          <img
+            src={side.logoUrl}
+            alt=""
+            width={40}
+            height={40}
+            className="size-10 shrink-0 object-contain"
+          />
+        );
+
+        return (
+          <Fragment key={side.abbreviation}>
+            {isHome ? (
+              <div className="flex shrink-0 flex-col items-center gap-0.5 px-1 text-center">
+                {game.status === "pre" ? (
+                  <>
+                    <p className="text-sm font-semibold">
+                      {formatKickoffDayShort(kickoff)}
+                    </p>
+                    <p className="text-xs tabular-nums text-muted-foreground">
+                      {formatKickoffTime(kickoff)}
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <Badge
+                      variant={game.status === "in" ? "default" : "secondary"}
+                    >
+                      {game.statusText}
+                    </Badge>
+                    {game.status === "in" && game.displayClock ? (
+                      <p className="text-xs tabular-nums text-muted-foreground">
+                        {game.period ? `Q${game.period} ` : null}
+                        {game.displayClock}
+                      </p>
+                    ) : null}
+                  </>
+                )}
+              </div>
+            ) : null}
+
+            <div
+              className={cn(
+                "flex min-w-0 flex-1 items-center gap-2",
+                isHome && "flex-row-reverse",
+              )}
+            >
+              {logo}
+              <div className="min-w-0 text-center">
+                <p className="truncate text-sm font-semibold">
+                  {side.abbreviation}
+                </p>
+                <p
+                  className={cn(
+                    "text-xs tabular-nums text-muted-foreground",
+                    showScore &&
+                      side.winner !== false &&
+                      "text-base font-semibold text-foreground",
+                  )}
+                >
+                  {showScore ? (side.score ?? 0) : side.record}
+                </p>
+              </div>
+            </div>
+          </Fragment>
+        );
+      })}
+    </div>
+  );
+}
+
 export function GameScoreboardHeader({ game }: GameScoreboardHeaderProps) {
   const kickoff = new Date(game.kickoff);
   const showScore = game.status !== "pre";
@@ -80,7 +164,9 @@ export function GameScoreboardHeader({ game }: GameScoreboardHeaderProps) {
         </Button>
       </div>
 
-      <div className="rounded-xl bg-card p-4 shadow-xs ring-1 ring-foreground/10 sm:p-6">
+      <MobileScoreboard game={game} />
+
+      <div className="rounded-xl bg-card p-4 shadow-xs ring-1 ring-foreground/10 max-md:hidden sm:p-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
           <TeamSide side={game.away} align="left" showScore={showScore} />
 
@@ -91,7 +177,7 @@ export function GameScoreboardHeader({ game }: GameScoreboardHeaderProps) {
                   {formatKickoffTime(kickoff)}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {formatKickoffDay(kickoff)}
+                  {formatKickoffDayShort(kickoff)}
                 </p>
               </>
             ) : (
@@ -109,9 +195,6 @@ export function GameScoreboardHeader({ game }: GameScoreboardHeaderProps) {
                 ) : null}
               </>
             )}
-            <p className="text-xs text-muted-foreground">
-              {game.away.abbreviation} @ {game.home.abbreviation}
-            </p>
           </div>
 
           <TeamSide side={game.home} align="right" showScore={showScore} />

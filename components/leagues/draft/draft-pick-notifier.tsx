@@ -3,8 +3,6 @@
 import { useEffect, useRef } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
-import { toastDraftPick } from "@/lib/leagues/draft/pick-toast";
-
 export const DRAFT_PICKS_EVENT = "draft-picks";
 
 type DraftPickEvent = {
@@ -108,19 +106,10 @@ export function DraftPickNotifier({
         }
 
         let maxOverall = afterOverallRef.current;
-        let sawNewPick = false;
+        const sawNewPick = (data.picks?.length ?? 0) > 0;
 
         for (const pick of data.picks ?? []) {
           maxOverall = Math.max(maxOverall, pick.overall);
-          const shown = toastDraftPick({
-            slug,
-            overall: pick.overall,
-            playerFullName: pick.playerFullName,
-            teamName: pick.teamName,
-          });
-          if (shown) {
-            sawNewPick = true;
-          }
         }
 
         afterOverallRef.current = Math.max(

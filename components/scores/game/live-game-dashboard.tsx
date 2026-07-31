@@ -140,8 +140,8 @@ export function LiveGameDashboard({ data }: LiveGameDashboardProps) {
   const groups = plays ? groupPlaysByQuarter(plays) : null;
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[minmax(0,17rem)_minmax(0,1fr)_minmax(0,17rem)]">
-      <div className="flex flex-col gap-4">
+    <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,17rem)_minmax(0,1fr)_minmax(0,17rem)]">
+      <div className="flex min-w-0 flex-col gap-4">
         <SectionCard title="Game leaders">
           {data.gameLeaders ? (
             <LeadersList leaders={data.gameLeaders} />
@@ -206,7 +206,7 @@ export function LiveGameDashboard({ data }: LiveGameDashboardProps) {
         </SectionCard>
       </div>
 
-      <div className="flex flex-col gap-4">
+      <div className="flex min-w-0 flex-col gap-4">
         <SectionCard title="Box score">
           {data.lineScore ? (
             <TableShell className="rounded-lg border-0">
@@ -350,7 +350,7 @@ export function LiveGameDashboard({ data }: LiveGameDashboardProps) {
         </SectionCard>
       </div>
 
-      <div className="flex flex-col gap-4">
+      <div className="flex min-w-0 flex-col gap-4">
         <SectionCard title="Win probability">
           {data.winProbability ? (
             <WinProbabilityChart

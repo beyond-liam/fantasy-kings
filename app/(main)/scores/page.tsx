@@ -65,14 +65,14 @@ export default async function NflScoresPage({
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-6">
-      <div className="flex items-end justify-between gap-4">
+      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between md:gap-4">
         <h1 className="text-2xl font-semibold tracking-tight text-balance">
           NFL Scores
         </h1>
         {scoreboard ? (
           <Suspense
             fallback={
-              <div className="flex h-8 shrink-0 items-center justify-end">
+              <div className="flex h-8 shrink-0 items-center md:justify-end">
                 <Spinner />
               </div>
             }

@@ -125,6 +125,71 @@ function StatusCell({ game }: { game: ScheduleGame }) {
   );
 }
 
+/** Compact per-game card row used on mobile. */
+function MobileGameRow({ game, week }: { game: ScheduleGame; week: number }) {
+  const showScore = game.status !== "pre";
+  const kickoff = new Date(game.kickoff);
+
+  return (
+    <li className="flex items-center gap-3 border-b border-border/60 px-3 py-3 last:border-b-0">
+      <div className="flex min-w-0 flex-1 flex-col gap-2">
+        {[game.away, game.home].map((team) => (
+          <div key={team.abbreviation} className="flex items-center gap-2">
+            <img
+              src={team.logoUrl}
+              alt=""
+              width={20}
+              height={20}
+              className="size-5 shrink-0"
+            />
+            <span
+              className={cn(
+                "truncate text-sm font-semibold",
+                showScore && team.winner === false && "text-muted-foreground",
+              )}
+            >
+              {team.nickname}
+            </span>
+            <span className="ml-auto shrink-0 text-sm tabular-nums text-muted-foreground">
+              {showScore ? (team.score ?? 0) : team.record}
+            </span>
+          </div>
+        ))}
+      </div>
+
+      <div className="flex shrink-0 flex-col items-end gap-0.5 text-right whitespace-nowrap">
+        {game.status === "in" ? (
+          <>
+            <Badge variant="destructive">Live</Badge>
+            <span className="text-[11px] text-muted-foreground">
+              {game.statusText}
+            </span>
+          </>
+        ) : (
+          <span className="text-xs font-medium tabular-nums">
+            {game.status === "post" ? "Final" : formatKickoffTime(kickoff)}
+          </span>
+        )}
+        {game.network ? (
+          <span className="text-[11px] text-muted-foreground">
+            {game.network}
+          </span>
+        ) : null}
+      </div>
+
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        nativeButton={false}
+        aria-label={`View ${game.away.nickname} at ${game.home.nickname}`}
+        render={<Link href={gameHref(game.id, week)} />}
+      >
+        <HugeiconsIcon icon={ArrowRight01Icon} strokeWidth={2} />
+      </Button>
+    </li>
+  );
+}
+
 function LocationCell({ game }: { game: ScheduleGame }) {
   return (
     <div className="min-w-0">
@@ -174,71 +239,89 @@ export function ScheduleList({ games, week }: ScheduleListProps) {
   const days = [...groups.entries()];
 
   return (
-    <TableShell>
-      <Table className="table-fixed">
-        <colgroup>
-          <col className="w-[44%]" />
-          <col className="w-[17%]" />
-          <col className="w-[22%]" />
-          <col className="w-[11%]" />
-          <col className="w-[6%]" />
-        </colgroup>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Matchup</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead>Location</TableHead>
-            <TableHead>Odds</TableHead>
-            <TableHead>
-              <span className="sr-only">Actions</span>
-            </TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {days.map(([key, group], index) => (
-            <Fragment key={key}>
-              <TableRow className="hover:bg-transparent">
-                <TableCell
-                  colSpan={5}
-                  className={cn(
-                    "border-b-0 px-2 text-sm font-medium whitespace-normal text-muted-foreground",
-                    index === 0 ? "pt-2" : "pt-6",
-                  )}
-                >
-                  {group.label}
-                </TableCell>
-              </TableRow>
+    <>
+      <div className="flex flex-col gap-5 md:hidden">
+        {days.map(([key, group]) => (
+          <section key={key} className="flex flex-col gap-3">
+            <h2 className="text-sm font-medium">{group.label}</h2>
+            <ul className="flex flex-col rounded-xl border bg-card/40">
               {group.games.map((game) => (
-                <TableRow key={game.id}>
-                  <TableCell className="whitespace-normal">
-                    <MatchupCell game={game} />
-                  </TableCell>
-                  <TableCell className="whitespace-normal">
-                    <StatusCell game={game} />
-                  </TableCell>
-                  <TableCell className="whitespace-normal">
-                    <LocationCell game={game} />
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {game.odds ?? "—"}
-                  </TableCell>
-                  <TableCell>
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      nativeButton={false}
-                      aria-label={`View ${game.away.nickname} at ${game.home.nickname}`}
-                      render={<Link href={gameHref(game.id, week)} />}
-                    >
-                      <HugeiconsIcon icon={ArrowRight01Icon} strokeWidth={2} />
-                    </Button>
+                <MobileGameRow key={game.id} game={game} week={week} />
+              ))}
+            </ul>
+          </section>
+        ))}
+      </div>
+
+      <TableShell className="max-md:hidden">
+        <Table className="table-fixed">
+          <colgroup>
+            <col className="w-[44%]" />
+            <col className="w-[17%]" />
+            <col className="w-[22%]" />
+            <col className="w-[11%]" />
+            <col className="w-[6%]" />
+          </colgroup>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Matchup</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Location</TableHead>
+              <TableHead>Odds</TableHead>
+              <TableHead>
+                <span className="sr-only">Actions</span>
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {days.map(([key, group], index) => (
+              <Fragment key={key}>
+                <TableRow className="hover:bg-transparent">
+                  <TableCell
+                    colSpan={5}
+                    className={cn(
+                      "border-b-0 px-2 text-sm font-medium whitespace-normal text-muted-foreground",
+                      index === 0 ? "pt-2" : "pt-6",
+                    )}
+                  >
+                    {group.label}
                   </TableCell>
                 </TableRow>
-              ))}
-            </Fragment>
-          ))}
-        </TableBody>
-      </Table>
-    </TableShell>
+                {group.games.map((game) => (
+                  <TableRow key={game.id}>
+                    <TableCell className="whitespace-normal">
+                      <MatchupCell game={game} />
+                    </TableCell>
+                    <TableCell className="whitespace-normal">
+                      <StatusCell game={game} />
+                    </TableCell>
+                    <TableCell className="whitespace-normal">
+                      <LocationCell game={game} />
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {game.odds ?? "—"}
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        nativeButton={false}
+                        aria-label={`View ${game.away.nickname} at ${game.home.nickname}`}
+                        render={<Link href={gameHref(game.id, week)} />}
+                      >
+                        <HugeiconsIcon
+                          icon={ArrowRight01Icon}
+                          strokeWidth={2}
+                        />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </Fragment>
+            ))}
+          </TableBody>
+        </Table>
+      </TableShell>
+    </>
   );
 }

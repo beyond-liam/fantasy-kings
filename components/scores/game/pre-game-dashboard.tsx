@@ -14,7 +14,7 @@ import {
   type GameDashboardData,
 } from "@/lib/espn/game-summary";
 import { getInjuryIndicator } from "@/lib/players/injury";
-import { formatKickoffDay, formatKickoffTime } from "@/lib/nfl/schedule-week";
+import { formatKickoffDayShort, formatKickoffTime } from "@/lib/nfl/schedule-week";
 import { cn } from "@/lib/utils";
 
 type PreGameDashboardProps = {
@@ -168,8 +168,8 @@ export function PreGameDashboard({ data }: PreGameDashboardProps) {
     data.injuries?.filter((row) => row.side === "home") ?? null;
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[minmax(0,17rem)_minmax(0,1fr)_minmax(0,17rem)]">
-      <div className="flex flex-col gap-4">
+    <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,17rem)_minmax(0,1fr)_minmax(0,17rem)]">
+      <div className="flex min-w-0 flex-col gap-4">
         <SectionCard title="Matchup Predictor">
           {data.predictor ? (
             <MatchupPredictor
@@ -189,7 +189,7 @@ export function PreGameDashboard({ data }: PreGameDashboardProps) {
           <div className="flex flex-col gap-3">
             <div>
               <p className="text-sm font-medium tabular-nums">
-                {formatKickoffTime(kickoff)}, {formatKickoffDay(kickoff)}
+                {formatKickoffTime(kickoff)}, {formatKickoffDayShort(kickoff)}
               </p>
               <p className="text-sm text-muted-foreground">{venueLabel}</p>
             </div>
@@ -205,7 +205,7 @@ export function PreGameDashboard({ data }: PreGameDashboardProps) {
         </SectionCard>
       </div>
 
-      <div className="flex flex-col gap-4">
+      <div className="flex min-w-0 flex-col gap-4">
         <SectionCard title="Game Odds">
           {data.odds ? (
             <>
@@ -391,7 +391,7 @@ export function PreGameDashboard({ data }: PreGameDashboardProps) {
         </SectionCard>
       </div>
 
-      <div className="flex flex-col gap-4">
+      <div className="flex min-w-0 flex-col gap-4">
         <SectionCard title="Standings">
           {data.standings ? (
             <div className="flex flex-col gap-4">
