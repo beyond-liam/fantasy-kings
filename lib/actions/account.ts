@@ -15,9 +15,8 @@ import {
   userSettingsFormSchema,
   type UserSettingsFormValues,
 } from "@/lib/account/user-settings";
-import { getSessionUser, requireSessionUser } from "@/lib/auth/session";
+import { requireSessionUser } from "@/lib/auth/session";
 import { db } from "@/lib/db";
-import { getProfileByUserId } from "@/lib/queries/profile";
 import { createClient } from "@/lib/supabase/server";
 
 type ActionResult = {
@@ -28,21 +27,6 @@ type ActionResult = {
   >;
   emailPendingConfirm?: boolean;
 };
-
-export async function getSessionAccountSummary(): Promise<{
-  email: string | null;
-  avatarUrl: string | null;
-  username: string | null;
-} | null> {
-  const user = await getSessionUser();
-  if (!user) return null;
-  const profile = await getProfileByUserId(user.id);
-  return {
-    email: user.email ?? null,
-    avatarUrl: profile?.avatarUrl ?? null,
-    username: profile?.username ?? profile?.displayName ?? null,
-  };
-}
 
 function fieldErrorsFromZod(
   error: z.ZodError,

@@ -1,4 +1,4 @@
-import { and, count, desc, eq, asc, inArray } from "drizzle-orm";
+import { and, count, desc, eq, asc, inArray, or } from "drizzle-orm";
 import { cache } from "react";
 
 import {
@@ -6,6 +6,7 @@ import {
   leagueMembers,
   leagues,
   leagueSeasons,
+  matchups,
   teams,
 } from "@/db/schema";
 import { profiles } from "@/db/schema/users";
@@ -51,22 +52,104 @@ export type UserLeagueNavItem = Pick<
   "id" | "name" | "publicId" | "logoUrl" | "teamName" | "wins" | "losses" | "ties"
 >;
 
-export async function getUserLeagueNavItems(
-  userId: string,
-): Promise<UserLeagueNavItem[]> {
-  const leagues = await getUserLeagues(userId);
+/**
+ * Lightweight chrome query — do not call `getUserLeagues` here.
+ * The full list builds standings for every team and will time out the
+ * root layout Suspense slot on Vercel free tier.
+ */
+export const getUserLeagueNavItems = cache(
+  async (userId: string): Promise<UserLeagueNavItem[]> => {
+    const rows = await db
+      .select({
+        id: leagues.id,
+        name: leagues.name,
+        publicId: leagues.publicId,
+        settings: leagueSeasons.settings,
+        teamId: teams.id,
+        teamName: teams.name,
+      })
+      .from(leagueMembers)
+      .innerJoin(leagues, eq(leagueMembers.leagueId, leagues.id))
+      .leftJoin(leagueSeasons, eq(leagueSeasons.leagueId, leagues.id))
+      .leftJoin(
+        teams,
+        and(
+          eq(teams.leagueSeasonId, leagueSeasons.id),
+          eq(teams.userId, userId),
+        ),
+      )
+      .where(eq(leagueMembers.userId, userId))
+      .orderBy(leagues.createdAt);
 
-  return leagues.map((league) => ({
-    id: league.id,
-    name: league.name,
-    publicId: league.publicId,
-    logoUrl: league.logoUrl,
-    teamName: league.teamName,
-    wins: league.wins,
-    losses: league.losses,
-    ties: league.ties,
-  }));
-}
+    const teamIds = rows
+      .map((row) => row.teamId)
+      .filter((id): id is string => Boolean(id));
+
+    const recordByTeamId = new Map<
+      string,
+      { wins: number; losses: number; ties: number }
+    >();
+
+    if (teamIds.length > 0) {
+      const finals = await db
+        .select({
+          homeTeamId: matchups.homeTeamId,
+          awayTeamId: matchups.awayTeamId,
+          homePts: matchups.homePts,
+          awayPts: matchups.awayPts,
+        })
+        .from(matchups)
+        .where(
+          and(
+            eq(matchups.status, "final"),
+            or(
+              inArray(matchups.homeTeamId, teamIds),
+              inArray(matchups.awayTeamId, teamIds),
+            ),
+          ),
+        );
+
+      const teamIdSet = new Set(teamIds);
+      for (const game of finals) {
+        if (game.homePts == null || game.awayPts == null) continue;
+        const homeWin = game.homePts > game.awayPts + 0.05;
+        const awayWin = game.awayPts > game.homePts + 0.05;
+        const tied = !homeWin && !awayWin;
+
+        for (const [teamId, won, lost] of [
+          [game.homeTeamId, homeWin, awayWin],
+          [game.awayTeamId, awayWin, homeWin],
+        ] as const) {
+          if (!teamIdSet.has(teamId)) continue;
+          const record = recordByTeamId.get(teamId) ?? {
+            wins: 0,
+            losses: 0,
+            ties: 0,
+          };
+          if (tied) record.ties += 1;
+          else if (won) record.wins += 1;
+          else if (lost) record.losses += 1;
+          recordByTeamId.set(teamId, record);
+        }
+      }
+    }
+
+    return rows.map((row) => {
+      const record =
+        row.teamId != null ? recordByTeamId.get(row.teamId) : undefined;
+      return {
+        id: row.id,
+        name: row.name,
+        publicId: row.publicId,
+        logoUrl: row.settings?.logoUrl?.trim() || null,
+        teamName: row.teamName?.trim() || null,
+        wins: record?.wins ?? 0,
+        losses: record?.losses ?? 0,
+        ties: record?.ties ?? 0,
+      };
+    });
+  },
+);
 
 export const getUserLeagues = cache(async function getUserLeagues(
   userId: string,
