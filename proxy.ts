@@ -53,12 +53,12 @@ export async function proxy(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
   const isAuthRoute = pathname.startsWith("/login");
-  const isProtectedRoute =
-    pathname.startsWith("/leagues/create") ||
-    pathname.startsWith("/league/") ||
-    pathname.startsWith("/dashboard");
+  // Everything is behind auth except the login flow, the OAuth callback, and
+  // invite previews.
+  const isPublicRoute =
+    isAuthRoute || pathname.startsWith("/auth") || pathname.startsWith("/join");
 
-  if (!user && isProtectedRoute) {
+  if (!user && !isPublicRoute) {
     const loginUrl = request.nextUrl.clone();
     loginUrl.pathname = "/login";
     loginUrl.searchParams.set("next", pathname);
@@ -75,9 +75,7 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/dashboard/:path*",
-    "/leagues/create/:path*",
-    "/league/:path*",
-    "/login",
+    // Route handlers authenticate themselves, so skip API and static assets.
+    "/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
   ],
 };

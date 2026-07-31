@@ -410,9 +410,9 @@ export async function claimTeam(
   redirect(`/league/${league.publicId}`);
 }
 
+/** Clears the session; callers navigate so the server re-renders app chrome. */
 export async function signOut() {
   const { createClient } = await import("@/lib/supabase/server");
   const supabase = await createClient();
   await supabase.auth.signOut();
-  redirect("/login");
 }

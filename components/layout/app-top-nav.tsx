@@ -47,6 +47,12 @@ export type AppAccountSummary = {
   username: string | null;
 } | null;
 
+/** Full navigation so the server re-renders chrome without the session. */
+async function handleSignOut() {
+  await signOut();
+  window.location.assign("/login");
+}
+
 function UserMenu({
   email,
   avatarUrl,
@@ -81,7 +87,7 @@ function UserMenu({
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
-          <DropdownMenuItem variant="destructive" onClick={() => signOut()}>
+          <DropdownMenuItem variant="destructive" onClick={handleSignOut}>
             <HugeiconsIcon icon={Logout01Icon} size={16} />
             Sign Out
           </DropdownMenuItem>
@@ -324,7 +330,7 @@ function AppMobileNav({
               className="h-10 w-full justify-start gap-2 px-0! font-semibold text-destructive hover:bg-destructive/10 hover:text-destructive"
               onClick={() => {
                 setOpen(false);
-                void signOut();
+                void handleSignOut();
               }}
             >
               <HugeiconsIcon

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
   ArrowLeft01Icon,
@@ -24,7 +24,6 @@ import { createClient } from "@/lib/supabase/client";
 type Step = "email" | "otp";
 
 export function LoginForm() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const next = safeNextPath(searchParams.get("next"));
   const [step, setStep] = useState<Step>("email");
@@ -71,15 +70,14 @@ export function LoginForm() {
       type: "email",
     });
 
-    setLoading(false);
-
     if (verifyError) {
+      setLoading(false);
       setError(verifyError.message);
       return;
     }
 
-    router.replace(next);
-    router.refresh();
+    // Full navigation so the server re-renders app chrome with the new session.
+    window.location.assign(next);
   };
 
   if (step === "otp") {
