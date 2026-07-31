@@ -1,6 +1,12 @@
 import Link from "next/link";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { teamInitials } from "@/lib/leagues/standings";
 import { cn } from "@/lib/utils";
 
@@ -16,6 +22,7 @@ export type TeamSpotlightRow = {
 export function TeamSpotlight({
   row,
   leagueSlug,
+  emptyTitle = "No data yet",
   empty,
   formatValue,
   valueClassName,
@@ -23,6 +30,7 @@ export function TeamSpotlight({
 }: {
   row: TeamSpotlightRow | null;
   leagueSlug: string;
+  emptyTitle?: string;
   empty: string;
   formatValue: (value: number) => string;
   valueClassName?: string;
@@ -30,7 +38,12 @@ export function TeamSpotlight({
 }) {
   if (!row) {
     return (
-      <p className="py-6 text-center text-sm text-muted-foreground">{empty}</p>
+      <Empty size="sm">
+        <EmptyHeader>
+          <EmptyTitle>{emptyTitle}</EmptyTitle>
+          <EmptyDescription>{empty}</EmptyDescription>
+        </EmptyHeader>
+      </Empty>
     );
   }
 

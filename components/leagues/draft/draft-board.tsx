@@ -4,9 +4,20 @@ import dynamic from "next/dynamic";
 import { useState } from "react";
 
 import { PlayerAvatar } from "@/components/rankings/player-avatar";
+import { LicenseDraftIcon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
+
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import type { DraftPickRow } from "@/lib/queries/draft";
 import type { DraftScheduleSlot } from "@/lib/leagues/draft/board";
+import { positionToneClass } from "@/lib/leagues/position-colors";
 import { teamInitials } from "@/lib/leagues/standings";
 import { resolvePlayerByeWeek } from "@/lib/nfl/bye-weeks";
 import { cn } from "@/lib/utils";
@@ -34,15 +45,6 @@ type DraftBoardProps = {
   status: "scheduled" | "live" | "paused" | "complete" | null;
 };
 
-const POSITION_CELL: Record<string, string> = {
-  QB: "bg-rose-500/20 text-rose-100 ring-rose-500/40",
-  RB: "bg-sky-500/20 text-sky-100 ring-sky-500/40",
-  WR: "bg-emerald-500/20 text-emerald-100 ring-emerald-500/40",
-  TE: "bg-violet-500/20 text-violet-100 ring-violet-500/40",
-  K: "bg-amber-500/20 text-amber-100 ring-amber-500/40",
-  DEF: "bg-slate-500/25 text-slate-100 ring-slate-400/40",
-};
-
 function shortName(fullName: string) {
   const parts = fullName.trim().split(/\s+/);
   if (parts.length < 2) return fullName;
@@ -64,9 +66,17 @@ export function DraftBoard({
 
   if (orderedTeams.length === 0) {
     return (
-      <p className="text-sm text-muted-foreground">
-        Add teams and set draft order to see the board.
-      </p>
+      <Empty>
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <HugeiconsIcon icon={LicenseDraftIcon} strokeWidth={2} />
+          </EmptyMedia>
+          <EmptyTitle>No draft board yet</EmptyTitle>
+          <EmptyDescription>
+            Add teams and set draft order to see the board.
+          </EmptyDescription>
+        </EmptyHeader>
+      </Empty>
     );
   }
 
@@ -147,8 +157,7 @@ export function DraftBoard({
                     const cellClass = cn(
                       "relative flex h-14 w-full min-w-0 items-center overflow-hidden rounded-md px-1.5 py-1 pr-5 ring-1 ring-inset transition-colors",
                       pick
-                        ? (POSITION_CELL[pick.playerPositionId] ??
-                          "bg-muted/40 text-foreground ring-border/60")
+                        ? positionToneClass(pick.playerPositionId)
                         : "bg-muted/15 text-muted-foreground ring-border/40",
                       isOnClock && "bg-muted/50 text-foreground",
                       pick &&

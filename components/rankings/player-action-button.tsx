@@ -116,6 +116,8 @@ type PlayerActionButtonProps = {
   acquisitionsLocked?: boolean;
   acquisitionLockReason?: string;
   tradesEnabled?: boolean;
+  /** Icon-only for dense tables; labeled for dialog / sheet footers. */
+  appearance?: "icon" | "button";
 };
 
 export function PlayerActionButton({
@@ -126,6 +128,7 @@ export function PlayerActionButton({
   acquisitionsLocked = false,
   acquisitionLockReason = "Move ineligible IR players off IR before free agent adds, claims, or trades.",
   tradesEnabled = true,
+  appearance = "icon",
 }: PlayerActionButtonProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -270,8 +273,30 @@ export function PlayerActionButton({
     }
   };
 
-  return (
-    <>
+  const buttonVariant =
+    appearance === "button"
+      ? action.kind === "cut"
+        ? "destructive"
+        : "outline"
+      : action.variant;
+
+  const actionControl =
+    appearance === "button" ? (
+      <Button
+        type="button"
+        variant={buttonVariant}
+        disabled={isDisabled}
+        aria-label={tooltip}
+        onClick={handleClick}
+      >
+        <HugeiconsIcon
+          icon={action.icon}
+          strokeWidth={2}
+          data-icon="inline-start"
+        />
+        {action.label}
+      </Button>
+    ) : (
       <TooltipProvider>
         <Tooltip>
           <TooltipTrigger
@@ -297,6 +322,11 @@ export function PlayerActionButton({
           <TooltipContent>{tooltip}</TooltipContent>
         </Tooltip>
       </TooltipProvider>
+    );
+
+  return (
+    <>
+      {actionControl}
 
       <CutPlayerDialog
         open={cutConfirmOpen}

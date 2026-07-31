@@ -17,6 +17,12 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { ChartHeadlineMetric } from "@/components/team/charts/chart-headline-metric";
 import { formatPoints } from "@/lib/leagues/standings";
 import type {
@@ -70,11 +76,14 @@ export function PointsByWeekChart({
           />
         ) : null}
         {data.length === 0 ? (
-          <div className="flex min-h-72 flex-1 items-center justify-center rounded-lg border border-dashed px-4">
-            <p className="text-sm text-pretty text-muted-foreground">
-              Appears after the first finalized week.
-            </p>
-          </div>
+          <Empty className="min-h-72 flex-1" size="sm">
+            <EmptyHeader>
+              <EmptyTitle>No weekly scores yet</EmptyTitle>
+              <EmptyDescription>
+                Appears after the first finalized week.
+              </EmptyDescription>
+            </EmptyHeader>
+          </Empty>
         ) : (
           <ChartContainer
             config={chartConfig}

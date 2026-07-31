@@ -42,11 +42,11 @@ export default async function MessagesPage({ params }: MessagesPageProps) {
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <h1 className="text-2xl font-semibold tracking-tight text-balance">
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="min-w-0 text-2xl font-semibold tracking-tight text-balance">
           Messages
         </h1>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2">
           <MarkAllMessagesReadButton
             leagueSlug={slug}
             disabled={!hasUnread}

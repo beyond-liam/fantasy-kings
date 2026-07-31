@@ -1,15 +1,23 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import Link from "next/link";
+import { useEffect, useState, useSyncExternalStore, useTransition } from "react";
+import { Bookmark02Icon, Contact01Icon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 
+import { PlayerActionButton } from "@/components/rankings/player-action-button";
+import { useOptionalWatchlistStore } from "@/components/rankings/watchlist-provider";
 import { TeamTableColumnHeader } from "@/components/team/team-table-column-header";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { Spinner } from "@/components/ui/spinner";
 import {
   Table,
@@ -21,7 +29,12 @@ import {
   TableShell,
   TABLE_SHELL_CLASSNAME,
 } from "@/components/ui/table";
-import { TooltipProvider } from "@/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { loadPlayerProfile } from "@/lib/actions/player-profile";
 import { resolvePlayerByeWeek } from "@/lib/nfl/bye-weeks";
@@ -38,6 +51,7 @@ import {
   getSleeperPlayerAvatarUrl,
   getSleeperTeamLogoUrl,
 } from "@/lib/sleeper/avatars";
+
 
 type PlayerProfileDialogProps = {
   playerId: string | null;
@@ -107,7 +121,14 @@ function HeaderBioStat({
   );
 }
 
-function PlayerProfileHeader({ profile }: { profile: PlayerProfile }) {
+function PlayerProfileHeader({
+  profile,
+  headingLevel = "h2",
+}: {
+  profile: PlayerProfile;
+  headingLevel?: "h1" | "h2";
+}) {
+  const Heading = headingLevel;
   const team = getNflTeamColors(profile.nflTeam);
   const headerBg = team?.header ?? undefined;
   const fg = headerBg ? contrastForeground(headerBg) : undefined;
@@ -194,9 +215,9 @@ function PlayerProfileHeader({ profile }: { profile: PlayerProfile }) {
 
         <div className="relative z-10 flex min-w-0 flex-1 flex-col gap-3 pr-8">
           <div className="flex flex-col gap-0">
-            <h2 className="min-w-0 text-2xl font-semibold tracking-tight text-balance sm:text-3xl">
+            <Heading className="min-w-0 text-2xl font-semibold tracking-tight text-balance sm:text-3xl">
               {profile.fullName}
-            </h2>
+            </Heading>
             <p
               className="text-sm font-medium tracking-wide"
               style={{ color: muted }}
@@ -289,7 +310,13 @@ function hasActualSeasonStats(profile: PlayerProfile) {
   return typeof gp === "number" && Number.isFinite(gp) && gp > 0;
 }
 
-function ProfileBody({ profile }: { profile: PlayerProfile }) {
+export function PlayerProfileContent({
+  profile,
+  headingLevel = "h2",
+}: {
+  profile: PlayerProfile;
+  headingLevel?: "h1" | "h2";
+}) {
   const useActualStats = hasActualSeasonStats(profile);
   const seasonBlock = useActualStats
     ? profile.seasonStats
@@ -300,7 +327,7 @@ function ProfileBody({ profile }: { profile: PlayerProfile }) {
 
   return (
     <div>
-      <PlayerProfileHeader profile={profile} />
+      <PlayerProfileHeader profile={profile} headingLevel={headingLevel} />
 
       <div className="flex flex-col gap-6 p-5 sm:p-6">
         {profile.leagueSlug ? (
@@ -364,20 +391,32 @@ function ProfileBody({ profile }: { profile: PlayerProfile }) {
               </TooltipProvider>
             </TableShell>
           ) : (
-            <p className="text-sm text-muted-foreground">
-              {useActualStats
-                ? `No season stats for ${profile.season} yet.`
-                : "No season projection available yet."}
-            </p>
+            <Empty className="border-none" size="sm">
+              <EmptyHeader>
+                <EmptyTitle>
+                  {useActualStats ? "No season stats yet" : "No projection yet"}
+                </EmptyTitle>
+                <EmptyDescription>
+                  {useActualStats
+                    ? `Season stats for ${profile.season} will appear after games land.`
+                    : "Projections appear when player data is available."}
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
           )}
         </section>
 
         <section className="flex flex-col gap-2">
           <h3 className="text-sm font-medium">Game log</h3>
           {profile.gameLog.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              No schedule available for {profile.season} yet.
-            </p>
+            <Empty className="border-none" size="sm">
+              <EmptyHeader>
+                <EmptyTitle>No schedule yet</EmptyTitle>
+                <EmptyDescription>
+                  Game log for {profile.season} appears once the schedule is set.
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
           ) : (
             <TableShell>
               <TooltipProvider>
@@ -448,9 +487,14 @@ function ProfileBody({ profile }: { profile: PlayerProfile }) {
           <section className="flex flex-col gap-2">
             <h3 className="text-sm font-medium">Transaction history</h3>
             {profile.activity.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                No league transactions for this player yet.
-              </p>
+              <Empty className="border-none" size="sm">
+                <EmptyHeader>
+                  <EmptyTitle>No transactions yet</EmptyTitle>
+                  <EmptyDescription>
+                    League moves involving this player will show here.
+                  </EmptyDescription>
+                </EmptyHeader>
+              </Empty>
             ) : (
               <ul className={cn(TABLE_SHELL_CLASSNAME, "divide-y")}>
                 {profile.activity.map((item) => (
@@ -479,6 +523,162 @@ function ProfileBody({ profile }: { profile: PlayerProfile }) {
         ) : null}
       </div>
     </div>
+  );
+}
+
+const subscribeNoop = () => () => {};
+
+function PlayerProfileWatchlistButton({
+  playerId,
+  leagueSlug,
+  initialWatched,
+}: {
+  playerId: string;
+  leagueSlug: string;
+  initialWatched: boolean;
+}) {
+  const store = useOptionalWatchlistStore();
+  const [localWatched, setLocalWatched] = useState(initialWatched);
+  const [pending, startTransition] = useTransition();
+  const storeWatched = useSyncExternalStore(
+    store?.subscribe ?? subscribeNoop,
+    () => store?.getSnapshot().has(playerId) ?? false,
+    () => store?.getSnapshot().has(playerId) ?? false,
+  );
+
+  const watched = store ? storeWatched : localWatched;
+  const label = watched ? "Remove from watchlist" : "Add to watchlist";
+
+  const handleToggle = () => {
+    if (store) {
+      store.toggle(playerId);
+      return;
+    }
+
+    const wasWatched = localWatched;
+    setLocalWatched(!wasWatched);
+    startTransition(async () => {
+      try {
+        const response = await fetch("/api/watchlist", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ slug: leagueSlug, playerId }),
+        });
+        const result = (await response.json()) as {
+          success?: boolean;
+          watched?: boolean;
+        };
+        if (!response.ok || !result.success) {
+          setLocalWatched(wasWatched);
+          return;
+        }
+        if (typeof result.watched === "boolean") {
+          setLocalWatched(result.watched);
+        }
+      } catch {
+        setLocalWatched(wasWatched);
+      }
+    });
+  };
+
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <span
+              className={
+                pending ? "inline-flex cursor-not-allowed" : "inline-flex"
+              }
+            />
+          }
+        >
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            aria-label={label}
+            disabled={pending}
+            onClick={handleToggle}
+          >
+            <HugeiconsIcon
+              icon={Bookmark02Icon}
+              strokeWidth={2}
+              className={cn(
+                watched && "fill-warning stroke-warning text-warning",
+              )}
+            />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>{label}</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
+function PlayerProfileDialogFooter({
+  profile,
+  leagueSlug,
+}: {
+  profile: PlayerProfile;
+  leagueSlug?: string | null;
+}) {
+  const slug = leagueSlug?.trim() || profile.leagueSlug;
+  const ownership = profile.ownership;
+  const showLeagueActions = Boolean(slug && ownership);
+
+  return (
+    <DialogFooter
+      className={cn(
+        "mb-0 border-t p-4 sm:p-6",
+        showLeagueActions && "sm:justify-between",
+      )}
+    >
+      {showLeagueActions && slug && ownership ? (
+        <div className="flex w-full items-center gap-2 sm:w-auto">
+          <PlayerProfileWatchlistButton
+            key={profile.id}
+            playerId={profile.id}
+            leagueSlug={slug}
+            initialWatched={profile.isWatched}
+          />
+          <PlayerActionButton
+            appearance="button"
+            leagueSlug={slug}
+            player={{
+              id: profile.id,
+              fullName: profile.fullName,
+              fantasyTeamId: ownership.fantasyTeamId,
+              fantasyTeamSlug: ownership.fantasyTeamSlug,
+              isOwnedByCurrentUser: ownership.isOwnedByCurrentUser,
+              onWaivers: ownership.onWaivers,
+              acquisitionKind: ownership.acquisitionKind,
+              hasPendingClaim: ownership.hasPendingClaim,
+            }}
+          />
+        </div>
+      ) : null}
+
+      <Button
+        nativeButton={false}
+        className="w-full sm:w-auto"
+        render={
+          <Link
+            href={{
+              pathname: `/players/${profile.id}`,
+              query: slug ? { league: slug } : undefined,
+            }}
+          />
+        }
+      >
+        <HugeiconsIcon
+          icon={Contact01Icon}
+          strokeWidth={2}
+          data-icon="inline-start"
+        />
+        View Player Profile
+      </Button>
+    </DialogFooter>
   );
 }
 
@@ -543,11 +743,20 @@ export function PlayerProfileDialog({
             <Spinner className="size-6" />
           </div>
         ) : error && !showProfile ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">
-            {error}
-          </p>
+          <Empty className="border-none" size="sm">
+            <EmptyHeader>
+              <EmptyTitle>Could not load profile</EmptyTitle>
+              <EmptyDescription>{error}</EmptyDescription>
+            </EmptyHeader>
+          </Empty>
         ) : showProfile ? (
-          <ProfileBody profile={profile} />
+          <>
+            <PlayerProfileContent profile={profile} />
+            <PlayerProfileDialogFooter
+              profile={profile}
+              leagueSlug={leagueSlug}
+            />
+          </>
         ) : null}
       </DialogContent>
     </Dialog>

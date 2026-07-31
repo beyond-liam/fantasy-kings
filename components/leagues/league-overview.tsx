@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowRight01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
+import { ManagerPresenceBadge } from "@/components/leagues/presence/manager-presence-badge";
 import { PlayerAvatar } from "@/components/rankings/player-avatar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -10,6 +11,7 @@ import {
   CardContent,
   CardTitle,
 } from "@/components/ui/card";
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import {
   Table,
   TableBody,
@@ -83,10 +85,12 @@ function OverviewCard({
 function TeamMark({
   name,
   logoUrl,
+  ownerUserId,
   size = "sm",
 }: {
   name: string;
   logoUrl: string | null;
+  ownerUserId?: string | null;
   size?: "sm" | "lg" | "hero";
 }) {
   return (
@@ -98,24 +102,35 @@ function TeamMark({
       <AvatarFallback className={cn(size === "hero" && "text-sm")}>
         {teamInitials(name)}
       </AvatarFallback>
+      <ManagerPresenceBadge userId={ownerUserId} />
     </Avatar>
   );
 }
 
-function FormGuide({ games }: { games: StandingsFormGame[] }) {
+function FormGuide({
+  games,
+  compact = false,
+}: {
+  games: StandingsFormGame[];
+  compact?: boolean;
+}) {
   if (games.length === 0) {
     return <span className="text-muted-foreground">—</span>;
   }
   return (
     <TooltipProvider>
-      <div className="flex items-center gap-1" aria-label="Last five results">
+      <div
+        className={cn("flex items-center", compact ? "gap-0.5" : "gap-1")}
+        aria-label="Last five results"
+      >
         {games.map((game, index) => (
           <Tooltip key={`${game.week}-${game.opponentName}-${index}`}>
             <TooltipTrigger
               render={
                 <span
                   className={cn(
-                    "inline-flex size-4 shrink-0 cursor-pointer rounded-sm",
+                    "inline-flex shrink-0 cursor-pointer",
+                    compact ? "size-2 rounded-xs" : "size-4 rounded-sm",
                     game.result === "W" && "bg-success",
                     game.result === "L" && "bg-destructive",
                     game.result === "T" && "bg-slate-600",
@@ -138,6 +153,7 @@ function FormGuide({ games }: { games: StandingsFormGame[] }) {
 function TeamSpotlight({
   row,
   leagueSlug,
+  emptyTitle = "No data yet",
   empty,
   formatValue,
   valueClassName,
@@ -145,6 +161,7 @@ function TeamSpotlight({
 }: {
   row: OverviewTeamMetric | null;
   leagueSlug: string;
+  emptyTitle?: string;
   empty: string;
   formatValue: (value: number) => string;
   valueClassName?: string;
@@ -152,7 +169,12 @@ function TeamSpotlight({
 }) {
   if (!row) {
     return (
-      <p className="py-6 text-center text-sm text-muted-foreground">{empty}</p>
+      <Empty size="sm">
+        <EmptyHeader>
+          <EmptyTitle>{emptyTitle}</EmptyTitle>
+          <EmptyDescription>{empty}</EmptyDescription>
+        </EmptyHeader>
+      </Empty>
     );
   }
 
@@ -165,7 +187,12 @@ function TeamSpotlight({
       href={href}
       className="flex flex-col items-center gap-2 py-2 text-center outline-none transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-ring/50"
     >
-      <TeamMark name={row.teamName} logoUrl={row.logoUrl} size="hero" />
+      <TeamMark
+        name={row.teamName}
+        logoUrl={row.logoUrl}
+        ownerUserId={row.ownerUserId}
+        size="hero"
+      />
       <div className="min-w-0 max-w-full">
         <p className="truncate text-sm font-medium text-balance">
           {row.teamName}
@@ -191,14 +218,21 @@ function TeamSpotlight({
 
 function PlayerSpotlight({
   player,
+  emptyTitle = "No data yet",
   empty,
 }: {
   player: OverviewPlayerHighlight | null;
+  emptyTitle?: string;
   empty: string;
 }) {
   if (!player) {
     return (
-      <p className="py-6 text-center text-sm text-muted-foreground">{empty}</p>
+      <Empty size="sm">
+        <EmptyHeader>
+          <EmptyTitle>{emptyTitle}</EmptyTitle>
+          <EmptyDescription>{empty}</EmptyDescription>
+        </EmptyHeader>
+      </Empty>
     );
   }
 
@@ -264,7 +298,8 @@ export function LeagueOverview({
               <TeamSpotlight
                 row={weeklyRoast.biggestScorer}
                 leagueSlug={leagueSlug}
-                empty="No scores this week."
+                emptyTitle="No scores yet"
+                empty="Scores appear after this week's games finish."
                 formatValue={(value) => formatPoints(value)}
                 valueHint="points for"
               />
@@ -273,7 +308,8 @@ export function LeagueOverview({
               <TeamSpotlight
                 row={weeklyRoast.luckiestWinner}
                 leagueSlug={leagueSlug}
-                empty="No winners yet."
+                emptyTitle="No winners yet"
+                empty="Winners appear after this week's scores land."
                 formatValue={(value) => formatPoints(value)}
                 valueHint="winning score"
               />
@@ -282,7 +318,8 @@ export function LeagueOverview({
               <TeamSpotlight
                 row={weeklyRoast.underachiever}
                 leagueSlug={leagueSlug}
-                empty="No bench bombs among losers."
+                emptyTitle="No underachievers yet"
+                empty="Bench bombs appear among losing teams after scores land."
                 formatValue={(value) => formatPoints(value)}
                 valueClassName="text-destructive"
                 valueHint="left on bench"
@@ -301,6 +338,7 @@ export function LeagueOverview({
           <TeamSpotlight
             row={highestScorer}
             leagueSlug={leagueSlug}
+            emptyTitle="No scores yet"
             empty="Scores show after weekly scores land."
             formatValue={(value) => formatPoints(value)}
             valueHint="points for"
@@ -310,6 +348,7 @@ export function LeagueOverview({
           <TeamSpotlight
             row={worstDefense}
             leagueSlug={leagueSlug}
+            emptyTitle="No scores yet"
             empty="Scores show after weekly scores land."
             formatValue={(value) => formatPoints(value)}
             valueHint="points against"
@@ -319,7 +358,8 @@ export function LeagueOverview({
           <TeamSpotlight
             row={inefficient}
             leagueSlug={leagueSlug}
-            empty="Gaps show after weekly scores land."
+            emptyTitle="No gaps yet"
+            empty="Efficiency gaps show after weekly scores land."
             formatValue={(value) => `${value}%`}
             valueClassName="text-destructive"
             valueHint="of optimal"
@@ -348,65 +388,110 @@ export function LeagueOverview({
           }
         >
           {standingsRows.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              Standings will appear after teams are claimed.
-            </p>
+            <Empty size="sm">
+              <EmptyHeader>
+                <EmptyTitle>No standings yet</EmptyTitle>
+                <EmptyDescription>
+                  Standings appear after teams are claimed.
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
           ) : (
-            <TableShell className="rounded-lg border-0">
-              <Table>
-                <TableHeader>
-                  <TableRow className="hover:bg-transparent">
-                    <TableHead className="w-8 px-2" aria-label="Position" />
-                    <TableHead>Team</TableHead>
-                    <TableHead>Record</TableHead>
-                    <TableHead>%</TableHead>
-                    <TableHead>Form</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {standingsRows.map((row) => {
-                    const isMine = Boolean(myTeamId && row.teamId === myTeamId);
-                    return (
-                      <TableRow
-                        key={row.id}
-                        className={cn(isMine && "bg-muted/50")}
-                      >
-                        <TableCell className="w-8 px-2 tabular-nums text-muted-foreground">
-                          {row.rank ?? "—"}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex min-w-0 items-center gap-2">
-                            <TeamMark
-                              name={row.teamName}
-                              logoUrl={row.logoUrl}
-                            />
-                            <Link
-                              href={
-                                row.teamPublicId
-                                  ? `/league/${leagueSlug}/team/${row.teamPublicId}`
-                                  : `/league/${leagueSlug}`
-                              }
-                              className="truncate font-medium underline-offset-2 hover:underline"
-                            >
-                              {row.teamName}
-                            </Link>
-                          </div>
-                        </TableCell>
-                        <TableCell className="tabular-nums">
-                          {formatRecord(row.wins, row.losses, row.ties)}
-                        </TableCell>
-                        <TableCell className="tabular-nums">
-                          {formatWinPct(row.winPct)}
-                        </TableCell>
-                        <TableCell>
-                          <FormGuide games={row.form} />
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </TableShell>
+            <>
+              <ul className="flex flex-col md:hidden">
+                {standingsRows.map((row) => {
+                  const isMine = Boolean(myTeamId && row.teamId === myTeamId);
+                  return (
+                    <li
+                      key={row.id}
+                      className={cn(
+                        "flex items-center gap-2 border-b border-border py-2 last:border-b-0",
+                        isMine && "bg-muted/50",
+                      )}
+                    >
+                      <span className="w-5 shrink-0 text-center text-sm tabular-nums text-muted-foreground">
+                        {row.rank ?? "—"}
+                      </span>
+                      <TeamMark name={row.teamName} logoUrl={row.logoUrl} />
+                      <div className="flex min-w-0 flex-1 flex-col gap-1">
+                        <Link
+                          href={
+                            row.teamPublicId
+                              ? `/league/${leagueSlug}/team/${row.teamPublicId}`
+                              : `/league/${leagueSlug}`
+                          }
+                          className="truncate text-sm font-medium underline-offset-2 hover:underline"
+                        >
+                          {row.teamName}
+                        </Link>
+                        <FormGuide games={row.form} compact />
+                      </div>
+                      <span className="shrink-0 text-sm tabular-nums">
+                        {formatRecord(row.wins, row.losses, row.ties)}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+
+              <TableShell className="rounded-lg border-0 max-md:hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="hover:bg-transparent">
+                      <TableHead className="w-8 px-2" aria-label="Position" />
+                      <TableHead>Team</TableHead>
+                      <TableHead>Record</TableHead>
+                      <TableHead>%</TableHead>
+                      <TableHead>Form</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {standingsRows.map((row) => {
+                      const isMine = Boolean(
+                        myTeamId && row.teamId === myTeamId,
+                      );
+                      return (
+                        <TableRow
+                          key={row.id}
+                          className={cn(isMine && "bg-muted/50")}
+                        >
+                          <TableCell className="w-8 px-2 tabular-nums text-muted-foreground">
+                            {row.rank ?? "—"}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex min-w-0 items-center gap-2">
+                              <TeamMark
+                                name={row.teamName}
+                                logoUrl={row.logoUrl}
+                              />
+                              <Link
+                                href={
+                                  row.teamPublicId
+                                    ? `/league/${leagueSlug}/team/${row.teamPublicId}`
+                                    : `/league/${leagueSlug}`
+                                }
+                                className="truncate font-medium underline-offset-2 hover:underline"
+                              >
+                                {row.teamName}
+                              </Link>
+                            </div>
+                          </TableCell>
+                          <TableCell className="tabular-nums">
+                            {formatRecord(row.wins, row.losses, row.ties)}
+                          </TableCell>
+                          <TableCell className="tabular-nums">
+                            {formatWinPct(row.winPct)}
+                          </TableCell>
+                          <TableCell>
+                            <FormGuide games={row.form} />
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </TableShell>
+            </>
           )}
         </OverviewCard>
 
@@ -430,9 +515,14 @@ export function LeagueOverview({
           }
         >
           {seasonLeaders.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              Position leaders will show after weekly scores land.
-            </p>
+            <Empty size="sm">
+              <EmptyHeader>
+                <EmptyTitle>No leaders yet</EmptyTitle>
+                <EmptyDescription>
+                  Position leaders show after weekly scores land.
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
           ) : (
             <ul className="flex flex-col gap-3">
               {seasonLeaders.map((leader) => (
@@ -475,19 +565,22 @@ export function LeagueOverview({
         <OverviewCard title={`Passing Leader${weekLabel}`}>
           <PlayerSpotlight
             player={playersOfTheWeek.passer}
-            empty="No QB scores yet."
+            emptyTitle="No QB scores yet"
+            empty="Top passers appear after weekly scores land."
           />
         </OverviewCard>
         <OverviewCard title={`Rushing Leader${weekLabel}`}>
           <PlayerSpotlight
             player={playersOfTheWeek.rusher}
-            empty="No RB scores yet."
+            emptyTitle="No RB scores yet"
+            empty="Top rushers appear after weekly scores land."
           />
         </OverviewCard>
         <OverviewCard title={`Receiving Leader${weekLabel}`}>
           <PlayerSpotlight
             player={playersOfTheWeek.receiver}
-            empty="No WR/TE scores yet."
+            emptyTitle="No WR/TE scores yet"
+            empty="Top receivers appear after weekly scores land."
           />
         </OverviewCard>
       </div>

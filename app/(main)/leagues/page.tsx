@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Add01Icon, UserGroupIcon } from "@hugeicons/core-free-icons";
+import { Add01Icon, LeftToRightListNumberIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
 import { JoinLeagueDialog } from "@/components/leagues/join-league-dialog";
@@ -52,10 +52,10 @@ export default async function LeaguesPage() {
       {leagues.length ? (
         <LeaguesTable leagues={leagues} />
       ) : (
-        <Empty className="border border-dashed">
+        <Empty>
           <EmptyHeader>
             <EmptyMedia variant="icon">
-              <HugeiconsIcon icon={UserGroupIcon} strokeWidth={2} />
+              <HugeiconsIcon icon={LeftToRightListNumberIcon} strokeWidth={2} />
             </EmptyMedia>
             <EmptyTitle>No leagues yet</EmptyTitle>
             <EmptyDescription>

@@ -96,36 +96,57 @@
     {
       "idx": 13,
       "version": "7",
+      "when": 1784880000000,
+      "tag": "0013_player_external_id_espn",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1784923200000,
+      "tag": "0014_activity_score_corrected",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
       "when": 1784966400000,
       "tag": "0015_message_threads",
       "breakpoints": true
     },
     {
-      "idx": 14,
+      "idx": 16,
       "version": "7",
       "when": 1785052800000,
       "tag": "0016_message_mention_notification",
       "breakpoints": true
     },
     {
-      "idx": 15,
+      "idx": 17,
       "version": "7",
       "when": 1785186167237,
       "tag": "0017_waiver_processing_lease",
       "breakpoints": true
     },
     {
-      "idx": 17,
+      "idx": 18,
       "version": "7",
       "when": 1785246700000,
       "tag": "0018_team_week_lineups",
       "breakpoints": true
     },
     {
-      "idx": 18,
+      "idx": 19,
       "version": "7",
       "when": 1785333100000,
       "tag": "0019_postgres_best_practices",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1785359995852,
+      "tag": "0020_profile_last_seen",
       "breakpoints": true
     }
   ]

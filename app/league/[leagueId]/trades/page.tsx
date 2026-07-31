@@ -2,12 +2,22 @@ import type { Metadata } from "next";
 import { after } from "next/server";
 import { redirect } from "next/navigation";
 
+import { UserSwitchIcon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
+
 import { ProposeTradeDialog } from "@/components/trades/propose-trade-dialog";
 import { TradeHistory } from "@/components/trades/trade-history";
 import { TradeList } from "@/components/trades/trade-list";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { processReadyTrades } from "@/lib/actions/trades";
 import { getSessionUser } from "@/lib/auth/session";
-import { canProposeTrades } from "@/lib/leagues/trades/guards";
+import { canProposeTrades, isOpenTradeStatus } from "@/lib/leagues/trades/guards";
 import { resolveTransactionRules } from "@/lib/leagues/transaction-rules";
 import { getLeagueHomeData } from "@/lib/queries/leagues";
 import { getLeagueTrades, getTradeVetoSummaries } from "@/lib/queries/trades";
@@ -60,6 +70,9 @@ export default async function TradesPage({ params }: TradesPageProps) {
     (member) => member.userId === user.id && member.role === "commissioner",
   );
   const proposeGate = canProposeTrades(season);
+  const openTradeCount = trades.filter((trade) =>
+    isOpenTradeStatus(trade.status),
+  ).length;
   const partners = data.members
     .filter((member) => member.teamId && member.teamId !== team.id)
     .map((member) => ({
@@ -80,25 +93,37 @@ export default async function TradesPage({ params }: TradesPageProps) {
       </div>
 
       {!proposeGate.ok ? (
-        <p className="text-sm text-muted-foreground">{proposeGate.error}</p>
-      ) : null}
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <HugeiconsIcon icon={UserSwitchIcon} strokeWidth={2} />
+            </EmptyMedia>
+            <EmptyTitle>Trades unavailable</EmptyTitle>
+            <EmptyDescription>{proposeGate.error}</EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+      ) : (
+        <>
+          <section className="flex flex-col gap-4">
+            {openTradeCount > 0 ? (
+              <h2 className="text-lg font-semibold tracking-tight text-balance">
+                Open Trades
+              </h2>
+            ) : null}
+            <TradeList
+              leagueSlug={slug}
+              trades={trades}
+              myTeamId={team.id}
+              isCommissioner={isCommissioner}
+              tradeProcessing={season.tradeProcessing}
+              allowVetoes={transactionRules.allowVetoes}
+              vetoSummaries={vetoSummaries}
+            />
+          </section>
 
-      <section className="flex flex-col gap-4">
-        <h2 className="text-lg font-semibold tracking-tight text-balance">
-          Open Trades
-        </h2>
-        <TradeList
-          leagueSlug={slug}
-          trades={trades}
-          myTeamId={team.id}
-          isCommissioner={isCommissioner}
-          tradeProcessing={season.tradeProcessing}
-          allowVetoes={transactionRules.allowVetoes}
-          vetoSummaries={vetoSummaries}
-        />
-      </section>
-
-      <TradeHistory trades={trades} myTeamId={team.id} />
+          <TradeHistory trades={trades} myTeamId={team.id} />
+        </>
+      )}
     </div>
   );
 }

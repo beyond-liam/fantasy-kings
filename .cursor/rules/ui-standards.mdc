@@ -38,4 +38,13 @@ For any UI, component, layout, styling, or frontend interaction work in this pro
 </Button>
 ```
 
+4. **Dialog footers are always sticky**:
+   - Modal action rows must use `DialogFooter` (or `AlertDialogFooter`)
+   - Keep footer actions visible while dialog content scrolls
+   - Sticky positioning belongs in the shared UI primitives, not repeated at call sites
+
+5. **Page scrolling belongs to the browser document**:
+   - Never put the primary vertical scrollbar on a route layout or max-width content container
+   - Use nested scrolling only for bounded UI such as dialogs, menus, message threads, and compact lists
+
 If shadcn and polish conflict, prefer project/shadcn component APIs and variants first, then apply polish on top without breaking built-in styling.

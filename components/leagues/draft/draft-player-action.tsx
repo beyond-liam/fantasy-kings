@@ -83,7 +83,9 @@ export function DraftPlayerAction({
     return (
       <Button
         type="button"
-        size="sm"
+        size="icon-sm"
+        className="md:h-8 md:w-auto md:gap-1 md:px-2.5"
+        aria-label="Draft"
         disabled={isPending}
         onClick={() => pick(false)}
       >
@@ -92,7 +94,7 @@ export function DraftPlayerAction({
           strokeWidth={2}
           data-icon="inline-start"
         />
-        Draft
+        <span className="hidden md:inline">Draft</span>
       </Button>
     );
   }
@@ -101,8 +103,10 @@ export function DraftPlayerAction({
     return (
       <Button
         type="button"
-        size="sm"
+        size="icon-sm"
         variant="secondary"
+        className="md:h-8 md:w-auto md:gap-1 md:px-2.5"
+        aria-label="Commish pick"
         disabled={isPending}
         onClick={() => pick(true)}
       >
@@ -111,19 +115,25 @@ export function DraftPlayerAction({
           strokeWidth={2}
           data-icon="inline-start"
         />
-        Commish pick
+        <span className="hidden md:inline">Commish pick</span>
       </Button>
     );
   }
 
   const button = (
-    <Button type="button" size="sm" disabled>
+    <Button
+      type="button"
+      size="icon-sm"
+      className="md:h-8 md:w-auto md:gap-1 md:px-2.5"
+      aria-label="Draft"
+      disabled
+    >
       <HugeiconsIcon
         icon={UserAdd01Icon}
         strokeWidth={2}
         data-icon="inline-start"
       />
-      Draft
+      <span className="hidden md:inline">Draft</span>
     </Button>
   );
 

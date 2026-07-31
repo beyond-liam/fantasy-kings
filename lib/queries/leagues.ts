@@ -46,7 +46,29 @@ export type UserLeagueListItem = {
   rank: number | null;
 };
 
-export async function getUserLeagues(
+export type UserLeagueNavItem = Pick<
+  UserLeagueListItem,
+  "id" | "name" | "publicId" | "logoUrl" | "teamName" | "wins" | "losses" | "ties"
+>;
+
+export async function getUserLeagueNavItems(
+  userId: string,
+): Promise<UserLeagueNavItem[]> {
+  const leagues = await getUserLeagues(userId);
+
+  return leagues.map((league) => ({
+    id: league.id,
+    name: league.name,
+    publicId: league.publicId,
+    logoUrl: league.logoUrl,
+    teamName: league.teamName,
+    wins: league.wins,
+    losses: league.losses,
+    ties: league.ties,
+  }));
+}
+
+export const getUserLeagues = cache(async function getUserLeagues(
   userId: string,
 ): Promise<UserLeagueListItem[]> {
   const rows = await db
@@ -197,7 +219,7 @@ export async function getUserLeagues(
       rank: record?.rank ?? null,
     };
   });
-}
+});
 
 export const getLeagueByPublicId = cache(async (publicId: string) => {
   const [league] = await db

@@ -32,10 +32,14 @@ export default function RootLayout({
       lang="en"
       className={cn("dark h-full antialiased font-sans font-synthesis-none", figtree.variable)}
     >
-      <body className="flex h-dvh flex-col overflow-hidden overscroll-none">
+      <body className="relative flex min-h-dvh flex-col">
         <AppChrome
           accountSlot={
-            <Suspense fallback={<AppTopNav initialAccount={null} />}>
+            <Suspense
+              fallback={
+                <AppTopNav initialAccount={null} initialLeagues={[]} />
+              }
+            >
               <AppAccountSlot />
             </Suspense>
           }

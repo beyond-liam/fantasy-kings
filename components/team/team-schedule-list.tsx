@@ -3,6 +3,7 @@
 import Link from "next/link";
 import type { ColumnDef } from "@tanstack/react-table";
 import {
+  CalendarBlock01Icon,
   TvMinimal as TvMinimalIcon,
   TvMinimalPlay as TvMinimalPlayIcon,
 } from "@hugeicons/core-free-icons";
@@ -15,6 +16,7 @@ import {
   Empty,
   EmptyDescription,
   EmptyHeader,
+  EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
 import { TABLE_ENTITY_LINK_CLASSNAME } from "@/components/ui/table";
@@ -280,8 +282,11 @@ export function TeamScheduleList({
 
   if (rows.length === 0) {
     return (
-      <Empty className="border border-dashed">
+      <Empty>
         <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <HugeiconsIcon icon={CalendarBlock01Icon} strokeWidth={2} />
+          </EmptyMedia>
           <EmptyTitle>No schedule yet</EmptyTitle>
           <EmptyDescription>
             Regular-season matchups appear once the league is full and a

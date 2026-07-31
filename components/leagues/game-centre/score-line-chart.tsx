@@ -8,6 +8,12 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import type { GameCentreChartPoint } from "@/lib/queries/game-centre";
 
 const chartConfig = {
@@ -43,11 +49,12 @@ export function ScoreLineChart({
     <section className="flex flex-col gap-3">
       <h2 className="text-sm font-medium">Score Chart</h2>
       {empty || data.length === 0 ? (
-        <div className="flex h-48 items-center justify-center rounded-xl border bg-card px-4">
-          <p className="text-sm text-pretty text-muted-foreground">
-            Updates after kickoff.
-          </p>
-        </div>
+        <Empty className="min-h-48" size="sm">
+          <EmptyHeader>
+            <EmptyTitle>Score chart empty</EmptyTitle>
+            <EmptyDescription>Updates after kickoff.</EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       ) : (
         <ChartContainer config={config} className="h-56 w-full">
           <LineChart

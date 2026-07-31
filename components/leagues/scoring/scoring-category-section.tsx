@@ -8,6 +8,7 @@ import {
   Empty,
   EmptyDescription,
   EmptyHeader,
+  EmptyTitle,
 } from "@/components/ui/empty";
 import {
   SCORING_CATEGORY_LABELS,
@@ -68,10 +69,13 @@ export function ScoringCategorySection({
               ))}
             </ul>
           ) : (
-            <Empty className="py-6">
+            <Empty size="sm">
               <EmptyHeader>
+                <EmptyTitle>
+                  No {categoryLabel.toLowerCase()} rules yet
+                </EmptyTitle>
                 <EmptyDescription>
-                  No {categoryLabel.toLowerCase()} rules yet.
+                  Add a rule to score {categoryLabel.toLowerCase()} stats.
                 </EmptyDescription>
               </EmptyHeader>
             </Empty>

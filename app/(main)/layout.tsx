@@ -6,7 +6,7 @@ export default function MainLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-none">
+    <div className="flex flex-1 flex-col">
       <ContentContainer className="flex flex-col">
         {children}
       </ContentContainer>

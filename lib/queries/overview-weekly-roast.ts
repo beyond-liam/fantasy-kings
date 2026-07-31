@@ -16,6 +16,7 @@ export type OverviewWeeklyRoastTeam = {
   teamPublicId: string | null;
   teamName: string;
   ownerName: string;
+  ownerUserId?: string | null;
   logoUrl: string | null;
 };
 

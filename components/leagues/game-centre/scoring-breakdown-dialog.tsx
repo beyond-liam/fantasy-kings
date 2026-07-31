@@ -7,6 +7,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import type { PlayerPointsExplanation } from "@/lib/leagues/scoring/calculate";
 
 type ScoringBreakdownDialogProps = {
@@ -32,10 +33,15 @@ export function ScoringBreakdownDialog({
           <DialogDescription>Week {week} scoring breakdown</DialogDescription>
         </DialogHeader>
 
-                {!explanation || explanation.lines.length === 0 ? (
-          <p className="text-sm text-pretty text-muted-foreground">
-            No scoring detail available for this player yet.
-          </p>
+        {!explanation || explanation.lines.length === 0 ? (
+          <Empty className="border-none" size="sm">
+            <EmptyHeader>
+              <EmptyTitle>No scoring detail yet</EmptyTitle>
+              <EmptyDescription>
+                Breakdown appears after this player&apos;s stats process.
+              </EmptyDescription>
+            </EmptyHeader>
+          </Empty>
         ) : (
           <div className="flex flex-col gap-3">
             <ul className="flex flex-col gap-2">

@@ -15,6 +15,12 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { ChartHeadlineMetric } from "@/components/team/charts/chart-headline-metric";
 import { formatPoints } from "@/lib/leagues/standings";
 import {
@@ -53,12 +59,15 @@ export function BenchWasteChart({ data }: BenchWasteChartProps) {
           />
         ) : null}
         {data.length === 0 ? (
-          <div className="flex min-h-72 flex-1 items-center justify-center rounded-lg border border-dashed px-4">
-            <p className="text-sm text-pretty text-muted-foreground">
-              Appears after weekly starter scores are recorded (open League
-              Stats once scores are live).
-            </p>
-          </div>
+          <Empty className="min-h-72 flex-1" size="sm">
+            <EmptyHeader>
+              <EmptyTitle>No bench waste yet</EmptyTitle>
+              <EmptyDescription>
+                Appears after weekly starter scores are recorded (open League
+                Stats once scores are live).
+              </EmptyDescription>
+            </EmptyHeader>
+          </Empty>
         ) : (
           <ChartContainer
             config={chartConfig}

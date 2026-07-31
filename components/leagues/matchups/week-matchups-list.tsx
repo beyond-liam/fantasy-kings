@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { Suspense, useEffect, useState } from "react";
+import { AmericanFootballIcon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 
 import { MatchupStatusBadge } from "@/components/leagues/matchups/matchup-status-badge";
 import {
@@ -10,6 +12,13 @@ import {
 } from "@/components/scores/week-filter";
 import { YearFilter } from "@/components/scores/year-filter";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { Spinner } from "@/components/ui/spinner";
 import { formatRecord, teamInitials } from "@/lib/leagues/standings";
 import { leagueMatchupPath } from "@/lib/leagues/utils";
@@ -283,7 +292,7 @@ export function WeekMatchupsList({
 
   const filters =
     weeks.length > 0 || years.length > 0 ? (
-      <div className="flex shrink-0 justify-end gap-2">
+      <div className="flex shrink-0 justify-start gap-2">
         <Suspense fallback={<Spinner />}>
           {weeks.length > 0 ? <WeekFilter weeks={weeks} value={week} /> : null}
           {years.length > 0 ? <YearFilter years={years} value={year} /> : null}
@@ -295,29 +304,36 @@ export function WeekMatchupsList({
     <div className="flex flex-col gap-4">
       {games.length === 0 ? (
         <>
-          {filters ? <div className="flex justify-end">{filters}</div> : null}
-          <p className="text-sm text-pretty text-muted-foreground">
-            No matchups for Week {week}. Generate the schedule when the league is
-            full.
-          </p>
+          {filters ? <div className="flex justify-start">{filters}</div> : null}
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <HugeiconsIcon icon={AmericanFootballIcon} strokeWidth={2} />
+            </EmptyMedia>
+            <EmptyTitle>No matchups for Week {week}</EmptyTitle>
+            <EmptyDescription>
+              Generate the schedule when the league is full.
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
         </>
       ) : (
         <div className="flex flex-col gap-8">
           {myGame ? (
             <section className="flex flex-col gap-3">
-              <div className="flex flex-wrap items-end justify-between gap-3">
+              <div className="flex flex-wrap items-end justify-start gap-3">
                 <h2 className="text-sm font-medium">Your Matchup</h2>
                 {filters}
               </div>
               <MatchupBoardRow game={myGame} leagueSlug={leagueSlug} />
             </section>
           ) : filters ? (
-            <div className="flex justify-end">{filters}</div>
+            <div className="flex justify-start">{filters}</div>
           ) : null}
 
           {otherGames.length > 0 ? (
             <section className="flex flex-col gap-3">
-              <div className="flex flex-wrap items-end justify-between gap-3">
+              <div className="flex flex-wrap items-end justify-start gap-3">
                 <h2 className="text-sm font-medium">
                   {myGame ? "Other Matchups" : "Matchups"}
                 </h2>

@@ -16,6 +16,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import {
   Select,
   SelectContent,
@@ -113,9 +114,14 @@ export function CutToAddDialog({
         </AlertDialogHeader>
 
         {candidates.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            No eligible players to cut.
-          </p>
+          <Empty className="border-none" size="sm">
+            <EmptyHeader>
+              <EmptyTitle>No eligible cuts</EmptyTitle>
+              <EmptyDescription>
+                No roster players can be cut for this move.
+              </EmptyDescription>
+            </EmptyHeader>
+          </Empty>
         ) : (
           <Select
             items={candidates.map((player) => ({

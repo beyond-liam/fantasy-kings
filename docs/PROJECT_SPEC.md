@@ -1,7 +1,7 @@
 # Fantasy Kings — Project Specification
 
 > Living document. Update this file as requirements, decisions, and scope change.
-> Last updated: 2026-07-28
+> Last updated: 2026-07-29
 
 ---
 
@@ -40,13 +40,15 @@ A mobile-first fantasy football web app for a private friend group (4–16 users
 | Playoffs standings | Seed only (no Rank column) |
 | Messages | League threads + replies; nav unread red dot; mark all read |
 | Engagement | SOS (season/remaining), playoff chance %, playoff picture badges, Game Centre Preview, Overview (spotlights + roast), HoF (titles + roast + extremes), Team H2H tab, Team Stats charts 1–4 + KPI strip |
+| Empty states | shadcn `Empty` used for zero-data surfaces (charts, lists, spotlights, settings, dialogs, data-table) |
+| Manager presence | Online / offline / inactive badges on current-manager identities; profile `last_seen_at` + throttled heartbeat + league poll |
+| Player profiles | Canonical `/players/[playerId]` page; player modal links to the full league-aware profile |
 
 ### Near-term product (build next)
 
 | Item | Notes |
 |---|---|
 | Advanced player filtering | Richer filters beyond current position / team / rookies / FA toggles |
-| Empty-state consistency | Use `components/ui/empty` everywhere an empty state is expected; migrate ad-hoc placeholders (chart “Appears after…”, plain muted copy, etc.) |
 
 ### Engagement analytics (remaining)
 
@@ -63,6 +65,7 @@ A mobile-first fantasy football web app for a private friend group (4–16 users
 | Dynasty picks + pick trades | Deferred | Come back later with dynasty format |
 | IDP positions + scoring | Deferred | Long-term differentiator; not current phase |
 | Player trend / snap / target share charts | Deferred | Paid/chart-heavy; Recharts installed but unused for this |
+| Player strength of schedule | Deferred | Revisit after rankings/players filter work; distinct from team SOS on standings/playoffs |
 | Win% σ re-fit from `player_scores` residuals | **Lowest** | Chance already shipped with literature priors; re-fit only after enough completed weeks — polish, not blocking |
 | TanStack Query / Zustand | **Lowest** | Not installed; RSC + local state fine. Revisit only if draft-room polling/cache becomes painful — not a planned product slice |
 | Web push notifications | **Lowest** | Optional later; DIY Web Push can stay free-tier. In-app + email v1 cover MVP |
@@ -142,6 +145,7 @@ Do not substitute without explicit approval.
 | UI reference | No mockup required — shadcn components |
 | Visual system | Dark-only shadcn + Figtree — **no separate branding track** |
 | Empty states | Always use shadcn **`Empty`** (`components/ui/empty`) wherever an empty/zero-data state is shown |
+| Manager presence | Profile-level last seen; show only on current manager identities — never unclaimed teams, historical records, or public invite previews |
 | Scoring | **Offense engine + league rules UI shipped**; IDP scoring deferred |
 | Mock draft | Solo vs need-aware ADP bots only — **no friends lobby** |
 | Trade Analyzer | **Removed permanently** (not deferred) |
@@ -199,11 +203,14 @@ Both contexts have "Scores" and "Draft Room". Use distinct labels in the UI:
 
 ### UI empty states (required)
 
-Wherever the UI shows that there is nothing to display yet (no rows, no charts, no messages, no schedule, filtered-out lists, missing entitlements, etc.), use the shared shadcn **`Empty`** primitive from `components/ui/empty` (`Empty` / `EmptyHeader` / `EmptyTitle` / `EmptyDescription` / `EmptyMedia` / `EmptyContent` as needed).
+Wherever the UI shows that there is nothing to display yet (no rows, no charts, no messages, no schedule, filtered-out lists, missing entitlements, etc.), compose **only** the shared shadcn **`Empty`** primitive from `components/ui/empty` (`Empty` / `EmptyHeader` / `EmptyTitle` / `EmptyDescription` / `EmptyMedia` / `EmptyContent`). Do **not** add wrapper components or one-off empty UIs (plain muted paragraphs, ad-hoc centered copy).
 
-**Do not** invent one-off empty UIs (plain muted paragraphs, dashed placeholder boxes with only raw text, ad-hoc centered copy) for those cases. Match existing good call sites (data-table empty row, messages, schedule, watchlist, team tabs).
+Two variants via the `Empty` **`size`** prop:
 
-Chart cards and other surfaces that currently use dashed “Appears after…” placeholders should be migrated to `Empty` when touched or in a dedicated pass.
+1. **Default page/list empties** (`size` omitted or `"default"`) — dashed border is built into `Empty`; do not add redundant `border border-dashed` or oversized padding overrides. Must include `EmptyMedia variant="icon"` with a Hugeicons icon, `EmptyTitle`, and `EmptyDescription`. Add `EmptyContent` with icon-leading `Button`(s) when a useful next action exists.
+2. **Compact card/spotlight empties** (`size="sm"`) — stat cards, `TeamSpotlight`, `PlayerSpotlight`, overview/HoF spotlights. No icon; short title plus explanatory description (typography handled by `size="sm"`).
+
+**Exceptions:** `border-none` (no dashed box) is OK for menu dropdowns and full-page not-found style surfaces. Data-table empty rows may stay compact inside the table.
 
 ---
 
@@ -218,6 +225,7 @@ Chart cards and other surfaces that currently use dashed “Appears after…” 
 - Open registration — anyone can create an account and create a league
 - Post-login: dashboard; invite destinations preserved via `next`
 - Post-auth `next` redirects allowlisted to same-origin relative paths
+- Authenticated app activity updates profile `last_seen_at`; regular/postseason uses a 14-day inactivity threshold and preseason/offseason uses 30 days
 
 ### Leagues & formats
 
@@ -641,7 +649,8 @@ lib/
 
 **Near-term product**
 - [ ] **Advanced player filtering** — richer filters beyond position / team / rookies / FA (DEFERRED)
-- [ ] **Empty-state consistency** — use shadcn `Empty` everywhere zero-data is shown; migrate ad-hoc placeholders
+- [x] **Manager presence** — online (2-min), offline, inactive (14d in-season / 30d offseason); avatar/name badges with tooltips
+- [x] **Empty-state consistency** — use shadcn `Empty` everywhere zero-data is shown; migrate ad-hoc placeholders
 - [x] **Form guide on league table** — last 5 results (FORM column replaces OPP); tooltips with opponent/score
 - [x] **Remove rank from playoffs table** — seed only; drop redundant Rank column
 - [x] **In-league messaging** — league threads/replies; nav unread red dot; mark all read; `@` mentions → bell notifications
@@ -670,6 +679,7 @@ lib/
 - [x] **Playoff two-week championship (UI)** — series totals on championship cards + Champion column crowning
 
 **Deferred format / analytics**
+- [ ] **Player strength of schedule** — remaining/season SOS for players (NFL opponent difficulty); revisit later; team SOS already shipped
 - [ ] IDP positions + scoring
 - [ ] Dynasty picks — deferred (come back later)
 - [ ] **Dynasty draft-pick trades** — deferred with dynasty picks
@@ -681,7 +691,7 @@ lib/
 - [ ] Web push notifications — optional free DIY Web Push later
 
 **UI consistency**
-- [ ] **Empty states** — audit all empty/zero-data surfaces; use shadcn `Empty` (`components/ui/empty`) only — no ad-hoc dashed boxes / muted paragraphs for those cases
+- [x] **Empty states** — audit all empty/zero-data surfaces; use shadcn `Empty` (`components/ui/empty`) only — no ad-hoc dashed boxes / muted paragraphs for those cases
 
 ### Trades — follow-up (after initial ship)
 
@@ -785,3 +795,7 @@ lib/
 | 2026-07-28 | Perf: league home Suspense tab panels; server-paginated rankings/players (50/page); Lighthouse smoke/league scripts + ops doc |
 | 2026-07-28 | Postgres best practices: RLS on post-0009 tables; fail-fast DATABASE_URL; matchup FK/partial + secondary FK indexes; score-row hard cap; skip ranks on board/win%; finalize batching |
 | 2026-07-28 | React best practices: parallelize nav/GC/action-context; React.cache hot helpers; Suspense account chrome + My Team tabs; slim GC payload; after() in-app alerts/mentions |
+| 2026-07-28 | Empty-state consistency: migrate ad-hoc zero-data UIs to shadcn `Empty`; `size` default (icon+title+description+actions) vs `sm` compact cards/spotlights |
+| 2026-07-29 | Manager presence: `profiles.last_seen_at`, heartbeat, league poll, badges on current-manager identities |
+| 2026-07-29 | Deferred: player strength of schedule (distinct from team SOS on standings/playoffs) |
+| 2026-07-30 | Player profile foundation: canonical player page + league-aware “View full profile” modal action |

@@ -4,6 +4,7 @@ import { Cancel01Icon, TickDouble02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 import { ScoringCategorySection } from "@/components/leagues/scoring/scoring-category-section";
 import { ScoringPresetPicker } from "@/components/leagues/scoring/scoring-preset-picker";
@@ -16,6 +17,7 @@ import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import {
   updateScoringSettings,
 } from "@/lib/actions/league-settings";
+import { jsonEqual } from "@/lib/json-equal";
 import {
   createEmptyScoringRuleDefinition,
   getDefaultScoringRuleDefinitions,
@@ -56,8 +58,7 @@ export function ScoringSettings({
     [rules],
   );
   const hasChanges =
-    preset !== initialPreset ||
-    JSON.stringify(rules) !== JSON.stringify(initialRules);
+    preset !== initialPreset || !jsonEqual(rules, initialRules);
 
   const handleSave = () => {
     setError(null);
@@ -71,6 +72,7 @@ export function ScoringSettings({
         return;
       }
 
+      toast.success("Scoring settings saved");
       router.refresh();
     });
   };

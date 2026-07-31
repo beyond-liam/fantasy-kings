@@ -3,7 +3,6 @@
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 
 import {
-  AddTeamIcon,
   ArrowDataTransferHorizontalIcon,
   ArrowExpandDiagonal01Icon,
   Calendar01Icon,
@@ -13,25 +12,34 @@ import {
   GavelIcon,
   Image01Icon,
   LeftToRightListNumberIcon,
+  Legal01Icon,
+  ListSettingIcon,
   LockIcon,
   LockKeyIcon,
   LockSync01Icon,
+  PowerServiceIcon,
   Settings01Icon,
   ShuffleIcon,
+  SkullIcon,
   SquareRootSquareIcon,
+  TaskEdit01Icon,
   UserGroupIcon,
   UserMultipleIcon,
   Wrench01Icon,
 } from "@hugeicons/core-free-icons";
+import type { IconSvgElement } from "@hugeicons/react";
 
 import { DangerZoneMenuItems } from "@/components/leagues/settings/danger-zone-menu-items";
-import { FillBotTeamsMenuItem } from "@/components/leagues/settings/fill-bot-teams-menu-item";
 import { OpenFreeAgencyMenuItem } from "@/components/leagues/settings/open-free-agency-menu-item";
 import { RemoveOwnerMenuItem } from "@/components/leagues/settings/remove-owner-menu-item";
 import {
   SettingsMenuSection,
   type SettingsMenuItem,
 } from "@/components/leagues/settings/settings-menu-section";
+import {
+  MobileTabDrawer,
+  type MobileTabDrawerItem,
+} from "@/components/layout/mobile-tab-drawer";
 import {
   Tabs,
   TabsContent,
@@ -45,22 +53,31 @@ import {
   type SettingsTab,
 } from "@/lib/leagues/settings-tabs";
 
-const SETTINGS_TABS = [
+const SETTINGS_TABS: {
+  value: SettingsTab;
+  label: string;
+  title: string;
+  icon: IconSvgElement;
+  variant?: "danger";
+  items: SettingsMenuItem[];
+}[] = [
   {
-    value: "league" satisfies SettingsTab,
+    value: "league",
     label: "League Settings",
     title: "League Settings",
+    icon: ListSettingIcon,
     items: [
       { label: "Edit League Name & Logo", icon: Image01Icon },
       { label: "Edit League Size", icon: UserGroupIcon },
       { label: "Realign Divisions", icon: ArrowDataTransferHorizontalIcon },
       { label: "Appoint Co-Commish", icon: UserMultipleIcon },
-    ] satisfies SettingsMenuItem[],
+    ],
   },
   {
-    value: "rules" satisfies SettingsTab,
+    value: "rules",
     label: "Rules",
     title: "Rules",
+    icon: Legal01Icon,
     items: [
       { label: "Edit Scoring Rules", icon: SquareRootSquareIcon },
       { label: "Edit Roster Requirements", icon: Edit02Icon },
@@ -68,48 +85,58 @@ const SETTINGS_TABS = [
       { label: "Edit Waiver Wire Rules", icon: LockKeyIcon },
       { label: "Edit Tiebreak Rules", icon: ArrowExpandDiagonal01Icon },
       { label: "Edit Transaction Rules", icon: LockSync01Icon },
-    ] satisfies SettingsMenuItem[],
+    ],
   },
   {
-    value: "schedule" satisfies SettingsTab,
+    value: "schedule",
     label: "Schedule",
     title: "Schedule",
+    icon: Calendar03Icon,
     items: [
       { label: "Edit Regular Season Schedule", icon: Calendar03Icon },
       { label: "Edit Playoffs", icon: Calendar01Icon },
       { label: "Edit Playoff Seeding", icon: ArrowDataTransferHorizontalIcon },
-    ] satisfies SettingsMenuItem[],
+    ],
   },
   {
-    value: "draft" satisfies SettingsTab,
+    value: "draft",
     label: "Draft",
     title: "Draft",
+    icon: TaskEdit01Icon,
     items: [
       { label: "Configure Draft", icon: Settings01Icon },
       { label: "Edit Draft Order", icon: ShuffleIcon },
-      { label: "Fill Empty Slots", icon: AddTeamIcon },
       { label: "Open Free Agency", icon: GavelIcon },
-    ] satisfies SettingsMenuItem[],
+    ],
   },
   {
-    value: "commish" satisfies SettingsTab,
+    value: "commish",
     label: "Commish Powers",
     title: "Commish Powers",
+    icon: PowerServiceIcon,
     items: [
       { label: "Set Starting Lineups", icon: Wrench01Icon },
       { label: "Edit Past Box Score", icon: EraserIcon },
       { label: "Edit Waiver Order", icon: LeftToRightListNumberIcon },
-    ] satisfies SettingsMenuItem[],
+    ],
   },
   {
-    value: "danger" satisfies SettingsTab,
+    value: "danger",
     label: "Danger Zone",
     title: "Danger Zone",
-    variant: "danger" as const,
-    items: [] satisfies SettingsMenuItem[],
+    icon: SkullIcon,
+    variant: "danger",
+    items: [],
   },
 ];
 
+const SETTINGS_DRAWER_TABS: readonly MobileTabDrawerItem[] = SETTINGS_TABS.map(
+  (tab) => ({
+    value: tab.value,
+    label: tab.label,
+    icon: tab.icon,
+  }),
+);
 function getSettingsTabs(slug: string) {
   return SETTINGS_TABS.map((tab) => {
     if (tab.value === "rules") {
@@ -302,7 +329,7 @@ export function LeagueSettingsTabs({
 
   return (
     <Tabs value={activeTab} onValueChange={setTab} className="gap-4">
-      <div className="max-w-full overflow-x-auto">
+      <div className="hidden max-w-full overflow-x-auto md:block">
         <TabsList className="min-w-max">
           {tabs.map((tab) => (
             <TabsTrigger
@@ -315,26 +342,29 @@ export function LeagueSettingsTabs({
           ))}
         </TabsList>
       </div>
+
+      <MobileTabDrawer
+        items={SETTINGS_DRAWER_TABS}
+        value={activeTab}
+        onSelect={setTab}
+        title="Settings sections"
+        description="Choose which settings section to view"
+      />
       {tabs.map((tab) => (
         <TabsContent key={tab.value} value={tab.value} className="outline-none">
           {tab.value === "draft" ? (
             <SettingsMenuSection
               title={tab.title}
               items={tab.items.filter(
-                (item) =>
-                  item.label !== "Open Free Agency" &&
-                  item.label !== "Fill Empty Slots",
+                (item) => item.label !== "Open Free Agency",
               )}
               variant={tab.variant}
               footer={
-                <div className="flex flex-col gap-0.5">
-                  <FillBotTeamsMenuItem slug={slug} />
-                  <OpenFreeAgencyMenuItem
-                    slug={slug}
-                    seasonStatus={seasonStatus}
-                    freeAgencyOpen={freeAgencyOpen}
-                  />
-                </div>
+                <OpenFreeAgencyMenuItem
+                  slug={slug}
+                  seasonStatus={seasonStatus}
+                  freeAgencyOpen={freeAgencyOpen}
+                />
               }
             />
           ) : tab.value === "danger" ? (

@@ -2,15 +2,17 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Cancel01Icon, TickDouble02Icon } from "@hugeicons/core-free-icons";
+import { Cancel01Icon, TickDouble02Icon, UserRemove01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
+import { ManagerPresenceIndicator } from "@/components/leagues/presence/manager-presence-badge";
 import { SettingsFormCard } from "@/components/leagues/settings/settings-form-card";
 import { PageFormActions } from "@/components/layout/page-form-actions";
 import type { MembershipOwnerOption } from "@/lib/leagues/membership";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { Label } from "@/components/ui/label";
 import { updateCoCommissioners } from "@/lib/actions/league-settings";
 import { settingsHref } from "@/lib/leagues/settings-tabs";
@@ -112,9 +114,17 @@ export function CoCommissionerSettings({
         }
       >
         {candidates.length === 0 ? (
-          <p className="px-4 py-3 text-sm text-muted-foreground">
-            No other owners in this league yet.
-          </p>
+          <Empty>
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <HugeiconsIcon icon={UserRemove01Icon} strokeWidth={2} />
+              </EmptyMedia>
+              <EmptyTitle>No other owners yet</EmptyTitle>
+              <EmptyDescription>
+                Invite managers before assigning co-commissioners.
+              </EmptyDescription>
+            </EmptyHeader>
+          </Empty>
         ) : (
           <ul>
             {candidates.map((owner, index) => {
@@ -140,7 +150,8 @@ export function CoCommissionerSettings({
                     htmlFor={id}
                     className="flex min-w-0 flex-1 cursor-pointer flex-col items-start gap-0.5 text-left font-normal"
                   >
-                    <span className="truncate text-sm font-medium">
+                    <span className="inline-flex min-w-0 items-center gap-1.5 truncate text-sm font-medium">
+                      <ManagerPresenceIndicator userId={owner.userId} />
                       {owner.displayName}
                     </span>
                     <span className="truncate text-xs text-muted-foreground">

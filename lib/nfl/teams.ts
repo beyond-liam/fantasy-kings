@@ -73,3 +73,7 @@ export const NFL_TEAM_LABELS: Record<NflTeamAbbrev, string> = {
 export function isNflTeamAbbrev(value: string): value is NflTeamAbbrev {
   return (NFL_TEAMS as readonly string[]).includes(value);
 }
+
+export function getNflTeamLabel(abbrev: string): string {
+  return isNflTeamAbbrev(abbrev) ? NFL_TEAM_LABELS[abbrev] : abbrev;
+}

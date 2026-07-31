@@ -162,6 +162,7 @@ export async function MyTeamRosterPanel({
           profile.username?.trim() ||
           profile.displayName?.trim() ||
           null,
+        ownerUserId: user.id,
         previous,
         current,
         myTeamSlug: team.publicId ?? team.slug,

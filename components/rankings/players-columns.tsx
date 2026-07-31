@@ -53,6 +53,8 @@ export function getPlayersColumns(
     acquisitionLockReason?: string;
     leagueSlug?: string;
     tradesEnabled?: boolean;
+    /** Mobile pins action + player and moves watchlist to the end. */
+    isMobile?: boolean;
   },
 ): ColumnDef<RankedPlayerRow>[] {
   const statCols = getStatColumns(position);
@@ -63,6 +65,7 @@ export function getPlayersColumns(
   const acquisitionLockReason = options?.acquisitionLockReason;
   const leagueSlug = options?.leagueSlug ?? "";
   const tradesEnabled = options?.tradesEnabled ?? true;
+  const isMobile = options?.isMobile ?? false;
 
   const watchlistColumn: ColumnDef<RankedPlayerRow> = {
     id: "watchlist",
@@ -105,7 +108,8 @@ export function getPlayersColumns(
     enableHiding: false,
     size: 72,
     meta: {
-      width: 72,
+      width: isMobile ? 64 : 72,
+      sticky: isMobile ? "left" : undefined,
       cellClassName: "px-1 text-center",
       headerClassName: "px-1",
     },
@@ -122,8 +126,25 @@ export function getPlayersColumns(
     ),
   };
 
+  const leadColumns = isMobile
+    ? showLeagueOwnership
+      ? [actionColumn]
+      : []
+    : showWatchlist
+      ? [watchlistColumn]
+      : [];
+
+  const trailColumns = isMobile
+    ? [
+        ...(showLeagueOwnership ? [teamColumn] : []),
+        ...(showWatchlist ? [watchlistColumn] : []),
+      ]
+    : showLeagueOwnership
+      ? [teamColumn, actionColumn]
+      : [];
+
   return [
-    ...(showWatchlist ? [watchlistColumn] : []),
+    ...leadColumns,
     {
       id: "player",
       accessorFn: (row) => row.fullName,
@@ -131,7 +152,8 @@ export function getPlayersColumns(
       enableHiding: false,
       size: 220,
       meta: {
-        width: 220,
+        width: isMobile ? 176 : 220,
+        sticky: isMobile ? "left" : undefined,
       },
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title="Player" />
@@ -213,6 +235,6 @@ export function getPlayersColumns(
         ),
       }),
     ),
-    ...(showLeagueOwnership ? [teamColumn, actionColumn] : []),
+    ...trailColumns,
   ];
 }

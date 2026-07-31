@@ -9,6 +9,7 @@ import {
   Empty,
   EmptyDescription,
   EmptyHeader,
+  EmptyTitle,
 } from "@/components/ui/empty";
 import {
   Table,
@@ -49,10 +50,11 @@ export function DraftQueuePanel({ slug, items }: DraftQueuePanelProps) {
           <TableBody>
             <TableRow className="hover:bg-transparent">
               <TableCell colSpan={4} className="p-0">
-                <Empty className="py-10">
+                <Empty className="border-none py-10" size="sm">
                   <EmptyHeader>
+                    <EmptyTitle>Queue is empty</EmptyTitle>
                     <EmptyDescription>
-                      Queue is empty. Add players from the Player Pool tab.
+                      Add players from the Player Pool tab.
                     </EmptyDescription>
                   </EmptyHeader>
                 </Empty>

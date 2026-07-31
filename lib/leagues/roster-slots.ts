@@ -19,6 +19,14 @@ export function occupiedBySlot(
   return map;
 }
 
+/** Slot a player currently occupies — explicit assignment or their position. */
+export function effectiveSlotPositionId(player: {
+  slotPositionId: string | null;
+  primaryPositionId: string;
+}) {
+  return player.slotPositionId ?? player.primaryPositionId;
+}
+
 export function isReserveSlot(slotPositionId: string) {
   return (
     slotPositionId === "BN" ||
@@ -292,6 +300,86 @@ export function applyLocalSlotAssignment<T extends SlotAssignmentPlayer>(
   if (target) {
     target.slotPositionId = slotPositionId;
   }
+
+  const caps = validateActiveRosterCaps(next, rosterSlots, benchSlots);
+  if (!caps.ok) {
+    return { error: caps.error };
+  }
+
+  return { players: next };
+}
+
+type SlotEligibility = {
+  irEligibleStatuses?: readonly string[];
+  taxiMaxYearsExp?: 0 | 1 | 2 | 3 | 4 | 5 | null;
+};
+
+function acceptsPlayer(
+  slotPositionId: string,
+  player: SlotAssignmentPlayer,
+  eligibility: SlotEligibility,
+) {
+  return slotAcceptsPlayer(slotPositionId, player.primaryPositionId, {
+    injuryStatus: player.injuryStatus,
+    irEligibleStatuses: eligibility.irEligibleStatuses ?? [],
+    yearsExp: player.yearsExp,
+    taxiMaxYearsExp: eligibility.taxiMaxYearsExp,
+  });
+}
+
+/** Players who can trade places with the given slot, both directions eligible. */
+export function findSwapCandidates<T extends SlotAssignmentPlayer>(
+  players: T[],
+  slotPositionId: string,
+  playerId: string | null,
+  eligibility: SlotEligibility = {},
+): T[] {
+  const player = playerId
+    ? (players.find((row) => row.id === playerId) ?? null)
+    : null;
+
+  return players.filter((candidate) => {
+    if (candidate.id === playerId) return false;
+    const candidateSlot = effectiveSlotPositionId(candidate);
+    if (candidateSlot === slotPositionId) return false;
+    if (!acceptsPlayer(slotPositionId, candidate, eligibility)) return false;
+    // The displaced player has to be able to take the candidate's slot back.
+    return !player || acceptsPlayer(candidateSlot, player, eligibility);
+  });
+}
+
+/** Trade two rostered players' slots in memory. */
+export function applyLocalSlotSwap<T extends SlotAssignmentPlayer>(
+  players: T[],
+  playerId: string,
+  otherPlayerId: string,
+  rosterSlots: RosterSlotConfig[],
+  benchSlots: number,
+  irEligibleStatuses: readonly string[] = [],
+  taxiMaxYearsExp: 0 | 1 | 2 | 3 | 4 | 5 = 0,
+): { players: T[] } | { error: string } {
+  const player = players.find((row) => row.id === playerId);
+  const other = players.find((row) => row.id === otherPlayerId);
+  if (!player || !other) {
+    return { error: "Player is not on your roster." };
+  }
+
+  const eligibility = { irEligibleStatuses, taxiMaxYearsExp };
+  const playerSlot = effectiveSlotPositionId(player);
+  const otherSlot = effectiveSlotPositionId(other);
+
+  if (!acceptsPlayer(playerSlot, other, eligibility)) {
+    return { error: `${other.primaryPositionId} cannot play ${playerSlot}.` };
+  }
+  if (!acceptsPlayer(otherSlot, player, eligibility)) {
+    return { error: `${player.primaryPositionId} cannot play ${otherSlot}.` };
+  }
+
+  const next = players.map((row) => {
+    if (row.id === playerId) return { ...row, slotPositionId: otherSlot };
+    if (row.id === otherPlayerId) return { ...row, slotPositionId: playerSlot };
+    return { ...row };
+  });
 
   const caps = validateActiveRosterCaps(next, rosterSlots, benchSlots);
   if (!caps.ok) {

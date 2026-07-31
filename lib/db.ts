@@ -45,6 +45,10 @@ const client =
         max: 1,
         prepare: false,
         ssl: "require",
+        // Fail fast on dead sockets; recycle before Supabase kills idle clients.
+        connect_timeout: 10,
+        idle_timeout: 20,
+        max_lifetime: 60 * 5,
       });
 
 if (process.env.NODE_ENV !== "production") {

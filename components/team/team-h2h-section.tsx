@@ -1,12 +1,16 @@
 import Link from "next/link";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { TvMinimal as TvMinimalIcon } from "@hugeicons/core-free-icons";
+import {
+  AmericanFootballIcon,
+  TvMinimal as TvMinimalIcon,
+} from "@hugeicons/core-free-icons";
 
 import { Button } from "@/components/ui/button";
 import {
   Empty,
   EmptyDescription,
   EmptyHeader,
+  EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
 import {
@@ -92,6 +96,9 @@ export function TeamH2hSection({
     return (
       <Empty>
         <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <HugeiconsIcon icon={AmericanFootballIcon} strokeWidth={2} />
+          </EmptyMedia>
           <EmptyTitle>No meetings yet</EmptyTitle>
           <EmptyDescription>
             {viewerTeamName} and {opponentTeamName} have not been scheduled

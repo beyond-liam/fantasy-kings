@@ -97,6 +97,7 @@ function teamIdentityRows(
       teamId: team.teamId,
       teamPublicId: team.teamPublicId,
       teamName: team.teamName,
+      ownerUserId: team.userId,
       ownerName: claimed
         ? (team.displayName?.trim() || "Manager")
         : "Unclaimed",
@@ -319,6 +320,7 @@ export const getLeaguePositionStats = cache(
         teamId: team.teamId,
         teamPublicId: team.teamPublicId,
         teamName: team.teamName,
+        ownerUserId: team.userId,
         ownerName: claimed
           ? (team.displayName?.trim() || "Manager")
           : "Unclaimed",

@@ -23,7 +23,10 @@ import {
   buildFilledRosterSections,
   type TeamRosterPlayer,
 } from "@/lib/leagues/roster-fill";
-import { applyLocalSlotAssignment } from "@/lib/leagues/roster-slots";
+import {
+  applyLocalSlotAssignment,
+  applyLocalSlotSwap,
+} from "@/lib/leagues/roster-slots";
 import {
   buildTeamSummaryRosterBreakdown,
   type TeamSummaryMatchupRef,
@@ -54,6 +57,7 @@ type TeamRosterSectionsProps = {
   summary?: {
     waiverPriorityLabel: string | null;
     ownerName: string | null;
+    ownerUserId?: string | null;
     previous: TeamSummaryMatchupRef | null;
     current: TeamSummaryMatchupRef | null;
     myTeamSlug?: string | null;
@@ -162,6 +166,25 @@ export function TeamRosterSections({
     });
   };
 
+  const handleSwap = (playerId: string, otherPlayerId: string) => {
+    setDraftPlayers((current) => {
+      const result = applyLocalSlotSwap(
+        current,
+        playerId,
+        otherPlayerId,
+        rosterSlots,
+        benchSlots,
+        resolvedIrEligible,
+        taxiMaxYearsExp ?? 0,
+      );
+      if ("error" in result) {
+        toast.error(result.error);
+        return current;
+      }
+      return result.players;
+    });
+  };
+
   const handleReset = () => {
     setDraftPlayers(players);
   };
@@ -243,7 +266,9 @@ export function TeamRosterSections({
     rosterSlots,
     benchSlots,
     rosterPlayers: draftPlayers,
+    taxiMaxYearsExp,
     onSlotChange: handleSlotChange,
+    onSwap: handleSwap,
   } as const;
 
   const rosterColumn = (
@@ -328,10 +353,11 @@ export function TeamRosterSections({
     <div className="flex flex-col gap-8 lg:flex-row lg:items-start">
       {rosterColumn}
       <TeamSummaryPanel
-        className="lg:sticky lg:top-6 lg:w-64 lg:shrink-0"
+        className="lg:sticky lg:top-20 lg:w-64 lg:shrink-0"
         leagueSlug={leagueSlug}
         waiverPriorityLabel={summary.waiverPriorityLabel}
         ownerName={summary.ownerName}
+        ownerUserId={summary.ownerUserId}
         previous={summary.previous}
         current={summary.current}
         breakdown={rosterBreakdown}

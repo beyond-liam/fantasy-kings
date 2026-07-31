@@ -15,6 +15,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -151,9 +152,14 @@ export function ClaimPlayerDialog({
                   : "Optional drop"}
               </Label>
               {candidates.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  No eligible players to drop.
-                </p>
+                <Empty className="border-none" size="sm">
+                  <EmptyHeader>
+                    <EmptyTitle>No eligible drops</EmptyTitle>
+                    <EmptyDescription>
+                      No roster players can be dropped for this claim.
+                    </EmptyDescription>
+                  </EmptyHeader>
+                </Empty>
               ) : (
                 <Select
                   items={candidates.map((player) => ({

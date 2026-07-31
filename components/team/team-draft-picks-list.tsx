@@ -1,7 +1,11 @@
+import { LicenseDraftIcon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
+
 import {
   Empty,
   EmptyDescription,
   EmptyHeader,
+  EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
 import {
@@ -28,8 +32,11 @@ type TeamDraftPicksListProps = {
 export function TeamDraftPicksList({ picks }: TeamDraftPicksListProps) {
   if (picks.length === 0) {
     return (
-      <Empty className="border border-dashed">
+      <Empty>
         <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <HugeiconsIcon icon={LicenseDraftIcon} strokeWidth={2} />
+          </EmptyMedia>
           <EmptyTitle>No draft picks yet</EmptyTitle>
           <EmptyDescription>
             Players drafted by this team will show up here after the draft.

@@ -144,15 +144,6 @@ export function TeamSettingsSection({
         </CardHeader>
         <CardContent className="py-4">
           <FieldGroup>
-            <LogoField
-              kind="team"
-              value={values}
-              initialLogoUrl={initialLogoUrl}
-              onChange={patch}
-              error={fieldErrors.logoUrl}
-              description=""
-            />
-
             <Field>
               <FieldLabel htmlFor="teamName">Team Name</FieldLabel>
               <Input
@@ -164,6 +155,15 @@ export function TeamSettingsSection({
                 <FieldError>{fieldErrors.name}</FieldError>
               ) : null}
             </Field>
+
+            <LogoField
+              kind="team"
+              value={values}
+              initialLogoUrl={initialLogoUrl}
+              onChange={patch}
+              error={fieldErrors.logoUrl}
+              description=""
+            />
           </FieldGroup>
         </CardContent>
         <CardFooter className="justify-end gap-2 border-t pb-4">

@@ -10,5 +10,10 @@ declare module "@tanstack/react-table" {
      * Columns without `width` share the remaining table width equally.
      */
     width?: number;
+    /**
+     * Pin the column to the left while the table scrolls horizontally.
+     * Applied on mobile only (`max-md`).
+     */
+    sticky?: "left";
   }
 }

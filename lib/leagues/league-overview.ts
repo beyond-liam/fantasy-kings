@@ -44,6 +44,7 @@ export type OverviewTeamMetric = {
   teamPublicId: string | null;
   teamName: string;
   ownerName: string;
+  ownerUserId?: string | null;
   logoUrl: string | null;
   value: number;
 };
@@ -61,6 +62,7 @@ export function rankByPointsFor(
       teamPublicId: row.teamPublicId,
       teamName: row.teamName,
       ownerName: row.ownerName,
+      ownerUserId: row.ownerUserId,
       logoUrl: row.logoUrl,
       value: row.pointsFor,
     }));
@@ -83,6 +85,7 @@ export function rankByPointsAgainst(
       teamPublicId: row.teamPublicId,
       teamName: row.teamName,
       ownerName: row.ownerName,
+      ownerUserId: row.ownerUserId,
       logoUrl: row.logoUrl,
       value: row.pointsAgainst,
     }));
@@ -103,6 +106,7 @@ export function rankByInefficiency(
     teamPublicId: string | null;
     teamName: string;
     ownerName: string;
+    ownerUserId?: string | null;
     logoUrl: string | null;
     claimed: boolean;
     seasonPointsFor: number | null;
@@ -128,6 +132,7 @@ export function rankByInefficiency(
         teamPublicId: row.teamPublicId,
         teamName: row.teamName,
         ownerName: row.ownerName,
+        ownerUserId: row.ownerUserId,
         logoUrl: row.logoUrl,
         pointsFor,
         optimumPointsFor,
@@ -220,6 +225,7 @@ function metricFromTeam(
     teamPublicId: string | null;
     teamName: string;
     ownerName: string;
+    ownerUserId?: string | null;
     logoUrl: string | null;
   },
   value: number,
@@ -229,6 +235,7 @@ function metricFromTeam(
     teamPublicId: team.teamPublicId,
     teamName: team.teamName,
     ownerName: team.ownerName,
+    ownerUserId: team.ownerUserId,
     logoUrl: team.logoUrl,
     value: Math.round(value * 10) / 10,
   };
@@ -245,6 +252,7 @@ export function pickWeeklyRoast(input: {
     teamPublicId: string | null;
     teamName: string;
     ownerName: string;
+    ownerUserId?: string | null;
     logoUrl: string | null;
   }>;
   results: OverviewWeeklyResult[];

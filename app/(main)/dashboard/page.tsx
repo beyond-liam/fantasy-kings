@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { DashboardSquare01Icon } from "@hugeicons/core-free-icons";
+import { AmericanFootballIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
 import {
@@ -27,10 +27,10 @@ export default async function DashboardPage() {
       <h1 className="text-2xl font-semibold tracking-tight text-balance">
         Dashboard
       </h1>
-      <Empty className="border border-dashed">
+      <Empty>
         <EmptyHeader>
           <EmptyMedia variant="icon">
-            <HugeiconsIcon icon={DashboardSquare01Icon} strokeWidth={2} />
+            <HugeiconsIcon icon={AmericanFootballIcon} strokeWidth={2} />
           </EmptyMedia>
           <EmptyTitle>Coming soon</EmptyTitle>
           <EmptyDescription>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowLeftRightIcon } from "@hugeicons/core-free-icons";
+import { ArrowLeftRightIcon, HistoryIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
 import { PlayerIdentity } from "@/components/rankings/player-identity";
@@ -15,6 +15,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import {
   Select,
   SelectContent,
@@ -137,9 +144,17 @@ export function TradeHistory({
       </div>
 
       {filtered.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          No trades with this status.
-        </p>
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <HugeiconsIcon icon={HistoryIcon} strokeWidth={2} />
+            </EmptyMedia>
+            <EmptyTitle>No trades with this status.</EmptyTitle>
+            <EmptyDescription>
+              Try another filter or check back after more trades process.
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       ) : (
         <div className="flex flex-col gap-3">
           {visible.map((trade) => {

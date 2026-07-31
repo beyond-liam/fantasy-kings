@@ -4,6 +4,7 @@ import Link from "next/link";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import {
   Table,
   TableBody,
@@ -285,7 +286,14 @@ export function MatchupPreviewDashboard({
       <div className="flex flex-col gap-4">
         <SectionCard title="Season Leaders">
           {leaders.length === 0 ? (
-            <MissingBlock label="No season projections yet" />
+            <Empty size="sm">
+              <EmptyHeader>
+                <EmptyTitle>No projections yet</EmptyTitle>
+                <EmptyDescription>
+                  Season projections appear once player data is available.
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
           ) : (
             <ul className="flex flex-col gap-4">
               {leaders.map((leader) => (
@@ -306,7 +314,14 @@ export function MatchupPreviewDashboard({
 
         <SectionCard title="Injury Report">
           {injuries.length === 0 ? (
-            <MissingBlock label="No starter injuries listed" />
+            <Empty size="sm">
+              <EmptyHeader>
+                <EmptyTitle>No injuries listed</EmptyTitle>
+                <EmptyDescription>
+                  Starter injury updates appear closer to kickoff.
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
           ) : (
             <div className="grid gap-4 sm:grid-cols-2">
               {(
@@ -353,7 +368,14 @@ export function MatchupPreviewDashboard({
       <div className="flex flex-col gap-4">
         <SectionCard title="Matchup History">
           {series.meetings.every((m) => m.result == null) ? (
-            <MissingBlock label="No prior meetings this season" />
+            <Empty size="sm">
+              <EmptyHeader>
+                <EmptyTitle>No prior meetings</EmptyTitle>
+                <EmptyDescription>
+                  These teams have not met yet this season.
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
           ) : (
             <div className="flex flex-col gap-4">
               <HistoryStat
@@ -423,7 +445,14 @@ export function MatchupPreviewDashboard({
 
         <SectionCard title="Last 5 Meetings">
           {lastFive.length === 0 ? (
-            <MissingBlock label="No finalized meetings yet" />
+            <Empty size="sm">
+              <EmptyHeader>
+                <EmptyTitle>No finalized meetings</EmptyTitle>
+                <EmptyDescription>
+                  Completed matchups will show here after scores land.
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
           ) : (
             <TableShell className="rounded-lg border-0">
               <Table>

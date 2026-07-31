@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { AddTeamIcon } from "@hugeicons/core-free-icons";
+import { AddTeamIcon, LeftToRightListNumberIcon } from "@hugeicons/core-free-icons";
 import type {
   ColumnDef,
   SortingState,
@@ -19,6 +19,13 @@ import {
   DataTableViewOptions,
   useDataTable,
 } from "@/components/ui/data-table";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import {
   Tooltip,
   TooltipContent,
@@ -280,6 +287,7 @@ function getStandingsColumns(
     accessorFn: (row) => ("seed" in row ? row.seed : null),
     enableSorting: true,
     enableHiding: false,
+    size: 56,
     sortingFn: (a, b) =>
       claimedFirst(a, b, () =>
         compareNullableNumber(
@@ -294,7 +302,7 @@ function getStandingsColumns(
       const seed = "seed" in row.original ? row.original.seed : null;
       return seed != null ? `#${seed}` : PLACEHOLDER;
     },
-    meta: { cellClassName: "tabular-nums w-14" },
+    meta: { width: 56, sticky: "left", cellClassName: "tabular-nums" },
   };
 
   const rankColumn: ColumnDef<StandingsTableRow> = {
@@ -326,7 +334,7 @@ function getStandingsColumns(
       enableSorting: false,
       enableHiding: false,
       size: 220,
-      meta: { width: 220 },
+      meta: { width: 220, sticky: "left" },
       header: () => <TeamTableColumnHeader title="Team" />,
       cell: ({ row }) => {
         const team = row.original;
@@ -341,6 +349,7 @@ function getStandingsColumns(
           <TeamIdentity
             teamName={team.teamName}
             ownerName={team.ownerName}
+            ownerUserId={team.ownerUserId}
             claimed={team.claimed}
             logoUrl={team.logoUrl}
             href={href}
@@ -730,9 +739,17 @@ export function LeagueStandingsTable({
 
   if (rows.length === 0) {
     return (
-      <p className="text-sm text-muted-foreground">
-        No team slots configured for this league.
-      </p>
+      <Empty>
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <HugeiconsIcon icon={LeftToRightListNumberIcon} strokeWidth={2} />
+          </EmptyMedia>
+          <EmptyTitle>No team slots configured</EmptyTitle>
+          <EmptyDescription>
+            Configure league size in settings to create team slots.
+          </EmptyDescription>
+        </EmptyHeader>
+      </Empty>
     );
   }
 

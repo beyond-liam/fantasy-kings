@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { LeftToRightListNumberIcon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import type {
   ColumnDef,
   SortingState,
@@ -14,6 +16,13 @@ import {
   DataTableViewOptions,
   useDataTable,
 } from "@/components/ui/data-table";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import {
   formatLeaderPositionFullLabel,
   formatLeaderPositionLabel,
@@ -125,13 +134,15 @@ function getStatsColumns(
       ),
       cell: ({ row }) =>
         row.original.claimed ? row.original.rank : PLACEHOLDER,
-      meta: { cellClassName: "tabular-nums w-10" },
+      size: 40,
+      meta: { width: 40, sticky: "left", cellClassName: "tabular-nums" },
     },
     {
       id: "team",
       accessorFn: (row) => row.teamName,
       enableSorting: true,
       enableHiding: false,
+      size: 220,
       sortingFn: (a, b) =>
         claimedFirst(a, b, () =>
           a.original.teamName.localeCompare(b.original.teamName),
@@ -152,12 +163,14 @@ function getStatsColumns(
           <TeamIdentity
             teamName={team.teamName}
             ownerName={team.ownerName}
+            ownerUserId={team.ownerUserId}
             claimed={team.claimed}
             logoUrl={team.logoUrl}
             href={href}
           />
         );
       },
+      meta: { width: 220, sticky: "left" },
     },
     ...positionDefs,
     {
@@ -260,9 +273,17 @@ export function LeagueStatsTable({
 
   if (rows.length === 0) {
     return (
-      <p className="text-sm text-muted-foreground">
-        No team slots configured for this league.
-      </p>
+      <Empty>
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <HugeiconsIcon icon={LeftToRightListNumberIcon} strokeWidth={2} />
+          </EmptyMedia>
+          <EmptyTitle>No team slots configured</EmptyTitle>
+          <EmptyDescription>
+            Configure league size in settings to create team slots.
+          </EmptyDescription>
+        </EmptyHeader>
+      </Empty>
     );
   }
 

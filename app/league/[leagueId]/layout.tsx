@@ -5,6 +5,7 @@ import { LeagueSideNav } from "@/components/layout/league-side-nav";
 import { LeagueSideNavSlot } from "@/components/layout/league-side-nav-slot";
 import { LeagueDraftNotifierSlot } from "@/components/leagues/draft/league-draft-notifier-slot";
 import { LeagueLayoutGuard } from "@/components/leagues/league-layout-guard";
+import { LeaguePresenceProvider } from "@/components/leagues/presence/league-presence-provider";
 
 export default async function LeagueLayout({
   children,
@@ -17,13 +18,15 @@ export default async function LeagueLayout({
 
   return (
     <LeagueLayoutGuard params={params}>
-      <div className="relative flex min-h-0 flex-1">
+      <div className="relative flex flex-1 flex-col">
         <Suspense fallback={<LeagueSideNav slug={slug} isCommissioner={false} />}>
           <LeagueSideNavSlot slug={slug} />
         </Suspense>
-        <div className="ml-[4.5rem] flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-          <ContentContainer className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-none">
-            {children}
+        <div className="flex min-w-0 flex-1 flex-col md:ml-18">
+          <ContentContainer className="flex flex-1 flex-col">
+            <LeaguePresenceProvider slug={slug}>
+              {children}
+            </LeaguePresenceProvider>
           </ContentContainer>
         </div>
         <Suspense fallback={null}>

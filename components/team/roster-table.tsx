@@ -7,6 +7,7 @@ import {
 import { OpponentCell } from "@/components/team/opponent-cell";
 import { PointsCell } from "@/components/team/points-cell";
 import { RosterRowActions } from "@/components/team/roster-row-actions";
+import { RosterSlotSwap } from "@/components/team/roster-slot-swap";
 import { TeamTableColumnHeader } from "@/components/team/team-table-column-header";
 import {
   Select,
@@ -56,7 +57,9 @@ type TeamRosterTableProps = {
   rosterSlots: RosterSlotConfig[];
   benchSlots: number;
   rosterPlayers: TeamRosterPlayer[];
+  taxiMaxYearsExp?: 0 | 1 | 2 | 3 | 4 | 5 | null;
   onSlotChange?: (playerId: string, slotPositionId: string) => void;
+  onSwap?: (playerId: string, otherPlayerId: string) => void;
 };
 
 const PLACEHOLDER = "—";
@@ -186,7 +189,9 @@ export function TeamRosterTable({
   rosterSlots,
   benchSlots,
   rosterPlayers,
+  taxiMaxYearsExp,
   onSlotChange,
+  onSwap,
 }: TeamRosterTableProps) {
   if (slots.length === 0) {
     return null;
@@ -209,8 +214,9 @@ export function TeamRosterTable({
                   <TableHead
                     key={column.id}
                     className={cn(
-                      column.id === "player" && "min-w-[12rem]",
-                      column.id === "slot" && "w-[7.5rem]",
+                      column.id === "player" &&
+                        "min-w-[12rem] max-md:sticky max-md:left-0 max-md:z-30 max-md:shadow-[4px_0_8px_-4px_rgba(0,0,0,0.45)]",
+                      column.id === "slot" && "w-[7.5rem] max-md:hidden",
                       column.id === "action" && "w-10",
                     )}
                   >
@@ -228,23 +234,36 @@ export function TeamRosterTable({
             <TableBody>
               {slots.map((slot) => (
                 <TableRow key={slot.key}>
-                  <TableCell>
-                    {slot.player ? (
-                      <PlayerIdentity
-                        fullName={slot.player.fullName}
-                        sleeperId={slot.player.sleeperId}
-                        primaryPositionId={slot.player.primaryPositionId}
-                        nflTeam={slot.player.nflTeam}
-                        byeWeek={slot.player.byeWeek}
-                        injuryStatus={slot.player.injuryStatus}
-                        playerId={slot.player.id}
-                        leagueSlug={leagueSlug}
+                  <TableCell className="max-md:sticky max-md:left-0 max-md:z-20 max-md:bg-background max-md:shadow-[4px_0_8px_-4px_rgba(0,0,0,0.45)] max-md:group-hover/tr:bg-muted/50">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <RosterSlotSwap
+                        slotPositionId={slot.slotPositionId}
+                        player={slot.player}
+                        rosterPlayers={rosterPlayers}
+                        rosterSlots={rosterSlots}
+                        irEligibleStatuses={irEligibleStatuses}
+                        taxiMaxYearsExp={taxiMaxYearsExp}
+                        onSlotChange={onSlotChange}
+                        onSwap={onSwap}
+                        disabled={!actionsEnabled}
                       />
-                    ) : (
-                      <EmptyPlayerIdentity
-                        slotLabel={defaultSlotLabel(slot.slotPositionId)}
-                      />
-                    )}
+                      {slot.player ? (
+                        <PlayerIdentity
+                          fullName={slot.player.fullName}
+                          sleeperId={slot.player.sleeperId}
+                          primaryPositionId={slot.player.primaryPositionId}
+                          nflTeam={slot.player.nflTeam}
+                          byeWeek={slot.player.byeWeek}
+                          injuryStatus={slot.player.injuryStatus}
+                          playerId={slot.player.id}
+                          leagueSlug={leagueSlug}
+                        />
+                      ) : (
+                        <EmptyPlayerIdentity
+                          slotLabel={defaultSlotLabel(slot.slotPositionId)}
+                        />
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell>
                     <OpponentCell opponent={slot.player?.opponent} />
@@ -284,7 +303,7 @@ export function TeamRosterTable({
                       ? formatRosterRatePct(slot.player.startPct)
                       : PLACEHOLDER}
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="max-md:hidden">
                     <RosterSlotSelect
                       slot={slot}
                       assignmentOptions={assignmentOptions}

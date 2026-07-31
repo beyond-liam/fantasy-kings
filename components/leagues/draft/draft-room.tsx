@@ -2,6 +2,12 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import {
+  DashboardSquare01Icon,
+  ListChecks as ListChecksIcon,
+  StudentCardIcon,
+  UserMultiple03Icon,
+} from "@hugeicons/core-free-icons";
 
 import {
   DraftClockCard,
@@ -20,6 +26,10 @@ import { DraftPlayerPool } from "@/components/leagues/draft/draft-player-pool";
 import { DraftQueuePanel } from "@/components/leagues/draft/draft-queue-panel";
 import { DraftQueueProvider } from "@/components/leagues/draft/draft-queue-provider";
 import { DraftRosterTab } from "@/components/leagues/draft/draft-roster-tab";
+import {
+  MobileTabDrawer,
+  type MobileTabDrawerItem,
+} from "@/components/layout/mobile-tab-drawer";
 import {
   Tabs,
   TabsContent,
@@ -70,6 +80,13 @@ type DraftRoomProps = {
   /** Frozen remaining seconds while paused. */
   pausedSecondsRemaining: number | null;
 };
+
+const DRAFT_TABS: readonly MobileTabDrawerItem[] = [
+  { value: "board", label: "Draft Board", icon: DashboardSquare01Icon },
+  { value: "pool", label: "Player Pool", icon: UserMultiple03Icon },
+  { value: "queue", label: "Queue", icon: ListChecksIcon },
+  { value: "roster", label: "Roster", icon: StudentCardIcon },
+];
 
 function playDraftSound(src: string) {
   try {
@@ -401,7 +418,7 @@ export function DraftRoom({
   return (
     <DraftQueueProvider slug={slug} initialQueuedIds={queuedPlayerIds}>
       <div className="flex flex-col gap-6">
-        <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="flex flex-col gap-4 md:flex-row md:flex-wrap md:items-start md:justify-between">
           <div className="flex min-w-0 flex-col gap-3">
             <h1 className="text-2xl font-semibold tracking-tight text-balance">
               League Draft
@@ -418,6 +435,7 @@ export function DraftRoom({
           {!draftComplete ? (
             <DraftClockCard
               title={clockCardTitle}
+              className="max-md:w-full max-md:min-w-0"
               showStopwatch
               headerAction={
                 <DraftClockToggle
@@ -508,12 +526,21 @@ export function DraftRoom({
         </div>
 
         <Tabs value={tab} onValueChange={(value) => setTab(String(value))}>
-          <TabsList>
-            <TabsTrigger value="board">Draft Board</TabsTrigger>
-            <TabsTrigger value="pool">Player Pool</TabsTrigger>
-            <TabsTrigger value="queue">Queue</TabsTrigger>
-            <TabsTrigger value="roster">Roster</TabsTrigger>
+          <TabsList className="hidden md:inline-flex">
+            {DRAFT_TABS.map((item) => (
+              <TabsTrigger key={item.value} value={item.value}>
+                {item.label}
+              </TabsTrigger>
+            ))}
           </TabsList>
+
+          <MobileTabDrawer
+            items={DRAFT_TABS}
+            value={tab}
+            onSelect={setTab}
+            title="Draft sections"
+            description="Choose which draft section to view"
+          />
 
           <TabsContent value="board" className="pt-4">
             {tab === "board" ? (

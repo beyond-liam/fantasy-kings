@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 
+import { ManagerPresenceBadge } from "@/components/leagues/presence/manager-presence-badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { TABLE_ENTITY_LINK_CLASSNAME } from "@/components/ui/table";
 import { teamInitials } from "@/lib/leagues/standings";
@@ -10,6 +11,7 @@ import { cn } from "@/lib/utils";
 type TeamIdentityProps = {
   teamName: string;
   ownerName: string;
+  ownerUserId?: string | null;
   claimed?: boolean;
   href?: string | null;
   logoUrl?: string | null;
@@ -19,6 +21,7 @@ type TeamIdentityProps = {
 export function TeamIdentity({
   teamName,
   ownerName,
+  ownerUserId,
   claimed = true,
   href,
   logoUrl,
@@ -46,6 +49,7 @@ export function TeamIdentity({
       <Avatar size="sm">
         {logoUrl ? <AvatarImage src={logoUrl} alt="" /> : null}
         <AvatarFallback>{teamInitials(teamName)}</AvatarFallback>
+        <ManagerPresenceBadge userId={ownerUserId} />
       </Avatar>
       <div className="flex min-w-0 flex-col">
         {href ? (

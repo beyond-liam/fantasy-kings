@@ -100,6 +100,11 @@ function useWatchlistStore() {
   return store;
 }
 
+/** Returns null outside `WatchlistProvider` — for overlays that may mount in either context. */
+export function useOptionalWatchlistStore() {
+  return useContext(WatchlistStoreContext);
+}
+
 export function useWatchlist() {
   const store = useWatchlistStore();
   const ids = useSyncExternalStore(

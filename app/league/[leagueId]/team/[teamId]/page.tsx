@@ -2,6 +2,10 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { redirect, notFound } from "next/navigation";
 
+import { UserWarning02Icon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
+
+import { ManagerPresenceBadge } from "@/components/leagues/presence/manager-presence-badge";
 import { TeamDraftPicksList } from "@/components/team/team-draft-picks-list";
 import { TeamH2hSection } from "@/components/team/team-h2h-section";
 import { TeamRosterSections } from "@/components/team/roster-sections";
@@ -17,6 +21,7 @@ import {
   Empty,
   EmptyDescription,
   EmptyHeader,
+  EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
 import { getSessionUser } from "@/lib/auth/session";
@@ -283,6 +288,7 @@ export default async function LeagueTeamPage({
             ? formatWaiverPriority(team.waiverPriority)
             : null,
           ownerName: team.ownerName,
+          ownerUserId: team.userId,
           previous,
           current,
           myTeamSlug: myTeam?.publicId ?? myTeam?.slug ?? null,
@@ -367,6 +373,9 @@ export default async function LeagueTeamPage({
       h2hPanel = (
         <Empty>
           <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <HugeiconsIcon icon={UserWarning02Icon} strokeWidth={2} />
+            </EmptyMedia>
             <EmptyTitle>No team yet</EmptyTitle>
             <EmptyDescription>
               Claim a team in this league to see head-to-head history.
@@ -407,6 +416,7 @@ export default async function LeagueTeamPage({
         <Avatar size="lg" className="shrink-0">
           {team.logoUrl ? <AvatarImage src={team.logoUrl} alt="" /> : null}
           <AvatarFallback>{teamInitials(team.name)}</AvatarFallback>
+          <ManagerPresenceBadge userId={team.userId} />
         </Avatar>
         <div className="flex min-w-0 flex-col gap-0">
           <h1 className="text-2xl font-semibold tracking-tight text-balance">

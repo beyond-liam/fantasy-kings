@@ -12,6 +12,7 @@ import {
 } from "@/components/rankings/rankings-toolbar";
 import { useRankingsParams } from "@/components/rankings/use-rankings-params";
 import { DataTable, useDataTable } from "@/components/ui/data-table";
+import { useIsMobile } from "@/hooks/use-mobile";
 import type { RankedPlayerRow } from "@/lib/queries/players";
 import { parsePositionFilter } from "@/lib/rankings/column-config";
 import {
@@ -97,6 +98,7 @@ export function PlayersDataTable({
   totalCount,
 }: PlayersDataTableProps) {
   const updateParams = useRankingsParams();
+  const isMobile = useIsMobile();
   const showWatchlist = Boolean(leagueSlug);
   const isLeagueView = Boolean(leagueSlug);
   const serverPaginated = totalCount != null && pageSize != null;
@@ -165,6 +167,7 @@ export function PlayersDataTable({
         acquisitionsLocked,
         acquisitionLockReason,
         leagueSlug,
+        isMobile,
       }),
     [
       view.position,
@@ -174,6 +177,7 @@ export function PlayersDataTable({
       tradesEnabled,
       acquisitionsLocked,
       acquisitionLockReason,
+      isMobile,
     ],
   );
 
@@ -267,6 +271,19 @@ export function PlayersDataTable({
         showScoringSelect={showScoringSelect}
         showTeamFilter={!isLeagueView}
         showFreeAgentsFilter={isLeagueView}
+        searchActions={
+          leagueSlug
+            ? {
+                leagueSlug,
+                showWatchlist,
+                showActions: true,
+                actionsEnabled,
+                tradesEnabled,
+                acquisitionsLocked,
+                acquisitionLockReason,
+              }
+            : undefined
+        }
       />
       <DataTable
         table={table}

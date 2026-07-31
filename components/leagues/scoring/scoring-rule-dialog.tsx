@@ -445,7 +445,7 @@ export function ScoringRuleDialog({
           </FieldGroup>
         </div>
 
-        <DialogFooter className="border-t px-6 pt-4 pb-6">
+        <DialogFooter className="mb-0 border-t px-6 pt-4 pb-6">
           <Button
             type="button"
             variant="outline"

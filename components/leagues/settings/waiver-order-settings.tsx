@@ -2,13 +2,14 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Cancel01Icon, TickDouble02Icon } from "@hugeicons/core-free-icons";
+import { Cancel01Icon, TickDouble02Icon, UserRemove01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
 import { SettingsFormCard } from "@/components/leagues/settings/settings-form-card";
 import { PageFormActions } from "@/components/layout/page-form-actions";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import {
   Field,
   FieldDescription,
@@ -139,11 +140,17 @@ export function WaiverOrderSettings({
         }
       >
         {initialTeams.length === 0 ? (
-          <Alert>
-            <AlertDescription>
-              No teams yet. Invite managers before setting waiver order.
-            </AlertDescription>
-          </Alert>
+          <Empty>
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <HugeiconsIcon icon={UserRemove01Icon} strokeWidth={2} />
+              </EmptyMedia>
+              <EmptyTitle>No teams yet</EmptyTitle>
+              <EmptyDescription>
+                Invite managers before setting waiver order.
+              </EmptyDescription>
+            </EmptyHeader>
+          </Empty>
         ) : (
           <FieldGroup>
           <Field>

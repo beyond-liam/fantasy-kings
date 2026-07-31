@@ -12,7 +12,6 @@ import {
 } from "@/lib/leagues/scoring";
 import { scoringRulesPayloadSchema } from "@/lib/leagues/scoring/schema";
 import {
-  diffSettingsValues,
   diffScoringRules,
   logSettingsUpdated,
 } from "@/lib/leagues/settings-activity";
@@ -99,14 +98,7 @@ export async function updateScoringSettings(
     })
     .where(eq(leagueSeasons.id, season.id));
 
-  const changes = [
-    ...diffSettingsValues(
-      { scoringPreset: season.scoringPreset },
-      { scoringPreset: nextPreset },
-      [{ path: "scoringPreset", label: "Scoring preset" }],
-    ),
-    ...diffScoringRules(beforeRules, afterRules),
-  ];
+  const changes = diffScoringRules(beforeRules, afterRules);
 
   await logSettingsUpdated({
     leagueSeasonId: season.id,

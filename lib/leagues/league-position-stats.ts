@@ -25,6 +25,7 @@ export type LeaguePositionStatsRow = {
   teamPublicId: string | null;
   teamName: string;
   ownerName: string;
+  ownerUserId?: string | null;
   logoUrl: string | null;
   claimed: boolean;
   /**
@@ -123,6 +124,7 @@ export function buildLeaguePositionStatsRows(
     teamPublicId: string | null;
     teamName: string;
     ownerName: string;
+    ownerUserId?: string | null;
     logoUrl: string | null;
     claimed: boolean;
     starters: StarterSlotPoints[];
@@ -142,6 +144,7 @@ export function buildLeaguePositionStatsRows(
         teamPublicId: team.teamPublicId,
         teamName: team.teamName,
         ownerName: team.ownerName,
+        ownerUserId: team.ownerUserId,
         logoUrl: team.logoUrl,
         claimed: team.claimed,
         byPosition: emptyPositionPoints(positionColumns),
@@ -163,6 +166,7 @@ export function buildLeaguePositionStatsRows(
       teamPublicId: team.teamPublicId,
       teamName: team.teamName,
       ownerName: team.ownerName,
+      ownerUserId: team.ownerUserId,
       logoUrl: team.logoUrl,
       claimed: team.claimed,
       byPosition,

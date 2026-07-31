@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -19,12 +20,15 @@ function NavLink({
   item,
   pathname,
   showAttention,
+  variant,
 }: {
   item: NavItem;
   pathname: string;
   showAttention?: boolean;
+  variant: "rail" | "pill";
 }) {
   const active = item.isActive(pathname);
+  const pill = variant === "pill";
 
   return (
     <Link
@@ -32,26 +36,37 @@ function NavLink({
       aria-label={
         showAttention ? `${item.label} — action needed` : item.label
       }
+      aria-current={active ? "page" : undefined}
       className={cn(
-        "group relative flex min-h-16 shrink-0 flex-col items-center justify-center gap-0.5 px-2 py-2 text-xs font-medium transition-colors",
+        "group relative flex shrink-0 items-center justify-center transition-colors",
+        pill
+          ? "gap-1.5 rounded-sm px-2 py-1 text-xs font-semibold"
+          : "min-h-16 flex-col gap-0.5 px-2 py-2 text-xs font-medium",
         active
-          ? "bg-muted text-foreground"
+          ? pill
+            ? "bg-primary text-primary-foreground"
+            : "bg-muted text-foreground"
           : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
       )}
     >
       {showAttention ? (
         <span
-          className="absolute top-2 right-2 size-2 rounded-full bg-destructive"
+          className={cn(
+            "absolute size-2 rounded-full bg-destructive",
+            pill ? "top-1 right-1" : "top-2 right-2",
+          )}
           aria-hidden
         />
       ) : null}
       <HugeiconsIcon
         icon={item.icon}
-        size={20}
+        size={pill ? 16 : 20}
         strokeWidth={active ? 2 : 1.75}
         className="transition-[color] duration-150 ease-out"
       />
-      <span className="truncate text-center">{item.shortLabel}</span>
+      <span className={cn(pill ? "whitespace-nowrap" : "truncate text-center")}>
+        {item.shortLabel}
+      </span>
     </Link>
   );
 }
@@ -63,34 +78,70 @@ export function LeagueSideNav({
   messagesAttention = false,
 }: LeagueSideNavProps) {
   const pathname = usePathname();
+  const pillScrollerRef = useRef<HTMLDivElement>(null);
   const navItems = getLeagueNavItems(slug).filter(
     (item) => !item.commissionerOnly || isCommissioner,
   );
 
+  // Pill scroll resets to 0 on each navigation — recentre the active pill.
+  useEffect(() => {
+    const scroller = pillScrollerRef.current;
+    const active = scroller?.querySelector<HTMLElement>('[aria-current="page"]');
+    if (!scroller || !active) return;
+
+    const start = active.offsetLeft;
+    const end = start + active.offsetWidth;
+    const visibleStart = scroller.scrollLeft;
+    const visibleEnd = visibleStart + scroller.clientWidth;
+    if (start >= visibleStart && end <= visibleEnd) return;
+
+    scroller.scrollLeft = Math.max(
+      0,
+      start - (scroller.clientWidth - active.offsetWidth) / 2,
+    );
+  }, [pathname]);
+
+  const renderItems = (variant: "rail" | "pill") =>
+    navItems.map((item) => {
+      const showAttention = item.href.endsWith("/trades")
+        ? tradesAttention
+        : item.href.endsWith("/messages")
+          ? messagesAttention
+          : false;
+
+      return (
+        <NavLink
+          key={item.href}
+          item={item}
+          pathname={pathname}
+          showAttention={showAttention}
+          variant={variant}
+        />
+      );
+    });
+
   return (
-    <nav
-      aria-label="League navigation"
-      className="league-side-nav fixed top-14 left-0 z-40 h-[calc(100dvh-3.5rem)] w-[4.5rem] border-r border-border bg-background"
-    >
-      <ScrollArea className="h-full">
-        <div className="flex flex-col">
-          {navItems.map((item) => {
-            const showAttention = item.href.endsWith("/trades")
-              ? tradesAttention
-              : item.href.endsWith("/messages")
-                ? messagesAttention
-                : false;
-            return (
-              <NavLink
-                key={item.href}
-                item={item}
-                pathname={pathname}
-                showAttention={showAttention}
-              />
-            );
-          })}
+    <>
+      <nav
+        aria-label="League navigation"
+        className="league-side-nav fixed top-14 left-0 z-40 hidden h-[calc(100dvh-3.5rem)] w-18 border-r border-border bg-background md:block"
+      >
+        <ScrollArea className="h-full">
+          <div className="flex flex-col">{renderItems("rail")}</div>
+        </ScrollArea>
+      </nav>
+
+      <nav
+        aria-label="League navigation"
+        className="sticky top-14 z-40 w-full border-b border-border bg-background/95 backdrop-blur md:hidden supports-backdrop-filter:bg-background/80"
+      >
+        <div
+          ref={pillScrollerRef}
+          className="no-scrollbar flex w-full gap-1.5 overflow-x-auto px-4 py-3 overscroll-x-contain"
+        >
+          {renderItems("pill")}
         </div>
-      </ScrollArea>
-    </nav>
+      </nav>
+    </>
   );
 }

@@ -93,7 +93,7 @@ export function TeamStatsTable({
             />
           );
         },
-        meta: { width: 224, cellClassName: "min-w-[14rem]" },
+        meta: { width: 224, sticky: "left", cellClassName: "min-w-[14rem]" },
       },
       {
         id: "opp",

@@ -370,7 +370,7 @@ export function PreGameDashboard({ data }: PreGameDashboardProps) {
                               <TableCell
                                 className={cn(
                                   "tabular-nums",
-                                  row.result === "W" && "text-chart-2",
+                                  row.result === "W" && "text-success",
                                   row.result === "L" && "text-destructive",
                                 )}
                               >

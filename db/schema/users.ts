@@ -15,6 +15,10 @@ export const profiles = pgTable(
     avatarUrl: text("avatar_url"),
     /** Null until first-login onboarding completes. */
     onboardedAt: timestamp("onboarded_at", { withTimezone: true }),
+    /** Most recent authenticated app heartbeat, using server time. */
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),

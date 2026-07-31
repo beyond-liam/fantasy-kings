@@ -71,7 +71,7 @@ export function HofDivisionTitlesTable({
 
   if (sortedDivisions.length === 0) {
     return (
-      <Empty className="border">
+      <Empty size="sm">
         <EmptyHeader>
           <EmptyTitle>No divisions</EmptyTitle>
           <EmptyDescription>
@@ -115,7 +115,7 @@ export function HofDivisionTitlesTable({
       </div>
 
       {filtered.length === 0 ? (
-        <Empty className="border">
+        <Empty size="sm">
           <EmptyHeader>
             <EmptyTitle>No division winners yet</EmptyTitle>
             <EmptyDescription>

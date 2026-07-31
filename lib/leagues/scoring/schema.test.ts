@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import { getDefaultScoringRuleDefinitions } from "@/lib/leagues/scoring";
 import {
   scoringRuleDefinitionSchema,
   scoringRulesPayloadSchema,
@@ -69,6 +70,25 @@ describe("scoringRuleDefinitionSchema", () => {
     });
     assert.equal(result.success, false);
   });
+
+  it("accepts a rule that scores for no positions", () => {
+    const result = scoringRuleDefinitionSchema.safeParse({
+      ...validRule,
+      positions: [],
+    });
+    assert.equal(result.success, true);
+  });
+});
+
+describe("default scoring rules", () => {
+  for (const preset of ["standard", "half_ppr", "full_ppr"] as const) {
+    it(`accepts the ${preset} defaults`, () => {
+      const result = scoringRulesPayloadSchema.safeParse(
+        getDefaultScoringRuleDefinitions(preset),
+      );
+      assert.equal(result.success, true);
+    });
+  }
 });
 
 describe("scoringRulesPayloadSchema", () => {

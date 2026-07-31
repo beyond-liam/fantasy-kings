@@ -7,6 +7,7 @@ import { TeamSpotlight } from "@/components/leagues/team-spotlight";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardTitle } from "@/components/ui/card";
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import {
   Table,
   TableBody,
@@ -94,7 +95,8 @@ export function LeagueHallOfFame({ leagueSlug, data }: LeagueHallOfFameProps) {
           <TeamSpotlight
             row={data.mostTitles}
             leagueSlug={leagueSlug}
-            empty="No champions crowned yet."
+            emptyTitle="No champions yet"
+            empty="Champions appear after a season ends."
             formatValue={(value) => String(value)}
             valueHint="championships"
           />
@@ -114,7 +116,8 @@ export function LeagueHallOfFame({ leagueSlug, data }: LeagueHallOfFameProps) {
           <TeamSpotlight
             row={data.middleHonor}
             leagueSlug={leagueSlug}
-            empty="No titles yet."
+            emptyTitle="No titles yet"
+            empty="Titles appear once seasons finish."
             formatValue={(value) => String(value)}
             valueHint={
               data.middleHonorKind === "division_titles"
@@ -130,7 +133,8 @@ export function LeagueHallOfFame({ leagueSlug, data }: LeagueHallOfFameProps) {
           <TeamSpotlight
             row={data.mostRegularSeasonWins}
             leagueSlug={leagueSlug}
-            empty="No regular season results yet."
+            emptyTitle="No wins yet"
+            empty="Regular season results appear after games land."
             formatValue={(value) => String(value)}
             valueHint="wins"
           />
@@ -139,9 +143,14 @@ export function LeagueHallOfFame({ leagueSlug, data }: LeagueHallOfFameProps) {
 
       <HofCard id={HOF_ALL_TIME_TABLE_ID} title="All-Time League Table">
         {data.allTimeTable.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            Career standings will appear after finals land.
-          </p>
+          <Empty size="sm">
+            <EmptyHeader>
+              <EmptyTitle>No standings yet</EmptyTitle>
+              <EmptyDescription>
+                Career standings appear after finals land.
+              </EmptyDescription>
+            </EmptyHeader>
+          </Empty>
         ) : (
           <TableShell className="rounded-lg border-0">
             <Table>
@@ -213,7 +222,8 @@ export function LeagueHallOfFame({ leagueSlug, data }: LeagueHallOfFameProps) {
           <TeamSpotlight
             row={data.chokeArtist}
             leagueSlug={leagueSlug}
-            empty="No late collapses yet."
+            emptyTitle="No collapses yet"
+            empty="Late collapses show after close losses."
             formatValue={(value) => String(value)}
             valueClassName="text-destructive"
             valueHint="late collapses"
@@ -223,7 +233,8 @@ export function LeagueHallOfFame({ leagueSlug, data }: LeagueHallOfFameProps) {
           <TeamSpotlight
             row={data.fergieTime}
             leagueSlug={leagueSlug}
-            empty="No late comebacks yet."
+            emptyTitle="No comebacks yet"
+            empty="Late comebacks show after close wins."
             formatValue={(value) => String(value)}
             valueHint="late comebacks"
           />
@@ -232,7 +243,8 @@ export function LeagueHallOfFame({ leagueSlug, data }: LeagueHallOfFameProps) {
           <TeamSpotlight
             row={data.luckiest}
             leagueSlug={leagueSlug}
-            empty="No lucky wins yet."
+            emptyTitle="No lucky wins yet"
+            empty="Lucky wins appear after close victories."
             formatValue={(value) => String(value)}
             valueHint="lucky wins"
           />
@@ -244,7 +256,8 @@ export function LeagueHallOfFame({ leagueSlug, data }: LeagueHallOfFameProps) {
           <TeamSpotlight
             row={data.highestWinningScore}
             leagueSlug={leagueSlug}
-            empty="No final scores yet."
+            emptyTitle="No scores yet"
+            empty="Final scores appear after games finish."
             formatValue={(value) => formatPoints(value)}
             valueHint={
               data.highestWinningScore
@@ -257,7 +270,8 @@ export function LeagueHallOfFame({ leagueSlug, data }: LeagueHallOfFameProps) {
           <TeamSpotlight
             row={data.lowestWinningScore}
             leagueSlug={leagueSlug}
-            empty="No final scores yet."
+            emptyTitle="No scores yet"
+            empty="Final scores appear after games finish."
             formatValue={(value) => formatPoints(value)}
             valueHint={
               data.lowestWinningScore

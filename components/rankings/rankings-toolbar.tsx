@@ -41,7 +41,7 @@ export function RankingsToolbar({ view }: RankingsToolbarProps) {
 
   return (
     <Tabs value={view.kind} onValueChange={handleKindChange}>
-      <TabsList>
+      <TabsList className="max-md:w-full">
         <TabsTrigger value="projection">Projection</TabsTrigger>
         <TabsTrigger value="stats">Stats</TabsTrigger>
       </TabsList>

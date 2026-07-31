@@ -45,9 +45,11 @@ export const scoringRuleDefinitionSchema = z
     minYards: boundedNumber(MAX_STAT_VALUE).optional(),
     maxYards: boundedNumber(MAX_STAT_VALUE).optional(),
     exactValue: boundedNumber(MAX_STAT_VALUE).optional(),
-    positions: z.array(z.enum(SCORING_POSITIONS_TUPLE)).min(1).max(
-      SCORING_POSITIONS_TUPLE.length,
-    ),
+    // Empty means the rule scores for nobody — used by defaults such as the
+    // IDP solo tackle rule, and reachable by clearing the position toggles.
+    positions: z
+      .array(z.enum(SCORING_POSITIONS_TUPLE))
+      .max(SCORING_POSITIONS_TUPLE.length),
   })
   .strict();
 

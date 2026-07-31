@@ -1,13 +1,15 @@
 import Link from "next/link";
 import { format } from "date-fns";
-import { Comment01Icon } from "@hugeicons/core-free-icons";
+import { Comment01Icon, MessageBlockedIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
+import { ManagerPresenceBadge } from "@/components/leagues/presence/manager-presence-badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Empty,
   EmptyDescription,
   EmptyHeader,
+  EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
 import { teamInitials } from "@/lib/leagues/standings";
@@ -25,8 +27,11 @@ export function MessageThreadList({
 }: MessageThreadListProps) {
   if (threads.length === 0) {
     return (
-      <Empty className="border border-dashed">
+      <Empty>
         <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <HugeiconsIcon icon={MessageBlockedIcon} strokeWidth={2} />
+          </EmptyMedia>
           <EmptyTitle>No messages yet</EmptyTitle>
           <EmptyDescription>
             Start a thread to share news, rules, or banter with the league.
@@ -61,6 +66,7 @@ export function MessageThreadList({
                 <AvatarFallback>
                   {teamInitials(authorLabel)}
                 </AvatarFallback>
+                <ManagerPresenceBadge userId={thread.authorUserId} />
               </Avatar>
               <div className="min-w-0 flex-1">
                 <div className="flex items-start justify-between gap-3">
@@ -89,7 +95,6 @@ export function MessageThreadList({
                   </span>
                   {" posted on "}
                   {format(thread.createdAt, "d MMM yyyy")}
-                  {thread.snippet ? ` — ${thread.snippet}` : null}
                 </p>
               </div>
               {thread.unread ? (

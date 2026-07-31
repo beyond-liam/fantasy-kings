@@ -24,6 +24,7 @@ import {
   DragDropVerticalIcon,
   Edit02Icon,
   FlashIcon,
+  UserAdd01Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { toast } from "sonner";
@@ -39,6 +40,7 @@ import {
   Empty,
   EmptyDescription,
   EmptyHeader,
+  EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
 import { ListPagination } from "@/components/ui/list-pagination";
@@ -269,41 +271,12 @@ export function TeamWaiversSection({
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div className="flex flex-col gap-1">
-          <h2 className="text-lg font-semibold tracking-tight">
-            Pending Claims
-          </h2>
-          <p className="text-sm text-muted-foreground">
-            {nextProcessLabel
-              ? `Next process ${nextProcessLabel} UTC${
-                  claimDeadlineLabel
-                    ? ` · submit claims by ${claimDeadlineLabel} UTC`
-                    : ""
-                }`
-              : "No upcoming waiver process scheduled"}
-          </p>
-        </div>
-        {isCommissioner ? (
-          <Button
-            type="button"
-            variant="outline"
-            disabled={isPending || pendingSeasonCount === 0}
-            onClick={handleProcess}
-          >
-            <HugeiconsIcon
-              icon={FlashIcon}
-              strokeWidth={2}
-              data-icon="inline-start"
-            />
-            Process now ({pendingSeasonCount})
-          </Button>
-        ) : null}
-      </div>
-
       {orderedClaims.length === 0 ? (
         <Empty>
           <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <HugeiconsIcon icon={UserAdd01Icon} strokeWidth={2} />
+            </EmptyMedia>
             <EmptyTitle>No pending claims</EmptyTitle>
             <EmptyDescription>
               Claims you file from Players will show up here until processing.
@@ -311,50 +284,84 @@ export function TeamWaiversSection({
           </EmptyHeader>
         </Empty>
       ) : (
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragEnd={handleDragEnd}
-        >
-          <SortableContext
-            items={claimIds}
-            strategy={verticalListSortingStrategy}
-          >
-            <div className="flex flex-col gap-4">
-              {pageClaims.map((claim, index) => (
-                <SortableClaimCard
-                  key={claim.id}
-                  claim={claim}
-                  index={pageStart + index}
-                  isFaab={isFaab}
-                  disabled={isPending}
-                  onCancel={() => handleCancel(claim.id)}
-                  onEdit={() =>
-                    setEditClaim({
-                      open: true,
-                      claimId: claim.id,
-                      playerName: claim.playerName,
-                      sleeperId: claim.sleeperId,
-                      primaryPositionId: claim.primaryPositionId,
-                      nflTeam: claim.nflTeam,
-                      bid: claim.bid ?? 0,
-                    })
-                  }
-                />
-              ))}
+        <>
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div className="flex flex-col gap-1">
+              <h2 className="text-lg font-semibold tracking-tight">
+                Pending Claims
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                {nextProcessLabel
+                  ? `Next process ${nextProcessLabel} UTC${
+                      claimDeadlineLabel
+                        ? ` · submit claims by ${claimDeadlineLabel} UTC`
+                        : ""
+                    }`
+                  : "No upcoming waiver process scheduled"}
+              </p>
             </div>
-          </SortableContext>
-        </DndContext>
-      )}
+            {isCommissioner ? (
+              <Button
+                type="button"
+                variant="outline"
+                disabled={isPending || pendingSeasonCount === 0}
+                onClick={handleProcess}
+              >
+                <HugeiconsIcon
+                  icon={FlashIcon}
+                  strokeWidth={2}
+                  data-icon="inline-start"
+                />
+                Process now ({pendingSeasonCount})
+              </Button>
+            ) : null}
+          </div>
 
-      <ListPagination
-        page={safePage}
-        pageCount={pageCount}
-        total={orderedClaims.length}
-        pageSize={PAGE_SIZE}
-        onPageChange={setPage}
-        label={{ singular: "claim", plural: "claims" }}
-      />
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext
+              items={claimIds}
+              strategy={verticalListSortingStrategy}
+            >
+              <div className="flex flex-col gap-4">
+                {pageClaims.map((claim, index) => (
+                  <SortableClaimCard
+                    key={claim.id}
+                    claim={claim}
+                    index={pageStart + index}
+                    isFaab={isFaab}
+                    disabled={isPending}
+                    onCancel={() => handleCancel(claim.id)}
+                    onEdit={() =>
+                      setEditClaim({
+                        open: true,
+                        claimId: claim.id,
+                        playerName: claim.playerName,
+                        sleeperId: claim.sleeperId,
+                        primaryPositionId: claim.primaryPositionId,
+                        nflTeam: claim.nflTeam,
+                        bid: claim.bid ?? 0,
+                      })
+                    }
+                  />
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
+
+          <ListPagination
+            page={safePage}
+            pageCount={pageCount}
+            total={orderedClaims.length}
+            pageSize={PAGE_SIZE}
+            onPageChange={setPage}
+            label={{ singular: "claim", plural: "claims" }}
+          />
+        </>
+      )}
 
       {isFaab ? (
         <EditClaimDialog

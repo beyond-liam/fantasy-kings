@@ -4,11 +4,21 @@ import dynamic from "next/dynamic";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
 
+import { AmericanFootballIcon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
+
 import { BoxScoreTable } from "@/components/leagues/game-centre/box-score-table";
 import { MatchupHeader } from "@/components/leagues/game-centre/matchup-header";
 import { MatchupPreviewDashboard } from "@/components/leagues/game-centre/matchup-preview-dashboard";
 import { MatchupRosterList } from "@/components/leagues/game-centre/starter-duel-list";
 import { WaiverTips } from "@/components/leagues/game-centre/waiver-tips";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { explainPlayerPoints } from "@/lib/leagues/scoring/calculate";
 import type {
@@ -134,9 +144,17 @@ export function GameCentre({ data }: GameCentreProps) {
                 leagueSlug={data.leagueSlug}
               />
             ) : (
-              <p className="text-sm text-muted-foreground">
-                Preview is unavailable for this matchup.
-              </p>
+              <Empty>
+                <EmptyHeader>
+                  <EmptyMedia variant="icon">
+                    <HugeiconsIcon icon={AmericanFootballIcon} strokeWidth={2} />
+                  </EmptyMedia>
+                  <EmptyTitle>Preview unavailable</EmptyTitle>
+                  <EmptyDescription>
+                    Matchup preview is not available for this pairing yet.
+                  </EmptyDescription>
+                </EmptyHeader>
+              </Empty>
             )}
           </TabsContent>
         ) : null}

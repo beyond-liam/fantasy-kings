@@ -3,8 +3,8 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Add01Icon,
   Cancel01Icon,
+  MessageSquarePlus as MessageSquarePlusIcon,
   SentIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -79,9 +79,19 @@ export function NewMessageDialog({
         if (!next) reset();
       }}
     >
-      <Button type="button" onClick={() => setOpen(true)}>
-        <HugeiconsIcon icon={Add01Icon} strokeWidth={2} data-icon="inline-start" />
-        New message
+      <Button
+        type="button"
+        size="icon-sm"
+        className="md:h-9 md:w-auto md:gap-1.5 md:px-2.5"
+        aria-label="New message"
+        onClick={() => setOpen(true)}
+      >
+        <HugeiconsIcon
+          icon={MessageSquarePlusIcon}
+          strokeWidth={2}
+          data-icon="inline-start"
+        />
+        <span className="hidden md:inline">New message</span>
       </Button>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>

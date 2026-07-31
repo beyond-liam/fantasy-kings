@@ -3,12 +3,18 @@
 import type { ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
+import { UserGroupIcon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
+
+import { MobileTabDrawer } from "@/components/layout/mobile-tab-drawer";
 import { PageSkeleton } from "@/components/layout/page-skeleton";
 import { Badge } from "@/components/ui/badge";
 import {
   Empty,
   EmptyDescription,
   EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
 } from "@/components/ui/empty";
 import {
   Tabs,
@@ -53,6 +59,10 @@ function ComingSoon({ description }: { description: string }) {
   return (
     <Empty>
       <EmptyHeader>
+        <EmptyMedia variant="icon">
+          <HugeiconsIcon icon={UserGroupIcon} strokeWidth={2} />
+        </EmptyMedia>
+        <EmptyTitle>Coming soon</EmptyTitle>
         <EmptyDescription>{description}</EmptyDescription>
       </EmptyHeader>
     </Empty>
@@ -116,20 +126,18 @@ export function TeamTabs(props: TeamTabsProps) {
     );
   }
 
+  function setTab(value: string) {
+    const params = new URLSearchParams();
+    if (value !== "roster") {
+      params.set("tab", value);
+    }
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }
+
   return (
-    <Tabs
-      value={activeTab}
-      onValueChange={(value) => {
-        const params = new URLSearchParams();
-        if (value !== "roster") {
-          params.set("tab", value);
-        }
-        const qs = params.toString();
-        router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
-      }}
-      className="gap-6"
-    >
-      <TabsList>
+    <Tabs value={activeTab} onValueChange={setTab} className="gap-6">
+      <TabsList className="hidden md:inline-flex">
         {tabs.map((tab) => (
           <TabsTrigger key={tab.value} value={tab.value} className="gap-2">
             {tab.label}
@@ -144,6 +152,20 @@ export function TeamTabs(props: TeamTabsProps) {
           </TabsTrigger>
         ))}
       </TabsList>
+
+      <MobileTabDrawer
+        items={tabs}
+        value={activeTab}
+        onSelect={setTab}
+        title="Team sections"
+        description="Choose which team section to view"
+        badges={
+          !isOther && props.transactionsBadge
+            ? { transactions: props.transactionsBadge }
+            : undefined
+        }
+      />
+
       {tabs.map((tab) => (
         <TabsContent key={tab.value} value={tab.value} className="outline-none">
           <div className="flex flex-col gap-4">

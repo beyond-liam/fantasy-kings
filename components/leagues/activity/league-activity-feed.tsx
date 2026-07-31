@@ -11,6 +11,7 @@ import {
   UserDollarIcon,
   UserMinus01Icon,
   UserSwitchIcon,
+  Activity01Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import type { IconSvgElement } from "@hugeicons/react";
@@ -19,6 +20,7 @@ import {
   Empty,
   EmptyDescription,
   EmptyHeader,
+  EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
 import {
@@ -234,6 +236,9 @@ export function LeagueActivityFeed({ items }: LeagueActivityFeedProps) {
         </h1>
         <Empty>
           <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <HugeiconsIcon icon={Activity01Icon} strokeWidth={2} />
+            </EmptyMedia>
             <EmptyTitle>No activity yet</EmptyTitle>
             <EmptyDescription>
               Roster moves, claims, trades, settings changes, and membership
@@ -247,10 +252,11 @@ export function LeagueActivityFeed({ items }: LeagueActivityFeedProps) {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-end justify-between gap-4">
-        <h1 className="text-2xl font-semibold tracking-tight text-balance">
-          Activity
-        </h1>
+      <h1 className="mb-2 text-2xl font-semibold tracking-tight text-balance">
+        Activity
+      </h1>
+
+      <div className="flex flex-wrap items-center gap-3">
         <Select
           items={filterItems}
           value={typeFilter}
@@ -268,7 +274,7 @@ export function LeagueActivityFeed({ items }: LeagueActivityFeedProps) {
           >
             <SelectValue />
           </SelectTrigger>
-          <SelectContent align="end" alignItemWithTrigger={false}>
+          <SelectContent align="start" alignItemWithTrigger={false}>
             <SelectGroup>
               {filterItems.map((item) => (
                 <SelectItem key={item.value} value={item.value}>
@@ -281,9 +287,17 @@ export function LeagueActivityFeed({ items }: LeagueActivityFeedProps) {
       </div>
 
       {filtered.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          No activity for this type.
-        </p>
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <HugeiconsIcon icon={Activity01Icon} strokeWidth={2} />
+            </EmptyMedia>
+            <EmptyTitle>No activity for this type.</EmptyTitle>
+            <EmptyDescription>
+              Try another filter or check back after more league events.
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       ) : (
         <>
           <ul className={cn(TABLE_SHELL_CLASSNAME, "divide-y")}>
@@ -311,7 +325,6 @@ export function LeagueActivityFeed({ items }: LeagueActivityFeedProps) {
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {formatActivityTime(item.createdAt)} UTC · {meta.label}
-                      {isSettings ? " · View changes" : null}
                     </p>
                   </div>
                 </>
@@ -367,7 +380,11 @@ function SettingsChangesDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const label = item?.metadata?.settingsLabel?.trim() || "league settings";
-  const changes = item?.metadata?.settingsChanges ?? [];
+  // Preset switches are implied by the rule diffs — don't surface them.
+  const changes = (item?.metadata?.settingsChanges ?? []).filter(
+    (change) =>
+      change.path !== "scoringPreset" && change.label !== "Scoring preset",
+  );
   const hasLegacySummaryOnly = changes.some(
     (change) =>
       change.after === "Updated" ||
@@ -380,9 +397,13 @@ function SettingsChangesDialog({
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Settings updated</DialogTitle>
-          <DialogDescription>
-            Commissioner changed {label}
-            {item ? ` · ${formatActivityTime(item.createdAt)} UTC` : null}.
+          <DialogDescription className="flex flex-col gap-1">
+            <span>Commissioner changed {label}.</span>
+            {item ? (
+              <span>
+                {formatActivityTime(item.createdAt)} UTC
+              </span>
+            ) : null}
           </DialogDescription>
         </DialogHeader>
         {changes.length === 0 ? (

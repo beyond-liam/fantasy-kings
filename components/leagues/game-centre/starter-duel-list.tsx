@@ -6,6 +6,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { PlayerAvatar } from "@/components/rankings/player-avatar";
 import { formatPlayerSubtitle } from "@/components/rankings/player-identity";
 import { OpponentCell } from "@/components/team/opponent-cell";
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { TableShell } from "@/components/ui/table";
 import type {
   GameCentreDuelRow,
@@ -235,9 +236,12 @@ export function MatchupRosterList({
         <div className="flex h-10 items-center border-b bg-muted px-4 text-xs font-medium uppercase">
           {title}
         </div>
-        <p className="px-4 py-3 text-sm text-pretty text-muted-foreground">
-          {emptyMessage}
-        </p>
+        <Empty className="border-none" size="sm">
+          <EmptyHeader>
+            <EmptyTitle>No {title.toLowerCase()} yet</EmptyTitle>
+            <EmptyDescription>{emptyMessage}</EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       </TableShell>
     );
   }

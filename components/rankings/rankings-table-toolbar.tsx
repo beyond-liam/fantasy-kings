@@ -3,6 +3,13 @@
 import type { Table } from "@tanstack/react-table";
 import { useMemo } from "react";
 
+import {
+  PILL_CLASSNAME,
+  PILL_INACTIVE_CLASSNAME,
+  PositionPills,
+} from "@/components/rankings/filter-pills";
+import { PlayerSearchDrawer } from "@/components/rankings/player-search-drawer";
+import { NflTeamOption } from "@/components/nfl/nfl-team-option";
 import type { RankingsViewState } from "@/components/rankings/rankings-toolbar";
 import { useRankingsParams } from "@/components/rankings/use-rankings-params";
 import {
@@ -11,7 +18,6 @@ import {
   InputGroupButton,
   InputGroupInput,
 } from "@/components/ui/input-group";
-import { Field, FieldLabel } from "@/components/ui/field";
 import {
   Select,
   SelectContent,
@@ -21,13 +27,28 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { Field, FieldLabel } from "@/components/ui/field";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerTrigger,
+} from "@/components/ui/drawer";
 import {
   DEFAULT_POSITION_FILTER,
   POSITION_FILTERS,
 } from "@/lib/rankings/column-config";
+import { getNflTeamLabel } from "@/lib/nfl/teams";
 import { RANKINGS_SCORING_OPTIONS } from "@/lib/rankings/scoring-preset";
+import { cn } from "@/lib/utils";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { Cancel01Icon, SearchIcon } from "@hugeicons/core-free-icons";
+import {
+  Cancel01Icon,
+  FilterHorizontalIcon,
+  SearchIcon,
+} from "@hugeicons/core-free-icons";
 
 const WEEK_ITEMS = [
   { label: "Season", value: "season" },
@@ -36,6 +57,16 @@ const WEEK_ITEMS = [
     value: String(index + 1),
   })),
 ];
+
+type PlayerSearchActions = {
+  leagueSlug: string;
+  showWatchlist?: boolean;
+  showActions?: boolean;
+  actionsEnabled?: boolean;
+  tradesEnabled?: boolean;
+  acquisitionsLocked?: boolean;
+  acquisitionLockReason?: string;
+};
 
 type RankingsTableToolbarProps<TData> = {
   table: Table<TData>;
@@ -46,11 +77,72 @@ type RankingsTableToolbarProps<TData> = {
   showScoringSelect?: boolean;
   /** NFL team filter — used on global rankings, not league Players. */
   showTeamFilter?: boolean;
-  /** Free agents only switch — used on league Players instead of team filter. */
+  /** Free agents only switch — league Players only. */
   showFreeAgentsFilter?: boolean;
+  searchActions?: PlayerSearchActions;
   searchColumnId?: string;
   searchPlaceholder?: string;
 };
+
+function FilterSwitches({
+  idPrefix,
+  view,
+  showFreeAgentsFilter,
+  updateParams,
+  fieldClassName,
+  labelFirst,
+}: {
+  idPrefix: string;
+  view: RankingsViewState;
+  showFreeAgentsFilter: boolean;
+  updateParams: ReturnType<typeof useRankingsParams>;
+  fieldClassName: string;
+  labelFirst: boolean;
+}) {
+  const switches = [
+    {
+      id: `${idPrefix}-rookies-only`,
+      label: "Rookies only",
+      checked: view.rookiesOnly,
+      onCheckedChange: (checked: boolean) =>
+        updateParams({ rookies: checked ? "1" : null }),
+    },
+    ...(showFreeAgentsFilter
+      ? [
+          {
+            id: `${idPrefix}-free-agents-only`,
+            label: "Free agents only",
+            checked: view.freeAgentsOnly,
+            onCheckedChange: (checked: boolean) =>
+              updateParams({ fa: checked ? null : "0" }),
+          },
+        ]
+      : []),
+  ];
+
+  return switches.map((item) => {
+    const label = (
+      <FieldLabel htmlFor={item.id} className="font-normal">
+        {item.label}
+      </FieldLabel>
+    );
+    const control = (
+      <Switch
+        id={item.id}
+        size={labelFirst ? undefined : "sm"}
+        checked={item.checked}
+        onCheckedChange={item.onCheckedChange}
+      />
+    );
+
+    return (
+      <Field key={item.id} orientation="horizontal" className={fieldClassName}>
+        {labelFirst ? label : control}
+        {labelFirst ? control : label}
+      </Field>
+    );
+  });
+}
 
 export function RankingsTableToolbar<TData>({
   table,
@@ -61,13 +153,13 @@ export function RankingsTableToolbar<TData>({
   showScoringSelect = true,
   showTeamFilter = true,
   showFreeAgentsFilter = false,
+  searchActions,
   searchColumnId = "player",
   searchPlaceholder = "Search players...",
 }: RankingsTableToolbarProps<TData>) {
   const updateParams = useRankingsParams();
   const searchColumn = table.getColumn(searchColumnId);
   const searchValue = (searchColumn?.getFilterValue() as string) ?? "";
-
   const seasonItems = useMemo(
     () => seasons.map((season) => ({ label: season, value: season })),
     [seasons],
@@ -76,7 +168,10 @@ export function RankingsTableToolbar<TData>({
   const teamItems = useMemo(
     () => [
       { label: "All teams", value: "ALL" },
-      ...teams.map((team) => ({ label: team, value: team })),
+      ...teams.map((team) => ({
+        label: getNflTeamLabel(team),
+        value: team,
+      })),
     ],
     [teams],
   );
@@ -99,8 +194,39 @@ export function RankingsTableToolbar<TData>({
     [],
   );
 
+  const handlePositionChange = (value: string) => {
+    updateParams({
+      position: value === DEFAULT_POSITION_FILTER ? null : value,
+    });
+  };
+
+  const searchInput = (
+    <>
+      <InputGroupAddon align="inline-start">
+        <HugeiconsIcon icon={SearchIcon} strokeWidth={2} />
+      </InputGroupAddon>
+      <InputGroupInput
+        placeholder={searchPlaceholder}
+        value={searchValue}
+        onChange={(event) => searchColumn?.setFilterValue(event.target.value)}
+      />
+      {searchValue ? (
+        <InputGroupAddon align="inline-end">
+          <InputGroupButton
+            size="icon-xs"
+            aria-label="Clear search"
+            className="relative after:absolute after:top-1/2 after:left-1/2 after:size-10 after:-translate-x-1/2 after:-translate-y-1/2"
+            onClick={() => searchColumn?.setFilterValue("")}
+          >
+            <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} />
+          </InputGroupButton>
+        </InputGroupAddon>
+      ) : null}
+    </>
+  );
+
   return (
-    <div className="flex w-full flex-wrap items-center justify-between gap-3">
+    <div className="flex w-full flex-col gap-3 md:flex-row md:flex-wrap md:items-center md:justify-between">
       <div className="flex flex-wrap items-center gap-3">
         <Select
           items={seasonItems}
@@ -113,7 +239,7 @@ export function RankingsTableToolbar<TData>({
             }
           }}
         >
-          <SelectTrigger size="sm" className="w-24">
+          <SelectTrigger size="sm" className="w-24 max-md:hidden">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -165,7 +291,7 @@ export function RankingsTableToolbar<TData>({
             }
           }}
         >
-          <SelectTrigger size="sm" className="w-32">
+          <SelectTrigger size="sm" className="w-32 max-md:hidden">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -180,40 +306,72 @@ export function RankingsTableToolbar<TData>({
         </Select>
       </div>
 
-      <div className="flex flex-wrap items-center gap-3">
-        <Field orientation="horizontal" className="w-auto gap-2">
-          <Switch
-            id="rookies-only"
-            size="sm"
-            checked={view.rookiesOnly}
-            onCheckedChange={(checked) => {
-              updateParams({
-                rookies: checked ? "1" : null,
-              });
-            }}
-          />
-          <FieldLabel htmlFor="rookies-only" className="font-normal">
-            Rookies only
-          </FieldLabel>
-        </Field>
+      <div className="no-scrollbar flex items-center gap-1.5 overflow-x-auto overscroll-x-contain md:hidden">
+        <PlayerSearchDrawer
+          season={view.season}
+          scoring={view.scoring}
+          searchPlaceholder={searchPlaceholder}
+          leagueSlug={searchActions?.leagueSlug}
+          showWatchlist={searchActions?.showWatchlist}
+          showActions={searchActions?.showActions}
+          actionsEnabled={searchActions?.actionsEnabled}
+          tradesEnabled={searchActions?.tradesEnabled}
+          acquisitionsLocked={searchActions?.acquisitionsLocked}
+          acquisitionLockReason={searchActions?.acquisitionLockReason}
+        />
 
-        {showFreeAgentsFilter ? (
-          <Field orientation="horizontal" className="w-auto gap-2">
-            <Switch
-              id="free-agents-only"
-              size="sm"
-              checked={view.freeAgentsOnly}
-              onCheckedChange={(checked) => {
-                updateParams({
-                  fa: checked ? null : "0",
-                });
-              }}
+        <Drawer showSwipeHandle>
+          <DrawerTrigger
+            render={
+              <button
+                type="button"
+                aria-label="Filters"
+                className={cn(
+                  PILL_CLASSNAME,
+                  PILL_INACTIVE_CLASSNAME,
+                  "flex items-center",
+                )}
+              />
+            }
+          >
+            <HugeiconsIcon
+              icon={FilterHorizontalIcon}
+              strokeWidth={2}
+              size={16}
             />
-            <FieldLabel htmlFor="free-agents-only" className="font-normal">
-              Free agents only
-            </FieldLabel>
-          </Field>
-        ) : null}
+          </DrawerTrigger>
+          <DrawerContent>
+            <DrawerHeader>
+              <DrawerTitle>Filters</DrawerTitle>
+              <DrawerDescription className="sr-only">
+                Narrow down the player list
+              </DrawerDescription>
+            </DrawerHeader>
+            <div className="flex flex-col gap-4 p-4 pt-2">
+              <FilterSwitches
+                idPrefix="mobile"
+                view={view}
+                showFreeAgentsFilter={showFreeAgentsFilter}
+                updateParams={updateParams}
+                fieldClassName="w-full justify-between gap-3"
+                labelFirst
+              />
+            </div>
+          </DrawerContent>
+        </Drawer>
+
+        <PositionPills value={view.position} onSelect={handlePositionChange} />
+      </div>
+
+      <div className="flex flex-wrap items-center gap-3 max-md:hidden">
+        <FilterSwitches
+          idPrefix="desktop"
+          view={view}
+          showFreeAgentsFilter={showFreeAgentsFilter}
+          updateParams={updateParams}
+          fieldClassName="w-auto gap-2"
+          labelFirst={false}
+        />
 
         {showTeamFilter ? (
           <Select
@@ -227,14 +385,26 @@ export function RankingsTableToolbar<TData>({
               }
             }}
           >
-            <SelectTrigger size="sm" className="w-28">
-              <SelectValue />
+            <SelectTrigger size="sm" className="w-56">
+              <SelectValue>
+                {(value) =>
+                  value && value !== "ALL" ? (
+                    <NflTeamOption abbrev={String(value)} />
+                  ) : (
+                    "All teams"
+                  )
+                }
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>
                 {teamItems.map((item) => (
                   <SelectItem key={item.value} value={item.value}>
-                    {item.label}
+                    {item.value === "ALL" ? (
+                      item.label
+                    ) : (
+                      <NflTeamOption abbrev={item.value} />
+                    )}
                   </SelectItem>
                 ))}
               </SelectGroup>
@@ -247,9 +417,7 @@ export function RankingsTableToolbar<TData>({
           value={view.position}
           onValueChange={(value) => {
             if (value) {
-              updateParams({
-                position: value === DEFAULT_POSITION_FILTER ? null : value,
-              });
+              handlePositionChange(value);
             }
           }}
         >
@@ -267,30 +435,7 @@ export function RankingsTableToolbar<TData>({
           </SelectContent>
         </Select>
 
-        <InputGroup className="h-8 w-[200px]">
-          <InputGroupAddon align="inline-start">
-            <HugeiconsIcon icon={SearchIcon} strokeWidth={2} />
-          </InputGroupAddon>
-          <InputGroupInput
-            placeholder={searchPlaceholder}
-            value={searchValue}
-            onChange={(event) =>
-              searchColumn?.setFilterValue(event.target.value)
-            }
-          />
-          {searchValue ? (
-            <InputGroupAddon align="inline-end">
-              <InputGroupButton
-                size="icon-xs"
-                aria-label="Clear search"
-                className="relative after:absolute after:top-1/2 after:left-1/2 after:size-10 after:-translate-x-1/2 after:-translate-y-1/2"
-                onClick={() => searchColumn?.setFilterValue("")}
-              >
-                <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} />
-              </InputGroupButton>
-            </InputGroupAddon>
-          ) : null}
-        </InputGroup>
+        <InputGroup className="h-8 w-[200px]">{searchInput}</InputGroup>
       </div>
     </div>
   );

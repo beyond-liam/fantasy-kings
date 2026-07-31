@@ -1,10 +1,17 @@
 import { Fragment } from "react";
 import Link from "next/link";
-import { ArrowRight01Icon } from "@hugeicons/core-free-icons";
+import { ArrowRight01Icon, CalendarBlock01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import {
   Table,
   TableBody,
@@ -134,9 +141,17 @@ function LocationCell({ game }: { game: ScheduleGame }) {
 export function ScheduleList({ games, week }: ScheduleListProps) {
   if (games.length === 0) {
     return (
-      <p className="text-sm text-muted-foreground">
-        No games scheduled for this week.
-      </p>
+      <Empty>
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <HugeiconsIcon icon={CalendarBlock01Icon} strokeWidth={2} />
+          </EmptyMedia>
+          <EmptyTitle>No games scheduled</EmptyTitle>
+          <EmptyDescription>
+            NFL games for this week will appear here when the schedule is set.
+          </EmptyDescription>
+        </EmptyHeader>
+      </Empty>
     );
   }
 

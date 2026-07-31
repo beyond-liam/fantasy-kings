@@ -1,7 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import type { ColumnDef, SortingState } from "@tanstack/react-table";
+
+import { BinocularsIcon, UserGroupIcon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 
 import { PlayerActionButton } from "@/components/rankings/player-action-button";
 import { PlayerIdentity } from "@/components/rankings/player-identity";
@@ -10,6 +14,7 @@ import { useWatchlist } from "@/components/rankings/watchlist-provider";
 import { OpponentCell } from "@/components/team/opponent-cell";
 import { PointsCell } from "@/components/team/points-cell";
 import { TeamTableColumnHeader } from "@/components/team/team-table-column-header";
+import { Button } from "@/components/ui/button";
 import {
   DataTable,
   DataTableColumnHeader,
@@ -17,8 +22,11 @@ import {
 } from "@/components/ui/data-table";
 import {
   Empty,
+  EmptyContent,
   EmptyDescription,
   EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
 } from "@/components/ui/empty";
 import type { WatchlistPlayer } from "@/lib/queries/watchlist";
 import { formatRosterRatePct } from "@/lib/leagues/format-roster-rate";
@@ -90,7 +98,7 @@ export function TeamWatchlistSection({
             </div>
           );
         },
-        meta: { cellClassName: "min-w-[14rem]" },
+        meta: { width: 224, sticky: "left", cellClassName: "min-w-[14rem]" },
       },
       {
         id: "opponent",
@@ -250,10 +258,27 @@ export function TeamWatchlistSection({
     return (
       <Empty>
         <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <HugeiconsIcon icon={BinocularsIcon} strokeWidth={2} />
+          </EmptyMedia>
+          <EmptyTitle>No players on watchlist</EmptyTitle>
           <EmptyDescription>
             Bookmark players from the Players tab to track them here.
           </EmptyDescription>
         </EmptyHeader>
+        <EmptyContent>
+          <Button
+            nativeButton={false}
+            render={<Link href={`/league/${leagueSlug}/players`} />}
+          >
+            <HugeiconsIcon
+              icon={UserGroupIcon}
+              strokeWidth={2}
+              data-icon="inline-start"
+            />
+            Browse players
+          </Button>
+        </EmptyContent>
       </Empty>
     );
   }

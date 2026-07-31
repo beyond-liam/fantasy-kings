@@ -76,7 +76,7 @@ export function GameScoreboardHeader({ game }: GameScoreboardHeaderProps) {
             strokeWidth={2}
             data-icon="inline-start"
           />
-          Back to schedule
+          Back to Schedule
         </Button>
       </div>
 

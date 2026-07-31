@@ -6,6 +6,7 @@ import {
   Empty,
   EmptyDescription,
   EmptyHeader,
+  EmptyTitle,
 } from "@/components/ui/empty";
 import {
   Table,
@@ -69,7 +70,20 @@ function DraftRosterSection({
   leagueSlug?: string | null;
 }) {
   const statColumns = getStatColumns(section.columnPosition);
-  const colSpan = 4 + statColumns.length;
+  // Desktop: player + pick + opp + rank + stats. Mobile: player + rank only.
+  const desktopColSpan = 4 + statColumns.length;
+  const mobileColSpan = 2;
+
+  const emptyState = (
+    <Empty className="border-none py-8" size="sm">
+      <EmptyHeader>
+        <EmptyTitle>No {section.title.toLowerCase()} drafted yet</EmptyTitle>
+        <EmptyDescription>
+          Drafted players will appear in this section.
+        </EmptyDescription>
+      </EmptyHeader>
+    </Empty>
+  );
 
   return (
     <section className="flex flex-col gap-3">
@@ -81,7 +95,7 @@ function DraftRosterSection({
       </h2>
       <TableShell>
         <TooltipProvider>
-          <Table className="table-fixed min-w-[44rem]">
+          <Table className="table-fixed min-w-0 md:min-w-[44rem]">
             <colgroup>
               <col style={{ width: PLAYER_COLUMN_WIDTH }} />
             </colgroup>
@@ -90,23 +104,23 @@ function DraftRosterSection({
                 <TableHead className={PLAYER_COLUMN_CLASS}>
                   <TeamTableColumnHeader title="Player" />
                 </TableHead>
-                <TableHead className="w-16">
+                <TableHead className="w-16 max-md:hidden">
                   <TeamTableColumnHeader
                     title={PLAYER_STAT_COLUMNS.pick.header}
                     tooltip={PLAYER_STAT_COLUMNS.pick.tooltip}
                   />
                 </TableHead>
-                <TableHead>
+                <TableHead className="max-md:hidden">
                   <TeamTableColumnHeader title="Opp" tooltip="Opponent" />
                 </TableHead>
-                <TableHead>
+                <TableHead className="w-16 md:w-auto">
                   <TeamTableColumnHeader
                     title={PLAYER_STAT_COLUMNS.rank.header}
                     tooltip={PLAYER_STAT_COLUMNS.rank.tooltip}
                   />
                 </TableHead>
                 {statColumns.map((column) => (
-                  <TableHead key={column.key}>
+                  <TableHead key={column.key} className="max-md:hidden">
                     <TeamTableColumnHeader
                       title={column.header}
                       tooltip={column.tooltip}
@@ -118,14 +132,14 @@ function DraftRosterSection({
             <TableBody>
               {section.players.length === 0 ? (
                 <TableRow className="hover:bg-transparent">
-                  <TableCell colSpan={colSpan} className="p-0">
-                    <Empty className="py-8">
-                      <EmptyHeader>
-                        <EmptyDescription>
-                          No {section.title.toLowerCase()} drafted yet.
-                        </EmptyDescription>
-                      </EmptyHeader>
-                    </Empty>
+                  <TableCell colSpan={mobileColSpan} className="p-0 md:hidden">
+                    {emptyState}
+                  </TableCell>
+                  <TableCell
+                    colSpan={desktopColSpan}
+                    className="hidden p-0 md:table-cell"
+                  >
+                    {emptyState}
                   </TableCell>
                 </TableRow>
               ) : (
@@ -143,10 +157,10 @@ function DraftRosterSection({
                         leagueSlug={leagueSlug}
                       />
                     </TableCell>
-                    <TableCell className="tabular-nums text-muted-foreground">
+                    <TableCell className="tabular-nums text-muted-foreground max-md:hidden">
                       {pickByPlayerId[player.id] ?? PLACEHOLDER}
                     </TableCell>
-                    <TableCell className="text-muted-foreground">
+                    <TableCell className="text-muted-foreground max-md:hidden">
                       {PLACEHOLDER}
                     </TableCell>
                     <TableCell
@@ -161,7 +175,10 @@ function DraftRosterSection({
                       )}
                     </TableCell>
                     {statColumns.map((column) => (
-                      <TableCell key={column.key} className="tabular-nums">
+                      <TableCell
+                        key={column.key}
+                        className="tabular-nums max-md:hidden"
+                      >
                         {renderStatCell(player, column)}
                       </TableCell>
                     ))}

@@ -2,7 +2,7 @@
 
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { TickDouble02Icon } from "@hugeicons/core-free-icons";
+import { CheckmarkSquare04Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { toast } from "sonner";
 
@@ -21,11 +21,15 @@ export function MarkAllMessagesReadButton({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
+  const label = isPending ? "Marking…" : "Mark all as read";
+
   return (
     <Button
       type="button"
       variant="outline"
-      size="sm"
+      size="icon-sm"
+      className="md:h-8 md:w-auto md:gap-1 md:px-2.5"
+      aria-label={label}
       disabled={disabled || isPending}
       onClick={() => {
         startTransition(async () => {
@@ -39,11 +43,11 @@ export function MarkAllMessagesReadButton({
       }}
     >
       <HugeiconsIcon
-        icon={TickDouble02Icon}
+        icon={CheckmarkSquare04Icon}
         strokeWidth={2}
         data-icon="inline-start"
       />
-      {isPending ? "Marking…" : "Mark all as read"}
+      <span className="hidden md:inline">{label}</span>
     </Button>
   );
 }

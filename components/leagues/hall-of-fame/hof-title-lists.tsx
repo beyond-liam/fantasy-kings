@@ -110,7 +110,7 @@ export function HofChampionshipsTable({
   const crowned = rows.filter((row) => row.champion);
   if (crowned.length === 0) {
     return (
-      <Empty className="border">
+      <Empty size="sm">
         <EmptyHeader>
           <EmptyTitle>No champions yet</EmptyTitle>
           <EmptyDescription>
@@ -168,7 +168,7 @@ export function HofRegularSeasonTitlesTable({
 }) {
   if (rows.length === 0) {
     return (
-      <Empty className="border">
+      <Empty size="sm">
         <EmptyHeader>
           <EmptyTitle>No regular season champions yet</EmptyTitle>
           <EmptyDescription>

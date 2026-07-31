@@ -1,14 +1,27 @@
 import { OnboardingDialog } from "@/components/auth/onboarding-dialog";
 import { AppTopNav } from "@/components/layout/app-top-nav";
+import { PresenceHeartbeat } from "@/components/layout/presence-heartbeat";
 import { getSessionAccountSummary } from "@/lib/actions/account";
+import { getSessionUser } from "@/lib/auth/session";
+import { getUserLeagueNavItems } from "@/lib/queries/leagues";
 
 /** Streams account chrome without blocking page children. */
 export async function AppAccountSlot() {
-  const account = await getSessionAccountSummary();
+  const user = await getSessionUser();
+  const [account, leagues] = await Promise.all([
+    getSessionAccountSummary(),
+    user ? getUserLeagueNavItems(user.id) : Promise.resolve([]),
+  ]);
+
   return (
     <>
-      <AppTopNav initialAccount={account} />
-      {account ? <OnboardingDialog /> : null}
+      <AppTopNav initialAccount={account} initialLeagues={leagues} />
+      {account ? (
+        <>
+          <OnboardingDialog />
+          <PresenceHeartbeat />
+        </>
+      ) : null}
     </>
   );
 }

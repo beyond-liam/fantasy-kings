@@ -14,6 +14,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { motion, useReducedMotion } from "motion/react";
 import { toast } from "sonner";
 
+import { ManagerPresenceBadge } from "@/components/leagues/presence/manager-presence-badge";
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -325,6 +326,9 @@ export function MessageThreadView({
                                 <AvatarFallback>
                                   {teamInitials(teamLabel)}
                                 </AvatarFallback>
+                                <ManagerPresenceBadge
+                                  userId={post.authorUserId}
+                                />
                               </Avatar>
                             </MessageAvatar>
                             <MessageContent>

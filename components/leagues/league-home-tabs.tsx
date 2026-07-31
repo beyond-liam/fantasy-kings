@@ -1,12 +1,27 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { type ReactNode } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
+import {
+  Analytics02Icon,
+  DashboardSquare02Icon,
+  HierarchySquare05Icon,
+  Calculator01Icon,
+  Legal01Icon,
+  LeftToRightListNumberIcon,
+  ListOrdered as ListOrderedIcon,
+  StarAward01Icon,
+} from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
+
+import { MobileTabDrawer } from "@/components/layout/mobile-tab-drawer";
 import {
   Empty,
   EmptyDescription,
   EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
 } from "@/components/ui/empty";
 import {
   Tabs,
@@ -16,13 +31,13 @@ import {
 } from "@/components/ui/tabs";
 
 const LEAGUE_HOME_TABS = [
-  { value: "overview", label: "Overview" },
-  { value: "standings", label: "Standings" },
-  { value: "stats", label: "Stats" },
-  { value: "playoffs", label: "Playoffs" },
-  { value: "hall-of-fame", label: "Hall of Fame" },
-  { value: "rules", label: "Rules" },
-  { value: "scoring", label: "Scoring" },
+  { value: "overview", label: "Overview", icon: DashboardSquare02Icon },
+  { value: "standings", label: "Standings", icon: ListOrderedIcon },
+  { value: "stats", label: "Stats", icon: Analytics02Icon },
+  { value: "playoffs", label: "Playoffs", icon: HierarchySquare05Icon },
+  { value: "hall-of-fame", label: "Hall of Fame", icon: StarAward01Icon },
+  { value: "rules", label: "Rules", icon: Legal01Icon },
+  { value: "scoring", label: "Scoring", icon: Calculator01Icon },
 ] as const;
 
 export type LeagueHomeTabValue = (typeof LEAGUE_HOME_TABS)[number]["value"];
@@ -44,6 +59,10 @@ function ComingSoon({ description }: { description: string }) {
   return (
     <Empty>
       <EmptyHeader>
+        <EmptyMedia variant="icon">
+          <HugeiconsIcon icon={LeftToRightListNumberIcon} strokeWidth={2} />
+        </EmptyMedia>
+        <EmptyTitle>Coming soon</EmptyTitle>
         <EmptyDescription>{description}</EmptyDescription>
       </EmptyHeader>
     </Empty>
@@ -92,30 +111,41 @@ export function LeagueHomeTabs({
     ),
   };
 
+  function setTab(value: string) {
+    const params = new URLSearchParams(searchParams.toString());
+    if (value === "overview") {
+      params.delete("tab");
+    } else {
+      params.set("tab", value);
+    }
+    const query = params.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, {
+      scroll: false,
+    });
+  }
+
   return (
     <Tabs
       value={activeTab}
-      onValueChange={(value) => {
-        const params = new URLSearchParams(searchParams.toString());
-        if (value === "overview") {
-          params.delete("tab");
-        } else {
-          params.set("tab", String(value));
-        }
-        const query = params.toString();
-        router.replace(query ? `${pathname}?${query}` : pathname, {
-          scroll: false,
-        });
-      }}
+      onValueChange={setTab}
       className="gap-6"
     >
-      <TabsList>
+      <TabsList className="hidden md:inline-flex">
         {LEAGUE_HOME_TABS.map((tab) => (
           <TabsTrigger key={tab.value} value={tab.value}>
             {tab.label}
           </TabsTrigger>
         ))}
       </TabsList>
+
+      <MobileTabDrawer
+        items={LEAGUE_HOME_TABS}
+        value={activeTab}
+        onSelect={setTab}
+        title="League sections"
+        description="Choose which league home section to view"
+      />
+
       {LEAGUE_HOME_TABS.map((tab) => (
         <TabsContent key={tab.value} value={tab.value} className="outline-none">
           {content[tab.value]}

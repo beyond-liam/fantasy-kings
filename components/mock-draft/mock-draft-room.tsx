@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft01Icon,
+  LicenseDraftIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { toast } from "sonner";
@@ -16,8 +17,15 @@ import {
 import { DraftBoard } from "@/components/leagues/draft/draft-board";
 import { DraftPlayerPool } from "@/components/leagues/draft/draft-player-pool";
 import { DraftRosterTab } from "@/components/leagues/draft/draft-roster-tab";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import {
   Tabs,
   TabsContent,
@@ -135,7 +143,10 @@ export function MockDraftRoom({ players }: MockDraftRoomProps) {
     return [...teamsSet].sort();
   }, [players]);
 
-  const myRoster = userTeamId ? (picksByTeam.get(userTeamId) ?? []) : [];
+  const myRoster = useMemo(
+    () => (userTeamId ? (picksByTeam.get(userTeamId) ?? []) : []),
+    [picksByTeam, userTeamId],
+  );
 
   const playersById = useMemo(
     () => new Map(players.map((player) => [player.id, player])),
@@ -288,20 +299,27 @@ export function MockDraftRoom({ players }: MockDraftRoomProps) {
   if (!config) {
     return (
       <div className="flex flex-1 flex-col gap-4 p-6">
-        <Alert>
-          <AlertTitle>No mock draft settings</AlertTitle>
-          <AlertDescription>
-            Set up scoring, roster, and draft order first.
-          </AlertDescription>
-        </Alert>
-        <Button type="button" render={<Link href="/draft-room" />}>
-          <HugeiconsIcon
-            icon={ArrowLeft01Icon}
-            strokeWidth={2}
-            data-icon="inline-start"
-          />
-          Back to settings
-        </Button>
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <HugeiconsIcon icon={LicenseDraftIcon} strokeWidth={2} />
+            </EmptyMedia>
+            <EmptyTitle>No mock draft settings</EmptyTitle>
+            <EmptyDescription>
+              Set up scoring, roster, and draft order first.
+            </EmptyDescription>
+          </EmptyHeader>
+          <EmptyContent>
+            <Button type="button" render={<Link href="/draft-room" />}>
+              <HugeiconsIcon
+                icon={ArrowLeft01Icon}
+                strokeWidth={2}
+                data-icon="inline-start"
+              />
+              Back to settings
+            </Button>
+          </EmptyContent>
+        </Empty>
       </div>
     );
   }

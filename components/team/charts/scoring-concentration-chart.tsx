@@ -15,6 +15,12 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { ChartHeadlineMetric } from "@/components/team/charts/chart-headline-metric";
 import { formatPoints } from "@/lib/leagues/standings";
 import type { ScoringConcentration } from "@/lib/leagues/team-stats-charts";
@@ -50,8 +56,7 @@ export function ScoringConcentrationChart({
       <CardHeader>
         <CardTitle>Scoring Concentration</CardTitle>
         <CardDescription>
-          How much of your starter points come from your top scorers. Heavy
-          stars → handcuffs; flat → easier to trade a stud for depth.
+          How much of your starter points come from your top scorers.
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-1 flex-col gap-4">
@@ -62,12 +67,15 @@ export function ScoringConcentrationChart({
           />
         ) : null}
         {chartRows.length === 0 ? (
-          <div className="flex min-h-72 flex-1 items-center justify-center rounded-lg border border-dashed px-4">
-            <p className="text-sm text-pretty text-muted-foreground">
-              Appears after weeks finalize with locked lineups (snapshots from
-              first finalize onward).
-            </p>
-          </div>
+          <Empty className="min-h-72 flex-1" size="sm">
+            <EmptyHeader>
+              <EmptyTitle>No concentration data yet</EmptyTitle>
+              <EmptyDescription>
+                Appears after weeks finalize with locked lineups (snapshots from
+                first finalize onward).
+              </EmptyDescription>
+            </EmptyHeader>
+          </Empty>
         ) : (
           <ChartContainer
             config={chartConfig}

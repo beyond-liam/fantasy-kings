@@ -28,6 +28,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { ListPagination } from "@/components/ui/list-pagination";
 import {
   acceptTrade,
@@ -219,7 +227,30 @@ export function TradeList({
 
   if (openTrades.length === 0) {
     return (
-      <p className="text-sm text-muted-foreground">No open trades right now.</p>
+      <Empty>
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <HugeiconsIcon icon={UserSwitchIcon} strokeWidth={2} />
+          </EmptyMedia>
+          <EmptyTitle>No open trades right now</EmptyTitle>
+          <EmptyDescription>
+            Propose a trade when you are ready to shake up your roster.
+          </EmptyDescription>
+        </EmptyHeader>
+        <EmptyContent>
+          <Button
+            nativeButton={false}
+            render={<Link href={tradeComposerPath(leagueSlug)} />}
+          >
+            <HugeiconsIcon
+              icon={ArrowLeftRightIcon}
+              strokeWidth={2}
+              data-icon="inline-start"
+            />
+            Propose trade
+          </Button>
+        </EmptyContent>
+      </Empty>
     );
   }
 

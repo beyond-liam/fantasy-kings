@@ -2,9 +2,12 @@
 
 import { useRouter } from "next/navigation";
 
+import { UserRemove01Icon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
+
 import { SettingsFormCard } from "@/components/leagues/settings/settings-form-card";
 import { TeamRosterSections } from "@/components/team/roster-sections";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import {
   Field,
   FieldDescription,
@@ -65,11 +68,17 @@ export function StartingLineupsSettings({
         contentClassName="flex flex-col gap-6"
       >
         {teams.length === 0 ? (
-          <Alert>
-            <AlertDescription>
-              No teams yet. Invite managers before setting lineups.
-            </AlertDescription>
-          </Alert>
+          <Empty>
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <HugeiconsIcon icon={UserRemove01Icon} strokeWidth={2} />
+              </EmptyMedia>
+              <EmptyTitle>No teams yet</EmptyTitle>
+              <EmptyDescription>
+                Invite managers before setting lineups.
+              </EmptyDescription>
+            </EmptyHeader>
+          </Empty>
         ) : (
           <>
             <FieldGroup>

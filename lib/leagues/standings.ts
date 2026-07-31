@@ -15,6 +15,7 @@ export type LeagueStandingsRow = {
   claimed: boolean;
   teamName: string;
   ownerName: string;
+  ownerUserId?: string | null;
   logoUrl: string | null;
   wins: number;
   losses: number;
@@ -110,6 +111,7 @@ export function buildPlaceholderStandings(
       teamName: member.teamName?.trim() || "Unnamed team",
       teamPublicId: member.teamPublicId?.trim() || null,
       claimed: Boolean(member.userId),
+      ownerUserId: member.userId ?? null,
       ownerName: member.userId
         ? member.displayName?.trim() || "Manager"
         : "Available",
@@ -143,6 +145,7 @@ export function buildPlaceholderStandings(
     claimed: team.claimed,
     teamName: team.teamName,
     ownerName: team.ownerName,
+    ownerUserId: team.ownerUserId,
     logoUrl: team.claimed ? team.logoUrl : null,
     ...emptyStats(),
     waiverPriority: team.claimed ? (team.waiverPriority ?? index + 1) : null,
@@ -165,6 +168,7 @@ export function buildPlaceholderStandings(
       claimed: false,
       teamName: "Unclaimed team",
       ownerName: "Available",
+      ownerUserId: null,
       logoUrl: null,
       ...emptyStats(),
       waiverPriority: null,

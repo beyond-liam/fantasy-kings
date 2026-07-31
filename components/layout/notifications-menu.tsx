@@ -5,8 +5,8 @@ import { useEffect, useState, useTransition } from "react";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
   BellIcon,
+  BellOffIcon,
   Eraser01Icon,
-  NotificationOff01Icon,
 } from "@hugeicons/core-free-icons";
 
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Empty,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyDescription,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import {
   clearAllNotifications,
   getSessionNotifications,
@@ -172,16 +179,17 @@ export function NotificationsMenu() {
         <DropdownMenuSeparator />
         {items.length === 0 ? (
           <DropdownMenuGroup>
-            <div className="flex flex-col items-center gap-2 px-2 py-8 text-center">
-              <HugeiconsIcon
-                icon={NotificationOff01Icon}
-                size={20}
-                className="text-muted-foreground"
-              />
-              <p className="text-sm text-muted-foreground">
-                No notifications yet
-              </p>
-            </div>
+        <Empty className="border-none" size="sm">
+          <EmptyHeader>
+            <EmptyMedia variant="icon" className="bg-background">
+              <HugeiconsIcon icon={BellOffIcon} strokeWidth={2} />
+            </EmptyMedia>
+            <EmptyTitle>No notifications yet</EmptyTitle>
+            <EmptyDescription>
+              Trade updates, claims, and league news will show up here.
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
           </DropdownMenuGroup>
         ) : (
           <DropdownMenuGroup className="max-h-80 overflow-y-auto">
