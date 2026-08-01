@@ -11,6 +11,7 @@ import type {
 
 import { TeamIdentity } from "@/components/leagues/standings/team-identity";
 import { TeamTableColumnHeader } from "@/components/team/team-table-column-header";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -32,6 +33,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { claimTeam } from "@/lib/actions/leagues";
 import { formatPlayoffOdds } from "@/lib/leagues/playoff-odds";
 import type { PlayoffPictureStatus } from "@/lib/leagues/playoff-picture";
@@ -41,6 +43,7 @@ import {
   formatRecord,
   formatWinPct,
   streakSortValue,
+  teamInitials,
   type LeagueStandingsRow,
   type StandingsFormGame,
 } from "@/lib/leagues/standings";
@@ -221,6 +224,62 @@ function ClaimTeamButton({
         </span>
       ) : null}
     </div>
+  );
+}
+
+/** Invite/recruit mobile rows: team + record under name + claim. */
+function MobileInviteStandings({
+  rows,
+  inviteCode,
+  canClaim,
+}: {
+  rows: StandingsTableRow[];
+  inviteCode: string;
+  canClaim: boolean;
+}) {
+  return (
+    <ul className="flex flex-col">
+      {rows.map((row) => {
+        const record = formatRecord(row.wins, row.losses, row.ties);
+        const showClaim =
+          canClaim && !row.claimed && Boolean(row.teamId);
+
+        return (
+          <li
+            key={row.id}
+            className="flex items-center gap-3 border-b border-border py-3 last:border-b-0"
+          >
+            {row.claimed ? (
+              <Avatar size="sm" className="shrink-0">
+                {row.logoUrl ? <AvatarImage src={row.logoUrl} alt="" /> : null}
+                <AvatarFallback>{teamInitials(row.teamName)}</AvatarFallback>
+              </Avatar>
+            ) : (
+              <div
+                className="size-6 shrink-0 rounded-full bg-muted"
+                aria-hidden
+              />
+            )}
+            <div className="flex min-w-0 flex-1 flex-col">
+              <span
+                className={cn(
+                  "truncate text-sm",
+                  row.claimed ? "font-medium" : "text-muted-foreground",
+                )}
+              >
+                {row.teamName}
+              </span>
+              <span className="tabular-nums text-xs text-muted-foreground">
+                {record}
+              </span>
+            </div>
+            {showClaim && row.teamId ? (
+              <ClaimTeamButton inviteCode={inviteCode} teamId={row.teamId} />
+            ) : null}
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 
@@ -711,6 +770,8 @@ export function LeagueStandingsTable({
   showSeed = false,
   playoffCutoffSeed = null,
 }: LeagueStandingsTableProps) {
+  const isMobile = useIsMobile();
+  const inviteMobile = Boolean(inviteCode) && isMobile;
   const [sorting, setSorting] = useState<SortingState>([
     { id: showSeed ? "seed" : "rank", desc: false },
   ]);
@@ -757,23 +818,33 @@ export function LeagueStandingsTable({
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-lg font-semibold tracking-tight">{title}</h2>
-        <DataTableViewOptions table={table} labels={COLUMN_LABELS} />
+        {inviteMobile ? null : (
+          <DataTableViewOptions table={table} labels={COLUMN_LABELS} />
+        )}
       </div>
-      <DataTable
-        table={table}
-        showPagination={false}
-        emptyMessage="No team slots configured for this league."
-        getRowClassName={(row) => {
-          if (playoffCutoffSeed == null || !("seed" in row.original)) {
-            return undefined;
-          }
-          const { seed } = row.original;
-          return cn(
-            seed === playoffCutoffSeed && "border-b-2! border-border!",
-            seed > playoffCutoffSeed && "text-muted-foreground",
-          );
-        }}
-      />
+      {inviteMobile && inviteCode ? (
+        <MobileInviteStandings
+          rows={rows}
+          inviteCode={inviteCode}
+          canClaim={canClaim}
+        />
+      ) : (
+        <DataTable
+          table={table}
+          showPagination={false}
+          emptyMessage="No team slots configured for this league."
+          getRowClassName={(row) => {
+            if (playoffCutoffSeed == null || !("seed" in row.original)) {
+              return undefined;
+            }
+            const { seed } = row.original;
+            return cn(
+              seed === playoffCutoffSeed && "border-b-2! border-border!",
+              seed > playoffCutoffSeed && "text-muted-foreground",
+            );
+          }}
+        />
+      )}
     </div>
   );
 }

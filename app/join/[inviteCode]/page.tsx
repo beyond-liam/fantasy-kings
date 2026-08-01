@@ -145,6 +145,7 @@ export default async function JoinLeaguePage({ params }: JoinPageProps) {
         leagueSlug={preview.league.publicId}
         inviteCode={preview.league.inviteCode}
         canClaim={canClaim}
+        title="Teams"
       />
     </div>
   );
