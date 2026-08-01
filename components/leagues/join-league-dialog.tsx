@@ -20,12 +20,34 @@ import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { resolveLeagueInviteCode } from "@/lib/actions/leagues";
 
-export function JoinLeagueDialog() {
+type JoinLeagueDialogProps = {
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  showTrigger?: boolean;
+};
+
+export function JoinLeagueDialog({
+  open: controlledOpen,
+  onOpenChange,
+  showTrigger = true,
+}: JoinLeagueDialogProps = {}) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const open = controlledOpen ?? internalOpen;
+
+  function setOpen(nextOpen: boolean) {
+    if (!nextOpen) {
+      setError(null);
+    }
+    if (onOpenChange) {
+      onOpenChange(nextOpen);
+      return;
+    }
+    setInternalOpen(nextOpen);
+  }
 
   function onSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -43,18 +65,16 @@ export function JoinLeagueDialog() {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger
-        render={
-          <Button type="button" variant="outline" />
-        }
-      >
-        <HugeiconsIcon
-          icon={Link01Icon}
-          strokeWidth={2}
-          data-icon="inline-start"
-        />
-        Join League
-      </DialogTrigger>
+      {showTrigger ? (
+        <DialogTrigger render={<Button type="button" variant="outline" />}>
+          <HugeiconsIcon
+            icon={Link01Icon}
+            strokeWidth={2}
+            data-icon="inline-start"
+          />
+          Join League
+        </DialogTrigger>
+      ) : null}
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Join a league</DialogTitle>

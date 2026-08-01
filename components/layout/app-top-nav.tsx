@@ -6,8 +6,10 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
+  Add01Icon,
   ArrowLeft01Icon,
   ArrowRight01Icon,
+  Link01Icon,
   Logout01Icon,
   Menu01Icon,
   Settings01Icon,
@@ -15,8 +17,9 @@ import {
 } from "@hugeicons/core-free-icons";
 import { appNavItems } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { JoinLeagueDialog } from "@/components/leagues/join-league-dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -107,11 +110,13 @@ function AppMobileNav({
   account: AppAccountSummary;
 }) {
   const [open, setOpen] = useState(false);
+  const [joinOpen, setJoinOpen] = useState(false);
   const [showLeagues, setShowLeagues] = useState(false);
   const settingsActive = pathname.startsWith("/settings");
 
   return (
-    <Sheet open={open} onOpenChange={setOpen}>
+    <>
+      <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger
         render={
           <Button
@@ -255,6 +260,42 @@ function AppMobileNav({
               Back
             </Button>
             <Separator className="my-2" />
+            <Button
+              type="button"
+              variant="ghost"
+              className="h-10 w-full justify-start gap-2 px-0!"
+              onClick={() => {
+                setOpen(false);
+                setJoinOpen(true);
+              }}
+            >
+              <HugeiconsIcon
+                icon={Link01Icon}
+                strokeWidth={2}
+                data-icon="inline-start"
+              />
+              Join League
+            </Button>
+            <SheetClose
+              nativeButton={false}
+              render={
+                <Link
+                  href="/leagues/create"
+                  className={buttonVariants({
+                    variant: "ghost",
+                    className: "h-10 w-full justify-start gap-2 px-0!",
+                  })}
+                />
+              }
+            >
+              <HugeiconsIcon
+                icon={Add01Icon}
+                strokeWidth={2}
+                data-icon="inline-start"
+              />
+              Create League
+            </SheetClose>
+            <Separator className="my-2" />
             {leagues.length > 0 ? (
               leagues.map((league) => (
                 <SheetClose
@@ -342,8 +383,14 @@ function AppMobileNav({
             </Button>
           </div>
         ) : null}
-      </SheetContent>
-    </Sheet>
+        </SheetContent>
+      </Sheet>
+      <JoinLeagueDialog
+        open={joinOpen}
+        onOpenChange={setJoinOpen}
+        showTrigger={false}
+      />
+    </>
   );
 }
 
@@ -420,7 +467,11 @@ export function AppTopNav({
           ) : (
             <Button
               nativeButton={false}
-              render={<Link href="/login" />}
+              render={
+                <Link
+                  href={`/login?next=${encodeURIComponent(pathname)}`}
+                />
+              }
               variant="ghost"
               size="sm"
             >

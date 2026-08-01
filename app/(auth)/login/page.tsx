@@ -3,9 +3,6 @@ import { LoginForm } from "@/components/auth/login-form";
 import {
   Card,
   CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import { Suspense } from "react";
 import Image from "next/image";
@@ -20,13 +17,6 @@ export default function LoginPage() {
       <div className="w-full max-w-sm">
         <Image src="/fk-logo-stacked.svg" alt="Fantasy Kings" width={120} height={120} className="mb-4 mx-auto" loading="eager" />
         <Card>
-          <CardHeader>
-            <CardTitle>Create account / Sign in</CardTitle>
-            <CardDescription>
-              Enter your email and we&apos;ll send a one-time code — no password
-              needed.
-            </CardDescription>
-          </CardHeader>
           <CardContent>
             <Suspense fallback={null}>
               <LoginForm />

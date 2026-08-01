@@ -7,6 +7,7 @@ import { Tick02Icon } from "@hugeicons/core-free-icons";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { NflTeamOption } from "@/components/nfl/nfl-team-option";
 import {
   Dialog,
   DialogContent,
@@ -117,13 +118,21 @@ export function OnboardingDialog() {
                 onValueChange={(value) => setFavouriteNflTeam(value ?? "")}
               >
                 <SelectTrigger id="onboarding-team" className="w-full">
-                  <SelectValue placeholder="Select an NFL team" />
+                  <SelectValue placeholder="Select an NFL team">
+                    {(value) =>
+                      value ? (
+                        <NflTeamOption abbrev={String(value)} />
+                      ) : (
+                        "Select an NFL team"
+                      )
+                    }
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectGroup>
                     {NFL_TEAMS.map((abbrev) => (
                       <SelectItem key={abbrev} value={abbrev}>
-                        {NFL_TEAM_LABELS[abbrev]}
+                        <NflTeamOption abbrev={abbrev} />
                       </SelectItem>
                     ))}
                   </SelectGroup>

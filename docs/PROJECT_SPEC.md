@@ -799,3 +799,4 @@ lib/
 | 2026-07-29 | Manager presence: `profiles.last_seen_at`, heartbeat, league poll, badges on current-manager identities |
 | 2026-07-29 | Deferred: player strength of schedule (distinct from team SOS on standings/playoffs) |
 | 2026-07-30 | Player profile foundation: canonical player page + league-aware “View full profile” modal action |
+| 2026-08-01 | Invite flow preserves `/join/[inviteCode]` through auth/onboarding; mobile league menu gets Join/Create actions; onboarding team picker shows logos |

@@ -4,12 +4,16 @@ import { redirect } from "next/navigation";
 import {
   ArrowLeft01Icon,
   Link01Icon,
-  UserIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
 import { LeagueStandingsTable } from "@/components/leagues/standings/standings-table";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { SignInToClaimButton } from "@/components/leagues/sign-in-to-claim-button";
+import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+} from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
   Empty,
@@ -130,22 +134,7 @@ export default async function JoinLeaguePage({ params }: JoinPageProps) {
               Create an account or sign in with your email to claim an open
               team.
             </span>
-            <Button
-              className="w-fit"
-              nativeButton={false}
-              render={
-                <Link
-                  href={`/login?next=${encodeURIComponent(`/join/${preview.league.inviteCode}`)}`}
-                />
-              }
-            >
-              <HugeiconsIcon
-                icon={UserIcon}
-                strokeWidth={2}
-                data-icon="inline-start"
-              />
-              Sign in to claim
-            </Button>
+            <SignInToClaimButton inviteCode={preview.league.inviteCode} />
           </AlertDescription>
         </Alert>
       ) : null}
