@@ -136,15 +136,20 @@ export function NotificationsMenu() {
     <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger
         render={
-          <Button variant="ghost" size="icon" aria-label="Notifications" />
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-10 md:size-9 [&_svg]:size-6 md:[&_svg]:size-5"
+            aria-label="Notifications"
+          />
         }
       >
         <span className="relative inline-flex">
-          <HugeiconsIcon icon={BellIcon} size={20} />
+          <HugeiconsIcon icon={BellIcon} strokeWidth={2} />
           {hasUnread ? (
             <span
               aria-hidden
-              className="absolute top-0 right-0 size-2 rounded-full bg-destructive"
+              className="absolute top-0.5 right-0.5 size-2 rounded-full bg-destructive"
             />
           ) : null}
         </span>

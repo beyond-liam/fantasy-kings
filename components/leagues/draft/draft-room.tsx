@@ -37,7 +37,7 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs";
 import { autoDraftCurrentPick, tryAutoStartDraft } from "@/lib/actions/draft";
-import { formatDraftScheduledAt } from "@/lib/leagues/draft-status";
+import { formatDraftStartsAt } from "@/lib/leagues/draft-status";
 import type { DraftScheduleSlot } from "@/lib/leagues/draft/board";
 import type { DraftPickRow, DraftQueueRow } from "@/lib/queries/draft";
 import type { RankedPlayerRow } from "@/lib/queries/players";
@@ -95,19 +95,6 @@ function playDraftSound(src: string) {
   } catch {
     // Ignore autoplay / missing file failures.
   }
-}
-
-function formatCountdown(totalSeconds: number): string {
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
-  if (hours > 0) {
-    return `${hours}h ${minutes}m`;
-  }
-  if (minutes > 0) {
-    return `${minutes}m ${seconds}s`;
-  }
-  return `${seconds}s`;
 }
 
 function computeSecondsLeft(input: {
@@ -373,17 +360,6 @@ export function DraftRoom({
     return () => window.clearTimeout(timer);
   }, [draftStartAt, waitingToStart, slug, router]);
 
-  // Tick while waiting so the scheduled countdown stays fresh.
-  useEffect(() => {
-    if (!waitingToStart || !draftStartAt) {
-      return;
-    }
-    const timer = window.setInterval(() => {
-      setNowMs(Date.now());
-    }, 1000);
-    return () => window.clearInterval(timer);
-  }, [waitingToStart, draftStartAt]);
-
   const clockCardTitle = waitingToStart
     ? "Waiting to start"
     : effectiveStatus === "paused"
@@ -392,27 +368,13 @@ export function DraftRoom({
         ? "On the clock"
         : "Up next";
 
-  const scheduledStartMs = draftStartAt
-    ? new Date(draftStartAt).getTime()
-    : Number.NaN;
-  const secondsUntilStart =
-    waitingToStart && !Number.isNaN(scheduledStartMs)
-      ? Math.max(0, Math.ceil((scheduledStartMs - nowMs) / 1000))
-      : null;
-
   const waitingMessage = (() => {
-    if (!draftStartAt || Number.isNaN(scheduledStartMs)) {
+    if (!draftStartAt) {
       return isCommissioner
         ? (startHint ?? "You can start the draft anytime.")
         : "Waiting for the commissioner to start.";
     }
-    const label = formatDraftScheduledAt(new Date(draftStartAt));
-    if (secondsUntilStart != null && secondsUntilStart > 0) {
-      return `Starts in ${formatCountdown(secondsUntilStart)} · ${label}`;
-    }
-    return isCommissioner
-      ? (startHint ?? "Starting…")
-      : `Scheduled for ${label}`;
+    return formatDraftStartsAt(new Date(draftStartAt));
   })();
 
   return (

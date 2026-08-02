@@ -40,7 +40,7 @@ function NavLink({
       className={cn(
         "group relative flex shrink-0 items-center justify-center transition-colors",
         pill
-          ? "gap-1.5 rounded-sm px-2 py-1 text-xs font-semibold"
+          ? "gap-1.5 rounded-sm px-2 py-1.5 text-xs font-semibold"
           : "min-h-16 flex-col gap-0.5 px-2 py-2 text-xs font-medium",
         active
           ? pill
@@ -133,11 +133,11 @@ export function LeagueSideNav({
 
       <nav
         aria-label="League navigation"
-        className="sticky top-14 z-40 w-full border-b border-border bg-background/95 backdrop-blur md:hidden supports-backdrop-filter:bg-background/80"
+        className="sticky top-14 z-40 flex h-14 w-full items-center border-b border-border bg-background/95 backdrop-blur md:hidden supports-backdrop-filter:bg-background/80"
       >
         <div
           ref={pillScrollerRef}
-          className="no-scrollbar flex w-full gap-1.5 overflow-x-auto px-4 py-3 overscroll-x-contain"
+          className="no-scrollbar flex h-full w-full items-center gap-1.5 overflow-x-auto px-4 overscroll-x-contain"
         >
           {renderItems("pill")}
         </div>

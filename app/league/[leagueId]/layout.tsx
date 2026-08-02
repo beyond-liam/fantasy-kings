@@ -18,12 +18,12 @@ export default async function LeagueLayout({
 
   return (
     <LeagueLayoutGuard params={params}>
-      <div className="relative flex flex-1 flex-col">
+      <div className="relative flex min-h-0 flex-1 flex-col">
         <Suspense fallback={<LeagueSideNav slug={slug} isCommissioner={false} />}>
           <LeagueSideNavSlot slug={slug} />
         </Suspense>
-        <div className="flex min-w-0 flex-1 flex-col md:ml-18">
-          <ContentContainer className="flex flex-1 flex-col">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col md:ml-18">
+          <ContentContainer className="flex min-h-0 flex-1 flex-col">
             <LeaguePresenceProvider slug={slug}>
               {children}
             </LeaguePresenceProvider>

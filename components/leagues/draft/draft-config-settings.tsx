@@ -28,6 +28,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { TimePicker } from "@/components/ui/time-picker";
 import { updateDraftConfig } from "@/lib/actions/league-settings";
+import { applyLocalTime, formatLocalTime } from "@/lib/datetime/local-time";
 import type { DraftConfigFormValues } from "@/lib/leagues/draft-settings";
 
 const PICK_TIME_UNIT_ITEMS = [
@@ -37,7 +38,7 @@ const PICK_TIME_UNIT_ITEMS = [
 
 const DRAFT_TYPE_ITEMS = [
   { value: "live", label: "Live draft" },
-  { value: "email", label: "Email / slow draft" },
+  { value: "email", label: "Email draft" },
 ] as const;
 
 const DRAFT_STYLE_ITEMS = [
@@ -66,17 +67,14 @@ export function DraftConfigSettings({
 
   const hasChanges = !valuesEqual(values, initialValues);
   const draftStartAt = new Date(values.draftStartAt);
-  const draftTime = values.draftStartAt.slice(11, 16);
+  const draftTime = formatLocalTime(draftStartAt);
 
   const patch = (next: Partial<DraftConfigFormValues>) => {
     setValues((current) => ({ ...current, ...next }));
   };
 
   const updateDraftStartAt = (date: Date, time: string) => {
-    const [hours, minutes] = time.split(":").map(Number);
-    const next = new Date(date);
-    next.setHours(hours ?? 0, minutes ?? 0, 0, 0);
-    patch({ draftStartAt: next.toISOString() });
+    patch({ draftStartAt: applyLocalTime(date, time).toISOString() });
   };
 
   const handleSave = () => {
@@ -178,10 +176,6 @@ export function DraftConfigSettings({
               </SelectGroup>
             </SelectContent>
           </Select>
-          <FieldDescription>
-            Same draft room either way. Email drafts use longer clocks and
-            Brevo alerts when it&apos;s your turn.
-          </FieldDescription>
         </Field>
 
         <div className="grid gap-4 sm:grid-cols-2">
@@ -196,11 +190,6 @@ export function DraftConfigSettings({
               }}
               placeholder="Select date"
             />
-            {values.draftType === "email" ? (
-              <FieldDescription>
-                When the slow draft opens and the first pick becomes available.
-              </FieldDescription>
-            ) : null}
           </Field>
           <Field>
             <FieldLabel htmlFor="draftTime">Start time</FieldLabel>
@@ -251,8 +240,7 @@ export function DraftConfigSettings({
                   Pick time limit
                 </FieldLabel>
                 <FieldDescription>
-                  Limit how long each manager has on the clock. Off means
-                  unlimited until they pick.
+                  Limit how long each manager has on the clock.
                 </FieldDescription>
               </div>
               <Switch

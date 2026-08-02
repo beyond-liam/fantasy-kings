@@ -16,6 +16,7 @@ import {
   diffSettingsValues,
   logSettingsUpdated,
 } from "@/lib/leagues/settings-activity";
+import { unwindDraftForFutureStart } from "@/lib/leagues/draft/reschedule";
 
 import {
   getCommissionerSeason,
@@ -78,6 +79,12 @@ export async function updateDraftConfig(
       },
     })
     .where(eq(leagueSeasons.id, season.id));
+
+  await unwindDraftForFutureStart({
+    seasonId: season.id,
+    seasonStatus: season.status,
+    draftStartAt,
+  });
 
   // Apply league autopick default to all teams.
   await db

@@ -43,7 +43,7 @@ function DatePicker({
             variant="outline"
             data-empty={!value}
             className={cn(
-              "w-full justify-start text-left font-normal data-[empty=true]:text-muted-foreground",
+              "w-full justify-start bg-input text-left font-normal hover:bg-input/80 dark:bg-input dark:hover:bg-input/80 data-[empty=true]:text-muted-foreground",
               className,
             )}
           />

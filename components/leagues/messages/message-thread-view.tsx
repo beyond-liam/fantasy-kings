@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import {
+  ArrowLeft01Icon,
   Cancel01Icon,
   Delete02Icon,
   FloppyDiskIcon,
@@ -79,6 +81,7 @@ type MessageThreadViewProps = {
   posts: MessagePostRow[];
   currentUserId: string;
   isCommissioner: boolean;
+  backHref: string;
   viewerProfile: ViewerProfile;
   viewerTeam: ViewerTeam | null;
   mentionCandidates: MentionCandidate[];
@@ -106,6 +109,7 @@ export function MessageThreadView({
   posts: serverPosts,
   currentUserId,
   isCommissioner,
+  backHref,
   viewerProfile,
   viewerTeam,
   mentionCandidates,
@@ -264,21 +268,39 @@ export function MessageThreadView({
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <div className="shrink-0 px-6 pb-3">
-        <h1 className="text-2xl font-semibold tracking-tight text-balance">
-          {title}
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          {posts.length === 1 ? "1 post" : `${posts.length} posts`}
-        </p>
-      </div>
-
+    <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
       <MessageScrollerProvider autoScroll defaultScrollPosition="end">
         <div className="relative min-h-0 flex-1">
           <MessageScroller className="absolute inset-0">
             <MessageScrollerViewport>
-              <MessageScrollerContent className="gap-6 px-6 py-2">
+              <MessageScrollerContent className="gap-6 px-3 py-2 md:px-6">
+                <div className="flex flex-col gap-3 pt-4 md:pt-6">
+                  <Button
+                    nativeButton={false}
+                    variant="ghost"
+                    size="sm"
+                    className="-ml-2 w-fit px-2"
+                    render={<Link href={backHref} />}
+                  >
+                    <HugeiconsIcon
+                      icon={ArrowLeft01Icon}
+                      strokeWidth={2}
+                      data-icon="inline-start"
+                    />
+                    Back to Messages
+                  </Button>
+                  <div>
+                    <h1 className="text-3xl font-semibold tracking-tight text-balance md:text-2xl">
+                      {title}
+                    </h1>
+                    <p className="text-sm text-muted-foreground">
+                      {posts.length === 1
+                        ? "1 post"
+                        : `${posts.length} posts`}
+                    </p>
+                  </div>
+                </div>
+
                 {groups.map((group) => {
                   const first = group[0]!;
                   const teamLabel = first.authorTeamName ?? "Manager";
@@ -336,7 +358,7 @@ export function MessageThreadView({
                                 <Bubble
                                   variant="outline"
                                   align="start"
-                                  className="w-full max-w-full"
+                                  className="w-full max-w-full md:max-w-[80%]"
                                 >
                                   <BubbleContent className="w-full max-w-full space-y-2 p-2">
                                     <p className="text-[9px] font-medium">
@@ -388,7 +410,11 @@ export function MessageThreadView({
                                   </BubbleContent>
                                 </Bubble>
                               ) : (
-                                <Bubble variant="muted" align="start">
+                                <Bubble
+                                  variant="muted"
+                                  align="start"
+                                  className="w-full max-w-full md:max-w-[80%]"
+                                >
                                   <BubbleContent className="flex flex-col gap-1">
                                     <p className="text-[9px] font-medium">
                                       {personName}
@@ -411,6 +437,7 @@ export function MessageThreadView({
                                       type="button"
                                       variant="ghost"
                                       size="xs"
+                                      className="max-md:size-auto max-md:h-8 max-md:px-2.5"
                                       onClick={() => {
                                         setEditingId(post.id);
                                         setEditBody(post.body);
@@ -427,6 +454,7 @@ export function MessageThreadView({
                                       type="button"
                                       variant="ghost"
                                       size="xs"
+                                      className="max-md:size-auto max-md:h-8 max-md:px-2.5"
                                       onClick={() =>
                                         setPendingDelete({
                                           postId: post.id,
@@ -458,7 +486,7 @@ export function MessageThreadView({
         </div>
       </MessageScrollerProvider>
 
-      <div className="shrink-0 bg-transparent px-6 py-3">
+      <div className="shrink-0 border-t border-border bg-background px-4 py-3 md:border-0 md:bg-transparent md:px-6">
         <div className="rounded-2xl bg-muted">
           <label htmlFor="thread-reply" className="sr-only">
             Reply

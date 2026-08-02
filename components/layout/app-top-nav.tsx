@@ -123,7 +123,7 @@ function AppMobileNav({
             type="button"
             variant="ghost"
             size="icon"
-            className="md:hidden"
+            className="size-10 md:hidden [&_svg:not([class*='size-'])]:size-5.5"
             aria-label="Open menu"
             onClick={() => setShowLeagues(false)}
           />
@@ -260,42 +260,6 @@ function AppMobileNav({
               Back
             </Button>
             <Separator className="my-2" />
-            <Button
-              type="button"
-              variant="ghost"
-              className="h-10 w-full justify-start gap-2 px-0!"
-              onClick={() => {
-                setOpen(false);
-                setJoinOpen(true);
-              }}
-            >
-              <HugeiconsIcon
-                icon={Link01Icon}
-                strokeWidth={2}
-                data-icon="inline-start"
-              />
-              Join League
-            </Button>
-            <SheetClose
-              nativeButton={false}
-              render={
-                <Link
-                  href="/leagues/create"
-                  className={buttonVariants({
-                    variant: "ghost",
-                    className: "h-10 w-full justify-start gap-2 px-0!",
-                  })}
-                />
-              }
-            >
-              <HugeiconsIcon
-                icon={Add01Icon}
-                strokeWidth={2}
-                data-icon="inline-start"
-              />
-              Create League
-            </SheetClose>
-            <Separator className="my-2" />
             {leagues.length > 0 ? (
               leagues.map((league) => (
                 <SheetClose
@@ -338,6 +302,42 @@ function AppMobileNav({
                 You haven&apos;t joined a league yet.
               </p>
             )}
+            <Separator className="my-2" />
+            <Button
+              type="button"
+              variant="ghost"
+              className="h-10 w-full justify-start gap-2 px-0!"
+              onClick={() => {
+                setOpen(false);
+                setJoinOpen(true);
+              }}
+            >
+              <HugeiconsIcon
+                icon={Link01Icon}
+                strokeWidth={2}
+                data-icon="inline-start"
+              />
+              Join League
+            </Button>
+            <SheetClose
+              nativeButton={false}
+              render={
+                <Link
+                  href="/leagues/create"
+                  className={buttonVariants({
+                    variant: "ghost",
+                    className: "h-10 w-full justify-start gap-2 px-0!",
+                  })}
+                />
+              }
+            >
+              <HugeiconsIcon
+                icon={Add01Icon}
+                strokeWidth={2}
+                data-icon="inline-start"
+              />
+              Create League
+            </SheetClose>
           </nav>
         </div>
 
@@ -485,7 +485,7 @@ export function AppTopNav({
           )}
           <Separator
             orientation="vertical"
-            className="mx-1 h-6 self-center data-vertical:h-6 data-vertical:self-center md:hidden"
+            className="mx-1 h-7 self-center data-vertical:h-7 data-vertical:self-center md:hidden"
           />
           <AppMobileNav
             pathname={pathname}

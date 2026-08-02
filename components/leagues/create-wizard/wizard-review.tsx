@@ -138,7 +138,7 @@ export function WizardReview({ values, onEdit }: WizardReviewProps) {
         </div>
         <ReviewRow
           label="Format"
-          value={values.draftType === "email" ? "Email / slow" : "Live"}
+          value={values.draftType === "email" ? "Email" : "Live"}
         />
         <ReviewRow
           label="Start"

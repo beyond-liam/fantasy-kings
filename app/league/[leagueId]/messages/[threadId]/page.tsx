@@ -1,11 +1,7 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowLeft01Icon } from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
 
 import { MessageThreadView } from "@/components/leagues/messages/message-thread-view";
-import { Button } from "@/components/ui/button";
 import { getSessionUser } from "@/lib/auth/session";
 import { hasCommissionerPowers } from "@/lib/leagues/membership";
 import { getLeagueHomeData, getLeagueMembership } from "@/lib/queries/leagues";
@@ -69,24 +65,7 @@ export default async function MessageThreadPage({
   const isCommissioner = hasCommissionerPowers(membership?.role);
 
   return (
-    <div className="flex h-[calc(100dvh-3.5rem)] flex-col overflow-hidden">
-      <div className="shrink-0 px-6 pt-6">
-        <Button
-          nativeButton={false}
-          variant="ghost"
-          size="sm"
-          className="-ml-2 w-fit px-2"
-          render={<Link href={`/league/${slug}/messages`} />}
-        >
-          <HugeiconsIcon
-            icon={ArrowLeft01Icon}
-            strokeWidth={2}
-            data-icon="inline-start"
-          />
-          Back to Messages
-        </Button>
-      </div>
-
+    <div className="flex h-[calc(100dvh-7rem)] min-h-0 flex-col overflow-hidden md:h-[calc(100dvh-3.5rem)]">
       <MessageThreadView
         leagueSlug={slug}
         threadPublicId={thread.publicId}
@@ -94,6 +73,7 @@ export default async function MessageThreadPage({
         posts={thread.posts}
         currentUserId={user.id}
         isCommissioner={isCommissioner}
+        backHref={`/league/${slug}/messages`}
         viewerProfile={{
           firstName: profile?.firstName ?? null,
           lastName: profile?.lastName ?? null,

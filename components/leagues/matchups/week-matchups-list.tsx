@@ -35,6 +35,36 @@ type WeekMatchupsListProps = {
   myTeamSlug?: string | null;
 };
 
+type MatchupsWeekYearFiltersProps = {
+  week: number;
+  weeks: WeekFilterOption[];
+  year: number;
+  years: number[];
+  className?: string;
+};
+
+export function MatchupsWeekYearFilters({
+  week,
+  weeks,
+  year,
+  years,
+  className,
+}: MatchupsWeekYearFiltersProps) {
+  if (weeks.length === 0 && years.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className={cn("flex shrink-0 gap-2", className)}>
+      <Suspense fallback={<Spinner />}>
+        {weeks.length > 0 ? <WeekFilter weeks={weeks} value={week} /> : null}
+        {years.length > 0 ? <YearFilter years={years} value={year} /> : null}
+      </Suspense>
+    </div>
+  );
+}
+
+
 const PLACEHOLDER = "—";
 const CHANCE_ANIM_MS = 750;
 
@@ -290,55 +320,55 @@ export function WeekMatchupsList({
     ? games.filter((game) => game.id !== myGame.id)
     : games;
 
-  const filters =
-    weeks.length > 0 || years.length > 0 ? (
-      <div className="flex shrink-0 justify-start gap-2">
-        <Suspense fallback={<Spinner />}>
-          {weeks.length > 0 ? <WeekFilter weeks={weeks} value={week} /> : null}
-          {years.length > 0 ? <YearFilter years={years} value={year} /> : null}
-        </Suspense>
-      </div>
-    ) : null;
+  const filters = (
+    <MatchupsWeekYearFilters
+      week={week}
+      weeks={weeks}
+      year={year}
+      years={years}
+      className="md:order-last"
+    />
+  );
 
   return (
     <div className="flex flex-col gap-4">
       {games.length === 0 ? (
         <>
-          {filters ? <div className="flex justify-start">{filters}</div> : null}
-        <Empty>
-          <EmptyHeader>
-            <EmptyMedia variant="icon">
-              <HugeiconsIcon icon={AmericanFootballIcon} strokeWidth={2} />
-            </EmptyMedia>
-            <EmptyTitle>No matchups for Week {week}</EmptyTitle>
-            <EmptyDescription>
-              Generate the schedule when the league is full.
-            </EmptyDescription>
-          </EmptyHeader>
-        </Empty>
+          {filters}
+          <Empty>
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <HugeiconsIcon icon={AmericanFootballIcon} strokeWidth={2} />
+              </EmptyMedia>
+              <EmptyTitle>No matchups for Week {week}</EmptyTitle>
+              <EmptyDescription>
+                Generate the schedule when the league is full.
+              </EmptyDescription>
+            </EmptyHeader>
+          </Empty>
         </>
       ) : (
         <div className="flex flex-col gap-8">
           {myGame ? (
             <section className="flex flex-col gap-3">
-              <div className="flex flex-wrap items-end justify-start gap-3">
-                <h2 className="text-sm font-medium">Your Matchup</h2>
+              <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
                 {filters}
+                <h2 className="text-sm font-medium">Your Matchup</h2>
               </div>
               <MatchupBoardRow game={myGame} leagueSlug={leagueSlug} />
             </section>
-          ) : filters ? (
-            <div className="flex justify-start">{filters}</div>
           ) : null}
 
           {otherGames.length > 0 ? (
             <section className="flex flex-col gap-3">
-              <div className="flex flex-wrap items-end justify-start gap-3">
-                <h2 className="text-sm font-medium">
-                  {myGame ? "Other Matchups" : "Matchups"}
-                </h2>
-                {!myGame ? filters : null}
-              </div>
+              {!myGame ? (
+                <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+                  {filters}
+                  <h2 className="text-sm font-medium">Matchups</h2>
+                </div>
+              ) : (
+                <h2 className="text-sm font-medium">Other Matchups</h2>
+              )}
               <ul className="flex flex-col gap-3">
                 {otherGames.map((game) => (
                   <li key={game.id}>

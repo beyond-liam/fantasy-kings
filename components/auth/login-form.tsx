@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/input-otp";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { safeNextPath } from "@/lib/auth/safe-next";
+import { mapOtpSendError } from "@/lib/auth/otp-errors";
 import { createClient } from "@/lib/supabase/client";
 
 type Mode = "register" | "login";
@@ -71,7 +72,7 @@ export function LoginForm() {
     setLoading(false);
 
     if (signInError) {
-      setError(signInError.message);
+      setError(mapOtpSendError(signInError.message, mode));
       return;
     }
 

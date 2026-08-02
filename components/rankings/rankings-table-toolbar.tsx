@@ -91,6 +91,7 @@ function FilterSwitches({
   updateParams,
   fieldClassName,
   labelFirst,
+  switchSize,
 }: {
   idPrefix: string;
   view: RankingsViewState;
@@ -98,6 +99,7 @@ function FilterSwitches({
   updateParams: ReturnType<typeof useRankingsParams>;
   fieldClassName: string;
   labelFirst: boolean;
+  switchSize?: "sm" | "default";
 }) {
   const switches = [
     {
@@ -129,7 +131,7 @@ function FilterSwitches({
     const control = (
       <Switch
         id={item.id}
-        size={labelFirst ? undefined : "sm"}
+        size={switchSize ?? (labelFirst ? "default" : "sm")}
         checked={item.checked}
         onCheckedChange={item.onCheckedChange}
       />
@@ -161,10 +163,12 @@ function ToolbarSelect({
   config,
   className,
   id,
+  size = "sm",
 }: {
   config: ToolbarSelectConfig;
   className: string;
   id?: string;
+  size?: "sm" | "default" | "lg";
 }) {
   const { items, value, onSelect, label, renderOption } = config;
 
@@ -176,7 +180,7 @@ function ToolbarSelect({
         if (next) onSelect(String(next));
       }}
     >
-      <SelectTrigger id={id} size="sm" className={className} aria-label={label}>
+      <SelectTrigger id={id} size={size} className={className} aria-label={label}>
         {renderOption ? (
           <SelectValue>
             {(current) => {
@@ -390,7 +394,7 @@ export function RankingsTableToolbar<TData>({
                 Narrow down the player list
               </DrawerDescription>
             </DrawerHeader>
-            <div className="flex flex-col gap-4 p-4 pt-2">
+            <div className="flex flex-col gap-6 p-4 pt-2">
               {drawerSelects.map((config) => (
                 <Field key={config.id} className="gap-2">
                   <FieldLabel htmlFor={`mobile-${config.id}`}>
@@ -399,6 +403,7 @@ export function RankingsTableToolbar<TData>({
                   <ToolbarSelect
                     config={config}
                     id={`mobile-${config.id}`}
+                    size="lg"
                     className="w-full"
                   />
                 </Field>
@@ -410,6 +415,7 @@ export function RankingsTableToolbar<TData>({
                 updateParams={updateParams}
                 fieldClassName="w-full justify-between gap-3"
                 labelFirst
+                switchSize="default"
               />
             </div>
           </DrawerContent>

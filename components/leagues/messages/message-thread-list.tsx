@@ -42,7 +42,7 @@ export function MessageThreadList({
   }
 
   return (
-    <ul className="divide-y rounded-xl border">
+    <ul className="divide-y border-y md:rounded-xl md:border">
       {threads.map((thread) => {
         const authorLabel =
           thread.authorTeamName ??
@@ -72,7 +72,7 @@ export function MessageThreadList({
                 <div className="flex items-start justify-between gap-3">
                   <p
                     className={cn(
-                      "truncate text-sm text-balance",
+                      "truncate text-base text-balance md:text-sm",
                       thread.unread ? "font-semibold" : "font-medium",
                     )}
                   >

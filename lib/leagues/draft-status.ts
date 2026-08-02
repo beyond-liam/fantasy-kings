@@ -9,6 +9,40 @@ export type DraftListStatus = {
   label: string;
 };
 
+function dayOrdinal(day: number): string {
+  const mod100 = day % 100;
+  const mod10 = day % 10;
+  let suffix = "th";
+  if (mod100 < 11 || mod100 > 13) {
+    if (mod10 === 1) suffix = "st";
+    else if (mod10 === 2) suffix = "nd";
+    else if (mod10 === 3) suffix = "rd";
+  }
+  return `${day}${suffix}`;
+}
+
+function formatDraftClockTime(date: Date): string {
+  const hours24 = date.getHours();
+  const minutes = date.getMinutes();
+  const hour12 = hours24 % 12 || 12;
+  const meridiem = hours24 < 12 ? "am" : "pm";
+  if (minutes === 0) {
+    return `${hour12}${meridiem}`;
+  }
+  return `${hour12}:${String(minutes).padStart(2, "0")}${meridiem}`;
+}
+
+/** Format like `Starts at 9am on the 31st August, 2026`. */
+export function formatDraftStartsAt(date: Date): string {
+  const time = formatDraftClockTime(date);
+  const day = dayOrdinal(date.getDate());
+  const month = new Intl.DateTimeFormat("en-GB", { month: "long" }).format(
+    date,
+  );
+  const year = date.getFullYear();
+  return `Starts at ${time} on the ${day} ${month}, ${year}`;
+}
+
 /** Format like `Fri 7 Aug 2026 16:00 BST`. */
 export function formatDraftScheduledAt(date: Date): string {
   const parts = new Intl.DateTimeFormat("en-GB", {

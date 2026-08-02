@@ -1,7 +1,7 @@
 # Fantasy Kings — Project Specification
 
 > Living document. Update this file as requirements, decisions, and scope change.
-> Last updated: 2026-07-29
+> Last updated: 2026-08-02
 
 ---
 
@@ -49,6 +49,16 @@ A mobile-first fantasy football web app for a private friend group (4–16 users
 | Item | Notes |
 |---|---|
 | Advanced player filtering | Richer filters beyond current position / team / rookies / FA toggles |
+
+### Near-term bugs / fixes (tackle one by one)
+
+| # | Item | Notes |
+|---|---|---|
+| ~~1~~ | ~~Login email existence UX~~ | **Done (2026-08-02)** — Log In maps Supabase “Signups not allowed for otp” to a clear “no account / switch to Register” message |
+| 2 | Responsive control sizes | Use `useIsMobile` / breakpoints so dense mobile screens can use smaller shadcn sizes (`sm` buttons, triggers, inputs) without shrinking desktop |
+| ~~3~~ | ~~Reschedule started draft~~ | **Done (2026-08-02)** — Saving a future `draftStartAt` unwinds `live`/`paused` → `scheduled` (keeps picks); clears underway UI and pickability; no-pick seasons return to `recruiting` |
+| ~~4~~ | ~~Draft time picker timezone~~ | **Done (2026-08-02)** — `TimePicker` is native `Input type="time"` (minutes only); draft forms edit local `HH:mm` via `formatLocalTime` / `applyLocalTime`, persist ISO only |
+| 5 | Draft email delivery audit | Start / on-clock / on-deck emails may not arrive. Verify Brevo env on Vercel (`BREVO_API_KEY`, `BREVO_FROM_EMAIL`), check logs + `email_sends`, and fix or wire/remove dead `emailNotificationsEnabled` (always written `false`, never read) |
 
 ### Engagement analytics (remaining)
 
@@ -800,3 +810,6 @@ lib/
 | 2026-07-29 | Deferred: player strength of schedule (distinct from team SOS on standings/playoffs) |
 | 2026-07-30 | Player profile foundation: canonical player page + league-aware “View full profile” modal action |
 | 2026-08-01 | Invite flow preserves `/join/[inviteCode]` through auth/onboarding; mobile league menu gets Join/Create actions; onboarding team picker shows logos |
+| 2026-08-02 | Spec backlog: login email UX, mobile control sizes, reschedule started draft, draft time TZ picker, draft email delivery audit |
+| 2026-08-02 | Login OTP maps unknown-email errors; saving a future draft start unwinds live/paused drafts |
+| 2026-08-02 | Draft TimePicker matches shadcn native time input; local HH:mm editing (no UTC slice) |

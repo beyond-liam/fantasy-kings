@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/field";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Switch } from "@/components/ui/switch";
+import { applyLocalTime, formatLocalTime } from "@/lib/datetime/local-time";
 import type { DraftStepValues } from "@/lib/leagues/wizard-schema";
 
 const PICK_TIME_UNIT_ITEMS = [
@@ -35,15 +36,12 @@ type DraftStepProps = {
 
 export function DraftStep({ values, errors, onChange }: DraftStepProps) {
   const draftStartAt = new Date(values.draftStartAt);
-  const draftTime = values.draftStartAt.slice(11, 16);
+  const draftTime = formatLocalTime(draftStartAt);
   const showPickClock =
     values.draftType === "live" || values.pickTimeLimitEnabled;
 
   const updateDraftStartAt = (date: Date, time: string) => {
-    const [hours, minutes] = time.split(":").map(Number);
-    const next = new Date(date);
-    next.setHours(hours, minutes, 0, 0);
-    onChange({ draftStartAt: next.toISOString() });
+    onChange({ draftStartAt: applyLocalTime(date, time).toISOString() });
   };
 
   const updateDraftDate = (date: Date | undefined) => {
@@ -128,8 +126,7 @@ export function DraftStep({ values, errors, onChange }: DraftStepProps) {
                 Pick time limit
               </FieldLabel>
               <FieldDescription>
-                Limit how long each manager has on the clock. Off means
-                unlimited until they pick.
+                Limit how long each manager has on the clock.
               </FieldDescription>
             </div>
             <Switch

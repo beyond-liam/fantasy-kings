@@ -75,7 +75,7 @@ export function MobileTabDrawer({
           <Button
             type="button"
             variant="ghost"
-            className="h-10 w-full justify-between bg-muted md:hidden"
+            className="h-10 w-full justify-between border-foreground/10 bg-muted md:hidden"
           />
         }
       >

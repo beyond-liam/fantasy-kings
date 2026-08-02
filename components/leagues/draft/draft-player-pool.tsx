@@ -515,7 +515,7 @@ export function DraftPlayerPool({
     onSortingChange: setSorting,
   });
 
-  const teamSelect = (
+  const teamSelect = (size: "default" | "lg" = "default") => (
     <Select
       items={teamItems}
       value={team}
@@ -523,7 +523,7 @@ export function DraftPlayerPool({
         if (value) setTeam(value);
       }}
     >
-      <SelectTrigger className="w-full">
+      <SelectTrigger size={size} className="w-full">
         <SelectValue>
           {(value) =>
             value && value !== "ALL" ? (
@@ -590,10 +590,10 @@ export function DraftPlayerPool({
                 Narrow down the player pool
               </DrawerDescription>
             </DrawerHeader>
-            <div className="flex flex-col gap-4 p-4 pt-2">
-              <Field>
+            <div className="flex flex-col gap-6 p-4 pt-2">
+              <Field className="gap-2">
                 <FieldLabel>NFL team</FieldLabel>
-                {teamSelect}
+                {teamSelect("lg")}
               </Field>
 
               <Field
@@ -672,7 +672,7 @@ export function DraftPlayerPool({
 
         <Field className="sm:w-56">
           <FieldLabel>NFL team</FieldLabel>
-          {teamSelect}
+          {teamSelect()}
         </Field>
 
         <Field className="sm:min-w-48 sm:flex-1">

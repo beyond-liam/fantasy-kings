@@ -81,8 +81,8 @@ export function NewMessageDialog({
     >
       <Button
         type="button"
-        size="icon-sm"
-        className="md:h-9 md:w-auto md:gap-1.5 md:px-2.5"
+        size="icon"
+        className="md:size-auto md:h-9 md:gap-1.5 md:px-2.5"
         aria-label="New message"
         onClick={() => setOpen(true)}
       >

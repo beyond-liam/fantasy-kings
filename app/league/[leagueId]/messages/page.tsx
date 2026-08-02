@@ -41,8 +41,8 @@ export default async function MessagesPage({ params }: MessagesPageProps) {
   const hasUnread = threads.some((thread) => thread.unread);
 
   return (
-    <div className="flex flex-1 flex-col gap-6 p-6">
-      <div className="flex items-center justify-between gap-3">
+    <div className="flex flex-1 flex-col gap-6 py-6 md:p-6">
+      <div className="flex items-center justify-between gap-3 px-4 md:px-0">
         <h1 className="min-w-0 text-2xl font-semibold tracking-tight text-balance">
           Messages
         </h1>

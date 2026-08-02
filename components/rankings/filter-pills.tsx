@@ -4,7 +4,7 @@ import { POSITION_FILTERS, type PositionFilter } from "@/lib/rankings/column-con
 import { cn } from "@/lib/utils";
 
 export const PILL_CLASSNAME =
-  "shrink-0 rounded-sm px-3 py-1.5 text-xs font-semibold transition-colors";
+  "inline-flex min-h-9 shrink-0 items-center justify-center rounded-sm px-3.5 text-xs font-semibold transition-colors";
 
 export const PILL_INACTIVE_CLASSNAME = "bg-muted text-muted-foreground";
 

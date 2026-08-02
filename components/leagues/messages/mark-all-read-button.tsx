@@ -27,8 +27,8 @@ export function MarkAllMessagesReadButton({
     <Button
       type="button"
       variant="outline"
-      size="icon-sm"
-      className="md:h-8 md:w-auto md:gap-1 md:px-2.5"
+      size="icon"
+      className="md:size-auto md:h-8 md:gap-1 md:px-2.5"
       aria-label={label}
       disabled={disabled || isPending}
       onClick={() => {
