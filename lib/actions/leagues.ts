@@ -175,7 +175,7 @@ export async function createLeague(input: CreateLeagueWizardValues) {
           pickTimeUnit: values.pickTimeUnit,
           autoPickEnabled: false,
         }),
-        emailNotificationsEnabled: false,
+        emailNotificationsEnabled: true,
         settings: {
           rosterSlots,
           draft: toPersistedDraftSettings({

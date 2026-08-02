@@ -167,7 +167,7 @@ export const leagueSeasons = pgTable(
     pickTimeLimitSeconds: integer("pick_time_limit_seconds").notNull(),
     emailNotificationsEnabled: boolean("email_notifications_enabled")
       .notNull()
-      .default(false),
+      .default(true),
     /** Commissioner opened FA before/without completing a draft. */
     freeAgencyOpen: boolean("free_agency_open").notNull().default(false),
     /** Last time waivers were processed for this season (manual or scheduled). */

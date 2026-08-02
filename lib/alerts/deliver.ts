@@ -2,7 +2,7 @@ import "server-only";
 
 import { after } from "next/server";
 
-import { claimEmailSend } from "@/lib/email/dedupe";
+import { claimEmailSend, releaseEmailSend } from "@/lib/email/dedupe";
 import { sendBrevoEmail } from "@/lib/email/brevo";
 import { getEmailsForUserIds } from "@/lib/email/recipients";
 import { buildSimpleEmail } from "@/lib/email/send";
@@ -112,8 +112,10 @@ function queueEmailsAfter(userIds: string[], email: EmailAlert) {
       });
     });
   } catch {
-    // Outside a Next.js request (scripts, node:test) — skip deferred email.
-    // Cron/server paths that need mail should pass email.sync: true.
+    // Outside a Next.js request (scripts, node:test) — send inline like in-app.
+    void sendEmailsNow(userIds, email).catch((error) => {
+      console.error("[alerts] email adapter failed", error);
+    });
   }
 }
 
@@ -133,9 +135,8 @@ async function sendEmailsNow(userIds: string[], email: EmailAlert) {
   let sent = 0;
   await Promise.all(
     withAddresses.map(async (recipient) => {
-      const claimed = await claimEmailSend(
-        email.dedupeKeyForUser(recipient.userId),
-      );
+      const dedupeKey = email.dedupeKeyForUser(recipient.userId);
+      const claimed = await claimEmailSend(dedupeKey);
       if (!claimed) {
         return;
       }
@@ -148,7 +149,16 @@ async function sendEmailsNow(userIds: string[], email: EmailAlert) {
       });
       if (result.ok) {
         sent += 1;
+        return;
       }
+      // Failed or skipped (e.g. Brevo unset) — free the key so retries can send.
+      await releaseEmailSend(dedupeKey).catch((error) => {
+        console.error(
+          "[alerts] failed to release email claim",
+          dedupeKey,
+          error,
+        );
+      });
     }),
   );
   return sent;

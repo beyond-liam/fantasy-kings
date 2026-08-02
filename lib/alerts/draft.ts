@@ -26,6 +26,8 @@ export async function announceDraftStarted(input: {
   leaguePublicId: string;
   leagueName: string;
   resumed?: boolean;
+  /** Cron auto-start must send inline (no after()). */
+  sync?: boolean;
 }) {
   const draft = await getDraftBySeasonId(input.seasonId);
   if (!draft || draft.status !== "live") {
@@ -46,6 +48,7 @@ export async function announceDraftStarted(input: {
         ctaUrl: href,
         dedupeKeyForUser: (userId) => `draft:start:${draft.id}:${userId}`,
         tags: ["draft", "draft-start"],
+        sync: input.sync,
       },
     });
   }
@@ -57,6 +60,7 @@ export async function announceDraftStarted(input: {
     draftId: draft.id,
     currentPickIndex: draft.currentPickIndex,
     seasonTeams,
+    sync: input.sync,
   });
 }
 
@@ -116,6 +120,7 @@ async function announceOnClockAndOnDeck(input: {
     draftSlot: number | null;
     userId: string | null;
   }>;
+  sync?: boolean;
 }) {
   const [season] = await db
     .select({
@@ -165,6 +170,7 @@ async function announceOnClockAndOnDeck(input: {
           dedupeKeyForUser: () =>
             `draft:on_clock:${input.draftId}:${input.currentPickIndex}`,
           tags: ["draft", "draft-on-clock"],
+          sync: input.sync,
         },
       });
     }
@@ -185,6 +191,7 @@ async function announceOnClockAndOnDeck(input: {
           dedupeKeyForUser: () =>
             `draft:on_deck:${input.draftId}:${onDeckIndex}`,
           tags: ["draft", "draft-on-deck"],
+          sync: input.sync,
         },
       });
     }
@@ -255,9 +262,7 @@ export async function sendDueDraftReminders(
           sync: true,
         },
       });
-      if (emailed > 0) {
-        result.sent24h += 1;
-      }
+      result.sent24h += emailed;
     }
 
     if (start >= in10m.getTime() && start <= in20m.getTime()) {
@@ -276,9 +281,7 @@ export async function sendDueDraftReminders(
           sync: true,
         },
       });
-      if (emailed > 0) {
-        result.sent15m += 1;
-      }
+      result.sent15m += emailed;
     }
   }
 

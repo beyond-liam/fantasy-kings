@@ -88,6 +88,7 @@ export async function completeExpiredTrade(input: {
     proposingTeamId: trade.proposingTeamId,
     receivingTeamId: trade.receivingTeamId,
     body: "Your trade completed after the review period.",
+    sync: true,
   });
 
   return { ok: true, tradeId: input.tradeId };
@@ -330,6 +331,10 @@ export async function acceptTradeOffer(input: {
           ? "Trade completed"
           : "Trade offer accepted",
       body: acceptBody,
+      emailDedupeKind:
+        input.nextStatus === "awaiting_commissioner"
+          ? "awaiting_commissioner"
+          : "completed",
     });
   }
 

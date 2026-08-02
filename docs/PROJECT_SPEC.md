@@ -58,7 +58,7 @@ A mobile-first fantasy football web app for a private friend group (4–16 users
 | 2 | Responsive control sizes | Use `useIsMobile` / breakpoints so dense mobile screens can use smaller shadcn sizes (`sm` buttons, triggers, inputs) without shrinking desktop |
 | ~~3~~ | ~~Reschedule started draft~~ | **Done (2026-08-02)** — Saving a future `draftStartAt` unwinds `live`/`paused` → `scheduled` (keeps picks); clears underway UI and pickability; no-pick seasons return to `recruiting` |
 | ~~4~~ | ~~Draft time picker timezone~~ | **Done (2026-08-02)** — `TimePicker` is native `Input type="time"` (minutes only); draft forms edit local `HH:mm` via `formatLocalTime` / `applyLocalTime`, persist ISO only |
-| 5 | Draft email delivery audit | Start / on-clock / on-deck emails may not arrive. Verify Brevo env on Vercel (`BREVO_API_KEY`, `BREVO_FROM_EMAIL`), check logs + `email_sends`, and fix or wire/remove dead `emailNotificationsEnabled` (always written `false`, never read) |
+| ~~5~~ | ~~Draft email delivery audit~~ | **Done (2026-08-02)** — Dedupe claims release on Brevo fail/skip; cron draft-start + trade-complete use `sync`; commissioner accept uses a separate dedupe key; `emailNotificationsEnabled` no longer forced `false` (column unused for gating). Ops: confirm `BREVO_*` on Vercel + cron-job.org every ~5m for `draft-reminders` / `start-drafts` |
 
 ### Engagement analytics (remaining)
 
@@ -813,3 +813,4 @@ lib/
 | 2026-08-02 | Spec backlog: login email UX, mobile control sizes, reschedule started draft, draft time TZ picker, draft email delivery audit |
 | 2026-08-02 | Login OTP maps unknown-email errors; saving a future draft start unwinds live/paused drafts |
 | 2026-08-02 | Draft TimePicker matches shadcn native time input; local HH:mm editing (no UTC slice) |
+| 2026-08-02 | Email delivery: release dedupe on Brevo fail; cron sync for draft start + trade complete; fix commissioner trade email dedupe |

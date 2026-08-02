@@ -128,10 +128,14 @@ Sends draft reminders at T-24h and T-15m. Run every 5 minutes (Vercel Hobby only
 ```json
 {
   "ok": true,
-  "checked": 3,
-  "sent": 2
+  "checked24h": 3,
+  "sent24h": 6,
+  "checked15m": 1,
+  "sent15m": 2
 }
 ```
+
+`checked*` counts seasons in each reminder window; `sent*` counts emails successfully handed to Brevo.
 
 **Manual trigger:**
 ```bash
@@ -192,9 +196,12 @@ Before Week 1:
 - Check `finalize` field in sync-scores response. If `checked > 0` but `finalized === 0`, matchups may not be due or scores are still changing.
 
 **Draft reminders not sending:**
-- Check `BREVO_API_KEY` in Vercel.
-- Verify cron-job.org is hitting `/api/cron/draft-reminders` every 5 minutes.
-- Check Vercel logs for errors (e.g., rate limits, invalid email addresses).
+- Check `BREVO_API_KEY` and `BREVO_FROM_EMAIL` in Vercel (and that the sender is verified in Brevo).
+- Verify cron-job.org is hitting `/api/cron/draft-reminders` every **5 minutes** — Vercel Hobby daily cron cannot hit the T-15m window.
+- Same for `/api/cron/start-drafts` every 1–5 minutes near draft time (Hobby daily is not enough).
+- Check Vercel logs for `[email] Brevo not configured` or `Brevo send failed`.
+- If Brevo was misconfigured earlier, failed attempts no longer permanently burn dedupe keys (claims are released on failure). To clear old burned keys: `delete from email_sends where dedupe_key like 'draft:%';` (scoped carefully).
+- Confirm managers have emails on `auth.users` (OTP login accounts do).
 
 **nflverse not running:**
 - By default, nflverse only runs after all games are complete (no live games).

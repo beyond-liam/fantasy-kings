@@ -214,12 +214,20 @@ export async function announceTradeCompleted(input: {
   receivingTeamId: string;
   title?: string;
   body: string;
+  /**
+   * Separate keys so "awaiting commissioner" accept does not burn the
+   * final "trade completed" email when the commissioner later approves.
+   */
+  emailDedupeKind?: "completed" | "awaiting_commissioner";
+  /** Cron process-trades must send inline (no after()). */
+  sync?: boolean;
 }) {
   const owners = await getTeamOwnerUserIds([
     input.proposingTeamId,
     input.receivingTeamId,
   ]);
   const title = input.title ?? "Trade completed";
+  const kind = input.emailDedupeKind ?? "completed";
   await deliverAlert({
     userIds: [
       owners.get(input.proposingTeamId),
@@ -240,8 +248,11 @@ export async function announceTradeCompleted(input: {
       ctaLabel: "View trades",
       ctaUrl: tradesUrl(input.leaguePublicId),
       dedupeKeyForUser: (userId) =>
-        `trade:completed:${input.tradeId}:${userId}`,
+        kind === "awaiting_commissioner"
+          ? `trade:awaiting_commissioner:${input.tradeId}:${userId}`
+          : `trade:completed:${input.tradeId}:${userId}`,
       tags: ["trade", "trade-completed"],
+      sync: input.sync,
     },
   });
 }

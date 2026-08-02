@@ -72,7 +72,6 @@ export async function updateDraftConfig(
       draftType: next.draftType,
       draftStartAt,
       pickTimeLimitSeconds: draftConfigPickTimeSeconds(next),
-      emailNotificationsEnabled: false,
       settings: {
         ...season.settings,
         draft: afterSettings,

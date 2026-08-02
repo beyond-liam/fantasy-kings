@@ -86,6 +86,7 @@ export async function autoStartDueDrafts(
         leaguePublicId: row.leaguePublicId,
         leagueName: row.leagueName,
         resumed: false,
+        sync: true,
       });
     } catch (error) {
       console.error("[email] draft started queue failed", row.seasonId, error);
