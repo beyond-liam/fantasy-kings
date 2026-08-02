@@ -6,6 +6,7 @@ import { Bookmark02Icon, Contact01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
 import { PlayerActionButton } from "@/components/rankings/player-action-button";
+import { PlayerAvatar } from "@/components/rankings/player-avatar";
 import { useOptionalWatchlistStore } from "@/components/rankings/watchlist-provider";
 import { TeamTableColumnHeader } from "@/components/team/team-table-column-header";
 import { Button } from "@/components/ui/button";
@@ -190,9 +191,10 @@ function PlayerProfileHeader({
         }
       />
 
-      <div className="relative z-10 flex items-start gap-4 px-5 py-5 sm:gap-5 sm:px-6 sm:py-6">
-        <div className="relative z-10 shrink-0">
-          <div className="size-36 overflow-hidden rounded-lg bg-black/20 outline outline-1 outline-black/10 sm:size-44 dark:outline-white/10">
+      <div className="relative z-10 flex flex-col gap-4 px-5 py-5 sm:flex-row sm:items-start sm:gap-5 sm:px-6 sm:py-6">
+        {/* Desktop — large rectangular headshot */}
+        <div className="relative z-10 hidden shrink-0 sm:block">
+          <div className="size-44 overflow-hidden rounded-lg bg-black/20 outline outline-1 outline-black/10 dark:outline-white/10">
             {headshot ? (
               // eslint-disable-next-line @next/next/no-img-element -- remote CDN headshot
               <img
@@ -214,16 +216,28 @@ function PlayerProfileHeader({
         </div>
 
         <div className="relative z-10 flex min-w-0 flex-1 flex-col gap-3 pr-8">
-          <div className="flex flex-col gap-0">
-            <Heading className="min-w-0 text-2xl font-semibold tracking-tight text-balance sm:text-3xl">
-              {profile.fullName}
-            </Heading>
-            <p
-              className="text-sm font-medium tracking-wide"
-              style={{ color: muted }}
-            >
-              {positionLine}
-            </p>
+          {/* Identity: circular avatar + name/pos on mobile; name/pos only on desktop */}
+          <div className="flex items-center gap-3">
+            <PlayerAvatar
+              fullName={profile.fullName}
+              sleeperId={profile.sleeperId}
+              primaryPositionId={profile.primaryPositionId}
+              nflTeam={profile.nflTeam}
+              injuryStatus={profile.injuryStatus}
+              size="lg"
+              className="sm:hidden [&_[data-slot=avatar]]:!size-12"
+            />
+            <div className="flex min-w-0 flex-1 flex-col leading-none">
+              <Heading className="min-w-0 text-[17px] leading-tight font-semibold tracking-tight text-balance sm:text-3xl sm:leading-snug">
+                {profile.fullName}
+              </Heading>
+              <p
+                className="text-sm leading-tight font-medium tracking-wide"
+                style={{ color: muted }}
+              >
+                {positionLine}
+              </p>
+            </div>
           </div>
 
           {isDef ? (
@@ -233,7 +247,7 @@ function PlayerProfileHeader({
               muted={muted}
             />
           ) : (
-            <div className="grid grid-cols-3 gap-3 sm:grid-cols-5">
+            <div className="grid w-full grid-cols-3 gap-3 sm:grid-cols-5">
               <HeaderBioStat
                 label="Age"
                 value={profile.age != null ? String(profile.age) : "—"}
@@ -264,7 +278,7 @@ function PlayerProfileHeader({
             </div>
           )}
 
-          <div className="flex flex-col gap-1">
+          <div className="flex w-full flex-col gap-1">
             <span
               className="text-[10px] font-medium tracking-wide uppercase"
               style={{ color: muted }}
@@ -326,10 +340,10 @@ export function PlayerProfileContent({
   );
 
   return (
-    <div>
+    <div className="min-w-0">
       <PlayerProfileHeader profile={profile} headingLevel={headingLevel} />
 
-      <div className="flex flex-col gap-6 p-5 sm:p-6">
+      <div className="flex min-w-0 flex-col gap-6 p-5 sm:p-6">
         {profile.leagueSlug ? (
           <p className="text-sm text-muted-foreground">
             {profile.ownership?.fantasyTeamName ? (
@@ -343,12 +357,12 @@ export function PlayerProfileContent({
           </p>
         ) : null}
 
-        <section className="flex flex-col gap-2">
+        <section className="flex min-w-0 flex-col gap-2">
           <h3 className="text-sm font-medium">
             {useActualStats ? "Season stats" : "Season projection"}
           </h3>
           {seasonBlock ? (
-            <TableShell>
+            <TableShell className="min-w-0">
               <TooltipProvider>
                 <Table>
                   <TableHeader>
@@ -406,7 +420,7 @@ export function PlayerProfileContent({
           )}
         </section>
 
-        <section className="flex flex-col gap-2">
+        <section className="flex min-w-0 flex-col gap-2">
           <h3 className="text-sm font-medium">Game log</h3>
           {profile.gameLog.length === 0 ? (
             <Empty className="border-none" size="sm">
@@ -418,18 +432,18 @@ export function PlayerProfileContent({
               </EmptyHeader>
             </Empty>
           ) : (
-            <TableShell>
+            <TableShell className="relative z-0 isolate min-w-0">
               <TooltipProvider>
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-12">
+                      <TableHead className="sticky left-0 z-[1] w-12 min-w-12">
                         <TeamTableColumnHeader
                           title="Wk"
                           tooltip="NFL week"
                         />
                       </TableHead>
-                      <TableHead>
+                      <TableHead className="sticky left-12 z-[1] min-w-[4.5rem] shadow-[4px_0_8px_-4px_rgba(0,0,0,0.45)]">
                         <TeamTableColumnHeader
                           title="Opp"
                           tooltip="Opponent"
@@ -454,10 +468,10 @@ export function PlayerProfileContent({
                   <TableBody>
                     {profile.gameLog.map((row) => (
                       <TableRow key={row.week}>
-                        <TableCell className="tabular-nums">
+                        <TableCell className="sticky left-0 z-[1] w-12 min-w-12 bg-dialog tabular-nums group-hover/tr:bg-muted/50">
                           {row.week}
                         </TableCell>
-                        <TableCell className="whitespace-nowrap text-muted-foreground">
+                        <TableCell className="sticky left-12 z-[1] min-w-[4.5rem] bg-dialog whitespace-nowrap text-muted-foreground shadow-[4px_0_8px_-4px_rgba(0,0,0,0.45)] group-hover/tr:bg-muted/50">
                           {row.opponent ?? "—"}
                         </TableCell>
                         {profile.gameLogColumns.slice(0, 8).map((column) => (
@@ -630,12 +644,12 @@ function PlayerProfileDialogFooter({
   return (
     <DialogFooter
       className={cn(
-        "mb-0 border-t p-4 sm:p-6",
-        showLeagueActions && "sm:justify-between",
+        "relative z-40 mb-0 flex-row items-center gap-2 border-t p-4 sm:p-6",
+        showLeagueActions ? "justify-between" : "justify-end",
       )}
     >
       {showLeagueActions && slug && ownership ? (
-        <div className="flex w-full items-center gap-2 sm:w-auto">
+        <div className="flex shrink-0 items-center gap-2">
           <PlayerProfileWatchlistButton
             key={profile.id}
             playerId={profile.id}
@@ -661,7 +675,10 @@ function PlayerProfileDialogFooter({
 
       <Button
         nativeButton={false}
-        className="w-full sm:w-auto"
+        className={cn(
+          "min-w-0",
+          showLeagueActions ? "flex-1 sm:flex-initial" : "w-full sm:w-auto",
+        )}
         render={
           <Link
             href={{
@@ -727,7 +744,7 @@ export function PlayerProfileDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className={cn(
-          "max-h-[min(90dvh,52rem)] gap-0 overflow-y-auto p-0 sm:max-w-3xl",
+          "max-h-[min(90dvh,52rem)] min-w-0 gap-0 overflow-x-hidden overflow-y-auto p-0 sm:max-w-3xl",
           showProfile &&
             "[&_[data-slot=dialog-close]]:z-50 [&_[data-slot=dialog-close]]:text-white [&_[data-slot=dialog-close]]:hover:bg-white/15 [&_[data-slot=dialog-close]]:hover:text-white",
         )}

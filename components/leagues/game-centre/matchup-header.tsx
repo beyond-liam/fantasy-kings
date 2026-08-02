@@ -223,13 +223,13 @@ function HeaderSide({
       <div
         className={cn(
           "flex min-w-0 items-center gap-2.5",
-          isAway ? "flex-row" : "flex-row-reverse",
+          isAway ? "flex-row" : "flex-row md:flex-row-reverse",
         )}
       >
         <div
           className={cn(
             "flex min-w-0 flex-1 items-center gap-2.5",
-            isAway ? "flex-row" : "flex-row-reverse",
+            isAway ? "flex-row" : "flex-row md:flex-row-reverse",
           )}
         >
           <Avatar size="lg" className="shrink-0">
@@ -238,8 +238,8 @@ function HeaderSide({
           </Avatar>
           <div
             className={cn(
-              "flex min-w-0 flex-col",
-              isAway ? "text-left" : "text-right",
+              "flex min-w-0 flex-col text-left",
+              !isAway && "md:text-right",
             )}
           >
             <span
@@ -258,8 +258,8 @@ function HeaderSide({
 
         <div
           className={cn(
-            "shrink-0 tabular-nums",
-            isAway ? "text-right" : "text-left",
+            "shrink-0 text-right tabular-nums",
+            !isAway && "md:text-left",
             muted && "text-muted-foreground",
           )}
         >
@@ -287,14 +287,27 @@ function HeaderSide({
         </div>
       </div>
 
-      <WinChanceMeter
-        chance={side.winChance}
-        growFrom={isAway ? "end" : "start"}
-        align={align}
-        muted={muted}
-        yetToPlay={side.yetToPlay}
-        yetToPlayPlayers={side.yetToPlayPlayers}
-      />
+      {/* Stacked mobile: Yet to play left, % right. Desktop keeps mirrored layout. */}
+      <div className="md:hidden">
+        <WinChanceMeter
+          chance={side.winChance}
+          growFrom="start"
+          align="away"
+          muted={muted}
+          yetToPlay={side.yetToPlay}
+          yetToPlayPlayers={side.yetToPlayPlayers}
+        />
+      </div>
+      <div className="hidden md:block">
+        <WinChanceMeter
+          chance={side.winChance}
+          growFrom={isAway ? "end" : "start"}
+          align={align}
+          muted={muted}
+          yetToPlay={side.yetToPlay}
+          yetToPlayPlayers={side.yetToPlayPlayers}
+        />
+      </div>
     </div>
   );
 }
@@ -313,16 +326,18 @@ export function MatchupHeader({
   onProjectedClick,
 }: MatchupHeaderProps) {
   return (
-    <div className="relative flex min-w-0 items-stretch overflow-hidden rounded-xl border bg-card pt-7">
+    <div className="relative flex min-w-0 flex-col items-stretch overflow-hidden rounded-xl border bg-card pt-7 md:flex-row">
       <span className="pointer-events-none absolute inset-x-0 top-1.5 z-20 flex justify-center">
         <MatchupStatusBadge status={status} />
       </span>
-      <HeaderSide
-        side={away}
-        align="away"
-        onProjectedClick={away.isViewerTeam ? onProjectedClick : undefined}
-      />
-      <div className="relative z-10 flex shrink-0 items-center self-center">
+      <div className="border-b border-border md:contents md:border-0">
+        <HeaderSide
+          side={away}
+          align="away"
+          onProjectedClick={away.isViewerTeam ? onProjectedClick : undefined}
+        />
+      </div>
+      <div className="relative z-10 hidden shrink-0 items-center self-center md:flex">
         <span className="flex size-8 items-center justify-center rounded-full border bg-background text-[10px] font-semibold tracking-wide text-muted-foreground">
           VS
         </span>

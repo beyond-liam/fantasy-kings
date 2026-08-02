@@ -200,13 +200,14 @@ function MatchupSide({
       <div
         className={cn(
           "flex min-w-0 items-center gap-2.5",
-          isAway ? "flex-row" : "flex-row-reverse",
+          // Mobile: avatar → name → score. Desktop home mirrors.
+          isAway ? "flex-row" : "flex-row md:flex-row-reverse",
         )}
       >
         <div
           className={cn(
             "flex min-w-0 flex-1 items-center gap-2.5",
-            isAway ? "flex-row" : "flex-row-reverse",
+            isAway ? "flex-row" : "flex-row md:flex-row-reverse",
           )}
         >
           <Avatar size="default" className="shrink-0">
@@ -215,8 +216,8 @@ function MatchupSide({
           </Avatar>
           <div
             className={cn(
-              "flex min-w-0 flex-col",
-              isAway ? "text-left" : "text-right",
+              "flex min-w-0 flex-col text-left",
+              !isAway && "md:text-right",
             )}
           >
             <span
@@ -240,8 +241,8 @@ function MatchupSide({
 
         <div
           className={cn(
-            "shrink-0 tabular-nums",
-            isAway ? "text-right" : "text-left",
+            "shrink-0 text-right tabular-nums",
+            !isAway && "md:text-left",
             muted && "text-muted-foreground",
           )}
         >
@@ -259,12 +260,23 @@ function MatchupSide({
         </div>
       </div>
 
-      <WinChanceMeter
-        chance={side.winChance}
-        growFrom={isAway ? "end" : "start"}
-        align={align}
-        muted={muted}
-      />
+      {/* Stacked mobile: meters grow L→R, % sits under the scores (right). */}
+      <div className="md:hidden">
+        <WinChanceMeter
+          chance={side.winChance}
+          growFrom="start"
+          align="away"
+          muted={muted}
+        />
+      </div>
+      <div className="hidden md:block">
+        <WinChanceMeter
+          chance={side.winChance}
+          growFrom={isAway ? "end" : "start"}
+          align={align}
+          muted={muted}
+        />
+      </div>
     </div>
   );
 }
@@ -280,15 +292,17 @@ function MatchupBoardRow({
     <Link
       href={leagueMatchupPath(leagueSlug, game.publicId || game.id)}
       aria-label={`View matchup: ${game.away.teamName} vs ${game.home.teamName}`}
-      className="relative flex min-w-0 items-stretch overflow-hidden rounded-xl border bg-card pt-7 transition-colors outline-none hover:bg-muted/40 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+      className="relative flex min-w-0 flex-col items-stretch overflow-hidden rounded-xl border bg-card pt-7 transition-colors outline-none hover:bg-muted/40 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:flex-row"
     >
       <span className="pointer-events-none absolute inset-x-0 top-1.5 z-20 flex justify-center">
         <MatchupStatusBadge status={game.status} />
       </span>
 
-      <MatchupSide side={game.away} align="away" />
+      <div className="border-b border-border md:contents md:border-0">
+        <MatchupSide side={game.away} align="away" />
+      </div>
 
-      <div className="relative z-10 flex shrink-0 items-center self-center">
+      <div className="relative z-10 hidden shrink-0 items-center self-center md:flex">
         <span className="flex size-8 items-center justify-center rounded-full border bg-background text-[10px] font-semibold tracking-wide text-muted-foreground">
           VS
         </span>

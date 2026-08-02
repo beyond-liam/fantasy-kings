@@ -116,7 +116,7 @@ type PlayerActionButtonProps = {
   acquisitionsLocked?: boolean;
   acquisitionLockReason?: string;
   tradesEnabled?: boolean;
-  /** Icon-only for dense tables; labeled for dialog / sheet footers. */
+  /** Icon-only — `icon` for dense tables; `button` for dialog footers (outline). */
   appearance?: "icon" | "button";
 };
 
@@ -282,20 +282,31 @@ export function PlayerActionButton({
 
   const actionControl =
     appearance === "button" ? (
-      <Button
-        type="button"
-        variant={buttonVariant}
-        disabled={isDisabled}
-        aria-label={tooltip}
-        onClick={handleClick}
-      >
-        <HugeiconsIcon
-          icon={action.icon}
-          strokeWidth={2}
-          data-icon="inline-start"
-        />
-        {action.label}
-      </Button>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <span
+                className={
+                  isDisabled ? "inline-flex cursor-not-allowed" : "inline-flex"
+                }
+              />
+            }
+          >
+            <Button
+              type="button"
+              variant={buttonVariant}
+              size="icon"
+              disabled={isDisabled}
+              aria-label={tooltip}
+              onClick={handleClick}
+            >
+              <HugeiconsIcon icon={action.icon} strokeWidth={2} />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>{tooltip}</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
     ) : (
       <TooltipProvider>
         <Tooltip>

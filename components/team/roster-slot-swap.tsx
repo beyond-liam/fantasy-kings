@@ -19,6 +19,7 @@ import {
 import type { RosterSlotConfig } from "@/db/schema/league-seasons";
 import type { TeamRosterPlayer } from "@/lib/leagues/roster-fill";
 import {
+  POSITION_BADGE_CLASSNAME,
   positionToneClass,
   slotBadgeLabel,
 } from "@/lib/leagues/position-colors";
@@ -28,9 +29,6 @@ import {
   isReserveSlot,
 } from "@/lib/leagues/roster-slots";
 import { cn } from "@/lib/utils";
-
-const BADGE_CLASSNAME =
-  "inline-flex h-6 min-w-9 shrink-0 items-center justify-center rounded-md px-1.5 text-[11px] font-semibold ring-1 ring-inset tabular-nums";
 
 type RosterSlotSwapProps = {
   slotPositionId: string;
@@ -65,7 +63,7 @@ export function RosterSlotSwap({
   const [open, setOpen] = useState(false);
   const slot = player ? effectiveSlotPositionId(player) : slotPositionId;
   const badge = (
-    <span className={cn(BADGE_CLASSNAME, positionToneClass(slot))}>
+    <span className={cn(POSITION_BADGE_CLASSNAME, positionToneClass(slot))}>
       {slotBadgeLabel(slot)}
     </span>
   );
@@ -115,7 +113,7 @@ export function RosterSlotSwap({
                 : `Fill empty ${slot} slot`
             }
             className={cn(
-              BADGE_CLASSNAME,
+              POSITION_BADGE_CLASSNAME,
               positionToneClass(slot),
               "md:hidden",
               "transition-transform active:scale-[0.96]",
@@ -157,7 +155,7 @@ export function RosterSlotSwap({
                 >
                   <span
                     className={cn(
-                      BADGE_CLASSNAME,
+                      POSITION_BADGE_CLASSNAME,
                       positionToneClass(candidateSlot),
                     )}
                   >

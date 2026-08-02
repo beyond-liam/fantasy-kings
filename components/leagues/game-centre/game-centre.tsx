@@ -120,7 +120,7 @@ export function GameCentre({ data }: GameCentreProps) {
       />
 
       <Tabs value={tab} onValueChange={setTab}>
-        <TabsList>
+        <TabsList className="max-md:w-full">
           {scheduled ? (
             <>
               <TabsTrigger value="preview">Preview</TabsTrigger>

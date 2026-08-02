@@ -14,6 +14,10 @@ const POSITION_TONE: Record<string, string> = {
 
 const FALLBACK_TONE = "bg-muted/40 text-foreground ring-border/60";
 
+/** Shared shell for roster / matchup slot badges. */
+export const POSITION_BADGE_CLASSNAME =
+  "inline-flex h-6 min-w-9 shrink-0 items-center justify-center rounded-md px-1.5 text-[11px] font-semibold ring-1 ring-inset tabular-nums";
+
 export function positionToneClass(positionId: string) {
   return POSITION_TONE[positionId] ?? FALLBACK_TONE;
 }
