@@ -42,7 +42,7 @@ A mobile-first fantasy football web app for a private friend group (4–16 users
 | Engagement | SOS (season/remaining), playoff chance %, playoff picture badges, Game Centre Preview, Overview (spotlights + roast), HoF (titles + roast + extremes), Team H2H tab, Team Stats charts 1–4 + KPI strip |
 | Empty states | shadcn `Empty` used for zero-data surfaces (charts, lists, spotlights, settings, dialogs, data-table) |
 | Manager presence | Online / offline / inactive badges on current-manager identities; profile `last_seen_at` + throttled heartbeat + league poll |
-| Player profiles | Canonical `/players/[playerId]` page; player modal links to the full league-aware profile |
+| Player profiles | Canonical `/players/[playerId]` page with full-bleed stadium hero + overlapping identity card; modal links to the league-aware profile |
 
 ### Near-term product (build next)
 
@@ -814,3 +814,4 @@ lib/
 | 2026-08-02 | Login OTP maps unknown-email errors; saving a future draft start unwinds live/paused drafts |
 | 2026-08-02 | Draft TimePicker matches shadcn native time input; local HH:mm editing (no UTC slice) |
 | 2026-08-02 | Email delivery: release dedupe on Brevo fail; cron sync for draft start + trade complete; fix commissioner trade email dedupe |
+| 2026-08-02 | Player page template: full-bleed team stadium/color hero, overlapping identity card (avatar + team badge, injury, actions, projection tiles) |

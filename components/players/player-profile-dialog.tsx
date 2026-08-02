@@ -1,13 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, useSyncExternalStore, useTransition } from "react";
-import { Bookmark02Icon, Contact01Icon } from "@hugeicons/core-free-icons";
+import { useEffect, useState, useTransition } from "react";
+import { Contact01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
 import { PlayerActionButton } from "@/components/rankings/player-action-button";
 import { PlayerAvatar } from "@/components/rankings/player-avatar";
-import { useOptionalWatchlistStore } from "@/components/rankings/watchlist-provider";
+import { PlayerWatchlistButton } from "@/components/players/player-watchlist-button";
 import { TeamTableColumnHeader } from "@/components/team/team-table-column-header";
 import { Button } from "@/components/ui/button";
 import {
@@ -30,12 +30,7 @@ import {
   TableShell,
   TABLE_SHELL_CLASSNAME,
 } from "@/components/ui/table";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { loadPlayerProfile } from "@/lib/actions/player-profile";
 import { resolvePlayerByeWeek } from "@/lib/nfl/bye-weeks";
@@ -45,6 +40,11 @@ import {
   getNflTeamDivision,
   getNflTeamStadiumUrl,
 } from "@/lib/nfl/team-colors";
+import {
+  formatOwnershipPct,
+  formatPlayerHeight,
+  formatPlayerWeight,
+} from "@/lib/players/bio-format";
 import { getInjuryIndicator } from "@/lib/players/injury";
 import type { PlayerProfile } from "@/lib/queries/player-profile";
 import {
@@ -53,18 +53,12 @@ import {
   getSleeperTeamLogoUrl,
 } from "@/lib/sleeper/avatars";
 
-
 type PlayerProfileDialogProps = {
   playerId: string | null;
   leagueSlug?: string | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 };
-
-function formatPct(value: number | null | undefined) {
-  if (value == null || !Number.isFinite(value)) return "—";
-  return `${value.toFixed(value >= 10 ? 0 : 1)}%`;
-}
 
 function formatPts(value: number | null | undefined) {
   if (value == null || !Number.isFinite(value)) return "—";
@@ -75,29 +69,6 @@ function formatStat(value: number | null | undefined, decimals = 1) {
   if (value == null || !Number.isFinite(value)) return "—";
   if (Number.isInteger(value) && decimals <= 1) return String(value);
   return value.toFixed(decimals);
-}
-
-/** Sleeper often stores height as total inches ("77") or already as 6'5\". */
-function formatHeight(value: string | null | undefined) {
-  if (!value?.trim()) return "—";
-  const raw = value.trim();
-  if (raw.includes("'") || raw.toLowerCase().includes("ft")) {
-    return raw;
-  }
-  const inches = Number(raw);
-  if (!Number.isFinite(inches) || inches <= 0) {
-    return raw;
-  }
-  const feet = Math.floor(inches / 12);
-  const rem = Math.round(inches % 12);
-  return `${feet}'${rem}"`;
-}
-
-function formatWeight(value: string | null | undefined) {
-  if (!value?.trim()) return "—";
-  const raw = value.trim();
-  if (/lb/i.test(raw)) return raw;
-  return `${raw} lbs`;
 }
 
 function HeaderBioStat({
@@ -255,12 +226,12 @@ function PlayerProfileHeader({
               />
               <HeaderBioStat
                 label="Height"
-                value={formatHeight(profile.height)}
+                value={formatPlayerHeight(profile.height)}
                 muted={muted}
               />
               <HeaderBioStat
                 label="Weight"
-                value={formatWeight(profile.weight)}
+                value={formatPlayerWeight(profile.weight)}
                 muted={muted}
               />
               <HeaderBioStat
@@ -298,13 +269,13 @@ function PlayerProfileHeader({
               </span>
               <span>
                 <span className="font-semibold">
-                  {formatPct(profile.ownedPct)}
+                  {formatOwnershipPct(profile.ownedPct)}
                 </span>{" "}
                 <span style={{ color: muted }}>Rostered</span>
               </span>
               <span>
                 <span className="font-semibold">
-                  {formatPct(profile.startPct)}
+                  {formatOwnershipPct(profile.startPct)}
                 </span>{" "}
                 <span style={{ color: muted }}>Started</span>
               </span>
@@ -327,9 +298,12 @@ function hasActualSeasonStats(profile: PlayerProfile) {
 export function PlayerProfileContent({
   profile,
   headingLevel = "h2",
+  showHeader = true,
 }: {
   profile: PlayerProfile;
   headingLevel?: "h1" | "h2";
+  /** When false, skips the stadium/color header (used by the full player page). */
+  showHeader?: boolean;
 }) {
   const useActualStats = hasActualSeasonStats(profile);
   const seasonBlock = useActualStats
@@ -341,7 +315,9 @@ export function PlayerProfileContent({
 
   return (
     <div className="min-w-0">
-      <PlayerProfileHeader profile={profile} headingLevel={headingLevel} />
+      {showHeader ? (
+        <PlayerProfileHeader profile={profile} headingLevel={headingLevel} />
+      ) : null}
 
       <div className="flex min-w-0 flex-col gap-6 p-5 sm:p-6">
         {profile.leagueSlug ? (
@@ -540,96 +516,6 @@ export function PlayerProfileContent({
   );
 }
 
-const subscribeNoop = () => () => {};
-
-function PlayerProfileWatchlistButton({
-  playerId,
-  leagueSlug,
-  initialWatched,
-}: {
-  playerId: string;
-  leagueSlug: string;
-  initialWatched: boolean;
-}) {
-  const store = useOptionalWatchlistStore();
-  const [localWatched, setLocalWatched] = useState(initialWatched);
-  const [pending, startTransition] = useTransition();
-  const storeWatched = useSyncExternalStore(
-    store?.subscribe ?? subscribeNoop,
-    () => store?.getSnapshot().has(playerId) ?? false,
-    () => store?.getSnapshot().has(playerId) ?? false,
-  );
-
-  const watched = store ? storeWatched : localWatched;
-  const label = watched ? "Remove from watchlist" : "Add to watchlist";
-
-  const handleToggle = () => {
-    if (store) {
-      store.toggle(playerId);
-      return;
-    }
-
-    const wasWatched = localWatched;
-    setLocalWatched(!wasWatched);
-    startTransition(async () => {
-      try {
-        const response = await fetch("/api/watchlist", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ slug: leagueSlug, playerId }),
-        });
-        const result = (await response.json()) as {
-          success?: boolean;
-          watched?: boolean;
-        };
-        if (!response.ok || !result.success) {
-          setLocalWatched(wasWatched);
-          return;
-        }
-        if (typeof result.watched === "boolean") {
-          setLocalWatched(result.watched);
-        }
-      } catch {
-        setLocalWatched(wasWatched);
-      }
-    });
-  };
-
-  return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger
-          render={
-            <span
-              className={
-                pending ? "inline-flex cursor-not-allowed" : "inline-flex"
-              }
-            />
-          }
-        >
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            aria-label={label}
-            disabled={pending}
-            onClick={handleToggle}
-          >
-            <HugeiconsIcon
-              icon={Bookmark02Icon}
-              strokeWidth={2}
-              className={cn(
-                watched && "fill-warning stroke-warning text-warning",
-              )}
-            />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>{label}</TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-  );
-}
-
 function PlayerProfileDialogFooter({
   profile,
   leagueSlug,
@@ -644,13 +530,14 @@ function PlayerProfileDialogFooter({
   return (
     <DialogFooter
       className={cn(
-        "relative z-40 mb-0 flex-row items-center gap-2 border-t p-4 sm:p-6",
+        // Keep sticky from DialogFooter — do not set `relative` (overrides sticky).
+        "z-40 mb-0 flex-row items-center gap-2 border-t bg-dialog p-4 sm:p-6",
         showLeagueActions ? "justify-between" : "justify-end",
       )}
     >
       {showLeagueActions && slug && ownership ? (
         <div className="flex shrink-0 items-center gap-2">
-          <PlayerProfileWatchlistButton
+          <PlayerWatchlistButton
             key={profile.id}
             playerId={profile.id}
             leagueSlug={slug}

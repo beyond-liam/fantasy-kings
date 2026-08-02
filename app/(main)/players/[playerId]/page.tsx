@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 
-import { PlayerProfileContent } from "@/components/players/player-profile-dialog";
+import { PlayerPageTemplate } from "@/components/players/player-page-template";
 import { getSessionUser } from "@/lib/auth/session";
 import { getPlayerProfile } from "@/lib/queries/player-profile";
 
@@ -13,9 +13,17 @@ type PlayerProfilePageProps = {
   }>;
 };
 
-export const metadata: Metadata = {
-  title: "Player profile",
-};
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ playerId: string }>;
+}): Promise<Metadata> {
+  const { playerId } = await params;
+  const profile = await getPlayerProfile({ playerId });
+  return {
+    title: profile?.fullName ?? "Player profile",
+  };
+}
 
 export default async function PlayerProfilePage({
   params,
@@ -46,11 +54,5 @@ export default async function PlayerProfilePage({
     notFound();
   }
 
-  return (
-    <div className="flex flex-1 flex-col p-4 sm:p-6">
-      <article className="mx-auto w-full max-w-5xl overflow-hidden rounded-xl bg-card shadow-xs ring-1 ring-foreground/10">
-        <PlayerProfileContent profile={profile} headingLevel="h1" />
-      </article>
-    </div>
-  );
+  return <PlayerPageTemplate profile={profile} />;
 }
