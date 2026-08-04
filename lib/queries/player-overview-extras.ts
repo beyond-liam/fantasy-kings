@@ -709,7 +709,7 @@ function buildCompareRowFromLog(input: {
     if (rank != null) remainingRanks.push(rank);
   }
 
-  let carrySharePct: number | null = null;
+  const carrySharePct: number | null = null;
   let ypc: number | null = null;
   if (input.primaryPositionId === "RB") {
     const rushAtt = scored.reduce(

@@ -834,7 +834,8 @@ export const getPlayerProfile = cache(
         : Promise.resolve(null),
     ]);
 
-    let { seasonProjection, seasonStats, gameLog: scoreGameLog } = scoreBundle;
+    const { seasonProjection, gameLog: scoreGameLog } = scoreBundle;
+    let { seasonStats } = scoreBundle;
 
     const cappedSchedule = schedule.filter((row) => row.week <= seasonMaxWeek);
     const gameLog = mergeGameLogWithSchedule({
