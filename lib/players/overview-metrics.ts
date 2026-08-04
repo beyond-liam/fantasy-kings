@@ -1,10 +1,15 @@
+import { resolveLeagueSeasonMaxWeek } from "@/lib/leagues/season-calendar";
 import {
   getProjectionHighlightStats,
   getProjectionStatAccentTone,
   type ProjectionHighlightStat,
   type ProjectionProfileInput,
 } from "@/lib/players/projection-highlights";
-import { difficultyFromSosRank } from "@/lib/players/sos-thresholds";
+import {
+  difficultyFromPositionSosRank,
+  summarizeSosSchedule,
+  type SosScheduleSummary,
+} from "@/lib/players/sos-thresholds";
 import type { ScoringRuleDefinition } from "@/lib/leagues/scoring/types";
 import { explainPlayerPoints } from "@/lib/leagues/scoring/calculate";
 import { getGameSiteRoof } from "@/lib/nfl/stadiums";
@@ -248,9 +253,12 @@ export type OverviewSosWeek = {
   difficulty: OverviewMatchupBucketId | null;
   /** 1 = easy … 3 = hard (legacy bucket axis). */
   rating: number | null;
-  /** 1 = hardest (fewest FPts allowed) … 32 = easiest. */
+  /** 1 = hardest … 32 = easiest. */
   matchupRank: number | null;
-  /** Fantasy points allowed to this position / game. */
+  /**
+   * Skill: FPts allowed to this position / game.
+   * DEF: opponent offense NFL points scored / game.
+   */
   ptsAllowed: number | null;
   fpts: number | null;
   isBye: boolean;
@@ -263,6 +271,8 @@ export type OverviewMatchupDifficulty = {
   weeks: OverviewSosWeek[];
   /** Mean matchup rank across non-bye weeks. */
   averageMatchupRank: number | null;
+  /** Overall slate read, e.g. "Typically average schedule". */
+  scheduleSummary: SosScheduleSummary | null;
   leagueTeamCount: number;
   playoffWeeks: number[];
 };
@@ -1861,13 +1871,13 @@ function buildKickerWeeklyMakes(
   return rows.length > 0 ? rows : null;
 }
 
-/** Typical DEF share of games by points-allowed bracket (sums to 100). */
+/** Typical DEF share of games by NFL points-allowed bracket (sums to 100). */
 const PTS_ALLOW_BRACKETS = [
-  { id: "0_3", label: "0–3", min: 0, max: 3, leagueAvgPct: 8 },
-  { id: "4_7", label: "4–7", min: 4, max: 7, leagueAvgPct: 15 },
-  { id: "8_10", label: "8–10", min: 8, max: 10, leagueAvgPct: 18 },
-  { id: "11_15", label: "11–15", min: 11, max: 15, leagueAvgPct: 25 },
-  { id: "16p", label: "16+", min: 16, max: Infinity, leagueAvgPct: 34 },
+  { id: "0_7", label: "0–7", min: 0, max: 7, leagueAvgPct: 12 },
+  { id: "8_10", label: "8–10", min: 8, max: 10, leagueAvgPct: 10 },
+  { id: "11_14", label: "11–14", min: 11, max: 14, leagueAvgPct: 22 },
+  { id: "15_21", label: "15–21", min: 15, max: 21, leagueAvgPct: 35 },
+  { id: "22p", label: "22+", min: 22, max: Infinity, leagueAvgPct: 21 },
 ] as const;
 
 /** Typical NFL team DEF points allowed per game (benchmark for weekly line). */
@@ -1879,7 +1889,7 @@ function ptsAllowBracketId(ptsAllow: number): string {
       return bracket.id;
     }
   }
-  return "16p";
+  return "22p";
 }
 
 /** Game counts by points-allowed bracket for the DEF radar. */
@@ -2141,6 +2151,7 @@ const BUCKET_RATING: Record<OverviewMatchupBucketId, number> = {
 function buildMatchupDifficulty(
   weeks: OverviewWeekPoint[],
   extras: OverviewExtrasSeed | null | undefined,
+  positionId: string,
 ): OverviewMatchupDifficulty | null {
   const byWeek = extras?.matchupDifficultyByWeek;
   const ranks = extras?.matchupRanksByWeek;
@@ -2160,11 +2171,12 @@ function buildMatchupDifficulty(
     ...playoffWeeks,
     ...(regularSeasonEndWeek != null ? [regularSeasonEndWeek] : []),
   ];
-  const playoffMax =
-    playoffWeeks.length > 0 ? Math.max(...playoffWeeks) : 0;
   const dataMax = dataWeeks.length > 0 ? Math.max(...dataWeeks) : 0;
   /** League slate = regular season through championship / last playoff week. */
-  const seasonCap = Math.max(regularSeasonEndWeek ?? 0, playoffMax);
+  const seasonCap = resolveLeagueSeasonMaxWeek({
+    regularSeasonEndWeek,
+    playoffWeeks,
+  });
   const maxWeek = Math.max(seasonCap > 0 ? seasonCap : dataMax, 1);
 
   const playoffWeekSet = new Set(playoffWeeks);
@@ -2193,7 +2205,8 @@ function buildMatchupDifficulty(
     );
     const difficulty = isBye
       ? null
-      : (byWeek?.[week] ?? difficultyFromSosRank(rank));
+      : (byWeek?.[week] ??
+        difficultyFromPositionSosRank(positionId, rank));
     const isPlayoff =
       playoffWeekSet.has(week) ||
       (regularSeasonEndWeek != null && week > regularSeasonEndWeek);
@@ -2242,7 +2255,7 @@ function buildMatchupDifficulty(
       id,
       label: BUCKET_LABELS[id],
       games: matched.length,
-      /** Mean FPts this position is allowed by these defenses (not the player's score). */
+      /** Mean rate for opponents in this bucket (allowed/G or opp PPG for DEF). */
       fptsPerGame: mean(allowedValues),
       opponents,
     };
@@ -2260,11 +2273,17 @@ function buildMatchupDifficulty(
     return null;
   }
 
+  const leagueTeamCount = 32;
   return {
     buckets,
     weeks: sosWeeks,
     averageMatchupRank,
-    leagueTeamCount: 32,
+    scheduleSummary: summarizeSosSchedule(
+      averageMatchupRank,
+      positionId,
+      leagueTeamCount,
+    ),
+    leagueTeamCount,
     playoffWeeks:
       playoffWeeks.length > 0
         ? playoffWeeks
@@ -2322,23 +2341,34 @@ export function buildPlayerOverviewMetrics(
   profile: PlayerOverviewInput,
   rules: ScoringRuleDefinition[],
 ): PlayerOverviewMetrics {
-  const weeklyPoints = scoredWeeks(profile);
+  const extras = profile.overviewExtras ?? null;
+  const seasonMaxWeek = resolveLeagueSeasonMaxWeek({
+    regularSeasonEndWeek: extras?.regularSeasonEndWeek,
+    playoffWeeks: extras?.playoffWeeks,
+  });
+  const cappedProfile: PlayerOverviewInput = {
+    ...profile,
+    gameLog: profile.gameLog.filter((row) => row.week <= seasonMaxWeek),
+  };
+  const weeklyPoints = scoredWeeks(cappedProfile);
   const scoredFpts = weeklyPoints
     .filter((w) => w.fpts != null)
     .map((w) => w.fpts!);
   const gamesPlayed = scoredFpts.length;
   const averageFpts = mean(scoredFpts);
-  const extras = profile.overviewExtras ?? null;
 
   const productionProfile: ProjectionProfileInput = {
-    primaryPositionId: profile.primaryPositionId,
-    positionRank: profile.positionRank,
+    primaryPositionId: cappedProfile.primaryPositionId,
+    positionRank: cappedProfile.positionRank,
     /** Never fall back to projections for Season Production. */
     seasonProjection: null,
-    seasonStats: profile.seasonStats,
+    seasonStats: cappedProfile.seasonStats,
   };
-  const production = profile.seasonStats
-    ? getProjectionHighlightStats(productionProfile).map((tileStat) => {
+  const production = cappedProfile.seasonStats
+    ? getProjectionHighlightStats(productionProfile, {
+        gamesPlayed,
+        usePositionRankForFpts: false,
+      }).map((tileStat) => {
         if (tileStat.key !== "fpts_weekly" || averageFpts == null) {
           return tileStat;
         }
@@ -2349,8 +2379,8 @@ export function buildPlayerOverviewMetrics(
           accentTone: getProjectionStatAccentTone({
             key: "fpts_weekly",
             value: averageFpts,
-            position: profile.primaryPositionId,
-            positionRank: profile.positionRank,
+            position: cappedProfile.primaryPositionId,
+            positionRank: null,
           }),
         };
       })
@@ -2358,46 +2388,48 @@ export function buildPlayerOverviewMetrics(
 
   const share =
     buildShare(extras?.share) ??
-    (profile.primaryPositionId === "K"
-      ? buildKickerKickShare(profile)
+    (cappedProfile.primaryPositionId === "K"
+      ? buildKickerKickShare(cappedProfile)
       : null);
   const efficiency =
-    profile.primaryPositionId === "K" || profile.primaryPositionId === "DEF"
+    cappedProfile.primaryPositionId === "K" ||
+    cappedProfile.primaryPositionId === "DEF"
       ? null
-      : buildEfficiency(profile);
+      : buildEfficiency(cappedProfile);
   const fgMakeRadar =
-    profile.primaryPositionId === "K"
-      ? buildKickerFgMakeRadar(profile)
+    cappedProfile.primaryPositionId === "K"
+      ? buildKickerFgMakeRadar(cappedProfile)
       : null;
   const kickWeeklyMakes =
-    profile.primaryPositionId === "K"
-      ? buildKickerWeeklyMakes(profile)
+    cappedProfile.primaryPositionId === "K"
+      ? buildKickerWeeklyMakes(cappedProfile)
       : null;
   const ptsAllowRadar =
-    profile.primaryPositionId === "DEF"
-      ? buildPtsAllowRadar(profile)
+    cappedProfile.primaryPositionId === "DEF"
+      ? buildPtsAllowRadar(cappedProfile)
       : null;
   const ptsAllowWeekly =
-    profile.primaryPositionId === "DEF"
-      ? buildPtsAllowWeekly(profile)
+    cappedProfile.primaryPositionId === "DEF"
+      ? buildPtsAllowWeekly(cappedProfile)
       : null;
   const floorCeiling = buildFloorCeiling(
     weeklyPoints,
-    profile.primaryPositionId,
+    cappedProfile.primaryPositionId,
   );
   const weeklyFinish = buildWeeklyFinish(
     weeklyPoints,
     extras?.weeklyFinishesByWeek,
-    profile.primaryPositionId,
+    cappedProfile.primaryPositionId,
   );
   const homeAway = buildHomeAway(weeklyPoints);
   const outdoorIndoor =
-    profile.primaryPositionId === "K"
-      ? buildOutdoorIndoor(weeklyPoints, profile.nflTeam)
+    cappedProfile.primaryPositionId === "K"
+      ? buildOutdoorIndoor(weeklyPoints, cappedProfile.nflTeam)
       : null;
   const matchupDifficulty = buildMatchupDifficulty(
     weeklyPoints,
     extras,
+    cappedProfile.primaryPositionId,
   );
 
   const lastScoredWeek = weeklyPoints.reduce(
@@ -2408,11 +2440,11 @@ export function buildPlayerOverviewMetrics(
   const subjectRow: OverviewRosterCompareRow | null =
     averageFpts != null
       ? {
-          id: profile.id ?? "viewed",
-          name: profile.fullName ?? "This player",
-          nflTeam: profile.nflTeam ?? null,
-          sleeperId: profile.sleeperId ?? null,
-          primaryPositionId: profile.primaryPositionId,
+          id: cappedProfile.id ?? "viewed",
+          name: cappedProfile.fullName ?? "This player",
+          nflTeam: cappedProfile.nflTeam ?? null,
+          sleeperId: cappedProfile.sleeperId ?? null,
+          primaryPositionId: cappedProfile.primaryPositionId,
           slotLabel: null,
           isViewed: true,
           gamesPlayed,
@@ -2441,13 +2473,13 @@ export function buildPlayerOverviewMetrics(
       : null;
 
   return {
-    seasonLabel: profile.season,
-    playerName: profile.fullName?.trim() || "Player",
-    primaryPositionId: profile.primaryPositionId,
+    seasonLabel: cappedProfile.season,
+    playerName: cappedProfile.fullName?.trim() || "Player",
+    primaryPositionId: cappedProfile.primaryPositionId,
     gamesPlayed,
     fptsPerGame: averageFpts,
     production,
-    scoringBreakdown: buildScoringBreakdown(profile, rules),
+    scoringBreakdown: buildScoringBreakdown(cappedProfile, rules),
     share,
     efficiency,
     fgMakeRadar,
@@ -2460,9 +2492,9 @@ export function buildPlayerOverviewMetrics(
     weeklyFinish,
     homeAway,
     restImpact:
-      profile.primaryPositionId === "K"
+      cappedProfile.primaryPositionId === "K"
         ? null
-        : buildRestImpact(weeklyPoints, profile.byeWeek),
+        : buildRestImpact(weeklyPoints, cappedProfile.byeWeek),
     outdoorIndoor,
     matchupDifficulty,
     rosterCompare: buildRosterCompare(extras?.rosterCompare, subjectRow),

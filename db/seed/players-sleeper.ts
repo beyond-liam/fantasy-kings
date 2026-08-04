@@ -32,6 +32,7 @@ type SleeperPlayer = {
   number: number | null;
   /** ESPN athlete id when Sleeper has a crosswalk. */
   espn_id: number | string | null;
+  depth_chart_order: number | null;
   metadata: { rookie_year?: string | null } | null;
 };
 
@@ -47,6 +48,14 @@ function resolveEspnId(
 
 function resolveJerseyNumber(value: number | null | undefined): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function resolveDepthChartOrder(
+  value: number | null | undefined,
+): number | null {
+  return typeof value === "number" && Number.isFinite(value) && value > 0
+    ? Math.round(value)
+    : null;
 }
 
 function resolveAge(value: number | null | undefined): number | null {
@@ -148,6 +157,7 @@ async function seedSleeperPlayers() {
         weight: resolveText(player.weight),
         college: resolveText(player.college),
         jerseyNumber: resolveJerseyNumber(player.number),
+        depthChartOrder: resolveDepthChartOrder(player.depth_chart_order),
       };
     })
     .filter((player): player is NonNullable<typeof player> => player !== null);
@@ -281,6 +291,7 @@ async function seedSleeperPlayers() {
           weight: player.weight,
           college: player.college,
           jerseyNumber: player.jerseyNumber,
+          depthChartOrder: player.depthChartOrder,
           updatedAt: new Date(),
         })
         .where(eq(players.id, existingPlayerId));
@@ -311,6 +322,7 @@ async function seedSleeperPlayers() {
           weight: player.weight,
           college: player.college,
           jerseyNumber: player.jerseyNumber,
+          depthChartOrder: player.depthChartOrder,
         })
         .returning({ id: players.id });
 

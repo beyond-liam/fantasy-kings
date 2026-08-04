@@ -832,3 +832,17 @@ lib/
 | 2026-08-04 | Player Overview extras from live data: opportunity share, weekly finishes, positional SOS, roster compare, multi-year |
 | 2026-08-04 | Player Overview SOS: percentile Easy/Avg/Hard (~25/50/25); preseason=prior, Wk1–4 blend, Wk5+=YTD; bye weeks excluded from sample |
 | 2026-08-04 | Player Overview SOS buckets: team logo badges with matchup/rank/pts-allowed tooltips |
+| 2026-08-04 | Player Overview “Without QB1” toggle (RB/WR/TE/K): depth-chart starter when live, else most pass-att weeks; recount from QB-absent games |
+| 2026-08-04 | Without QB1: rush share / targets / YPC / catch rate recompute from without-QB1 weeks |
+| 2026-08-04 | Without QB1 toggle on all RB/WR/TE/K with a team QB1 (disabled at 0g) |
+| 2026-08-04 | Without QB1: resolve season QB1 via shared offense snaps (not current nfl_team tag) |
+| 2026-08-04 | Without QB1: live/preseason falls back to depth-chart QB1 (toggle shows, 0g disabled) |
+| 2026-08-04 | Season Production: per-game averages on counting tiles; accents use pace not raw totals |
+| 2026-08-04 | Identity card always pins projections, bye, and position rank to the NFL current season |
+| 2026-08-04 | Overview charts/stats capped to league championship week (no W18 when season ends at 17) |
+| 2026-08-04 | SoS allowed/G uses top scorer vs DEF each week (not position sum / committee mean) |
+| 2026-08-04 | Team DEF SoS uses opponent NFL points scored (opp PPG; higher = harder) |
+| 2026-08-04 | Team DEF SoS buckets by offense rank: 1–8 Hard · 9–23 Average · 24–32 Easy |
+| 2026-08-04 | Kicker SoS like DEF bands but inverted: 1–8 Easy (most K FPts allowed) · 24–32 Hard |
+| 2026-08-04 | SoS schedule summary headline (Typically easy/average/difficult schedule) |
+| 2026-08-04 | DEF PA radar brackets: 0–7 · 8–10 · 11–14 · 15–21 · 22+ (NFL points conceded) |

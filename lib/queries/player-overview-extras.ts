@@ -3,13 +3,12 @@ import { and, asc, eq, gte, inArray } from "drizzle-orm";
 import { playerScores, players } from "@/db/schema";
 import { getNflTeamSchedule, type NflTeamScheduleWeek } from "@/lib/espn/team-schedule";
 import { db } from "@/lib/db";
-import { WIZARD_DEFAULTS } from "@/lib/leagues/defaults";
 import { calculatePlayerPoints } from "@/lib/leagues/scoring/calculate";
 import { normalizePlayerStats } from "@/lib/leagues/scoring/normalize-stats";
 import type { ScoringRuleDefinition } from "@/lib/leagues/scoring/types";
 import {
-  getRegularSeasonEndWeek,
-  listPlayoffWeeksFromCalendar,
+  defaultLeagueSeasonCalendar,
+  resolveLeagueSeasonMaxWeek,
 } from "@/lib/leagues/season-calendar";
 import { NFL_TEAMS } from "@/lib/nfl/teams";
 import { normalizeNflTeamAbbrev } from "@/lib/nfl/matchups";
@@ -21,14 +20,18 @@ import {
   type OverviewExtrasSeed,
   type OverviewMultiYearRow,
   type OverviewRosterCompareSeedRow,
-  type PlayerProfileGameLogRow,
 } from "@/lib/players/overview-metrics";
 import {
   blendSosRate,
-  difficultyFromSosRank,
+  difficultyFromPositionSosRank,
+  rankTeamsBySosRate,
   sosBlendWeights,
+  sosHigherRateIsHarder,
+  sosTopNForPosition,
+  sosWeeklyAllowedRate,
 } from "@/lib/players/sos-thresholds";
 import { buildTeamOpportunityShare } from "@/lib/players/team-opportunity-share";
+import type { PlayerProfileGameLogRow } from "@/lib/queries/player-profile";
 import { getTeamRosterPlayers } from "@/lib/queries/team-roster";
 import { loadScoreRows } from "@/lib/queries/score-rows";
 import { buildFantasyPositionRankById } from "@/lib/rankings/attach-position-ranks";
@@ -76,16 +79,10 @@ function defaultLeagueCalendar(): {
   regularSeasonEndWeek: number;
   playoffWeeks: number[];
 } {
-  const regularSeasonEndWeek = getRegularSeasonEndWeek(
-    WIZARD_DEFAULTS.championshipWeek,
-    WIZARD_DEFAULTS.playoffTeamCount,
-  );
+  const calendar = defaultLeagueSeasonCalendar();
   return {
-    regularSeasonEndWeek,
-    playoffWeeks: listPlayoffWeeksFromCalendar(
-      regularSeasonEndWeek,
-      WIZARD_DEFAULTS.championshipWeek,
-    ),
+    regularSeasonEndWeek: calendar.regularSeasonEndWeek,
+    playoffWeeks: calendar.playoffWeeks,
   };
 }
 
@@ -127,6 +124,62 @@ async function loadOpportunityShare(input: {
   const teamBags = await loadTeamWeekZeroBags({
     nflTeam: team,
     season: input.season,
+  });
+  return buildTeamOpportunityShare({
+    positionId: input.positionId,
+    playerStats: input.playerStats,
+    teamStatsBags: teamBags,
+  });
+}
+
+/** Team opportunity bags for specific weeks (all teammates, those weeks only). */
+async function loadTeamWeekBagsForWeeks(input: {
+  nflTeam: string;
+  season: string;
+  weeks: number[];
+}): Promise<Array<Record<string, number | null>>> {
+  if (input.weeks.length === 0) return [];
+
+  const rows = await db
+    .select({ stats: playerScores.stats })
+    .from(playerScores)
+    .innerJoin(players, eq(playerScores.playerId, players.id))
+    .where(
+      and(
+        eq(players.nflTeam, input.nflTeam),
+        eq(playerScores.season, input.season),
+        inArray(playerScores.week, input.weeks),
+        eq(playerScores.kind, "stats"),
+        eq(playerScores.seasonType, "regular"),
+      ),
+    );
+
+  return rows.map(
+    (row) =>
+      normalizePlayerStats(
+        (row.stats ?? {}) as Record<string, number | null>,
+      ) as Record<string, number | null>,
+  );
+}
+
+/**
+ * Opportunity share for a subset of weeks (e.g. without-QB1 sample).
+ * Player bag should already be summed for those weeks.
+ */
+export async function loadOpportunityShareForWeeks(input: {
+  positionId: string;
+  nflTeam: string | null;
+  season: string;
+  weeks: number[];
+  playerStats: Record<string, number | null> | null | undefined;
+}): Promise<OverviewExtrasSeed["share"]> {
+  const team = normalizeNflTeamAbbrev(input.nflTeam);
+  if (!team || !input.playerStats || input.weeks.length === 0) return null;
+
+  const teamBags = await loadTeamWeekBagsForWeeks({
+    nflTeam: team,
+    season: input.season,
+    weeks: input.weeks,
   });
   return buildTeamOpportunityShare({
     positionId: input.positionId,
@@ -263,27 +316,61 @@ function maxScoredWeek(
   return max;
 }
 
-/** Rank defenses by blended FPts allowed (lower = harder = rank 1). */
-function rankDefsByAvgPtsAllowed(avgByTeam: Map<string, number>): {
-  rankByTeam: Map<string, number>;
-  avgByTeam: Map<string, number>;
-} {
-  const rows = [...avgByTeam.entries()]
-    .map(([team, avg]) => ({ team, avg }))
-    .filter((row) => Number.isFinite(row.avg))
-    .toSorted((a, b) => a.avg - b.avg || a.team.localeCompare(b.team));
+/**
+ * Collapse per-player scores vs a defense into a top-scorer weekly allowed rate.
+ * Defense → week → rate (near typical starter FPTS/G).
+ */
+function collapseScoresToWeeklyAllowedRate(
+  scoresByTeamWeek: Map<string, Map<number, number[]>>,
+  positionId: string,
+): Map<string, Map<number, number>> {
+  const topN = sosTopNForPosition(positionId);
+  const weekRatesByTeam = new Map<string, Map<number, number>>();
+  for (const [team, byWeek] of scoresByTeamWeek) {
+    const rates = new Map<number, number>();
+    for (const [week, scores] of byWeek) {
+      const rate = sosWeeklyAllowedRate(scores, topN);
+      if (rate != null) rates.set(week, rate);
+    }
+    if (rates.size > 0) weekRatesByTeam.set(team, rates);
+  }
+  return weekRatesByTeam;
+}
 
-  const rankByTeam = new Map<string, number>();
-  const rankedAvg = new Map<string, number>();
-  rows.forEach((row, index) => {
-    rankByTeam.set(row.team, index + 1);
-    rankedAvg.set(row.team, row.avg);
-  });
-  return { rankByTeam, avgByTeam: rankedAvg };
+/** Append a weekly rate sample to offense/defense → week → scores[]. */
+function pushAllowedScore(
+  scoresByTeamWeek: Map<string, Map<number, number[]>>,
+  defense: string,
+  week: number,
+  fantasyPts: number,
+) {
+  const byWeek = scoresByTeamWeek.get(defense) ?? new Map<number, number[]>();
+  const list = byWeek.get(week) ?? [];
+  list.push(fantasyPts);
+  byWeek.set(week, list);
+  scoresByTeamWeek.set(defense, byWeek);
 }
 
 /**
- * Load per-defense weekly FPts allowed to a position.
+ * Skill positions: top fantasy scorer vs that defense.
+ * DEF: NFL points the offense scored (pts_allow on the facing DEF bag).
+ */
+function sosWeekRateFromRow(input: {
+  positionId: string;
+  fantasyPts: number | null;
+  stats: Record<string, number | null>;
+}): number | null {
+  if (input.positionId === "DEF") {
+    const ptsAllow = numStat(input.stats, "pts_allow");
+    return ptsAllow != null && Number.isFinite(ptsAllow) ? ptsAllow : null;
+  }
+  return input.fantasyPts != null && Number.isFinite(input.fantasyPts)
+    ? input.fantasyPts
+    : null;
+}
+
+/**
+ * Load per-opponent weekly SoS rates for a position.
  * Bye weeks are excluded (no opponent → week omitted from sample).
  */
 async function loadPtsAllowedWeekTotals(input: {
@@ -314,7 +401,7 @@ async function loadPtsAllowedWeekTotals(input: {
     ),
   );
 
-  const weekTotalsByTeam = new Map<string, Map<number, number>>();
+  const weekScoresByTeam = new Map<string, Map<number, number[]>>();
 
   weekNumbers.forEach((week, index) => {
     const rows = weekRows[index] ?? [];
@@ -326,19 +413,22 @@ async function loadPtsAllowedWeekTotals(input: {
         row.primaryPositionId,
         input.rules,
       );
-      if (fantasyPts == null || !Number.isFinite(fantasyPts)) continue;
+      const rate = sosWeekRateFromRow({
+        positionId: input.positionId,
+        fantasyPts,
+        stats: row.stats,
+      });
+      if (rate == null) continue;
       const team = normalizeNflTeamAbbrev(row.nflTeam);
       if (!team) continue;
       const opponent = opponentByTeamWeek.get(`${team}|${week}`);
       // No opponent = bye (or missing schedule) — exclude from sample.
       if (!opponent) continue;
-      const byWeek = weekTotalsByTeam.get(opponent) ?? new Map<number, number>();
-      byWeek.set(week, (byWeek.get(week) ?? 0) + fantasyPts);
-      weekTotalsByTeam.set(opponent, byWeek);
+      pushAllowedScore(weekScoresByTeam, opponent, week, rate);
     }
   });
 
-  return weekTotalsByTeam;
+  return collapseScoresToWeeklyAllowedRate(weekScoresByTeam, input.positionId);
 }
 
 async function loadWeeklyFinishesAndSos(input: {
@@ -347,6 +437,8 @@ async function loadWeeklyFinishesAndSos(input: {
   season: string;
   schedule: NflTeamScheduleWeek[];
   rules: ScoringRuleDefinition[];
+  /** Inclusive last league week (championship). */
+  seasonMaxWeek: number;
 }): Promise<{
   weeklyFinishesByWeek: Record<number, number>;
   matchupDifficultyByWeek: Record<number, "easy" | "mid" | "hard">;
@@ -360,7 +452,8 @@ async function loadWeeklyFinishesAndSos(input: {
   /** Per-player finishes for roster mates at this position. */
   finishesByPlayerWeek: Map<string, Record<number, number>>;
 }> {
-  const weekNumbers = Array.from({ length: 18 }, (_, i) => i + 1);
+  const maxWeek = Math.max(1, Math.min(18, input.seasonMaxWeek));
+  const weekNumbers = Array.from({ length: maxWeek }, (_, i) => i + 1);
   const [nflState, scheduleResults, weekRows] = await Promise.all([
     getNflState().catch(() => null),
     Promise.all(
@@ -387,8 +480,8 @@ async function loadWeeklyFinishesAndSos(input: {
   const opponentByTeamWeek = buildOpponentByTeamWeek(scheduleResults);
   const weeklyFinishesByWeek: Record<number, number> = {};
   const finishesByPlayerWeek = new Map<string, Record<number, number>>();
-  /** Defense → week → total FPts scored by this position against them. */
-  const weekTotalsByTeam = new Map<string, Map<number, number>>();
+  /** Defense → week → FPts from each opposing player at this position. */
+  const weekScoresByTeam = new Map<string, Map<number, number[]>>();
 
   weekNumbers.forEach((week, index) => {
     const rows = weekRows[index] ?? [];
@@ -399,6 +492,7 @@ async function loadWeeklyFinishesAndSos(input: {
       fullName: row.fullName,
       nflTeam: row.nflTeam,
       primaryPositionId: row.primaryPositionId,
+      stats: row.stats,
       fantasyPts: calculatePlayerPoints(
         row.stats,
         row.primaryPositionId,
@@ -418,16 +512,24 @@ async function loadWeeklyFinishesAndSos(input: {
     }
 
     for (const row of scored) {
-      if (row.fantasyPts == null || !Number.isFinite(row.fantasyPts)) continue;
+      const rate = sosWeekRateFromRow({
+        positionId: input.positionId,
+        fantasyPts: row.fantasyPts,
+        stats: row.stats,
+      });
+      if (rate == null) continue;
       const team = normalizeNflTeamAbbrev(row.nflTeam);
       if (!team) continue;
       const opponent = opponentByTeamWeek.get(`${team}|${week}`);
       if (!opponent) continue;
-      const byWeek = weekTotalsByTeam.get(opponent) ?? new Map<number, number>();
-      byWeek.set(week, (byWeek.get(week) ?? 0) + row.fantasyPts);
-      weekTotalsByTeam.set(opponent, byWeek);
+      pushAllowedScore(weekScoresByTeam, opponent, week, rate);
     }
   });
+
+  const weekTotalsByTeam = collapseScoresToWeeklyAllowedRate(
+    weekScoresByTeam,
+    input.positionId,
+  );
 
   const currentAvgByTeam = avgPtsAllowedByTeam(
     new Map(
@@ -487,7 +589,10 @@ async function loadWeeklyFinishesAndSos(input: {
     if (blended != null) blendedAvg.set(team, blended);
   }
 
-  const sosByTeam = rankDefsByAvgPtsAllowed(blendedAvg);
+  const sosByTeam = rankTeamsBySosRate(
+    blendedAvg,
+    sosHigherRateIsHarder(input.positionId),
+  );
   const teamCount = sosByTeam.rankByTeam.size;
   const matchupRanksByWeek: Record<number, number> = {};
   const ptsAllowedByWeek: Record<number, number> = {};
@@ -498,14 +603,17 @@ async function loadWeeklyFinishesAndSos(input: {
     if (meta.isBye || !meta.abbrev) continue;
     const rank = sosByTeam.rankByTeam.get(meta.abbrev);
     const avg = sosByTeam.avgByTeam.get(meta.abbrev);
-    if (rank != null) {
-      matchupRanksByWeek[week.week] = rank;
-      const difficulty = difficultyFromSosRank(rank, teamCount);
-      if (difficulty) matchupDifficultyByWeek[week.week] = difficulty;
-    }
     if (avg != null) {
       ptsAllowedByWeek[week.week] = Math.round(avg * 10) / 10;
     }
+    if (rank != null) {
+      matchupRanksByWeek[week.week] = rank;
+    }
+    const difficulty =
+      rank != null
+        ? difficultyFromPositionSosRank(input.positionId, rank, teamCount)
+        : null;
+    if (difficulty) matchupDifficultyByWeek[week.week] = difficulty;
   }
 
   return {
@@ -649,6 +757,7 @@ async function loadMateGameLogs(input: {
   season: string;
   positionId: string;
   rules: ScoringRuleDefinition[];
+  seasonMaxWeek: number;
 }): Promise<
   Map<
     string,
@@ -668,6 +777,7 @@ async function loadMateGameLogs(input: {
     }>
   >();
   if (input.playerIds.length === 0) return map;
+  const maxWeek = Math.max(1, Math.min(18, input.seasonMaxWeek));
 
   const rows = await db
     .select({
@@ -688,7 +798,7 @@ async function loadMateGameLogs(input: {
     .orderBy(asc(playerScores.week));
 
   for (const row of rows) {
-    if (row.week < 1 || row.week > 18) continue;
+    if (row.week < 1 || row.week > maxWeek) continue;
     const stats = normalizePlayerStats(
       (row.stats ?? {}) as Record<string, number | null>,
     ) as Record<string, number | null>;
@@ -711,6 +821,7 @@ async function loadRosterCompare(input: {
   positionId: string;
   season: string;
   rules: ScoringRuleDefinition[];
+  seasonMaxWeek: number;
   finishesByPlayerWeek: Map<string, Record<number, number>>;
   sosByTeam: {
     rankByTeam: Map<string, number>;
@@ -732,6 +843,7 @@ async function loadRosterCompare(input: {
     season: input.season,
     positionId: input.positionId,
     rules: input.rules,
+    seasonMaxWeek: input.seasonMaxWeek,
   });
 
   const schedules = await Promise.all(
@@ -801,14 +913,35 @@ export async function loadOverviewExtrasSeed(
   input: LoadOverviewExtrasInput,
 ): Promise<OverviewExtrasSeed> {
   const calendar = input.leagueCalendar ?? defaultLeagueCalendar();
+  const seasonMaxWeek = resolveLeagueSeasonMaxWeek(calendar);
+  const cappedGameLog = input.gameLog.filter((row) => row.week <= seasonMaxWeek);
+  const cappedSchedule = input.schedule.filter(
+    (row) => row.week <= seasonMaxWeek,
+  );
+  const scoredWeeks = cappedGameLog
+    .filter(
+      (row) =>
+        row.fantasyPts != null &&
+        Number.isFinite(row.fantasyPts) &&
+        !parseOpponentMeta(row.opponent).isBye,
+    )
+    .map((row) => row.week);
 
   const [share, multiYear, weeklyAndSos] = await Promise.all([
-    loadOpportunityShare({
-      positionId: input.primaryPositionId,
-      nflTeam: input.nflTeam,
-      season: input.season,
-      playerStats: input.seasonStats?.stats,
-    }),
+    scoredWeeks.length > 0 && input.seasonStats?.stats
+      ? loadOpportunityShareForWeeks({
+          positionId: input.primaryPositionId,
+          nflTeam: input.nflTeam,
+          season: input.season,
+          weeks: scoredWeeks,
+          playerStats: input.seasonStats.stats,
+        })
+      : loadOpportunityShare({
+          positionId: input.primaryPositionId,
+          nflTeam: input.nflTeam,
+          season: input.season,
+          playerStats: input.seasonStats?.stats,
+        }),
     loadMultiYear({
       playerId: input.playerId,
       positionId: input.primaryPositionId,
@@ -819,8 +952,9 @@ export async function loadOverviewExtrasSeed(
       playerId: input.playerId,
       positionId: input.primaryPositionId,
       season: input.season,
-      schedule: input.schedule,
+      schedule: cappedSchedule,
       rules: input.rules,
+      seasonMaxWeek,
     }),
   ]);
 
@@ -830,6 +964,7 @@ export async function loadOverviewExtrasSeed(
     positionId: input.primaryPositionId,
     season: input.season,
     rules: input.rules,
+    seasonMaxWeek,
     finishesByPlayerWeek: weeklyAndSos.finishesByPlayerWeek,
     sosByTeam: weeklyAndSos.sosByTeam,
   });

@@ -46,11 +46,12 @@ export function PlayerIdentityCard({
   profile,
   className,
 }: PlayerIdentityCardProps) {
+  const identity = profile.identity;
   const injury = getInjuryIndicator(profile.injuryStatus);
   const bye = resolvePlayerByeWeek({
-    byeWeek: profile.byeWeek,
+    byeWeek: identity.byeWeek,
     nflTeam: profile.nflTeam,
-    seasonYear: Number(profile.season) || undefined,
+    seasonYear: Number(identity.season) || undefined,
   });
   const isDef = profile.primaryPositionId === "DEF";
   const division = isDef ? getNflTeamDivision(profile.nflTeam) : null;
@@ -73,7 +74,12 @@ export function PlayerIdentityCard({
     .filter(Boolean)
     .join(" · ");
 
-  const highlightStats = getProjectionHighlightStats(profile);
+  const highlightStats = getProjectionHighlightStats({
+    primaryPositionId: profile.primaryPositionId,
+    positionRank: identity.positionRank,
+    seasonProjection: identity.seasonProjection,
+    seasonStats: identity.seasonStats,
+  });
   const slug = profile.leagueSlug;
   const ownership = profile.ownership;
   const showLeagueActions = Boolean(slug && ownership);
@@ -199,8 +205,8 @@ export function PlayerIdentityCard({
             <div className="flex flex-wrap items-baseline justify-center gap-x-4 gap-y-1 text-sm tabular-nums">
               <span>
                 <span className="font-semibold">
-                  {profile.positionRank != null
-                    ? `#${profile.positionRank}`
+                  {identity.positionRank != null
+                    ? `#${identity.positionRank}`
                     : "—"}
                 </span>{" "}
                 <span className="text-muted-foreground">
@@ -225,7 +231,7 @@ export function PlayerIdentityCard({
 
         <CardContent className="flex flex-col gap-3">
           <p className="text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
-            {profile.season} projection
+            {identity.season} projection
           </p>
 
           {highlightStats.length > 0 ? (

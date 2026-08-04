@@ -1,8 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useTransition } from "react";
-
 import {
   Select,
   SelectContent,
@@ -15,19 +12,16 @@ import {
 type PlayerSeasonSelectProps = {
   season: string;
   availableSeasons: string[];
-  playerId: string;
-  leagueSlug: string | null;
+  disabled?: boolean;
+  onSeasonChange: (season: string) => void;
 };
 
 export function PlayerSeasonSelect({
   season,
   availableSeasons,
-  playerId,
-  leagueSlug,
+  disabled = false,
+  onSeasonChange,
 }: PlayerSeasonSelectProps) {
-  const router = useRouter();
-  const [isPending, startTransition] = useTransition();
-
   const seasons =
     availableSeasons.length > 0 ? availableSeasons : [season];
   const items = seasons.map((year) => ({
@@ -39,15 +33,10 @@ export function PlayerSeasonSelect({
     <Select
       items={items}
       value={season}
-      disabled={isPending || seasons.length <= 1}
+      disabled={disabled || seasons.length <= 1}
       onValueChange={(value) => {
         if (!value || value === season) return;
-        const params = new URLSearchParams();
-        params.set("season", value);
-        if (leagueSlug) params.set("league", leagueSlug);
-        startTransition(() => {
-          router.push(`/players/${playerId}?${params.toString()}`);
-        });
+        onSeasonChange(value);
       }}
     >
       <SelectTrigger size="sm" className="w-30" aria-label="Season">

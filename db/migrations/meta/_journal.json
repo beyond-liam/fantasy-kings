@@ -148,6 +148,13 @@
       "when": 1785359995852,
       "tag": "0020_profile_last_seen",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1785816000000,
+      "tag": "0021_player_depth_chart_order",
+      "breakpoints": true
     }
   ]
 }

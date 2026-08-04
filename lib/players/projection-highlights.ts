@@ -9,6 +9,8 @@ export type ProjectionHighlightStat = {
   label: string;
   value: number | null;
   decimals?: number;
+  /** Per-game average for counting stats (Overview Season Production). */
+  perGame?: number | null;
   /** Tier for text + surface accent on the identity card tile. */
   accentTone?: ProjectionAccentTone;
 };
@@ -32,6 +34,13 @@ type Thresholds = {
 };
 
 const WEEKS_IN_SEASON = 17;
+
+/** Already rates — no /g subtitle; accents stay on the raw value. */
+const RATE_STAT_KEYS = new Set(["ypr", "fpts_weekly"]);
+
+export function isCountingProjectionStat(key: string): boolean {
+  return !RATE_STAT_KEYS.has(key);
+}
 
 /**
  * Season-total (or rate) thresholds by position + stat key.
@@ -111,6 +120,14 @@ function toneFromThresholds(
   return "destructive";
 }
 
+function scaleThresholdsPerGame(thresholds: Thresholds): Thresholds {
+  return {
+    elite: thresholds.elite / WEEKS_IN_SEASON,
+    solid: thresholds.solid / WEEKS_IN_SEASON,
+    borderline: thresholds.borderline / WEEKS_IN_SEASON,
+  };
+}
+
 function weeklyPtsThresholds(position: string): Thresholds {
   switch (position) {
     case "QB":
@@ -131,13 +148,15 @@ function weeklyPtsThresholds(position: string): Thresholds {
 
 /**
  * Prefer position rank for weekly FPts; otherwise tier by weekly PPG.
- * Counting/rate stats use season thresholds for that position.
+ * Counting stats: with `gamesPlayed`, tier by per-game pace vs season/17 bars.
+ * Without `gamesPlayed`, tier by full-season totals (projections).
  */
 export function getProjectionStatAccentTone(input: {
   key: string;
   value: number | null | undefined;
   position: string;
   positionRank?: number | null;
+  gamesPlayed?: number | null;
 }): ProjectionAccentTone {
   if (input.key === "fpts_weekly") {
     return getWeeklyProjectionAccentTone({
@@ -148,6 +167,21 @@ export function getProjectionStatAccentTone(input: {
   }
 
   const thresholds = STAT_THRESHOLDS[input.position]?.[input.key];
+  const games = input.gamesPlayed;
+  if (
+    isCountingProjectionStat(input.key) &&
+    games != null &&
+    games > 0 &&
+    input.value != null &&
+    Number.isFinite(input.value) &&
+    thresholds
+  ) {
+    return toneFromThresholds(
+      input.value / games,
+      scaleThresholdsPerGame(thresholds),
+    );
+  }
+
   return toneFromThresholds(input.value, thresholds);
 }
 
@@ -182,44 +216,74 @@ function tile(
   options: {
     decimals?: number;
     positionRank?: number | null;
+    gamesPlayed?: number | null;
   } = {},
 ): ProjectionHighlightStat {
+  const games = options.gamesPlayed;
+  const perGame =
+    isCountingProjectionStat(key) &&
+    games != null &&
+    games > 0 &&
+    value != null &&
+    Number.isFinite(value)
+      ? value / games
+      : undefined;
+
   return {
     key,
     label,
     value,
     decimals: options.decimals ?? 0,
+    perGame,
     accentTone: getProjectionStatAccentTone({
       key,
       value,
       position,
       positionRank: options.positionRank,
+      gamesPlayed: games,
     }),
   };
 }
 
+export type ProjectionHighlightOptions = {
+  /**
+   * When set (Season Production actuals), counting tiles get /g averages and
+   * accents use per-game pace. Omit for full-season projections.
+   */
+  gamesPlayed?: number | null;
+  /** When false, FPTS/G ignores season rank and uses PPG thresholds only. */
+  usePositionRankForFpts?: boolean;
+};
+
 /** Compact projection tiles for the player identity card (position-aware). */
 export function getProjectionHighlightStats(
   profile: ProjectionProfileInput,
+  options: ProjectionHighlightOptions = {},
 ): ProjectionHighlightStat[] {
   const block = profile.seasonProjection ?? profile.seasonStats;
   const stats = block?.stats ?? {};
   const seasonPts = block?.fantasyPts ?? null;
   const weekly = weeklyPts(seasonPts);
   const position = profile.primaryPositionId;
-  const rank = profile.positionRank;
+  const rank =
+    options.usePositionRankForFpts === false ? null : profile.positionRank;
+  const gamesPlayed = options.gamesPlayed;
 
   const fptsTile = tile("fpts_weekly", "FPTS/WK", weekly, position, {
     decimals: 1,
     positionRank: rank,
   });
 
+  const counting = {
+    gamesPlayed,
+  };
+
   if (position === "WR" || position === "TE") {
     return [
-      tile("rec", "REC", num(stats, "rec"), position),
-      tile("rec_yd", "REC YD", num(stats, "rec_yd"), position),
-      tile("rec_td", "REC TD", num(stats, "rec_td"), position),
-      tile("rec_tgt", "TGT", num(stats, "rec_tgt"), position),
+      tile("rec", "REC", num(stats, "rec"), position, counting),
+      tile("rec_yd", "REC YD", num(stats, "rec_yd"), position, counting),
+      tile("rec_td", "REC TD", num(stats, "rec_td"), position, counting),
+      tile("rec_tgt", "TGT", num(stats, "rec_tgt"), position, counting),
       tile("ypr", "YPR", ypr(stats), position, { decimals: 1 }),
       fptsTile,
     ];
@@ -227,43 +291,43 @@ export function getProjectionHighlightStats(
 
   if (position === "RB") {
     return [
-      tile("rush_att", "ATT", num(stats, "rush_att"), position),
-      tile("rush_yd", "RUSH YD", num(stats, "rush_yd"), position),
-      tile("rush_td", "RUSH TD", num(stats, "rush_td"), position),
-      tile("rec", "REC", num(stats, "rec"), position),
-      tile("rec_tgt", "TGT", num(stats, "rec_tgt"), position),
+      tile("rush_att", "ATT", num(stats, "rush_att"), position, counting),
+      tile("rush_yd", "RUSH YD", num(stats, "rush_yd"), position, counting),
+      tile("rush_td", "RUSH TD", num(stats, "rush_td"), position, counting),
+      tile("rec", "REC", num(stats, "rec"), position, counting),
+      tile("rec_tgt", "TGT", num(stats, "rec_tgt"), position, counting),
       fptsTile,
     ];
   }
 
   if (position === "QB") {
     return [
-      tile("pass_yd", "PASS YD", num(stats, "pass_yd"), position),
-      tile("pass_td", "PASS TD", num(stats, "pass_td"), position),
-      tile("pass_cmp", "CMP", num(stats, "pass_cmp"), position),
-      tile("rush_yd", "RUSH YD", num(stats, "rush_yd"), position),
-      tile("rush_td", "RUSH TD", num(stats, "rush_td"), position),
+      tile("pass_yd", "PASS YD", num(stats, "pass_yd"), position, counting),
+      tile("pass_td", "PASS TD", num(stats, "pass_td"), position, counting),
+      tile("pass_cmp", "CMP", num(stats, "pass_cmp"), position, counting),
+      tile("rush_yd", "RUSH YD", num(stats, "rush_yd"), position, counting),
+      tile("rush_td", "RUSH TD", num(stats, "rush_td"), position, counting),
       fptsTile,
     ];
   }
 
   if (position === "K") {
     return [
-      tile("fgm", "FGM", num(stats, "fgm"), position),
-      tile("fga", "FGA", num(stats, "fga"), position),
-      tile("xpm", "XPM", num(stats, "xpm"), position),
-      tile("xpa", "XPA", num(stats, "xpa"), position),
+      tile("fgm", "FGM", num(stats, "fgm"), position, counting),
+      tile("fga", "FGA", num(stats, "fga"), position, counting),
+      tile("xpm", "XPM", num(stats, "xpm"), position, counting),
+      tile("xpa", "XPA", num(stats, "xpa"), position, counting),
       fptsTile,
     ];
   }
 
   if (position === "DEF") {
     return [
-      tile("sack", "SACK", num(stats, "sack"), position),
-      tile("tkl_solo", "TKL", num(stats, "tkl_solo"), position),
-      tile("int", "INT", num(stats, "int"), position),
-      tile("ff", "FF", num(stats, "ff"), position),
-      tile("def_td", "TD", num(stats, "def_td"), position),
+      tile("sack", "SACK", num(stats, "sack"), position, counting),
+      tile("tkl_solo", "TKL", num(stats, "tkl_solo"), position, counting),
+      tile("int", "INT", num(stats, "int"), position, counting),
+      tile("ff", "FF", num(stats, "ff"), position, counting),
+      tile("def_td", "TD", num(stats, "def_td"), position, counting),
       fptsTile,
     ];
   }
@@ -283,6 +347,14 @@ export function formatProjectionStat(
     return Math.round(value).toLocaleString("en-US");
   }
   return value.toFixed(decimals);
+}
+
+export function formatProjectionPerGame(
+  value: number | null | undefined,
+): string | null {
+  if (value == null || !Number.isFinite(value)) return null;
+  const decimals = value >= 1 ? 1 : 2;
+  return `${value.toFixed(decimals)}/g`;
 }
 
 export function projectionAccentTextClass(

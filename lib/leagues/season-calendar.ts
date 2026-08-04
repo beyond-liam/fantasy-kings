@@ -1,3 +1,5 @@
+import { WIZARD_DEFAULTS } from "@/lib/leagues/defaults";
+
 export const CHAMPIONSHIP_WEEKS = [13, 14, 15, 16, 17, 18] as const;
 export const PLAYOFF_TEAM_COUNTS = [4, 6, 8] as const;
 export const TEAM_COUNT_MIN = 4;
@@ -85,6 +87,50 @@ export function listPlayoffWeeksFromCalendar(
   championshipWeek: number,
 ): number[] {
   return listWeeksInclusive(regularSeasonEndWeek + 1, championshipWeek);
+}
+
+/**
+ * Last NFL week that counts for a fantasy league season (championship week).
+ * Falls back to 18 only when calendar fields are missing.
+ */
+export function resolveLeagueSeasonMaxWeek(input: {
+  regularSeasonEndWeek?: number | null;
+  playoffWeeks?: number[] | null;
+  championshipWeek?: number | null;
+}): number {
+  if (
+    input.championshipWeek != null &&
+    Number.isFinite(input.championshipWeek) &&
+    input.championshipWeek > 0
+  ) {
+    return Math.trunc(input.championshipWeek);
+  }
+  const regular = input.regularSeasonEndWeek ?? 0;
+  const playoffs = input.playoffWeeks ?? [];
+  const playoffMax = playoffs.length > 0 ? Math.max(...playoffs) : 0;
+  const cap = Math.max(regular, playoffMax);
+  return cap > 0 ? cap : 18;
+}
+
+/** Default wizard calendar when no league context is attached. */
+export function defaultLeagueSeasonCalendar(): {
+  regularSeasonEndWeek: number;
+  playoffWeeks: number[];
+  championshipWeek: number;
+} {
+  const championshipWeek = WIZARD_DEFAULTS.championshipWeek;
+  const regularSeasonEndWeek = getRegularSeasonEndWeek(
+    championshipWeek,
+    WIZARD_DEFAULTS.playoffTeamCount,
+  );
+  return {
+    regularSeasonEndWeek,
+    playoffWeeks: listPlayoffWeeksFromCalendar(
+      regularSeasonEndWeek,
+      championshipWeek,
+    ),
+    championshipWeek,
+  };
 }
 
 export function isValidSeasonCalendar(

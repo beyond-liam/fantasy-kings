@@ -181,6 +181,38 @@ describe("buildPlayerOverviewMetrics", () => {
     assert.equal(overview.multiYear.length, 0);
   });
 
+  it("caps weekly charts at the league season max week", () => {
+    const overview = buildPlayerOverviewMetrics(
+      baseProfile({
+        gameLog: [
+          { week: 1, opponent: "vs BAL", fantasyPts: 12 },
+          { week: 17, opponent: "@ BUF", fantasyPts: 18 },
+          { week: 18, opponent: "vs CIN", fantasyPts: 30 },
+        ],
+        overviewExtras: {
+          share: null,
+          weeklyFinishesByWeek: { 1: 10, 17: 5, 18: 2 },
+          matchupDifficultyByWeek: {},
+          matchupRanksByWeek: {},
+          ptsAllowedByWeek: {},
+          playoffWeeks: [16, 17],
+          regularSeasonEndWeek: 15,
+          multiYear: [],
+        },
+      }),
+      rules,
+    );
+
+    assert.equal(overview.weeklyPoints.some((w) => w.week === 18), false);
+    assert.equal(overview.weeklyPoints.at(-1)?.week, 17);
+    assert.equal(overview.gamesPlayed, 2);
+    assert.equal(overview.weeklyFinish?.games, 2);
+    assert.equal(
+      overview.weeklyFinish?.weeks.some((w) => w.week === 18),
+      false,
+    );
+  });
+
   it("Season Production uses season stats only, never projections", () => {
     const withBoth = buildPlayerOverviewMetrics(
       baseProfile({
@@ -816,8 +848,10 @@ describe("buildPlayerOverviewMetrics DEF", () => {
     assert.ok(
       overview.ptsAllowRadar!.every((b) => b.leagueAvgGames >= 0),
     );
-    const sixteenPlus = overview.ptsAllowRadar!.find((b) => b.id === "16p");
-    assert.equal(sixteenPlus?.games, 2);
+    const twentyTwoPlus = overview.ptsAllowRadar!.find((b) => b.id === "22p");
+    assert.equal(twentyTwoPlus?.games, 1);
+    const zeroToSeven = overview.ptsAllowRadar!.find((b) => b.id === "0_7");
+    assert.equal(zeroToSeven?.games, 2);
     assert.ok(overview.ptsAllowWeekly);
     assert.equal(overview.ptsAllowWeekly?.length, 5);
     assert.equal(overview.ptsAllowWeekly?.[0]?.value, 10);

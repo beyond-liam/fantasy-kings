@@ -18,6 +18,8 @@ export const players = pgTable("players", {
   weight: text("weight"),
   college: text("college"),
   jerseyNumber: integer("jersey_number"),
+  /** Sleeper depth chart order (1 = starter). */
+  depthChartOrder: integer("depth_chart_order"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),

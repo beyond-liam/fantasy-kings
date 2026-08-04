@@ -1052,6 +1052,11 @@ export function applyPlayerOverviewMocks<
     seasonStats: MockSeasonBlock | null;
     gameLog: PlayerProfileGameLogRow[];
     overviewExtras?: OverviewExtrasSeed | null;
+    identity?: {
+      byeWeek: number | null;
+      seasonProjection: MockSeasonBlock | null;
+      seasonStats: MockSeasonBlock | null;
+    };
   },
 >(profile: T): T {
   if (!USE_PLAYER_OVERVIEW_MOCKS) return profile;
@@ -1065,5 +1070,15 @@ export function applyPlayerOverviewMocks<
     seasonProjection: mock.seasonProjection,
     gameLog: mock.gameLog,
     overviewExtras: mock.extras,
+    ...(profile.identity
+      ? {
+          identity: {
+            ...profile.identity,
+            byeWeek: mock.byeWeek,
+            seasonProjection: mock.seasonProjection,
+            seasonStats: mock.seasonStats,
+          },
+        }
+      : {}),
   } as T;
 }

@@ -26,7 +26,11 @@ import type {
   ScoringPreset,
   ScoringRuleDefinition,
 } from "@/lib/leagues/scoring/types";
-import { listPlayoffWeeksFromCalendar } from "@/lib/leagues/season-calendar";
+import {
+  defaultLeagueSeasonCalendar,
+  listPlayoffWeeksFromCalendar,
+  resolveLeagueSeasonMaxWeek,
+} from "@/lib/leagues/season-calendar";
 import { resolveWaiverWireSettings } from "@/lib/leagues/waiver-wire";
 import { resolvePlayerAcquisitionKind } from "@/lib/leagues/waivers/resolve-kind";
 import {
@@ -49,6 +53,10 @@ import {
 } from "@/lib/rankings/column-config";
 import { getPlayerRosterRatesMap } from "@/lib/queries/player-roster-rates";
 import { getNflTeamSchedule } from "@/lib/espn/team-schedule";
+import {
+  loadWithoutQb1Context,
+  seasonStatsWithoutWeeks,
+} from "@/lib/queries/without-qb1";
 import { getNflState } from "@/lib/sleeper/api";
 import { resolvePlayerByeWeek } from "@/lib/nfl/bye-weeks";
 import {
@@ -57,7 +65,10 @@ import {
   type PlayerOverviewMetrics,
 } from "@/lib/players/overview-metrics";
 import { applyPlayerOverviewMocks } from "@/lib/players/overview-mocks";
-import { loadOverviewExtrasSeed } from "@/lib/queries/player-overview-extras";
+import {
+  loadOpportunityShareForWeeks,
+  loadOverviewExtrasSeed,
+} from "@/lib/queries/player-overview-extras";
 
 export type PlayerProfileGameLogRow = {
   week: number;
@@ -100,6 +111,23 @@ export type PlayerProfile = {
   season: string;
   /** Seasons with selectable Overview / game-log data for this player. */
   availableSeasons: string[];
+  /**
+   * Identity card always uses the NFL current season (projections, rank, bye).
+   * Panel tabs follow `season` from the year toggle.
+   */
+  identity: {
+    season: string;
+    byeWeek: number | null;
+    positionRank: number | null;
+    seasonProjection: {
+      fantasyPts: number | null;
+      stats: Record<string, number | null>;
+    } | null;
+    seasonStats: {
+      fantasyPts: number | null;
+      stats: Record<string, number | null>;
+    } | null;
+  };
   ownedPct: number | null;
   startPct: number | null;
   positionRank: number | null;
@@ -126,6 +154,17 @@ export type PlayerProfile = {
   activity: PlayerProfileActivityRow[];
   leagueSlug: string | null;
   overview: PlayerOverviewMetrics;
+  /** Precomputed Overview for weeks without the team QB1 (RB/WR/TE/K). */
+  withoutQb1: {
+    qbLastName: string;
+    qbFullName: string;
+    qbSleeperId: string | null;
+    qbNflTeam: string | null;
+    withoutGames: number;
+    /** Weeks the viewed player scored without QB1. */
+    withoutWeeks: number[];
+    overview: PlayerOverviewMetrics;
+  } | null;
 };
 
 function parsePositionFilter(value: string): PositionFilter {
@@ -641,7 +680,13 @@ export const getPlayerProfile = cache(
     let leagueSeasonCalendar: {
       regularSeasonEndWeek: number;
       playoffWeeks: number[];
-    } | null = null;
+    } = (() => {
+      const defaults = defaultLeagueSeasonCalendar();
+      return {
+        regularSeasonEndWeek: defaults.regularSeasonEndWeek,
+        playoffWeeks: defaults.playoffWeeks,
+      };
+    })();
     let userTeamId: string | null = null;
 
     const user = await getSessionUser();
@@ -732,11 +777,17 @@ export const getPlayerProfile = cache(
       seasonYear: Number.isFinite(seasonYear) ? seasonYear : undefined,
     });
 
+    const identitySeason = currentSeason;
+    const needsIdentitySeason = season !== identitySeason;
+    const seasonMaxWeek = resolveLeagueSeasonMaxWeek(leagueSeasonCalendar);
+
     const [
-      { seasonProjection, seasonStats, gameLog: scoreGameLog },
+      scoreBundle,
       ratesMap,
       positionRank,
       schedule,
+      identityScoreBundle,
+      identityPositionRank,
     ] = await Promise.all([
       loadScoreBundle({
         playerId: player.id,
@@ -759,18 +810,82 @@ export const getPlayerProfile = cache(
         season,
         byeWeek,
       }),
+      needsIdentitySeason
+        ? loadScoreBundle({
+            playerId: player.id,
+            season: identitySeason,
+            positionId: player.primaryPositionId,
+            rules: scoringRules,
+          })
+        : Promise.resolve(null),
+      needsIdentitySeason
+        ? computeProjectionPositionRank({
+            playerId: player.id,
+            positionId: player.primaryPositionId,
+            season: identitySeason,
+            rules: scoringRules,
+          }).then(async (rank) => {
+            if (rank != null) return rank;
+            return loadPriorSeasonPosRank({
+              playerId: player.id,
+              season: identitySeason,
+            });
+          })
+        : Promise.resolve(null),
     ]);
 
+    let { seasonProjection, seasonStats, gameLog: scoreGameLog } = scoreBundle;
+
+    const cappedSchedule = schedule.filter((row) => row.week <= seasonMaxWeek);
     const gameLog = mergeGameLogWithSchedule({
-      gameLog: scoreGameLog,
-      schedule,
+      gameLog: scoreGameLog.filter((row) => row.week <= seasonMaxWeek),
+      schedule: cappedSchedule,
+    }).filter((row) => row.week <= seasonMaxWeek);
+
+    const cappedSeasonStats = seasonStatsWithoutWeeks({
+      gameLog,
+      withoutWeeks: gameLog
+        .filter(
+          (row) =>
+            row.fantasyPts != null && Number.isFinite(row.fantasyPts),
+        )
+        .map((row) => row.week),
+      positionId: player.primaryPositionId,
+      rules: scoringRules,
     });
+    if (cappedSeasonStats) {
+      seasonStats = cappedSeasonStats;
+    }
 
     const rates = ratesMap.get(player.id);
     const position = parsePositionFilter(player.primaryPositionId);
     const gameLogColumns = getStatColumns(position).filter(
       (column) => column.key !== "fantasy_pts" && column.key !== "adp",
     );
+
+    const identityByeWeek = needsIdentitySeason
+      ? resolvePlayerByeWeek({
+          byeWeek: player.byeWeek,
+          nflTeam: player.nflTeam,
+          seasonYear: Number(identitySeason) || undefined,
+        })
+      : byeWeek;
+
+    const identity: PlayerProfile["identity"] = needsIdentitySeason
+      ? {
+          season: identitySeason,
+          byeWeek: identityByeWeek,
+          positionRank: identityPositionRank,
+          seasonProjection: identityScoreBundle?.seasonProjection ?? null,
+          seasonStats: identityScoreBundle?.seasonStats ?? null,
+        }
+      : {
+          season: identitySeason,
+          byeWeek,
+          positionRank,
+          seasonProjection,
+          seasonStats,
+        };
 
     const profileBase = applyPlayerOverviewMocks({
       id: player.id,
@@ -789,6 +904,7 @@ export const getPlayerProfile = cache(
       jerseyNumber: player.jerseyNumber,
       season,
       availableSeasons,
+      identity,
       ownedPct: rates?.ownedPct ?? null,
       startPct: rates?.startPct ?? null,
       positionRank,
@@ -820,13 +936,87 @@ export const getPlayerProfile = cache(
         userTeamId,
       }));
 
+    const overviewInput = { ...profile, overviewExtras };
+    const overview = buildPlayerOverviewMetrics(overviewInput, scoringRules);
+
+    const withoutCtx = await loadWithoutQb1Context({
+      playerId: player.id,
+      nflTeam: player.nflTeam,
+      season,
+      positionId: player.primaryPositionId,
+      playerGameLog: gameLog,
+    });
+
+    let withoutQb1: PlayerProfile["withoutQb1"] = null;
+    if (withoutCtx) {
+      const weekSet = new Set(withoutCtx.withoutWeeks);
+      const filteredLog = gameLog.filter((row) => weekSet.has(row.week));
+      const filteredStats = seasonStatsWithoutWeeks({
+        gameLog,
+        withoutWeeks: withoutCtx.withoutWeeks,
+        positionId: player.primaryPositionId,
+        rules: scoringRules,
+      });
+      if (filteredStats) {
+        const withoutShare = await loadOpportunityShareForWeeks({
+          positionId: player.primaryPositionId,
+          nflTeam: player.nflTeam,
+          season,
+          weeks: withoutCtx.withoutWeeks,
+          playerStats: filteredStats.stats,
+        });
+        withoutQb1 = {
+          qbLastName: withoutCtx.qbLastName,
+          qbFullName: withoutCtx.qbFullName,
+          qbSleeperId: withoutCtx.qbSleeperId,
+          qbNflTeam: withoutCtx.qbNflTeam,
+          withoutGames: withoutCtx.withoutWeeks.length,
+          withoutWeeks: withoutCtx.withoutWeeks,
+          overview: buildPlayerOverviewMetrics(
+            {
+              ...overviewInput,
+              gameLog: filteredLog,
+              seasonStats: filteredStats,
+              // SOS / finishes / roster compare stay full-season;
+              // share recomputed for without-QB1 weeks.
+              overviewExtras: {
+                ...overviewExtras,
+                share: withoutShare ?? overviewExtras.share,
+              },
+            },
+            scoringRules,
+          ),
+        };
+      } else {
+        // Still expose the toggle (disabled at 0g) for RB/WR/TE/K.
+        withoutQb1 = {
+          qbLastName: withoutCtx.qbLastName,
+          qbFullName: withoutCtx.qbFullName,
+          qbSleeperId: withoutCtx.qbSleeperId,
+          qbNflTeam: withoutCtx.qbNflTeam,
+          withoutGames: 0,
+          withoutWeeks: [],
+          overview: buildPlayerOverviewMetrics(
+            {
+              ...overviewInput,
+              gameLog: [],
+              seasonStats: null,
+              overviewExtras: {
+                ...overviewExtras,
+                share: null,
+              },
+            },
+            scoringRules,
+          ),
+        };
+      }
+    }
+
     return {
       ...profile,
       availableSeasons,
-      overview: buildPlayerOverviewMetrics(
-        { ...profile, overviewExtras },
-        scoringRules,
-      ),
+      overview,
+      withoutQb1,
     };
   },
 );

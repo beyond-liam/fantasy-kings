@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import {
+  formatProjectionPerGame,
+  getProjectionHighlightStats,
   getProjectionStatAccentTone,
   getWeeklyProjectionAccentTone,
 } from "@/lib/players/projection-highlights";
@@ -61,6 +63,28 @@ describe("getProjectionStatAccentTone", () => {
     );
   });
 
+  it("tiers counting stats by per-game pace when gamesPlayed is set", () => {
+    // TE elite rec pace ≈ 75/17 ≈ 4.4/g — 24 over 4g = 6/g stays success.
+    assert.equal(
+      getProjectionStatAccentTone({
+        key: "rec",
+        value: 24,
+        position: "TE",
+        gamesPlayed: 4,
+      }),
+      "success",
+    );
+    // Same 24 without pace → below TE borderline 40 → destructive.
+    assert.equal(
+      getProjectionStatAccentTone({
+        key: "rec",
+        value: 24,
+        position: "TE",
+      }),
+      "destructive",
+    );
+  });
+
   it("defers fpts_weekly to rank when present", () => {
     assert.equal(
       getProjectionStatAccentTone({
@@ -90,5 +114,37 @@ describe("getWeeklyProjectionAccentTone", () => {
       }),
       "destructive",
     );
+  });
+});
+
+describe("getProjectionHighlightStats with gamesPlayed", () => {
+  it("adds per-game averages for counting tiles", () => {
+    const tiles = getProjectionHighlightStats(
+      {
+        primaryPositionId: "TE",
+        positionRank: null,
+        seasonProjection: null,
+        seasonStats: {
+          fantasyPts: 53.6,
+          stats: { rec: 24, rec_yd: 234, rec_td: 1, rec_tgt: 35 },
+        },
+      },
+      { gamesPlayed: 4, usePositionRankForFpts: false },
+    );
+    const rec = tiles.find((t) => t.key === "rec");
+    assert.ok(rec);
+    assert.equal(rec?.value, 24);
+    assert.equal(rec?.perGame, 6);
+    assert.equal(rec?.accentTone, "success");
+    const ypr = tiles.find((t) => t.key === "ypr");
+    assert.equal(ypr?.perGame, undefined);
+  });
+});
+
+describe("formatProjectionPerGame", () => {
+  it("formats pace with /g", () => {
+    assert.equal(formatProjectionPerGame(7.411), "7.4/g");
+    assert.equal(formatProjectionPerGame(0.65), "0.65/g");
+    assert.equal(formatProjectionPerGame(null), null);
   });
 });

@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/chart";
 import {
   Card,
+  CardAction,
   CardContent,
   CardDescription,
   CardFooter,
@@ -45,6 +46,7 @@ import { ScheduleWheel } from "@/components/players/schedule-wheel";
 import { RosterCompareTable } from "@/components/players/roster-compare-table";
 import {
   formatProjectionStat,
+  formatProjectionPerGame,
   projectionAccentSurfaceClass,
   projectionAccentTextClass,
 } from "@/lib/players/projection-highlights";
@@ -54,6 +56,7 @@ import {
   type OverviewMatchupBucketOpponent,
   type PlayerOverviewMetrics,
 } from "@/lib/players/overview-metrics";
+import { sosRateUnitLabel } from "@/lib/players/sos-thresholds";
 import { getSleeperTeamLogoUrl } from "@/lib/sleeper/avatars";
 import { cn } from "@/lib/utils";
 
@@ -470,6 +473,8 @@ type WeeklyChartRow = {
   /** Value fed to Recharts (0 for bye/dnp placeholders). */
   barValue: number | null;
   kind: "scored" | "bye" | "dnp" | "upcoming";
+  /** When Without QB1 is on: fade weeks QB1 played (sample stays full opacity). */
+  muted?: boolean;
 };
 
 const WEEKLY_STATUS_BAR_HEIGHT = 22;
@@ -513,6 +518,7 @@ function WeeklyFptsBarShape({
           fill="var(--muted)"
           stroke={isDnp ? "var(--destructive)" : "var(--color-border)"}
           strokeWidth={1}
+          opacity={payload.muted ? 0.28 : 1}
         />
         <text
           x={boxX + boxWidth / 2}
@@ -522,6 +528,7 @@ function WeeklyFptsBarShape({
           fill={isDnp ? "var(--destructive)" : "var(--muted-foreground)"}
           fontSize={9}
           fontWeight={600}
+          opacity={payload.muted ? 0.28 : 1}
         >
           {isDnp ? "DNP" : "BYE"}
         </text>
@@ -538,6 +545,7 @@ function WeeklyFptsBarShape({
       rx={4}
       ry={4}
       fill={fill}
+      opacity={payload.muted ? 0.28 : 1}
     />
   );
 }
@@ -597,15 +605,25 @@ function SosOpponentBadge({
   opponent: OverviewMatchupBucketOpponent;
   positionId: string;
 }) {
-  const pos = positionId || "POS";
+  const isDef = positionId === "DEF";
+  const isK = positionId === "K";
+  const rateUnit = sosRateUnitLabel(positionId);
   const rankLabel =
     opponent.matchupRank != null
-      ? `#${opponent.matchupRank} vs opposing ${pos}`
-      : `— vs opposing ${pos}`;
+      ? isDef
+        ? `#${opponent.matchupRank} scoring offense`
+        : isK
+          ? `#${opponent.matchupRank} against opposing kickers`
+          : `#${opponent.matchupRank} vs opposing ${positionId}`
+      : isDef
+        ? "— offense rank"
+        : isK
+          ? "— vs opposing kickers"
+          : `— vs opposing ${positionId}`;
   const allowedLabel =
     opponent.ptsAllowed != null
-      ? `${formatPts(opponent.ptsAllowed)} pts/pg vs opposing ${pos}`
-      : `— pts/pg vs opposing ${pos}`;
+      ? `${formatPts(opponent.ptsAllowed)} ${rateUnit}`
+      : `— ${rateUnit}`;
 
   return (
     <Tooltip>
@@ -1236,7 +1254,7 @@ function PtsAllowRadarCard({
       <div className="flex flex-col gap-0.5">
         <h4 className="text-sm font-medium">Games by points allowed</h4>
         <p className="text-xs text-muted-foreground">
-          Games in each PA bracket
+          NFL points conceded by bracket
         </p>
       </div>
       <ChartContainer
@@ -1816,11 +1834,13 @@ function EfficiencyTooltipContent({
 function Section({
   title,
   description,
+  action,
   children,
   footer,
 }: {
   title: string;
   description?: string;
+  action?: ReactNode;
   children: ReactNode;
   footer?: ReactNode;
 }) {
@@ -1833,6 +1853,7 @@ function Section({
             {description}
           </CardDescription>
         ) : null}
+        {action ? <CardAction className="self-center">{action}</CardAction> : null}
       </CardHeader>
       <CardContent className="flex min-w-0 flex-col gap-4 py-4">
         {children}
@@ -1955,12 +1976,61 @@ function SplitCard({
 
 type PlayerOverviewTabProps = {
   overview: PlayerOverviewMetrics;
+  withoutQb1?: {
+    qbLastName: string;
+    qbFullName?: string;
+    qbSleeperId?: string | null;
+    qbNflTeam?: string | null;
+    withoutGames: number;
+    withoutWeeks: number[];
+    overview: PlayerOverviewMetrics;
+  } | null;
+  /** Controlled by the toolbar toggle opposite the season select. */
+  withoutActive?: boolean;
 };
 
-export function PlayerOverviewTab({ overview }: PlayerOverviewTabProps) {
-  const chartData: WeeklyChartRow[] = overview.weeklyPoints.map((w) => {
+export function PlayerOverviewTab({
+  overview: overviewAll,
+  withoutQb1 = null,
+  withoutActive = false,
+}: PlayerOverviewTabProps) {
+  const withoutOn =
+    withoutActive &&
+    withoutQb1 != null &&
+    withoutQb1.withoutGames > 0;
+  /** Counting stats, share, efficiency headline, floor / splits flip with the toggle. */
+  const overview =
+    withoutOn && withoutQb1 ? withoutQb1.overview : overviewAll;
+  /**
+   * Efficiency headline (catch rate / YPC) follows the toggle; the weekly
+   * line chart always stays on the full-season series.
+   */
+  const efficiency =
+    overview.efficiency == null
+      ? null
+      : withoutOn && overviewAll.efficiency
+        ? {
+            ...overview.efficiency,
+            weekly: overviewAll.efficiency.weekly,
+          }
+        : overview.efficiency;
+  /** Weekly finish and SOS stay on the full-season series. */
+  const weeklyFinish = overviewAll.weeklyFinish;
+  const matchupDifficulty = overviewAll.matchupDifficulty;
+
+  const withoutWeekSet = new Set(withoutQb1?.withoutWeeks ?? []);
+  const chartData: WeeklyChartRow[] = overviewAll.weeklyPoints.map((w) => {
     const opponentTick =
       formatOpponentTick(w.venue, w.opponentAbbrev) ?? "";
+    /**
+     * Without on: keep the without-QB1 sample full strength; fade weeks
+     * QB1 played (and other non-sample weeks) so the slate stays visible.
+     */
+    const muted =
+      withoutOn &&
+      w.fpts != null &&
+      !w.isBye &&
+      !withoutWeekSet.has(w.week);
     if (w.isBye) {
       return {
         week: w.week,
@@ -1969,7 +2039,8 @@ export function PlayerOverviewTab({ overview }: PlayerOverviewTabProps) {
         opponent: w.opponent ?? "BYE",
         fpts: null,
         barValue: 0,
-        kind: "bye",
+        kind: "bye" as const,
+        muted,
       };
     }
     if (w.isDnp) {
@@ -1980,7 +2051,8 @@ export function PlayerOverviewTab({ overview }: PlayerOverviewTabProps) {
         opponent: w.opponent ?? "DNP",
         fpts: null,
         barValue: 0,
-        kind: "dnp",
+        kind: "dnp" as const,
+        muted,
       };
     }
     if (w.fpts == null) {
@@ -1991,7 +2063,8 @@ export function PlayerOverviewTab({ overview }: PlayerOverviewTabProps) {
         opponent: w.opponent ?? "—",
         fpts: null,
         barValue: null,
-        kind: "upcoming",
+        kind: "upcoming" as const,
+        muted,
       };
     }
     return {
@@ -2001,7 +2074,8 @@ export function PlayerOverviewTab({ overview }: PlayerOverviewTabProps) {
       opponent: w.opponent ?? "—",
       fpts: w.fpts,
       barValue: w.fpts,
-      kind: "scored",
+      kind: "scored" as const,
+      muted,
     };
   });
   const hasWeeklyScores = chartData.some((d) => d.kind === "scored");
@@ -2030,12 +2104,11 @@ export function PlayerOverviewTab({ overview }: PlayerOverviewTabProps) {
     ? ((floorCeiling.median - rangeMin) / rangeSpan) * 100
     : 0;
 
-  const finishThreshold =
-    overview.weeklyFinish?.startableThreshold ?? 12;
+  const finishThreshold = weeklyFinish?.startableThreshold ?? 12;
   const weekByNumber = new Map(
-    overview.weeklyPoints.map((w) => [w.week, w] as const),
+    overviewAll.weeklyPoints.map((w) => [w.week, w] as const),
   );
-  const finishSpark = overview.weeklyFinish?.weeks.map((w) => {
+  const finishSpark = weeklyFinish?.weeks.map((w) => {
     const weekRow = weekByNumber.get(w.week);
     const opponentTick = weekRow
       ? formatOpponentTick(weekRow.venue, weekRow.opponentAbbrev) ??
@@ -2049,9 +2122,9 @@ export function PlayerOverviewTab({ overview }: PlayerOverviewTabProps) {
       opponentTick,
     };
   });
-  const finishMaxRank = overview.weeklyFinish
+  const finishMaxRank = weeklyFinish
     ? Math.max(
-        ...overview.weeklyFinish.weeks.map((w) => w.finish),
+        ...weeklyFinish.weeks.map((w) => w.finish),
         finishThreshold,
       )
     : finishThreshold;
@@ -2060,14 +2133,11 @@ export function PlayerOverviewTab({ overview }: PlayerOverviewTabProps) {
     Math.ceil(finishMaxRank / 12) * 12,
   );
   const finishTicks = buildFinishAxisTicks(finishDomainMax, finishThreshold);
-  const finishStroke = overview.weeklyFinish
-    ? finishLineColor(
-        overview.weeklyFinish.averageFinish,
-        finishThreshold,
-      )
+  const finishStroke = weeklyFinish
+    ? finishLineColor(weeklyFinish.averageFinish, finishThreshold)
     : "var(--chart-2)";
   const finishChartConfigDynamic = {
-    finish: { label: overview.playerName, color: finishStroke },
+    finish: { label: overviewAll.playerName, color: finishStroke },
   } satisfies ChartConfig;
   return (
     <div className="flex min-w-0 flex-col gap-8">
@@ -2076,6 +2146,10 @@ export function PlayerOverviewTab({ overview }: PlayerOverviewTabProps) {
         description={`${overview.seasonLabel} counting stats${
           overview.gamesPlayed > 0
             ? ` · ${overview.gamesPlayed} games scored`
+            : ""
+        }${
+          withoutOn && withoutQb1
+            ? ` · without ${withoutQb1.qbLastName}`
             : ""
         }`}
       >
@@ -2092,13 +2166,20 @@ export function PlayerOverviewTab({ overview }: PlayerOverviewTabProps) {
                 <span className="text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
                   {stat.label}
                 </span>
-                <span
-                  className={cn(
-                    "text-lg font-semibold tabular-nums",
-                    projectionAccentTextClass(stat.accentTone),
-                  )}
-                >
-                  {formatProjectionStat(stat.value, stat.decimals ?? 0)}
+                <span className="flex items-baseline gap-1.5">
+                  <span
+                    className={cn(
+                      "text-lg font-semibold tabular-nums",
+                      projectionAccentTextClass(stat.accentTone),
+                    )}
+                  >
+                    {formatProjectionStat(stat.value, stat.decimals ?? 0)}
+                  </span>
+                  {stat.perGame != null ? (
+                    <span className="text-[11px] tabular-nums text-muted-foreground">
+                      {formatProjectionPerGame(stat.perGame)}
+                    </span>
+                  ) : null}
                 </span>
               </div>
             ))}
@@ -2153,7 +2234,7 @@ export function PlayerOverviewTab({ overview }: PlayerOverviewTabProps) {
         }
         description={
           overview.ptsAllowRadar || overview.ptsAllowWeekly
-            ? "Games by PA bracket and weekly points allowed vs DEF average."
+            ? "NFL points conceded by bracket and weekly PA vs league average."
             : overview.share?.kind === "kick" || overview.fgMakeRadar
               ? "Combined kicks made by week and FG make rate by distance."
               : "Team opportunity share paired with how efficiently they convert it."
@@ -2174,7 +2255,7 @@ export function PlayerOverviewTab({ overview }: PlayerOverviewTabProps) {
               />
             ) : null}
           </div>
-        ) : overview.share || overview.efficiency || overview.fgMakeRadar ? (
+        ) : overview.share || efficiency || overview.fgMakeRadar ? (
           <div
             className={cn(
               "grid items-stretch gap-4",
@@ -2233,10 +2314,10 @@ export function PlayerOverviewTab({ overview }: PlayerOverviewTabProps) {
                 playerName={overview.playerName}
                 brackets={overview.fgMakeRadar}
               />
-            ) : overview.efficiency ? (
+            ) : efficiency ? (
               <EfficiencyCard
-                playerName={overview.playerName}
-                efficiency={overview.efficiency}
+                playerName={overviewAll.playerName}
+                efficiency={efficiency}
               />
             ) : null}
           </div>
@@ -2254,7 +2335,11 @@ export function PlayerOverviewTab({ overview }: PlayerOverviewTabProps) {
 
       <Section
         title="Fantasy Points by Week"
-        description="Weekly fantasy points with season average."
+        description={
+          withoutOn
+            ? "Full season slate — weeks with QB1 are faded; average line uses the without sample."
+            : "Weekly fantasy points with season average."
+        }
       >
         {hasWeeklyScores ? (
           <ChartContainer
@@ -2473,7 +2558,7 @@ export function PlayerOverviewTab({ overview }: PlayerOverviewTabProps) {
         title="Weekly Finish"
         description="Weekly rank among players at this position."
       >
-        {overview.weeklyFinish ? (
+        {weeklyFinish ? (
           <div className="flex flex-col gap-4">
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
               {(
@@ -2484,11 +2569,11 @@ export function PlayerOverviewTab({ overview }: PlayerOverviewTabProps) {
                     valueClass:
                       FINISH_TONE_TEXT[
                         finishRankTone(
-                          overview.weeklyFinish.averageFinish,
+                          weeklyFinish.averageFinish,
                           finishThreshold,
                         )
                       ],
-                    value: `#${overview.weeklyFinish.averageFinish.toFixed(1)}`,
+                    value: `#${weeklyFinish.averageFinish.toFixed(1)}`,
                   },
                   {
                     key: "best",
@@ -2496,11 +2581,11 @@ export function PlayerOverviewTab({ overview }: PlayerOverviewTabProps) {
                     valueClass:
                       FINISH_TONE_TEXT[
                         finishRankTone(
-                          overview.weeklyFinish.bestFinish,
+                          weeklyFinish.bestFinish,
                           finishThreshold,
                         )
                       ],
-                    value: `#${Math.round(overview.weeklyFinish.bestFinish)}`,
+                    value: `#${Math.round(weeklyFinish.bestFinish)}`,
                   },
                   {
                     key: "worst",
@@ -2508,11 +2593,11 @@ export function PlayerOverviewTab({ overview }: PlayerOverviewTabProps) {
                     valueClass:
                       FINISH_TONE_TEXT[
                         finishRankTone(
-                          overview.weeklyFinish.worstFinish,
+                          weeklyFinish.worstFinish,
                           finishThreshold,
                         )
                       ],
-                    value: `#${Math.round(overview.weeklyFinish.worstFinish)}`,
+                    value: `#${Math.round(weeklyFinish.worstFinish)}`,
                   },
                   {
                     key: "startable",
@@ -2520,15 +2605,15 @@ export function PlayerOverviewTab({ overview }: PlayerOverviewTabProps) {
                     valueClass:
                       WEEKLY_TONE_TEXT[
                         finishStartableCountTone(
-                          overview.weeklyFinish.startableFinishes,
-                          overview.weeklyFinish.games,
+                          weeklyFinish.startableFinishes,
+                          weeklyFinish.games,
                         )
                       ],
                     value:
-                      overview.weeklyFinish.games > 0
-                        ? `${Math.round((overview.weeklyFinish.startableFinishes / overview.weeklyFinish.games) * 100)}%`
+                      weeklyFinish.games > 0
+                        ? `${Math.round((weeklyFinish.startableFinishes / weeklyFinish.games) * 100)}%`
                         : "—",
-                    detail: `${overview.weeklyFinish.startableFinishes}/${overview.weeklyFinish.games}`,
+                    detail: `${weeklyFinish.startableFinishes}/${weeklyFinish.games}`,
                   },
                 ] as const
               ).map((metric) => (
@@ -2666,15 +2751,30 @@ export function PlayerOverviewTab({ overview }: PlayerOverviewTabProps) {
 
       <Section
         title="Strength of Schedule"
-        description="Buckets by FPts each defense allows to this position; gold arc marks fantasy playoffs."
+        description={
+          overview.primaryPositionId === "DEF"
+            ? "Buckets by opposing offense scoring rank (1–8 Hard · 9–23 Average · 24–32 Easy); gold arc marks fantasy playoffs."
+            : overview.primaryPositionId === "K"
+              ? "Buckets by FPts defenses allow to kickers (1–8 Easy · 9–23 Average · 24–32 Hard); gold arc marks fantasy playoffs."
+              : "Buckets by FPts defenses allow to fantasy-relevant players at this position; gold arc marks fantasy playoffs."
+        }
       >
-        {overview.matchupDifficulty ? (
+        {matchupDifficulty ? (
           <div className="grid items-center gap-6 lg:grid-cols-2">
-            <ScheduleWheel data={overview.matchupDifficulty} />
-
+            <div className="flex min-w-0 flex-col gap-3">
+              {matchupDifficulty.scheduleSummary ? (
+                <span className="text-2xl font-semibold text-balance">
+                  {matchupDifficulty.scheduleSummary.headline}
+                  <span className="ms-1.5 text-sm font-normal text-muted-foreground">
+                    {matchupDifficulty.scheduleSummary.label}
+                  </span>
+                </span>
+              ) : null}
+              <ScheduleWheel data={matchupDifficulty} />
+            </div>
             <TooltipProvider>
               <ul className="flex flex-col gap-2">
-                {overview.matchupDifficulty.buckets.map((bucket) => {
+                {matchupDifficulty.buckets.map((bucket) => {
                   const tone =
                     bucket.id === "easy"
                       ? "bg-success"
@@ -2702,7 +2802,7 @@ export function PlayerOverviewTab({ overview }: PlayerOverviewTabProps) {
                             {formatPts(bucket.fptsPerGame)}
                             <span className="font-normal text-muted-foreground">
                               {" "}
-                              allowed/G
+                              {sosRateUnitLabel(overview.primaryPositionId)}
                             </span>
                           </span>
                         </div>
@@ -2745,7 +2845,7 @@ export function PlayerOverviewTab({ overview }: PlayerOverviewTabProps) {
             rows={overview.rosterCompare}
             showRbUsage={overview.share?.kind === "carry"}
             startableThreshold={
-              overview.weeklyFinish?.startableThreshold ?? 12
+              weeklyFinish?.startableThreshold ?? 12
             }
           />
         ) : (

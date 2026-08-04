@@ -8,6 +8,7 @@ import {
   isNflSeasonUnderway,
   isScheduleEditable,
   listPlayoffWeeksFromCalendar,
+  resolveLeagueSeasonMaxWeek,
 } from "./season-calendar";
 
 describe("playoff calendar helpers", () => {
@@ -37,6 +38,28 @@ describe("playoff calendar helpers", () => {
     assert.deepEqual(listPlayoffWeeksFromCalendar(15, 17), [16, 17]);
     assert.deepEqual(listPlayoffWeeksFromCalendar(14, 17), [15, 16, 17]);
     assert.deepEqual(listPlayoffWeeksFromCalendar(17, 17), []);
+  });
+
+  it("resolves league season max week from championship or playoffs", () => {
+    assert.equal(
+      resolveLeagueSeasonMaxWeek({ championshipWeek: 17 }),
+      17,
+    );
+    assert.equal(
+      resolveLeagueSeasonMaxWeek({
+        regularSeasonEndWeek: 15,
+        playoffWeeks: [16, 17],
+      }),
+      17,
+    );
+    assert.equal(
+      resolveLeagueSeasonMaxWeek({
+        regularSeasonEndWeek: 16,
+        playoffWeeks: [17, 18],
+      }),
+      18,
+    );
+    assert.equal(resolveLeagueSeasonMaxWeek({}), 18);
   });
 
   it("treats offseason and preseason as not underway", () => {
