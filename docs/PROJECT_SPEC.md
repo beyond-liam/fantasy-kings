@@ -42,7 +42,7 @@ A mobile-first fantasy football web app for a private friend group (4–16 users
 | Engagement | SOS (season/remaining), playoff chance %, playoff picture badges, Game Centre Preview, Overview (spotlights + roast), HoF (titles + roast + extremes), Team H2H tab, Team Stats charts 1–4 + KPI strip |
 | Empty states | shadcn `Empty` used for zero-data surfaces (charts, lists, spotlights, settings, dialogs, data-table) |
 | Manager presence | Online / offline / inactive badges on current-manager identities; profile `last_seen_at` + throttled heartbeat + league poll |
-| Player profiles | Canonical `/players/[playerId]` page with full-bleed stadium hero + overlapping identity card; modal links to the league-aware profile |
+| Player profiles | Canonical `/players/[playerId]` page with stadium hero + identity card; right panel Overview / Matchup / Game log tabs |
 
 ### Near-term product (build next)
 
@@ -75,7 +75,7 @@ A mobile-first fantasy football web app for a private friend group (4–16 users
 | Dynasty picks + pick trades | Deferred | Come back later with dynasty format |
 | IDP positions + scoring | Deferred | Long-term differentiator; not current phase |
 | Player trend / snap / target share charts | Deferred | Paid/chart-heavy; Recharts installed but unused for this |
-| Player strength of schedule | Deferred | Revisit after rankings/players filter work; distinct from team SOS on standings/playoffs |
+| Player strength of schedule | Shipped | Overview SOS wheel from positional fantasy pts allowed; distinct from team SOS on standings/playoffs |
 | Win% σ re-fit from `player_scores` residuals | **Lowest** | Chance already shipped with literature priors; re-fit only after enough completed weeks — polish, not blocking |
 | TanStack Query / Zustand | **Lowest** | Not installed; RSC + local state fine. Revisit only if draft-room polling/cache becomes painful — not a planned product slice |
 | Web push notifications | **Lowest** | Optional later; DIY Web Push can stay free-tier. In-app + email v1 cover MVP |
@@ -815,3 +815,20 @@ lib/
 | 2026-08-02 | Draft TimePicker matches shadcn native time input; local HH:mm editing (no UTC slice) |
 | 2026-08-02 | Email delivery: release dedupe on Brevo fail; cron sync for draft start + trade complete; fix commissioner trade email dedupe |
 | 2026-08-02 | Player page template: full-bleed team stadium/color hero, overlapping identity card (avatar + team badge, injury, actions, projection tiles) |
+| 2026-08-03 | Player page right panel: Overview / Matchup / Game log tabs; Overview metrics (production, scoring breakdown, share, FPts by week, floor/ceiling, weekly finish, home/away + rest, matchup difficulty, vs leaders, multi-year) |
+| 2026-08-03 | RB Overview scoring DNA: bucket points (rush/rec yards & TDs, receptions if PPR) + archetype labels (Workhorse / Three-down / Change-of-pace / TD dependent) |
+| 2026-08-03 | Player Overview floor/ceiling: scoring consistency score (0–100 from weekly FPts CV) in card footer |
+| 2026-08-03 | Player Overview SOS: playoff arc + buckets follow league calendar (RS end / championship), not hardcoded Wk 15–17 |
+| 2026-08-03 | Player Overview SOS: Easy/Average/Hard counts include playoffs; donut colors use the same 3 buckets |
+| 2026-08-03 | Player page: Season Production uses season stats only (never projections); mocks keep distinct projection vs YTD; identity card sticky on lg |
+| 2026-08-03 | Player Overview: WR/TE scoring breakdown (rec yds → rush TD); weekly-finish barometer WR/RB 24, TE/QB 12 |
+| 2026-08-03 | Player Overview: QB scoring breakdown (pass yds → rush TD); barometer Top 12 |
+| 2026-08-03 | Player Overview: WR/TE/QB scoring DNA summaries (PPR-cushioned, TD-dependent, dual-threat, etc.) |
+| 2026-08-03 | Player Overview K: FG-distance scoring DNA, FG%/XP accuracy, outdoors/indoors splits, stadium roof map, temp mocks |
+| 2026-08-03 | Player Overview K: XPA on projection/production; scoring legend squares; Weekly Finish legend + series tooltips |
+| 2026-08-03 | Player Overview: replace vs-leaders with sortable vs-roster fantasy compare table (RB mock mates; deltas vs viewed) |
+| 2026-08-03 | Player Overview DEF: solo-tackle tiles, forced scoring DNA (sack/TKL/INT/FF/TD), Points Allowed radar + weekly PA line |
+| 2026-08-03 | Player Overview: disable mocks; load real `player_scores` (default previous season when current has no weeks); season select under tabs |
+| 2026-08-04 | Player Overview extras from live data: opportunity share, weekly finishes, positional SOS, roster compare, multi-year |
+| 2026-08-04 | Player Overview SOS: percentile Easy/Avg/Hard (~25/50/25); preseason=prior, Wk1–4 blend, Wk5+=YTD; bye weeks excluded from sample |
+| 2026-08-04 | Player Overview SOS buckets: team logo badges with matchup/rank/pts-allowed tooltips |

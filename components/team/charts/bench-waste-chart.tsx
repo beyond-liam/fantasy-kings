@@ -44,14 +44,14 @@ export function BenchWasteChart({ data }: BenchWasteChartProps) {
   const records = buildOptimalRecordSummary(data);
 
   return (
-    <Card size="sm" className="h-full">
-      <CardHeader>
+    <Card size="sm" className="h-full gap-0 py-0">
+      <CardHeader variant="panel">
         <CardTitle>Points Left on Bench</CardTitle>
         <CardDescription>
           Optimum lineup minus what you started. Fix start/sit when this climbs.
         </CardDescription>
       </CardHeader>
-      <CardContent className="flex flex-1 flex-col gap-4">
+      <CardContent className="flex flex-1 flex-col gap-4 py-4">
         {records ? (
           <ChartHeadlineMetric
             value={formatRecordSummary(records.optimal)}

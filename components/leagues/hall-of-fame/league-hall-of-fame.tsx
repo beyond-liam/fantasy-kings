@@ -6,7 +6,7 @@ import { HofHashScroll } from "@/components/leagues/hall-of-fame/hof-hash-scroll
 import { TeamSpotlight } from "@/components/leagues/team-spotlight";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardTitle } from "@/components/ui/card";
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import {
   Table,
@@ -40,10 +40,10 @@ function HofCard({
 }) {
   return (
     <Card id={id} size="sm" className="scroll-mt-6 gap-0 py-0">
-      <div className="flex items-center justify-between gap-3 border-b bg-muted/40 px-4 py-3">
+      <CardHeader variant="panel">
         <CardTitle className="text-base text-balance">{title}</CardTitle>
-        {action}
-      </div>
+        {action ? <CardAction>{action}</CardAction> : null}
+      </CardHeader>
       <CardContent className="py-4">{children}</CardContent>
     </Card>
   );

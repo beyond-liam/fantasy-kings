@@ -191,7 +191,7 @@ function ChartTooltipContent({
   return (
     <div
       className={cn(
-        "grid min-w-40 items-start gap-1.5 rounded-lg border border-border/50 bg-background px-2.5 py-1.5 text-xs shadow-xl",
+        "grid min-w-40 items-start gap-1.5 rounded-md bg-foreground px-3 py-1.5 text-xs text-background",
         className
       )}
     >
@@ -208,7 +208,7 @@ function ChartTooltipContent({
               <div
                 key={index}
                 className={cn(
-                  "flex w-full items-center gap-2 [&>svg]:h-2.5 [&>svg]:w-2.5 [&>svg]:text-muted-foreground"
+                  "flex w-full items-center gap-2 [&>svg]:h-2.5 [&>svg]:w-2.5 [&>svg]:text-background/70"
                 )}
               >
                 {formatter && item?.value !== undefined && item.name ? (
@@ -247,12 +247,12 @@ function ChartTooltipContent({
                     >
                       <div className="grid min-w-0 gap-1.5">
                         {nestLabel ? tooltipLabel : null}
-                        <span className="truncate text-muted-foreground">
+                        <span className="truncate text-background/70">
                           {itemConfig?.label ?? item.name}
                         </span>
                       </div>
                       {item.value != null && (
-                        <span className="shrink-0 font-mono font-medium text-foreground tabular-nums">
+                        <span className="shrink-0 font-mono font-medium tabular-nums text-background">
                           {typeof item.value === "number"
                             ? item.value.toLocaleString()
                             : String(item.value)}

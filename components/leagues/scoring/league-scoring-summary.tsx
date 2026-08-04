@@ -53,7 +53,7 @@ export function LeagueScoringSummary({
       <h2 className="text-lg font-semibold tracking-tight">Scoring</h2>
       {sections.map((section) => (
         <Card key={section.title} size="sm" className="gap-0 py-0">
-          <CardHeader className="border-b bg-muted/40 py-3">
+          <CardHeader variant="panel">
             <CardTitle className="text-base text-balance">
               {section.title}
             </CardTitle>

@@ -71,14 +71,14 @@ export function MatchupLuckChart({ data }: MatchupLuckChartProps) {
         : String(luckSummary.averageLuck);
 
   return (
-    <Card size="sm" className="h-full">
-      <CardHeader>
+    <Card size="sm" className="h-full gap-0 py-0">
+      <CardHeader variant="panel">
         <CardTitle>Matchup Luck</CardTitle>
         <CardDescription>
           Actual result vs how often your score would have beaten the field.
         </CardDescription>
       </CardHeader>
-      <CardContent className="flex flex-1 flex-col gap-4">
+      <CardContent className="flex flex-1 flex-col gap-4 py-4">
         {luckSummary ? (
           <ChartHeadlineMetric
             value={luckSummary.verdict}

@@ -53,8 +53,8 @@ function opponentLabel(
 
 /**
  * Regular-season schedule for an NFL team (weeks 1–18), one ESPN request.
- * Missing weeks (bye) are filled as BYE when `byeWeek` is known, else omitted
- * weeks become BYE when only one gap exists.
+ * Missing weeks are filled as BYE when `byeWeek` is known, or when exactly
+ * one week is missing from the ESPN response (inferred bye).
  */
 export const getNflTeamSchedule = cache(
   async (input: {
@@ -69,7 +69,7 @@ export const getNflTeamSchedule = cache(
 
     const teamId = ESPN_TEAM_IDS[abbrev];
     const season = Number(input.season);
-    const bye =
+    const byeHint =
       input.byeWeek != null &&
       Number.isFinite(input.byeWeek) &&
       input.byeWeek >= 1 &&
@@ -113,6 +113,14 @@ export const getNflTeamSchedule = cache(
         // Fall through to bye / placeholder rows.
       }
     }
+
+    const missingWeeks: number[] = [];
+    for (let week = 1; week <= 18; week++) {
+      if (!byWeek.has(week)) missingWeeks.push(week);
+    }
+    const inferredBye =
+      missingWeeks.length === 1 ? missingWeeks[0]! : null;
+    const bye = byeHint ?? inferredBye;
 
     const rows: NflTeamScheduleWeek[] = [];
     for (let week = 1; week <= 18; week++) {

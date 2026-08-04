@@ -64,12 +64,7 @@ export function SettingsMenuSection({
 }: SettingsMenuSectionProps) {
   return (
     <Card size="sm" className="gap-0 py-0">
-      <CardHeader
-        className={cn(
-          "border-b bg-muted/40 py-3 [.border-b]:pb-3",
-          variant === "danger" && "bg-destructive/5",
-        )}
-      >
+      <CardHeader variant={variant === "danger" ? "destructive" : "panel"}>
         <CardTitle
           className={cn(
             "text-balance",

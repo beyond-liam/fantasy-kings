@@ -49,14 +49,14 @@ export function PointsByPositionChart({ data }: PointsByPositionChartProps) {
   const strongest = pickStrongestPosition(data);
 
   return (
-    <Card size="sm" className="h-full">
-      <CardHeader>
+    <Card size="sm" className="h-full gap-0 py-0">
+      <CardHeader variant="panel">
         <CardTitle>Points by Position</CardTitle>
         <CardDescription>
           Share of your starter points vs the league average.
         </CardDescription>
       </CardHeader>
-      <CardContent className="flex flex-1 flex-col gap-4">
+      <CardContent className="flex flex-1 flex-col gap-4 py-4">
         {strongest ? (
           <ChartHeadlineMetric
             value={strongest.label}

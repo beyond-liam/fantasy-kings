@@ -68,6 +68,25 @@ export function getRegularSeasonEndWeek(
   return championshipWeek - getPlayoffWeekCount(playoffTeamCount, options);
 }
 
+/** Inclusive NFL weeks from `startWeek` through `endWeek` (empty if inverted). */
+export function listWeeksInclusive(startWeek: number, endWeek: number): number[] {
+  if (endWeek < startWeek) {
+    return [];
+  }
+  return Array.from(
+    { length: endWeek - startWeek + 1 },
+    (_, index) => startWeek + index,
+  );
+}
+
+/** Playoff weeks between regular-season end and championship (exclusive of RS end). */
+export function listPlayoffWeeksFromCalendar(
+  regularSeasonEndWeek: number,
+  championshipWeek: number,
+): number[] {
+  return listWeeksInclusive(regularSeasonEndWeek + 1, championshipWeek);
+}
+
 export function isValidSeasonCalendar(
   championshipWeek: number,
   playoffTeamCount: number,

@@ -145,7 +145,7 @@ export function MockDraftSettings() {
 
         <TabsContent value="draft" className="pt-4">
           <Card size="sm" className="gap-0 py-0">
-            <CardHeader className="border-b bg-muted/40 py-3">
+            <CardHeader variant="panel">
               <CardTitle className="text-base text-balance">
                 Draft Settings
               </CardTitle>
@@ -289,7 +289,7 @@ export function MockDraftSettings() {
 
         <TabsContent value="roster" className="pt-4">
           <Card size="sm" className="gap-0 py-0">
-            <CardHeader className="border-b bg-muted/40 py-3">
+            <CardHeader variant="panel">
               <CardTitle className="text-base text-balance">
                 Roster Settings
               </CardTitle>

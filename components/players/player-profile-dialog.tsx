@@ -7,6 +7,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 
 import { PlayerActionButton } from "@/components/rankings/player-action-button";
 import { PlayerAvatar } from "@/components/rankings/player-avatar";
+import { PlayerGameLogTable } from "@/components/players/player-game-log-table";
 import { PlayerWatchlistButton } from "@/components/players/player-watchlist-button";
 import { TeamTableColumnHeader } from "@/components/team/team-table-column-header";
 import { Button } from "@/components/ui/button";
@@ -110,6 +111,7 @@ function PlayerProfileHeader({
   const bye = resolvePlayerByeWeek({
     byeWeek: profile.byeWeek,
     nflTeam: profile.nflTeam,
+    seasonYear: Number(profile.season) || undefined,
   });
   const isDef = profile.primaryPositionId === "DEF";
   const division = isDef ? getNflTeamDivision(profile.nflTeam) : null;
@@ -398,79 +400,7 @@ export function PlayerProfileContent({
 
         <section className="flex min-w-0 flex-col gap-2">
           <h3 className="text-sm font-medium">Game log</h3>
-          {profile.gameLog.length === 0 ? (
-            <Empty className="border-none" size="sm">
-              <EmptyHeader>
-                <EmptyTitle>No schedule yet</EmptyTitle>
-                <EmptyDescription>
-                  Game log for {profile.season} appears once the schedule is set.
-                </EmptyDescription>
-              </EmptyHeader>
-            </Empty>
-          ) : (
-            <TableShell className="relative z-0 isolate min-w-0">
-              <TooltipProvider>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="sticky left-0 z-[1] w-12 min-w-12">
-                        <TeamTableColumnHeader
-                          title="Wk"
-                          tooltip="NFL week"
-                        />
-                      </TableHead>
-                      <TableHead className="sticky left-12 z-[1] min-w-[4.5rem] shadow-[4px_0_8px_-4px_rgba(0,0,0,0.45)]">
-                        <TeamTableColumnHeader
-                          title="Opp"
-                          tooltip="Opponent"
-                        />
-                      </TableHead>
-                      {profile.gameLogColumns.slice(0, 8).map((column) => (
-                        <TableHead key={column.key} className="tabular-nums">
-                          <TeamTableColumnHeader
-                            title={column.header}
-                            tooltip={column.tooltip}
-                          />
-                        </TableHead>
-                      ))}
-                      <TableHead className="tabular-nums">
-                        <TeamTableColumnHeader
-                          title="FPts"
-                          tooltip="Fantasy points"
-                        />
-                      </TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {profile.gameLog.map((row) => (
-                      <TableRow key={row.week}>
-                        <TableCell className="sticky left-0 z-[1] w-12 min-w-12 bg-dialog tabular-nums group-hover/tr:bg-muted/50">
-                          {row.week}
-                        </TableCell>
-                        <TableCell className="sticky left-12 z-[1] min-w-[4.5rem] bg-dialog whitespace-nowrap text-muted-foreground shadow-[4px_0_8px_-4px_rgba(0,0,0,0.45)] group-hover/tr:bg-muted/50">
-                          {row.opponent ?? "—"}
-                        </TableCell>
-                        {profile.gameLogColumns.slice(0, 8).map((column) => (
-                          <TableCell
-                            key={column.key}
-                            className="tabular-nums text-muted-foreground"
-                          >
-                            {formatStat(
-                              row.stats[column.key] ?? null,
-                              column.decimals ?? 1,
-                            )}
-                          </TableCell>
-                        ))}
-                        <TableCell className="tabular-nums font-medium">
-                          {formatPts(row.fantasyPts)}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TooltipProvider>
-            </TableShell>
-          )}
+          <PlayerGameLogTable profile={profile} />
         </section>
 
         {profile.leagueSlug ? (

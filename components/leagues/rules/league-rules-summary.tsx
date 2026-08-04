@@ -36,7 +36,7 @@ export function LeagueRulesSummary({ season }: LeagueRulesSummaryProps) {
       <h2 className="text-lg font-semibold tracking-tight">Rules</h2>
       {sections.map((section) => (
         <Card key={section.title} size="sm" className="gap-0 py-0">
-          <CardHeader className="border-b bg-muted/40 py-3">
+          <CardHeader variant="panel">
             <CardTitle className="text-base text-balance">
               {section.title}
             </CardTitle>

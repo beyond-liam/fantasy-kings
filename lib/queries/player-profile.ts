@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, or } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, or } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { cache } from "react";
 
@@ -26,6 +26,7 @@ import type {
   ScoringPreset,
   ScoringRuleDefinition,
 } from "@/lib/leagues/scoring/types";
+import { listPlayoffWeeksFromCalendar } from "@/lib/leagues/season-calendar";
 import { resolveWaiverWireSettings } from "@/lib/leagues/waiver-wire";
 import { resolvePlayerAcquisitionKind } from "@/lib/leagues/waivers/resolve-kind";
 import {
@@ -50,6 +51,13 @@ import { getPlayerRosterRatesMap } from "@/lib/queries/player-roster-rates";
 import { getNflTeamSchedule } from "@/lib/espn/team-schedule";
 import { getNflState } from "@/lib/sleeper/api";
 import { resolvePlayerByeWeek } from "@/lib/nfl/bye-weeks";
+import {
+  buildPlayerOverviewMetrics,
+  type OverviewExtrasSeed,
+  type PlayerOverviewMetrics,
+} from "@/lib/players/overview-metrics";
+import { applyPlayerOverviewMocks } from "@/lib/players/overview-mocks";
+import { loadOverviewExtrasSeed } from "@/lib/queries/player-overview-extras";
 
 export type PlayerProfileGameLogRow = {
   week: number;
@@ -90,6 +98,8 @@ export type PlayerProfile = {
   college: string | null;
   jerseyNumber: number | null;
   season: string;
+  /** Seasons with selectable Overview / game-log data for this player. */
+  availableSeasons: string[];
   ownedPct: number | null;
   startPct: number | null;
   positionRank: number | null;
@@ -115,6 +125,7 @@ export type PlayerProfile = {
   isWatched: boolean;
   activity: PlayerProfileActivityRow[];
   leagueSlug: string | null;
+  overview: PlayerOverviewMetrics;
 };
 
 function parsePositionFilter(value: string): PositionFilter {
@@ -501,6 +512,70 @@ async function loadPlayerTransactionHistory(input: {
   );
 }
 
+async function playerHasWeeklyStats(
+  playerId: string,
+  season: string,
+): Promise<boolean> {
+  const [row] = await db
+    .select({ id: playerScores.id })
+    .from(playerScores)
+    .where(
+      and(
+        eq(playerScores.playerId, playerId),
+        eq(playerScores.season, season),
+        eq(playerScores.kind, "stats"),
+        eq(playerScores.seasonType, "regular"),
+        gte(playerScores.week, 1),
+      ),
+    )
+    .limit(1);
+  return Boolean(row);
+}
+
+async function listAvailablePlayerSeasons(input: {
+  playerId: string;
+  currentSeason: string | null | undefined;
+  previousSeason: string | null | undefined;
+}): Promise<string[]> {
+  const scored = await db
+    .selectDistinct({ season: playerScores.season })
+    .from(playerScores)
+    .where(
+      and(
+        eq(playerScores.playerId, input.playerId),
+        eq(playerScores.kind, "stats"),
+        eq(playerScores.seasonType, "regular"),
+        gte(playerScores.week, 1),
+      ),
+    )
+    .orderBy(desc(playerScores.season));
+
+  const seasons = new Set(scored.map((row) => row.season));
+  if (input.currentSeason) seasons.add(input.currentSeason);
+  if (input.previousSeason) seasons.add(input.previousSeason);
+  return [...seasons].toSorted((a, b) => Number(b) - Number(a));
+}
+
+async function resolveProfileSeason(input: {
+  playerId: string;
+  requestedSeason: string | null | undefined;
+  currentSeason: string;
+  previousSeason: string | null | undefined;
+}): Promise<string> {
+  if (input.requestedSeason?.trim()) {
+    return input.requestedSeason.trim();
+  }
+
+  const hasCurrentWeekly = await playerHasWeeklyStats(
+    input.playerId,
+    input.currentSeason,
+  );
+  if (!hasCurrentWeekly && input.previousSeason) {
+    return input.previousSeason;
+  }
+  return input.currentSeason;
+}
+
 export const getPlayerProfile = cache(
   async (input: {
     playerId: string;
@@ -540,14 +615,34 @@ export const getPlayerProfile = cache(
     }
 
     const nflState = await getNflState().catch(() => null);
-    const season =
-      input.season ?? nflState?.season ?? new Date().getFullYear().toString();
+    const currentSeason =
+      nflState?.season ?? new Date().getFullYear().toString();
+    const previousSeason = nflState?.previous_season ?? null;
+
+    const [season, availableSeasons] = await Promise.all([
+      resolveProfileSeason({
+        playerId: player.id,
+        requestedSeason: input.season,
+        currentSeason,
+        previousSeason,
+      }),
+      listAvailablePlayerSeasons({
+        playerId: player.id,
+        currentSeason,
+        previousSeason,
+      }),
+    ]);
 
     let scoringRules = getDefaultScoringRuleDefinitions("full_ppr");
     let leagueSlug: string | null = null;
     let ownership: PlayerProfile["ownership"] = null;
     let isWatched = false;
     let activity: PlayerProfileActivityRow[] = [];
+    let leagueSeasonCalendar: {
+      regularSeasonEndWeek: number;
+      playoffWeeks: number[];
+    } | null = null;
+    let userTeamId: string | null = null;
 
     const user = await getSessionUser();
 
@@ -559,6 +654,13 @@ export const getPlayerProfile = cache(
         if (seasonRow && user) {
           const membership = await getLeagueMembership(league.id, user.id);
           if (membership) {
+            leagueSeasonCalendar = {
+              regularSeasonEndWeek: seasonRow.regularSeasonEndWeek,
+              playoffWeeks: listPlayoffWeeksFromCalendar(
+                seasonRow.regularSeasonEndWeek,
+                seasonRow.championshipWeek,
+              ),
+            };
             scoringRules = resolveScoringRuleDefinitions(
               seasonRow.scoringPreset as ScoringPreset,
               seasonRow.settings.scoringRules,
@@ -583,6 +685,7 @@ export const getPlayerProfile = cache(
             });
 
             const userTeam = await getUserTeamForSeason(seasonRow.id, user.id);
+            userTeamId = userTeam?.id ?? null;
             let hasPendingClaim = false;
             if (userTeam) {
               const watchIds = await getTeamWatchlistPlayerIds(userTeam.id);
@@ -622,9 +725,11 @@ export const getPlayerProfile = cache(
       }
     }
 
+    const seasonYear = Number(season);
     const byeWeek = resolvePlayerByeWeek({
       byeWeek: player.byeWeek,
       nflTeam: player.nflTeam,
+      seasonYear: Number.isFinite(seasonYear) ? seasonYear : undefined,
     });
 
     const [
@@ -667,14 +772,14 @@ export const getPlayerProfile = cache(
       (column) => column.key !== "fantasy_pts" && column.key !== "adp",
     );
 
-    return {
+    const profileBase = applyPlayerOverviewMocks({
       id: player.id,
       fullName: player.fullName,
       nflTeam: player.nflTeam,
       primaryPositionId: player.primaryPositionId,
       sleeperId: player.sleeperId,
       yearsExp: player.yearsExp,
-      byeWeek: player.byeWeek,
+      byeWeek,
       injuryStatus: player.injuryStatus,
       rookieYear: player.rookieYear,
       age: player.age,
@@ -683,6 +788,7 @@ export const getPlayerProfile = cache(
       college: player.college,
       jerseyNumber: player.jerseyNumber,
       season,
+      availableSeasons,
       ownedPct: rates?.ownedPct ?? null,
       startPct: rates?.startPct ?? null,
       positionRank,
@@ -694,6 +800,33 @@ export const getPlayerProfile = cache(
       isWatched,
       activity,
       leagueSlug,
+      overviewExtras: null as OverviewExtrasSeed | null,
+    });
+
+    const { overviewExtras: mockExtras, ...profile } = profileBase;
+    const overviewExtras =
+      mockExtras ??
+      (await loadOverviewExtrasSeed({
+        playerId: player.id,
+        primaryPositionId: player.primaryPositionId,
+        nflTeam: player.nflTeam,
+        season,
+        availableSeasons,
+        gameLog,
+        seasonStats,
+        schedule,
+        rules: scoringRules,
+        leagueCalendar: leagueSeasonCalendar,
+        userTeamId,
+      }));
+
+    return {
+      ...profile,
+      availableSeasons,
+      overview: buildPlayerOverviewMetrics(
+        { ...profile, overviewExtras },
+        scoringRules,
+      ),
     };
   },
 );

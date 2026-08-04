@@ -169,6 +169,8 @@ export function calculatePlayerPoints(
 export type PlayerPointsLine = {
   id: string;
   label: string;
+  /** Sleeper-style aggregate key for this rule, when known. */
+  statKey: string | null;
   statValue: number;
   points: number;
 };
@@ -220,6 +222,7 @@ export function explainPlayerPoints(
     lines.push({
       id: rule.id,
       label: formatRuleLabel(rule),
+      statKey: aggregateKey,
       statValue,
       points: rounded,
     });

@@ -139,7 +139,7 @@ export function TeamSettingsSection({
       ) : null}
 
       <Card size="sm" className="gap-0 py-0">
-        <CardHeader className="border-b bg-muted/40 py-3">
+        <CardHeader variant="panel">
           <CardTitle className="text-base text-balance">Team Profile</CardTitle>
         </CardHeader>
         <CardContent className="py-4">
@@ -196,7 +196,7 @@ export function TeamSettingsSection({
       </Card>
 
       <Card size="sm" className="gap-0 py-0">
-        <CardHeader className="border-b bg-muted/40 py-3">
+        <CardHeader variant="panel">
           <CardTitle className="text-base text-balance">Draft</CardTitle>
         </CardHeader>
         <CardContent className="py-4">
@@ -221,7 +221,7 @@ export function TeamSettingsSection({
       </Card>
 
       <Card size="sm" className="gap-0 py-0">
-        <CardHeader className="border-b bg-destructive/5 py-3 [.border-b]:pb-3">
+        <CardHeader variant="destructive">
           <CardTitle className="text-balance text-destructive">
             Leave League
           </CardTitle>

@@ -153,7 +153,7 @@ export function TeamSummaryPanel({
 }: TeamSummaryPanelProps) {
   return (
     <Card size="sm" className={cn("w-full gap-0 py-0", className)}>
-      <CardHeader className="border-b bg-muted/40 py-3">
+      <CardHeader variant="panel">
         <CardTitle className="text-base text-balance">Roster Summary</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-4 py-4">

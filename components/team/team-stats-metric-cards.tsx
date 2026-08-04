@@ -89,12 +89,12 @@ type MetricCardProps = {
 
 function MetricCard({ title, description, children }: MetricCardProps) {
   return (
-    <Card size="sm">
-      <CardHeader>
+    <Card size="sm" className="gap-0 py-0">
+      <CardHeader variant="panel">
         <CardTitle>{title}</CardTitle>
         <CardDescription>{description}</CardDescription>
       </CardHeader>
-      <CardContent>{children}</CardContent>
+      <CardContent className="py-4">{children}</CardContent>
     </Card>
   );
 }

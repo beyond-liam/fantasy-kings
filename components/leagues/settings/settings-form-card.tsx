@@ -34,7 +34,7 @@ export function SettingsFormCard({
   return (
     <>
       <Card size="sm" className={cn("gap-0 py-0", className)}>
-        <CardHeader className="border-b bg-muted/40 py-3">
+        <CardHeader variant="panel">
           <CardTitle className="text-base text-balance">{title}</CardTitle>
           {description ? (
             <CardDescription className="text-pretty">

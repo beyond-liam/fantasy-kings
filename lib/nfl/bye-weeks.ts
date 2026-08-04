@@ -1,3 +1,40 @@
+/** Official NFL bye weeks by team abbreviation, keyed by season year. */
+
+const NFL_BYE_WEEKS_2025: Record<string, number> = {
+  ARI: 8,
+  ATL: 5,
+  BAL: 7,
+  BUF: 7,
+  CAR: 14,
+  CHI: 5,
+  CIN: 10,
+  CLE: 9,
+  DAL: 10,
+  DEN: 12,
+  DET: 8,
+  GB: 5,
+  HOU: 6,
+  IND: 11,
+  JAX: 8,
+  KC: 10,
+  LAC: 12,
+  LAR: 8,
+  LV: 8,
+  MIA: 12,
+  MIN: 6,
+  NE: 14,
+  NO: 11,
+  NYG: 14,
+  NYJ: 9,
+  PHI: 9,
+  PIT: 5,
+  SEA: 8,
+  SF: 14,
+  TB: 9,
+  TEN: 10,
+  WAS: 12,
+};
+
 /** 2026 NFL bye weeks by team abbreviation (official schedule). */
 const NFL_BYE_WEEKS_2026: Record<string, number> = {
   ARI: 14,
@@ -34,23 +71,34 @@ const NFL_BYE_WEEKS_2026: Record<string, number> = {
   WAS: 7,
 };
 
+const BYE_WEEKS_BY_SEASON: Record<number, Record<string, number>> = {
+  2025: NFL_BYE_WEEKS_2025,
+  2026: NFL_BYE_WEEKS_2026,
+};
+
 export function getNflTeamByeWeek(
   nflTeam: string | null | undefined,
   seasonYear = 2026,
 ): number | null {
   if (!nflTeam) return null;
-  if (seasonYear === 2026) {
-    return NFL_BYE_WEEKS_2026[nflTeam.toUpperCase()] ?? null;
-  }
-  return null;
+  const map = BYE_WEEKS_BY_SEASON[seasonYear];
+  if (!map) return null;
+  return map[nflTeam.toUpperCase()] ?? null;
 }
 
-/** Prefer stored player bye; fall back to team bye map for the season. */
+/**
+ * Prefer season-specific team bye map when available.
+ * Fall back to the stored player bye only when we have no map for that season
+ * (stored bye is usually the current NFL season and can be wrong historically).
+ */
 export function resolvePlayerByeWeek(input: {
   byeWeek?: number | null;
   nflTeam?: string | null;
   seasonYear?: number;
 }): number | null {
+  const seasonYear = input.seasonYear ?? 2026;
+  const fromMap = getNflTeamByeWeek(input.nflTeam, seasonYear);
+  if (fromMap != null) return fromMap;
   if (input.byeWeek != null) return input.byeWeek;
-  return getNflTeamByeWeek(input.nflTeam, input.seasonYear);
+  return null;
 }

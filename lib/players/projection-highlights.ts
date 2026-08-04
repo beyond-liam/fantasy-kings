@@ -1,5 +1,3 @@
-import type { PlayerProfile } from "@/lib/queries/player-profile";
-
 export type ProjectionAccentTone =
   | "success"
   | "muted"
@@ -13,6 +11,18 @@ export type ProjectionHighlightStat = {
   decimals?: number;
   /** Tier for text + surface accent on the identity card tile. */
   accentTone?: ProjectionAccentTone;
+};
+
+type SeasonStatBlock = {
+  fantasyPts: number | null;
+  stats: Record<string, number | null>;
+} | null;
+
+export type ProjectionProfileInput = {
+  primaryPositionId: string;
+  positionRank: number | null;
+  seasonProjection: SeasonStatBlock;
+  seasonStats: SeasonStatBlock;
 };
 
 type Thresholds = {
@@ -60,12 +70,14 @@ const STAT_THRESHOLDS: Record<string, Partial<Record<string, Thresholds>>> = {
     fgm: { elite: 30, solid: 24, borderline: 18 },
     fga: { elite: 35, solid: 28, borderline: 22 },
     xpm: { elite: 45, solid: 35, borderline: 28 },
+    xpa: { elite: 48, solid: 38, borderline: 30 },
   },
   DEF: {
     sack: { elite: 45, solid: 35, borderline: 25 },
     int: { elite: 16, solid: 12, borderline: 8 },
     def_td: { elite: 4, solid: 2, borderline: 1 },
     ff: { elite: 16, solid: 12, borderline: 8 },
+    tkl_solo: { elite: 70, solid: 55, borderline: 40 },
   },
 };
 
@@ -188,7 +200,7 @@ function tile(
 
 /** Compact projection tiles for the player identity card (position-aware). */
 export function getProjectionHighlightStats(
-  profile: PlayerProfile,
+  profile: ProjectionProfileInput,
 ): ProjectionHighlightStat[] {
   const block = profile.seasonProjection ?? profile.seasonStats;
   const stats = block?.stats ?? {};
@@ -240,6 +252,7 @@ export function getProjectionHighlightStats(
       tile("fgm", "FGM", num(stats, "fgm"), position),
       tile("fga", "FGA", num(stats, "fga"), position),
       tile("xpm", "XPM", num(stats, "xpm"), position),
+      tile("xpa", "XPA", num(stats, "xpa"), position),
       fptsTile,
     ];
   }
@@ -247,9 +260,10 @@ export function getProjectionHighlightStats(
   if (position === "DEF") {
     return [
       tile("sack", "SACK", num(stats, "sack"), position),
+      tile("tkl_solo", "TKL", num(stats, "tkl_solo"), position),
       tile("int", "INT", num(stats, "int"), position),
-      tile("def_td", "TD", num(stats, "def_td"), position),
       tile("ff", "FF", num(stats, "ff"), position),
+      tile("def_td", "TD", num(stats, "def_td"), position),
       fptsTile,
     ];
   }

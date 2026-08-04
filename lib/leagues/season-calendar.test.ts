@@ -7,6 +7,7 @@ import {
   getPlayoffWeekRange,
   isNflSeasonUnderway,
   isScheduleEditable,
+  listPlayoffWeeksFromCalendar,
 } from "./season-calendar";
 
 describe("playoff calendar helpers", () => {
@@ -30,6 +31,12 @@ describe("playoff calendar helpers", () => {
       getPlayoffWeekRange(17, 6, { twoWeekChampionship: true }),
       { startWeek: 14, endWeek: 17 },
     );
+  });
+
+  it("lists playoff weeks from regular-season end through championship", () => {
+    assert.deepEqual(listPlayoffWeeksFromCalendar(15, 17), [16, 17]);
+    assert.deepEqual(listPlayoffWeeksFromCalendar(14, 17), [15, 16, 17]);
+    assert.deepEqual(listPlayoffWeeksFromCalendar(17, 17), []);
   });
 
   it("treats offseason and preseason as not underway", () => {

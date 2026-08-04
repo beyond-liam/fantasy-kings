@@ -50,6 +50,7 @@ export function PlayerIdentityCard({
   const bye = resolvePlayerByeWeek({
     byeWeek: profile.byeWeek,
     nflTeam: profile.nflTeam,
+    seasonYear: Number(profile.season) || undefined,
   });
   const isDef = profile.primaryPositionId === "DEF";
   const division = isDef ? getNflTeamDivision(profile.nflTeam) : null;
@@ -87,7 +88,7 @@ export function PlayerIdentityCard({
         <div className="relative size-32 sm:size-40">
           <div
             className={cn(
-              "size-full overflow-hidden rounded-full bg-muted shadow-lg ring-1 ring-foreground/12",
+              "size-full overflow-hidden rounded-full bg-muted shadow-lg ring-4 ring-foreground/12",
               isDef && "bg-background",
             )}
           >

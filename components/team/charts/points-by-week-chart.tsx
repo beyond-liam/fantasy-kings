@@ -61,14 +61,14 @@ export function PointsByWeekChart({
   avgWeeklyScore,
 }: PointsByWeekChartProps) {
   return (
-    <Card size="sm" className="h-full">
-      <CardHeader>
+    <Card size="sm" className="h-full gap-0 py-0">
+      <CardHeader variant="panel">
         <CardTitle>Points by Week</CardTitle>
         <CardDescription>
           Your score vs the league high, median, and low each week.
         </CardDescription>
       </CardHeader>
-      <CardContent className="flex flex-1 flex-col gap-4">
+      <CardContent className="flex flex-1 flex-col gap-4 py-4">
         {avgWeeklyScore.average != null ? (
           <ChartHeadlineMetric
             value={formatPoints(avgWeeklyScore.average)}

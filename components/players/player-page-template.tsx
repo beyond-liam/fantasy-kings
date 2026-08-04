@@ -1,6 +1,6 @@
 import { PlayerIdentityCard } from "@/components/players/player-identity-card";
 import { PlayerPageHero } from "@/components/players/player-page-hero";
-import { PlayerProfileContent } from "@/components/players/player-profile-dialog";
+import { PlayerProfilePanel } from "@/components/players/player-profile-panel";
 import type { PlayerProfile } from "@/lib/queries/player-profile";
 
 type PlayerPageTemplateProps = {
@@ -20,15 +20,11 @@ export function PlayerPageTemplate({ profile }: PlayerPageTemplateProps) {
         <div className="-mt-36 flex flex-col gap-6 sm:-mt-40 lg:flex-row lg:items-start lg:gap-8">
           <PlayerIdentityCard
             profile={profile}
-            className="w-full shrink-0 lg:max-w-md"
+            className="w-full shrink-0 lg:sticky lg:top-20 lg:max-w-md lg:self-start"
           />
 
           <article className="min-w-0 flex-1 overflow-hidden rounded-xl bg-background shadow-xs ring-1 ring-foreground/10 lg:mt-20">
-            <PlayerProfileContent
-              profile={profile}
-              headingLevel="h1"
-              showHeader={false}
-            />
+            <PlayerProfilePanel profile={profile} />
           </article>
         </div>
       </div>
