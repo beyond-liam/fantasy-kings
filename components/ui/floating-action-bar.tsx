@@ -35,17 +35,17 @@ export function FloatingActionBar({
       setPhase("in");
     }
   } else if (rendered && phase === "in") {
-    setPhase("out");
+    // Reduced motion: unmount immediately. Otherwise exit animation, then effect.
+    if (prefersReducedMotion()) {
+      setRendered(false);
+      setPhase("out");
+    } else {
+      setPhase("out");
+    }
   }
 
   useEffect(() => {
     if (open || phase !== "out" || !rendered) return;
-
-    if (prefersReducedMotion()) {
-      setRendered(false);
-      return;
-    }
-
     const timeout = window.setTimeout(() => setRendered(false), FAB_MOTION_MS);
     return () => window.clearTimeout(timeout);
   }, [open, phase, rendered]);
