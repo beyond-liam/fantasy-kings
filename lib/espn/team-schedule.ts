@@ -10,6 +10,8 @@ const ESPN_TEAM_SCHEDULE =
 
 type EspnScheduleCompetitor = {
   homeAway?: string;
+  score?: string | number | { value?: number; displayValue?: string } | null;
+  winner?: boolean | null;
   team?: { abbreviation?: string };
 };
 
@@ -18,6 +20,12 @@ type EspnScheduleEvent = {
   seasonType?: { type?: number };
   competitions?: Array<{
     competitors?: EspnScheduleCompetitor[];
+    status?: {
+      type?: {
+        completed?: boolean;
+        state?: string;
+      };
+    };
   }>;
 };
 
@@ -25,11 +33,90 @@ type EspnTeamScheduleResponse = {
   events?: EspnScheduleEvent[];
 };
 
+export type NflTeamGameResult = "W" | "L" | "T";
+
 export type NflTeamScheduleWeek = {
   week: number;
   /** "@ KC", "vs BUF", or "BYE". */
   opponent: string;
+  /** NFL team result when the game is final; null for bye/upcoming. */
+  result: NflTeamGameResult | null;
 };
+
+function parseCompetitorScore(
+  score: EspnScheduleCompetitor["score"],
+): number | null {
+  if (score == null || score === "") {
+    return null;
+  }
+  if (typeof score === "number") {
+    return Number.isFinite(score) ? score : null;
+  }
+  if (typeof score === "string") {
+    const value = Number(score);
+    return Number.isFinite(value) ? value : null;
+  }
+  if (typeof score === "object") {
+    if (typeof score.value === "number" && Number.isFinite(score.value)) {
+      return score.value;
+    }
+    if (score.displayValue != null && score.displayValue !== "") {
+      const value = Number(score.displayValue);
+      return Number.isFinite(value) ? value : null;
+    }
+  }
+  return null;
+}
+
+function resolveGameResult(
+  teamAbbrev: string,
+  competition: NonNullable<EspnScheduleEvent["competitions"]>[number],
+): NflTeamGameResult | null {
+  const status = competition.status?.type;
+  const isFinal =
+    status?.completed === true || status?.state === "post";
+  if (!isFinal) {
+    return null;
+  }
+
+  const competitors = competition.competitors ?? [];
+  const self = competitors.find(
+    (c) =>
+      normalizeNflTeamAbbrev(c.team?.abbreviation) === teamAbbrev,
+  );
+  const other = competitors.find(
+    (c) =>
+      normalizeNflTeamAbbrev(c.team?.abbreviation) !== teamAbbrev,
+  );
+  if (!self || !other) {
+    return null;
+  }
+
+  if (self.winner === true) {
+    return "W";
+  }
+  if (other.winner === true) {
+    return "L";
+  }
+
+  const selfScore = parseCompetitorScore(self.score);
+  const otherScore = parseCompetitorScore(other.score);
+  if (
+    selfScore != null &&
+    otherScore != null &&
+    selfScore === otherScore
+  ) {
+    return "T";
+  }
+
+  // Final but no winner flag and unequal/missing scores — treat as tie only
+  // when both winners are explicitly false (ESPN tie pattern).
+  if (self.winner === false && other.winner === false) {
+    return "T";
+  }
+
+  return null;
+}
 
 function opponentLabel(
   teamAbbrev: string,
@@ -77,7 +164,10 @@ export const getNflTeamSchedule = cache(
         ? input.byeWeek
         : null;
 
-    const byWeek = new Map<number, string>();
+    const byWeek = new Map<
+      number,
+      { opponent: string; result: NflTeamGameResult | null }
+    >();
 
     if (teamId && Number.isFinite(season)) {
       try {
@@ -105,7 +195,10 @@ export const getNflTeamSchedule = cache(
             }
             const label = opponentLabel(abbrev, competition);
             if (label) {
-              byWeek.set(week, label);
+              byWeek.set(week, {
+                opponent: label,
+                result: resolveGameResult(abbrev, competition),
+              });
             }
           }
         }
@@ -125,8 +218,12 @@ export const getNflTeamSchedule = cache(
     const rows: NflTeamScheduleWeek[] = [];
     for (let week = 1; week <= 18; week++) {
       const fromSchedule = byWeek.get(week);
-      const opponent = fromSchedule ?? (bye === week ? "BYE" : "—");
-      rows.push({ week, opponent });
+      const opponent = fromSchedule?.opponent ?? (bye === week ? "BYE" : "—");
+      rows.push({
+        week,
+        opponent,
+        result: fromSchedule?.result ?? null,
+      });
     }
 
     return rows;

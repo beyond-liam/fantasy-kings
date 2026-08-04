@@ -3,15 +3,16 @@ import { notFound, redirect } from "next/navigation";
 
 import { PlayerPageTemplate } from "@/components/players/player-page-template";
 import { getSessionUser } from "@/lib/auth/session";
+import {
+  getLeagueBySlug,
+  getLeagueMembership,
+} from "@/lib/queries/leagues";
 import { playerProfileHref } from "@/lib/players/profile-path";
 import { getPlayerProfile } from "@/lib/queries/player-profile";
 
-type PlayerProfilePageProps = {
-  params: Promise<{ playerId: string }>;
-  searchParams: Promise<{
-    league?: string;
-    season?: string;
-  }>;
+type LeaguePlayerProfilePageProps = {
+  params: Promise<{ leagueId: string; playerId: string }>;
+  searchParams: Promise<{ season?: string }>;
 };
 
 export async function generateMetadata({
@@ -26,35 +27,35 @@ export async function generateMetadata({
   };
 }
 
-export default async function PlayerProfilePage({
+export default async function LeaguePlayerProfilePage({
   params,
   searchParams,
-}: PlayerProfilePageProps) {
-  const [{ playerId }, query, user] = await Promise.all([
+}: LeaguePlayerProfilePageProps) {
+  const [{ leagueId: slug, playerId }, query, user] = await Promise.all([
     params,
     searchParams,
     getSessionUser(),
   ]);
 
-  // Prefer league-scoped profile so the league sidebar stays visible.
-  if (query.league?.trim()) {
+  if (!user) {
     redirect(
-      playerProfileHref({
-        playerId,
-        leagueSlug: query.league,
-        season: query.season,
-      }),
+      `/login?next=${encodeURIComponent(`/league/${slug}/players/${playerId}`)}`,
     );
   }
 
-  if (!user) {
-    redirect(
-      `/login?next=${encodeURIComponent(`/players/${playerId}`)}`,
-    );
+  const league = await getLeagueBySlug(slug);
+  if (!league) {
+    redirect("/leagues");
+  }
+
+  const membership = await getLeagueMembership(league.id, user.id);
+  if (!membership) {
+    redirect("/leagues");
   }
 
   const profile = await getPlayerProfile({
     playerId,
+    leagueSlug: slug,
     season: query.season,
   });
 
@@ -67,6 +68,7 @@ export default async function PlayerProfilePage({
     redirect(
       playerProfileHref({
         playerId: profile.publicId,
+        leagueSlug: league.publicId,
         season: query.season ?? profile.season,
       }),
     );

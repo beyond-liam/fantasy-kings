@@ -17,7 +17,9 @@ import {
 import type { LeagueActivityMetadata } from "@/db/schema/league-activity";
 import { getSessionUser } from "@/lib/auth/session";
 import { db } from "@/lib/db";
+import { ensurePlayerPublicId } from "@/lib/leagues/ensure-public-ids";
 import { isRosterTransactionsEnabled } from "@/lib/leagues/free-agency";
+import { isPublicIdFormat } from "@/lib/leagues/public-id";
 import { calculatePlayerPoints } from "@/lib/leagues/scoring/calculate";
 import { getDefaultScoringRuleDefinitions } from "@/lib/leagues/scoring/defaults";
 import { normalizePlayerStats } from "@/lib/leagues/scoring/normalize-stats";
@@ -73,6 +75,8 @@ import {
 export type PlayerProfileGameLogRow = {
   week: number;
   opponent: string | null;
+  /** NFL team result for that week (final games only). */
+  result: "W" | "L" | "T" | null;
   stats: Record<string, number | null>;
   fantasyPts: number | null;
 };
@@ -95,6 +99,8 @@ export type PlayerProfileActivityRow = {
 
 export type PlayerProfile = {
   id: string;
+  /** Short URL id (`/players/{publicId}`); mutations still use `id`. */
+  publicId: string;
   fullName: string;
   nflTeam: string | null;
   primaryPositionId: string;
@@ -322,7 +328,13 @@ async function loadScoreBundle(input: {
     }
 
     if (row.kind === "stats" && row.week >= 1 && row.week <= 18) {
-      gameLog.push({ week: row.week, opponent: null, stats, fantasyPts });
+      gameLog.push({
+        week: row.week,
+        opponent: null,
+        result: null,
+        stats,
+        fantasyPts,
+      });
     }
   }
 
@@ -331,7 +343,11 @@ async function loadScoreBundle(input: {
 
 function mergeGameLogWithSchedule(input: {
   gameLog: PlayerProfileGameLogRow[];
-  schedule: Array<{ week: number; opponent: string }>;
+  schedule: Array<{
+    week: number;
+    opponent: string;
+    result?: "W" | "L" | "T" | null;
+  }>;
 }): PlayerProfileGameLogRow[] {
   const statsByWeek = new Map(
     input.gameLog.map((row) => [row.week, row] as const),
@@ -346,6 +362,7 @@ function mergeGameLogWithSchedule(input: {
     return {
       week: slot.week,
       opponent: slot.opponent,
+      result: slot.result ?? null,
       stats: existing?.stats ?? {},
       fantasyPts: existing?.fantasyPts ?? null,
     };
@@ -621,9 +638,19 @@ export const getPlayerProfile = cache(
     leagueSlug?: string | null;
     season?: string | null;
   }): Promise<PlayerProfile | null> => {
+    const key = input.playerId.trim();
+    if (!key) {
+      return null;
+    }
+
+    const playerKey = isPublicIdFormat(key.toUpperCase())
+      ? key.toUpperCase()
+      : key;
+
     const [player] = await db
       .select({
         id: players.id,
+        publicId: players.publicId,
         fullName: players.fullName,
         nflTeam: players.nflTeam,
         primaryPositionId: players.primaryPositionId,
@@ -646,12 +673,21 @@ export const getPlayerProfile = cache(
           eq(playerExternalIds.provider, "sleeper"),
         ),
       )
-      .where(eq(players.id, input.playerId))
+      .where(
+        isPublicIdFormat(playerKey)
+          ? eq(players.publicId, playerKey)
+          : eq(players.id, playerKey),
+      )
       .limit(1);
 
     if (!player) {
       return null;
     }
+
+    const publicId =
+      player.publicId && isPublicIdFormat(player.publicId)
+        ? player.publicId
+        : await ensurePlayerPublicId(player.id);
 
     const nflState = await getNflState().catch(() => null);
     const currentSeason =
@@ -890,6 +926,7 @@ export const getPlayerProfile = cache(
 
     const profileBase = applyPlayerOverviewMocks({
       id: player.id,
+      publicId,
       fullName: player.fullName,
       nflTeam: player.nflTeam,
       primaryPositionId: player.primaryPositionId,

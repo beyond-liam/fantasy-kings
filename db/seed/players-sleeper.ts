@@ -1,11 +1,12 @@
 import dotenv from "dotenv";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, isNotNull } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import {
   playerExternalIds,
   players,
 } from "../schema";
 import { createSeedClient } from "./client";
+import { generatePublicId } from "../../lib/leagues/public-id";
 
 dotenv.config({ path: ".env.local" });
 
@@ -177,6 +178,25 @@ async function seedSleeperPlayers() {
     existingExternalIds.map((row) => [row.externalId, row.playerId]),
   );
 
+  const existingPublicIdRows = await db
+    .select({ publicId: players.publicId })
+    .from(players)
+    .where(isNotNull(players.publicId));
+  const usedPublicIds = new Set(
+    existingPublicIdRows
+      .map((row) => row.publicId)
+      .filter((id): id is string => Boolean(id)),
+  );
+
+  function nextPlayerPublicId(): string {
+    let publicId = generatePublicId();
+    while (usedPublicIds.has(publicId)) {
+      publicId = generatePublicId();
+    }
+    usedPublicIds.add(publicId);
+    return publicId;
+  }
+
   const existingPlayerIds = [...externalIdToPlayerId.values()];
   const previousInjuryById = new Map<string, string | null>();
   if (existingPlayerIds.length > 0) {
@@ -309,6 +329,7 @@ async function seedSleeperPlayers() {
       const [created] = await db
         .insert(players)
         .values({
+          publicId: nextPlayerPublicId(),
           fullName: player.fullName,
           nflTeam: player.nflTeam,
           primaryPositionId: player.primaryPositionId,

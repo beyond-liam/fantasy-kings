@@ -639,6 +639,7 @@ function mergeGameLogWithSchedule(input: {
     return input.gameLog.map((row) => ({
       week: row.week,
       opponent: null,
+      result: null,
       fantasyPts: row.fantasyPts,
       stats: row.stats,
     }));
@@ -649,6 +650,7 @@ function mergeGameLogWithSchedule(input: {
     return {
       week: slot.week,
       opponent: slot.opponent,
+      result: slot.result,
       fantasyPts: row?.fantasyPts ?? null,
       stats: row?.stats ?? {},
     };

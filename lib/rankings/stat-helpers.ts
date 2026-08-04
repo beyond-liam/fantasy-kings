@@ -58,24 +58,67 @@ export function formatPositionRank(
   return `${position}${rank}`;
 }
 
-export function getPositionRankColorClass(
+/** Shared bands for position rank coloring (season rank + weekly finish). */
+export type PositionRankTone =
+  | "success"
+  | "muted"
+  | "warning"
+  | "destructive";
+
+export function getPositionRankTone(
   rank: number | null | undefined,
-): string {
+): PositionRankTone | null {
   if (!rank) {
-    return "text-muted-foreground";
+    return null;
   }
 
   if (rank <= 8) {
-    return "text-success";
+    return "success";
   }
 
   if (rank <= 25) {
-    return "text-muted-foreground";
+    return "muted";
   }
 
   if (rank <= 31) {
-    return "text-warning";
+    return "warning";
   }
 
-  return "text-destructive";
+  return "destructive";
+}
+
+export function getPositionRankColorClass(
+  rank: number | null | undefined,
+): string {
+  const tone = getPositionRankTone(rank);
+  if (!tone) {
+    return "text-muted-foreground";
+  }
+
+  switch (tone) {
+    case "success":
+      return "text-success";
+    case "warning":
+      return "text-warning";
+    case "destructive":
+      return "text-destructive";
+    case "muted":
+      return "text-muted-foreground";
+  }
+}
+
+/** Badge variant mapped from player-rank tones (muted → secondary). */
+export function getPositionRankBadgeVariant(
+  rank: number | null | undefined,
+): "success" | "secondary" | "warning" | "destructive" | null {
+  const tone = getPositionRankTone(rank);
+  if (!tone) {
+    return null;
+  }
+
+  if (tone === "muted") {
+    return "secondary";
+  }
+
+  return tone;
 }

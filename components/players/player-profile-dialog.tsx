@@ -35,6 +35,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { loadPlayerProfile } from "@/lib/actions/player-profile";
 import { resolvePlayerByeWeek } from "@/lib/nfl/bye-weeks";
+import { playerProfileHref } from "@/lib/players/profile-path";
 import {
   contrastForeground,
   getNflTeamColors,
@@ -498,10 +499,11 @@ function PlayerProfileDialogFooter({
         )}
         render={
           <Link
-            href={{
-              pathname: `/players/${profile.id}`,
-              query: slug ? { league: slug } : undefined,
-            }}
+            href={playerProfileHref({
+              playerId: profile.publicId,
+              leagueSlug: slug,
+              season: profile.season,
+            })}
           />
         }
       >

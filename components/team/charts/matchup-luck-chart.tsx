@@ -31,7 +31,7 @@ import {
 const chartConfig = {
   luck: {
     label: "Luck",
-    color: "var(--chart-1)",
+    color: "var(--success)",
   },
 } satisfies ChartConfig;
 
@@ -169,10 +169,10 @@ export function MatchupLuckChart({ data }: MatchupLuckChartProps) {
                     key={row.week}
                     fill={
                       row.luck > 0
-                        ? "var(--chart-5)"
+                        ? "var(--success)"
                         : row.luck < 0
-                          ? "var(--chart-6)"
-                          : "#475569"
+                          ? "var(--destructive)"
+                          : "var(--muted-foreground)"
                     }
                   />
                 ))}

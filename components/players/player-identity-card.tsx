@@ -85,13 +85,13 @@ export function PlayerIdentityCard({
   const showLeagueActions = Boolean(slug && ownership);
 
   return (
-    <div className={cn("relative w-full max-w-md", className)}>
+    <div className={cn("@container relative w-full min-w-0", className)}>
       {/* Reserves the top half of the avatar above the card */}
-      <div className="h-16 sm:h-20" aria-hidden />
+      <div className="h-14 @min-[18rem]:h-16 @min-[22rem]:h-20" aria-hidden />
 
       {/* Plain sized frame — avoids Avatar `data-[size]` beating `size-*` */}
       <div className="absolute top-0 left-1/2 z-30 -translate-x-1/2">
-        <div className="relative size-32 sm:size-40">
+        <div className="relative size-28 @min-[18rem]:size-32 @min-[22rem]:size-40">
           <div
             className={cn(
               "size-full overflow-hidden rounded-full bg-muted shadow-lg ring-4 ring-foreground/12",
@@ -109,13 +109,13 @@ export function PlayerIdentityCard({
                 )}
               />
             ) : (
-              <div className="flex size-full items-center justify-center text-2xl font-semibold text-muted-foreground sm:text-3xl">
+              <div className="flex size-full items-center justify-center text-2xl font-semibold text-muted-foreground @min-[22rem]:text-3xl">
                 {getPlayerInitials(profile.fullName)}
               </div>
             )}
           </div>
           {teamLogo ? (
-            <span className="absolute right-0 bottom-0 z-10 flex size-10 items-center justify-center sm:size-12">
+            <span className="absolute right-0 bottom-0 z-10 flex size-9 items-center justify-center @min-[18rem]:size-10 @min-[22rem]:size-12">
               {/* eslint-disable-next-line @next/next/no-img-element -- remote CDN logo */}
               <img
                 src={teamLogo}
@@ -129,11 +129,11 @@ export function PlayerIdentityCard({
 
       <Card
         size="sm"
-        className="relative z-10 overflow-visible bg-background pt-16 shadow-lg ring-foreground/12 sm:pt-20"
+        className="relative z-10 overflow-visible bg-background pt-14 shadow-lg ring-foreground/12 @min-[18rem]:pt-16 @min-[22rem]:pt-20"
       >
         <div className="mt-4 flex flex-col items-center gap-3 px-(--card-spacing) text-center">
           <div className="flex min-w-0 flex-col items-center gap-1">
-            <h1 className="w-full text-xl font-semibold tracking-tight text-balance sm:text-2xl">
+            <h1 className="w-full text-xl font-semibold tracking-tight text-balance @min-[22rem]:text-2xl">
               {profile.fullName}
             </h1>
             <p className="text-sm text-muted-foreground">{positionMeta}</p>
@@ -176,7 +176,7 @@ export function PlayerIdentityCard({
           {isDef ? (
             <BioStat label="Conference" value={division ?? "—"} />
           ) : (
-            <div className="grid w-full grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="grid w-full grid-cols-2 gap-3 @min-[20rem]:grid-cols-4">
               <BioStat
                 label="Age"
                 value={profile.age != null ? String(profile.age) : "—"}
@@ -235,12 +235,12 @@ export function PlayerIdentityCard({
           </p>
 
           {highlightStats.length > 0 ? (
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            <div className="grid grid-cols-2 gap-2 @min-[18rem]:grid-cols-3">
               {highlightStats.map((stat) => (
                 <div
                   key={stat.key}
                   className={cn(
-                    "flex flex-col gap-1 rounded-lg bg-muted/40 px-2.5 py-2 ring-1 ring-foreground/8",
+                    "flex min-w-0 flex-col gap-1 rounded-lg bg-muted/40 px-2.5 py-2 ring-1 ring-foreground/8",
                     projectionAccentSurfaceClass(stat.accentTone),
                   )}
                 >
@@ -249,7 +249,7 @@ export function PlayerIdentityCard({
                   </span>
                   <span
                     className={cn(
-                      "text-lg font-semibold tabular-nums",
+                      "truncate text-base font-semibold tabular-nums @min-[22rem]:text-lg",
                       projectionAccentTextClass(stat.accentTone),
                     )}
                   >

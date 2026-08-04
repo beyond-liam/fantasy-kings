@@ -12,7 +12,7 @@ declare module "@tanstack/react-table" {
     width?: number;
     /**
      * Pin the column to the left while the table scrolls horizontally.
-     * Applied on mobile only (`max-md`).
+     * Uses an opaque surface so scrolled cells cannot show through.
      */
     sticky?: "left";
   }

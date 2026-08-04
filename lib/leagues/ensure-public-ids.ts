@@ -1,6 +1,6 @@
 import { and, eq, inArray, isNull, or } from "drizzle-orm";
 
-import { leagues, matchups, teams } from "@/db/schema";
+import { leagues, matchups, players, teams } from "@/db/schema";
 import { db } from "@/lib/db";
 import { generatePublicId } from "@/lib/leagues/public-id";
 
@@ -64,6 +64,52 @@ async function allocateUniqueMatchupPublicId(
     }
   }
   throw new Error("Could not allocate matchup public id");
+}
+
+export async function allocateUniquePlayerPublicId(): Promise<string> {
+  for (let attempt = 0; attempt < 20; attempt++) {
+    const publicId = generatePublicId();
+    const [existing] = await db
+      .select({ id: players.id })
+      .from(players)
+      .where(eq(players.publicId, publicId))
+      .limit(1);
+    if (!existing) {
+      return publicId;
+    }
+  }
+  throw new Error("Could not allocate player public id");
+}
+
+/** Ensure one player has a public id; returns the id (existing or new). */
+export async function ensurePlayerPublicId(playerId: string): Promise<string> {
+  const [row] = await db
+    .select({ publicId: players.publicId })
+    .from(players)
+    .where(eq(players.id, playerId))
+    .limit(1);
+  if (row?.publicId) {
+    return row.publicId;
+  }
+
+  const publicId = await allocateUniquePlayerPublicId();
+  await db
+    .update(players)
+    .set({ publicId, updatedAt: new Date() })
+    .where(eq(players.id, playerId));
+  return publicId;
+}
+
+/** Backfill missing player public ids (idempotent). */
+export async function ensurePlayerPublicIds() {
+  const rows = await db
+    .select({ id: players.id })
+    .from(players)
+    .where(or(isNull(players.publicId), eq(players.publicId, "")));
+
+  for (const row of rows) {
+    await ensurePlayerPublicId(row.id);
+  }
 }
 
 /** Backfill missing league public ids (idempotent). */
@@ -216,9 +262,10 @@ export async function allocateMatchupPublicIds(
   return ids;
 }
 
-/** One-shot backfill for all leagues/teams/matchups. */
+/** One-shot backfill for all leagues/teams/matchups/players. */
 export async function backfillAllPublicIds() {
   await ensureLeaguePublicIds();
+  await ensurePlayerPublicIds();
 
   const seasonIds = await db
     .selectDistinct({ leagueSeasonId: teams.leagueSeasonId })

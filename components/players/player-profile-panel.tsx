@@ -17,6 +17,7 @@ import { PlayerGameLogTable } from "@/components/players/player-game-log-table";
 import { PlayerOverviewTab } from "@/components/players/player-overview-tab";
 import { PlayerSeasonSelect } from "@/components/players/player-season-select";
 import type { PlayerProfile } from "@/lib/queries/player-profile";
+import { playerProfileHref } from "@/lib/players/profile-path";
 import {
   getPlayerAvatarUrl,
   getPlayerInitials,
@@ -58,13 +59,14 @@ export function PlayerProfilePanel({ profile }: PlayerProfilePanelProps) {
             disabled={isPending}
             onSeasonChange={(nextSeason) => {
               setWithoutActive(false);
-              const params = new URLSearchParams();
-              params.set("season", nextSeason);
-              if (profile.leagueSlug) {
-                params.set("league", profile.leagueSlug);
-              }
               startTransition(() => {
-                router.push(`/players/${profile.id}?${params.toString()}`);
+                router.push(
+                  playerProfileHref({
+                    playerId: profile.publicId,
+                    leagueSlug: profile.leagueSlug,
+                    season: nextSeason,
+                  }),
+                );
               });
             }}
           />

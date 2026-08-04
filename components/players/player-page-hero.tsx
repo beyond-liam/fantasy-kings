@@ -20,7 +20,8 @@ export function PlayerPageHero({ nflTeam, className }: PlayerPageHeroProps) {
   return (
     <div
       className={cn(
-        "relative left-1/2 h-44 w-screen max-w-[100vw] -translate-x-1/2 overflow-hidden sm:h-56 md:h-64",
+        // Fill the content column (not the viewport) so league sidebar padding aligns.
+        "relative h-44 w-full overflow-hidden sm:h-56 md:h-64",
         !headerBg && !stadiumUrl && "bg-muted",
         className,
       )}
@@ -51,7 +52,7 @@ export function PlayerPageHero({ nflTeam, className }: PlayerPageHeroProps) {
         }
       />
 
-      <div className="absolute inset-x-0 top-0 z-10 mx-auto w-full max-w-screen-2xl px-4 pt-3 sm:px-6 sm:pt-4">
+      <div className="absolute inset-x-0 top-0 z-10 px-4 pt-3 sm:px-6 sm:pt-4">
         <PlayerPageBackButton />
       </div>
     </div>

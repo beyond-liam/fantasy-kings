@@ -60,14 +60,18 @@ type ColumnLike = {
 /** Fallback width for flexible columns when computing table min-width. */
 const FLEX_COLUMN_MIN_WIDTH = 72;
 
+/**
+ * Pinned left columns for horizontal scroll.
+ * Opaque fills are required — translucent row hover would otherwise show
+ * scrolled cells through the pin (and mismatched header tones).
+ */
 const STICKY_LEFT_CLASSNAME =
-  "max-md:sticky max-md:z-20 max-md:bg-background max-md:group-hover/tr:bg-muted/50 max-md:group-data-[state=selected]/tr:bg-muted";
+  "sticky z-20 bg-background group-hover/tr:bg-muted group-data-[state=selected]/tr:bg-muted overflow-hidden";
 
-const STICKY_LEFT_HEADER_CLASSNAME =
-  "max-md:sticky max-md:z-30 max-md:bg-muted";
+const STICKY_LEFT_HEADER_CLASSNAME = "sticky z-30 bg-muted overflow-hidden";
 
 const STICKY_LEFT_EDGE_CLASSNAME =
-  "max-md:shadow-[4px_0_8px_-4px_rgba(0,0,0,0.45)]";
+  "shadow-[4px_0_8px_-4px_rgba(0,0,0,0.45)]";
 
 /** Only `meta.width` locks a column. Unset columns share remaining table width equally. */
 function getFixedColumnWidth(column: ColumnLike): number | undefined {
@@ -192,10 +196,8 @@ export function DataTable<TData>({
                         <TableHead
                           key={header.id}
                           className={cn(
-                            !sticky && "overflow-hidden",
-                            "whitespace-nowrap",
+                            "overflow-hidden whitespace-nowrap",
                             headerClassName,
-                            header.column.columnDef.meta?.headerClassName,
                             sticky && STICKY_LEFT_HEADER_CLASSNAME,
                             sticky &&
                               isLastStickyLeftColumn(
@@ -203,6 +205,8 @@ export function DataTable<TData>({
                                 header.column.id,
                               ) &&
                               STICKY_LEFT_EDGE_CLASSNAME,
+                            // After sticky so call sites can override the pin surface.
+                            header.column.columnDef.meta?.headerClassName,
                           )}
                           style={getColumnStyle(
                             header.column,
@@ -237,8 +241,7 @@ export function DataTable<TData>({
                           <TableCell
                             key={cell.id}
                             className={cn(
-                              !sticky && "overflow-hidden",
-                              cell.column.columnDef.meta?.cellClassName,
+                              "overflow-hidden",
                               sticky && STICKY_LEFT_CLASSNAME,
                               sticky &&
                                 isLastStickyLeftColumn(
@@ -246,6 +249,9 @@ export function DataTable<TData>({
                                   cell.column.id,
                                 ) &&
                                 STICKY_LEFT_EDGE_CLASSNAME,
+                              // After sticky so call sites can override the pin surface
+                              // (e.g. dialog `bg-dialog`) without losing position/z-index.
+                              cell.column.columnDef.meta?.cellClassName,
                             )}
                             style={getColumnStyle(
                               cell.column,

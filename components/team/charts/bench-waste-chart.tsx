@@ -32,7 +32,7 @@ import {
 const chartConfig = {
   leftOnBench: {
     label: "Left on bench",
-    color: "var(--chart-5)",
+    color: "var(--success)",
   },
 } satisfies ChartConfig;
 
@@ -147,8 +147,8 @@ export function BenchWasteChart({ data }: BenchWasteChartProps) {
                       row.wouldHaveFlipped
                         ? "var(--destructive)"
                         : row.leftOnBench === 0
-                          ? "#475569"
-                          : "var(--chart-5)"
+                          ? "var(--muted-foreground)"
+                          : "var(--success)"
                     }
                   />
                 ))}

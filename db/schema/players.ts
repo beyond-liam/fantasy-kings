@@ -3,6 +3,8 @@ import { positions } from "./positions";
 
 export const players = pgTable("players", {
   id: uuid("id").primaryKey().defaultRandom(),
+  /** Stable short id used in `/players/{publicId}` URLs. */
+  publicId: text("public_id").unique(),
   fullName: text("full_name").notNull(),
   nflTeam: text("nfl_team"),
   primaryPositionId: text("primary_position_id")

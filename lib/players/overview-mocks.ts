@@ -191,6 +191,7 @@ function weeks(
     return {
       week: slot.week,
       opponent: slot.opponent,
+      result: null,
       fantasyPts: isBye ? null : (row?.fantasyPts ?? null),
       stats: isBye ? {} : (row?.stats ?? {}),
     };

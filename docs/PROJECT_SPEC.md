@@ -42,7 +42,7 @@ A mobile-first fantasy football web app for a private friend group (4–16 users
 | Engagement | SOS (season/remaining), playoff chance %, playoff picture badges, Game Centre Preview, Overview (spotlights + roast), HoF (titles + roast + extremes), Team H2H tab, Team Stats charts 1–4 + KPI strip |
 | Empty states | shadcn `Empty` used for zero-data surfaces (charts, lists, spotlights, settings, dialogs, data-table) |
 | Manager presence | Online / offline / inactive badges on current-manager identities; profile `last_seen_at` + throttled heartbeat + league poll |
-| Player profiles | Canonical `/players/[playerId]` page with stadium hero + identity card; right panel Overview / Matchup / Game log tabs |
+| Player profiles | Canonical `/players/[playerId]`; league view uses `/league/[id]/players/[playerId]` (sidebar + Players active). `?league=` on the global route redirects into the league path. |
 
 ### Near-term product (build next)
 
@@ -853,4 +853,6 @@ lib/
 | 2026-08-04 | Starting Lineup / Starter Rankings: league-relative 1..N slot ranks (depth pools, flex-eligible, settings bars, rank tones) |
 | 2026-08-04 | Roster Evaluation: current lineup chart, optimal starter rankings, positional avg ranks vs league |
 | 2026-08-04 | Position Strength radar: starters vs bench league ranks per position |
+| 2026-08-04 | League player profiles at `/league/[id]/players/[playerId]` keep sidebar with Players active |
 | 2026-08-04 | DEF PA radar brackets: 0–7 · 8–10 · 11–14 · 15–21 · 22+ (NFL points conceded) |
+| 2026-08-04 | Player profile URLs use 6-char `publicId` (UUID bookmarks redirect) |

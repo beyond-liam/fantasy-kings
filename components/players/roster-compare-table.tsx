@@ -235,7 +235,8 @@ export function RosterCompareTable({
         },
         meta: {
           width: 176,
-          // Skip DataTable `sticky: "left"` — it adds translucent max-md:bg-muted/50.
+          // Manual pin — DataTable sticky is fine for opaque pins; this row
+          // uses custom viewed-row paints that need the same sticky surface.
           headerClassName: STICKY_PLAYER_HEADER,
           cellClassName: cn("align-top min-w-[11rem]", STICKY_PLAYER_CELL),
         },
