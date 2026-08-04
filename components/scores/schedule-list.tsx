@@ -5,6 +5,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ScheduleTeamLogo } from "@/components/scores/schedule-team-logo";
 import {
   Empty,
   EmptyDescription,
@@ -43,13 +44,7 @@ function TeamBlock({
 }) {
   return (
     <div className="flex w-[154px] shrink-0 items-center gap-2.5">
-      <img
-        src={team.logoUrl}
-        alt=""
-        width={24}
-        height={24}
-        className="size-6 shrink-0"
-      />
+      <ScheduleTeamLogo src={team.logoUrl} size={24} className="size-6" />
       <div className="min-w-0 flex-1">
         <p className="truncate text-xs leading-tight text-muted-foreground">
           {team.city}
@@ -135,13 +130,7 @@ function MobileGameRow({ game, week }: { game: ScheduleGame; week: number }) {
       <div className="flex min-w-0 flex-1 flex-col gap-2">
         {[game.away, game.home].map((team) => (
           <div key={team.abbreviation} className="flex items-center gap-2">
-            <img
-              src={team.logoUrl}
-              alt=""
-              width={20}
-              height={20}
-              className="size-5 shrink-0"
-            />
+            <ScheduleTeamLogo src={team.logoUrl} size={20} className="size-5" />
             <span
               className={cn(
                 "truncate text-sm font-semibold",

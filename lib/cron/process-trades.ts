@@ -18,7 +18,8 @@ function revalidateTradePaths(slug: string) {
 }
 
 /** Cron-only: complete review-window trades whose reviewEndsAt has passed. */
-export async function processAllReadyTrades(_now: Date = new Date()) {
+export async function processAllReadyTrades(_now?: Date) {
+  void _now;
   const expired = await getExpiredReviewTrades();
   if (expired.length === 0) {
     return {

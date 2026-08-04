@@ -139,7 +139,8 @@ export function sosRateUnitLabel(positionId: string): string {
  * How many opposing scorers define the fantasy environment for a position.
  * Top-1 (best scorer) keeps allowed/G near starter FPTS/G for every position.
  */
-export function sosTopNForPosition(_positionId: string): number {
+export function sosTopNForPosition(positionId: string): number {
+  void positionId;
   return 1;
 }
 

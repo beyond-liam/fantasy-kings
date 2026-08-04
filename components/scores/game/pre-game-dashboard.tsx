@@ -9,6 +9,7 @@ import {
   TableShell,
 } from "@/components/ui/table";
 import { LeadersList } from "@/components/scores/game/leaders-list";
+import { ScheduleTeamLogo } from "@/components/scores/schedule-team-logo";
 import {
   MISSING_VALUE,
   type GameDashboardData,
@@ -98,25 +99,19 @@ function MatchupPredictor({
           }}
         />
         <div className="absolute inset-[22%] flex items-center justify-center gap-1.5">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
+          <ScheduleTeamLogo
             src={awayLogoUrl}
-            alt=""
-            width={28}
-            height={28}
-            className="size-6 object-contain sm:size-7"
+            size={28}
+            className="size-6 sm:size-7"
           />
           <span
             aria-hidden
             className="h-7 w-px shrink-0 border-l border-dashed border-muted-foreground/40"
           />
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
+          <ScheduleTeamLogo
             src={homeLogoUrl}
-            alt=""
-            width={28}
-            height={28}
-            className="size-6 object-contain sm:size-7"
+            size={28}
+            className="size-6 sm:size-7"
           />
         </div>
       </div>

@@ -5,6 +5,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ScheduleTeamLogo } from "@/components/scores/schedule-team-logo";
 import type { ScheduleGame } from "@/lib/espn/scoreboard";
 import {
   formatKickoffDayShort,
@@ -32,12 +33,10 @@ function TeamSide({
         align === "right" && "flex-row-reverse text-right",
       )}
     >
-      <img
+      <ScheduleTeamLogo
         src={side.logoUrl}
-        alt=""
-        width={48}
-        height={48}
-        className="size-12 shrink-0"
+        size={48}
+        className="size-12"
       />
       <div className="min-w-0">
         <p className="truncate text-xs text-muted-foreground">{side.city}</p>
@@ -72,12 +71,10 @@ function MobileScoreboard({ game }: GameScoreboardHeaderProps) {
       {([game.away, game.home] as const).map((side, index) => {
         const isHome = index === 1;
         const logo = (
-          <img
+          <ScheduleTeamLogo
             src={side.logoUrl}
-            alt=""
-            width={40}
-            height={40}
-            className="size-10 shrink-0 object-contain"
+            size={40}
+            className="size-10"
           />
         );
 

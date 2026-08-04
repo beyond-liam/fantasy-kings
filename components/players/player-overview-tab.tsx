@@ -1,6 +1,6 @@
 "use client";
 
-import type { CSSProperties, ReactNode, SVGProps } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { useState } from "react";
 import {
   Bar,

@@ -92,7 +92,7 @@ export async function getClaimContext(
     return { success: false, error: context.error };
   }
 
-  const { league, season, team } = context;
+  const { season, team } = context;
 
   if (!season.waiversEnabled) {
     return { success: false, error: "Waivers are disabled." };
@@ -174,7 +174,7 @@ export async function fileWaiverClaim(
     return { success: false, error: context.error };
   }
 
-  const { user, league, season, team } = context;
+  const { league, season, team } = context;
 
   if (!season.waiversEnabled) {
     return {

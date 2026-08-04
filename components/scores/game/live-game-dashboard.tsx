@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LeadersList } from "@/components/scores/game/leaders-list";
+import { ScheduleTeamLogo } from "@/components/scores/schedule-team-logo";
 import {
   MISSING_VALUE,
   type GameDashboardData,
@@ -159,11 +160,10 @@ export function LiveGameDashboard({ data }: LiveGameDashboardProps) {
                     <TableHead />
                     <TableHead className="text-right">
                       {game.away.logoUrl ? (
-                        <img
+                        <ScheduleTeamLogo
                           src={game.away.logoUrl}
                           alt={game.away.abbreviation}
-                          width={20}
-                          height={20}
+                          size={20}
                           className="ml-auto size-5"
                         />
                       ) : (
@@ -172,11 +172,10 @@ export function LiveGameDashboard({ data }: LiveGameDashboardProps) {
                     </TableHead>
                     <TableHead className="text-right">
                       {game.home.logoUrl ? (
-                        <img
+                        <ScheduleTeamLogo
                           src={game.home.logoUrl}
                           alt={game.home.abbreviation}
-                          width={20}
-                          height={20}
+                          size={20}
                           className="ml-auto size-5"
                         />
                       ) : (
@@ -226,11 +225,9 @@ export function LiveGameDashboard({ data }: LiveGameDashboardProps) {
                     <TableCell className="font-medium">
                       <span className="inline-flex items-center gap-2">
                         {game.away.logoUrl ? (
-                          <img
+                          <ScheduleTeamLogo
                             src={game.away.logoUrl}
-                            alt=""
-                            width={20}
-                            height={20}
+                            size={20}
                             className="size-5"
                           />
                         ) : null}
@@ -254,11 +251,9 @@ export function LiveGameDashboard({ data }: LiveGameDashboardProps) {
                     <TableCell className="font-medium">
                       <span className="inline-flex items-center gap-2">
                         {game.home.logoUrl ? (
-                          <img
+                          <ScheduleTeamLogo
                             src={game.home.logoUrl}
-                            alt=""
-                            width={20}
-                            height={20}
+                            size={20}
                             className="size-5"
                           />
                         ) : null}
@@ -319,12 +314,10 @@ export function LiveGameDashboard({ data }: LiveGameDashboardProps) {
                           className="flex items-start gap-3"
                         >
                           {logo ? (
-                            <img
+                            <ScheduleTeamLogo
                               src={logo}
-                              alt=""
-                              width={20}
-                              height={20}
-                              className="mt-0.5 size-5 shrink-0"
+                              size={20}
+                              className="mt-0.5 size-5"
                             />
                           ) : (
                             <span className="mt-0.5 size-5 shrink-0 text-xs text-muted-foreground">
