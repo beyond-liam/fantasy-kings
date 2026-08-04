@@ -4,6 +4,7 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Cancel01Icon, TickDouble02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { toast } from "sonner";
 import { settingsHref } from "@/lib/leagues/settings-tabs";
 
 import { SettingsFormCard } from "@/components/leagues/settings/settings-form-card";
@@ -153,9 +154,12 @@ export function LeagueSizeSettings({
             : undefined,
       });
       if (!result.success) {
-        setError(result.error ?? "Could not update league size.");
+        const message = result.error ?? "Could not update league size.";
+        setError(message);
+        toast.error(message);
         return;
       }
+      toast.success("League size updated");
       router.push(settingsHref(slug, "league"));
       router.refresh();
     });

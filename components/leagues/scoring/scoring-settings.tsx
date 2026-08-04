@@ -45,6 +45,8 @@ export function ScoringSettings({
   const router = useRouter();
   const [preset, setPreset] = useState(initialPreset);
   const [rules, setRules] = useState(initialRules);
+  const [baselinePreset, setBaselinePreset] = useState(initialPreset);
+  const [baselineRules, setBaselineRules] = useState(initialRules);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -58,28 +60,32 @@ export function ScoringSettings({
     [rules],
   );
   const hasChanges =
-    preset !== initialPreset || !jsonEqual(rules, initialRules);
+    preset !== baselinePreset || !jsonEqual(rules, baselineRules);
 
   const handleSave = () => {
     setError(null);
     startTransition(async () => {
       const result = await updateScoringSettings(slug, {
-        scoringPreset: preset !== initialPreset ? preset : undefined,
+        scoringPreset: preset !== baselinePreset ? preset : undefined,
         scoringRules: rules,
       });
       if (!result.success) {
-        setError(result.error ?? "Could not save scoring settings.");
+        const message = result.error ?? "Could not save scoring settings.";
+        setError(message);
+        toast.error(message);
         return;
       }
 
+      setBaselinePreset(preset);
+      setBaselineRules(rules);
       toast.success("Scoring settings saved");
       router.refresh();
     });
   };
 
   const handleReset = () => {
-    setPreset(initialPreset);
-    setRules(initialRules);
+    setPreset(baselinePreset);
+    setRules(baselineRules);
     setError(null);
   };
 

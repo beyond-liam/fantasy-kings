@@ -4,6 +4,7 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Cancel01Icon, TickDouble02Icon, UserRemove01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { toast } from "sonner";
 
 import { ManagerPresenceIndicator } from "@/components/leagues/presence/manager-presence-badge";
 import { SettingsFormCard } from "@/components/leagues/settings/settings-form-card";
@@ -41,13 +42,16 @@ export function CoCommissionerSettings({
     [candidates],
   );
   const [selected, setSelected] = useState<string[]>(() => [...baseline]);
+  const [savedBaseline, setSavedBaseline] = useState<string[]>(() => [
+    ...baseline,
+  ]);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const selectedSorted = [...selected].toSorted();
   const hasChanges =
-    selectedSorted.length !== baseline.length ||
-    selectedSorted.some((id, index) => id !== baseline[index]);
+    selectedSorted.length !== savedBaseline.length ||
+    selectedSorted.some((id, index) => id !== savedBaseline[index]);
 
   const toggle = (userId: string, checked: boolean) => {
     setSelected((prev) =>
@@ -64,9 +68,13 @@ export function CoCommissionerSettings({
     startTransition(async () => {
       const result = await updateCoCommissioners(slug, selected);
       if (!result.success) {
-        setError(result.error ?? "Could not update co-commissioners.");
+        const message = result.error ?? "Could not update co-commissioners.";
+        setError(message);
+        toast.error(message);
         return;
       }
+      setSavedBaseline(selectedSorted);
+      toast.success("Co-commissioners updated");
       router.push(settingsHref(slug, "league"));
       router.refresh();
     });

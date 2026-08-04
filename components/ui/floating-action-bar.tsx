@@ -14,6 +14,11 @@ type FloatingActionBarProps = {
   open?: boolean;
 };
 
+function prefersReducedMotion() {
+  if (typeof window === "undefined") return false;
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
 /** Fixed bottom bar that wraps its children (centered, intrinsic width). */
 export function FloatingActionBar({
   children,
@@ -34,10 +39,16 @@ export function FloatingActionBar({
   }
 
   useEffect(() => {
-    if (open || phase !== "out") return;
+    if (open || phase !== "out" || !rendered) return;
+
+    if (prefersReducedMotion()) {
+      setRendered(false);
+      return;
+    }
+
     const timeout = window.setTimeout(() => setRendered(false), FAB_MOTION_MS);
     return () => window.clearTimeout(timeout);
-  }, [open, phase]);
+  }, [open, phase, rendered]);
 
   if (!rendered) {
     return null;

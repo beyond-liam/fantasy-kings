@@ -4,6 +4,7 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Cancel01Icon, TickDouble02Icon, UserRemove01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { toast } from "sonner";
 
 import { SettingsFormCard } from "@/components/leagues/settings/settings-form-card";
 import { PageFormActions } from "@/components/layout/page-form-actions";
@@ -50,6 +51,9 @@ export function WaiverOrderSettings({
 }: WaiverOrderSettingsProps) {
   const router = useRouter();
   const [teamIds, setTeamIds] = useState(() => orderedTeamIds(initialTeams));
+  const [baselineIds, setBaselineIds] = useState(() =>
+    orderedTeamIds(initialTeams),
+  );
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -58,10 +62,6 @@ export function WaiverOrderSettings({
     [initialTeams],
   );
 
-  const baselineIds = useMemo(
-    () => orderedTeamIds(initialTeams),
-    [initialTeams],
-  );
   const hasChanges =
     teamIds.length !== baselineIds.length ||
     teamIds.some((id, index) => id !== baselineIds[index]);
@@ -79,15 +79,19 @@ export function WaiverOrderSettings({
     startTransition(async () => {
       const result = await updateWaiverOrder(slug, teamIds);
       if (!result.success) {
-        setError(result.error ?? "Could not save waiver order.");
+        const message = result.error ?? "Could not save waiver order.";
+        setError(message);
+        toast.error(message);
         return;
       }
+      setBaselineIds(teamIds);
+      toast.success("Waiver order saved");
       router.refresh();
     });
   };
 
   const handleReset = () => {
-    setTeamIds(orderedTeamIds(initialTeams));
+    setTeamIds(baselineIds);
     setError(null);
   };
 

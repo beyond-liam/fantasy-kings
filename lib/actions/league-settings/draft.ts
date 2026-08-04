@@ -88,7 +88,7 @@ export async function updateDraftConfig(
   // Apply league autopick default to all teams.
   await db
     .update(teams)
-    .set({ autoPickEnabled: next.autoPickEnabled })
+    .set({ autoPickEnabled: afterSettings.autoPickEnabled })
     .where(eq(teams.leagueSeasonId, season.id));
 
   await logSettingsUpdated({

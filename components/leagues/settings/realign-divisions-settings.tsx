@@ -28,6 +28,7 @@ import {
   TickDouble02Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { toast } from "sonner";
 import { settingsHref } from "@/lib/leagues/settings-tabs";
 
 import { SettingsFormCard } from "@/components/leagues/settings/settings-form-card";
@@ -285,9 +286,12 @@ export function RealignDivisionsSettings({
     startTransition(async () => {
       const result = await realignDivisions(slug, assignments);
       if (!result.success) {
-        setError(result.error ?? "Could not realign divisions.");
+        const message = result.error ?? "Could not realign divisions.";
+        setError(message);
+        toast.error(message);
         return;
       }
+      toast.success("Divisions realigned");
       router.push(settingsHref(slug, "league"));
       router.refresh();
     });

@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import type { DraftSettings } from "@/db/schema/league-seasons";
+import { applyLocalTime, formatLocalTime } from "@/lib/datetime/local-time";
 import {
   pickTimeToSeconds,
   secondsToPickTime,
@@ -111,6 +112,30 @@ export function toPersistedDraftSettings(
     // Auto-pick only applies when there is a pick clock.
     autoPickEnabled: pickTimeLimitEnabled ? values.autoPickEnabled : false,
     pickTimeLimitEnabled,
+  };
+}
+
+/**
+ * Align form state with what `updateDraftConfig` persists so dirty checks
+ * clear immediately after save (without waiting on `router.refresh()` props).
+ */
+export function normalizeDraftConfigFormValues(
+  values: DraftConfigFormValues,
+): DraftConfigFormValues {
+  const persisted = toPersistedDraftSettings(values);
+  const start = new Date(values.draftStartAt);
+  const normalizedStart = Number.isNaN(start.getTime())
+    ? values.draftStartAt
+    : applyLocalTime(start, formatLocalTime(start)).toISOString();
+
+  return {
+    draftType: resolveDraftType(values.draftType),
+    draftStartAt: normalizedStart,
+    draftStyle: persisted.style,
+    pickTimeLimitEnabled: Boolean(persisted.pickTimeLimitEnabled),
+    pickTimeLimit: values.pickTimeLimit,
+    pickTimeUnit: values.pickTimeUnit,
+    autoPickEnabled: persisted.autoPickEnabled,
   };
 }
 

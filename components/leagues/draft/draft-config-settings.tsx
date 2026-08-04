@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Cancel01Icon, TickDouble02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { toast } from "sonner";
 
 import { SettingsFormCard } from "@/components/leagues/settings/settings-form-card";
 import { PageFormActions } from "@/components/layout/page-form-actions";
@@ -29,7 +30,11 @@ import { Switch } from "@/components/ui/switch";
 import { TimePicker } from "@/components/ui/time-picker";
 import { updateDraftConfig } from "@/lib/actions/league-settings";
 import { applyLocalTime, formatLocalTime } from "@/lib/datetime/local-time";
-import type { DraftConfigFormValues } from "@/lib/leagues/draft-settings";
+import { jsonEqual } from "@/lib/json-equal";
+import {
+  normalizeDraftConfigFormValues,
+  type DraftConfigFormValues,
+} from "@/lib/leagues/draft-settings";
 
 const PICK_TIME_UNIT_ITEMS = [
   { value: "minutes", label: "Minutes" },
@@ -52,25 +57,28 @@ type DraftConfigSettingsProps = {
   initialValues: DraftConfigFormValues;
 };
 
-function valuesEqual(a: DraftConfigFormValues, b: DraftConfigFormValues) {
-  return JSON.stringify(a) === JSON.stringify(b);
-}
-
 export function DraftConfigSettings({
   slug,
   initialValues,
 }: DraftConfigSettingsProps) {
   const router = useRouter();
-  const [values, setValues] = useState(initialValues);
+  const [baseline, setBaseline] = useState(() =>
+    normalizeDraftConfigFormValues(initialValues),
+  );
+  const [values, setValues] = useState(() =>
+    normalizeDraftConfigFormValues(initialValues),
+  );
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  const hasChanges = !valuesEqual(values, initialValues);
+  const hasChanges = !jsonEqual(values, baseline);
   const draftStartAt = new Date(values.draftStartAt);
   const draftTime = formatLocalTime(draftStartAt);
 
   const patch = (next: Partial<DraftConfigFormValues>) => {
-    setValues((current) => ({ ...current, ...next }));
+    setValues((current) =>
+      normalizeDraftConfigFormValues({ ...current, ...next }),
+    );
   };
 
   const updateDraftStartAt = (date: Date, time: string) => {
@@ -80,17 +88,23 @@ export function DraftConfigSettings({
   const handleSave = () => {
     setError(null);
     startTransition(async () => {
-      const result = await updateDraftConfig(slug, values);
+      const next = normalizeDraftConfigFormValues(values);
+      const result = await updateDraftConfig(slug, next);
       if (!result.success) {
-        setError(result.error ?? "Could not save draft settings.");
+        const message = result.error ?? "Could not save draft settings.";
+        setError(message);
+        toast.error(message);
         return;
       }
+      setValues(next);
+      setBaseline(next);
+      toast.success("Draft settings saved");
       router.refresh();
     });
   };
 
   const handleReset = () => {
-    setValues(initialValues);
+    setValues(baseline);
     setError(null);
   };
 

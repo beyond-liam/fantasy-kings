@@ -4,6 +4,7 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { AdjustPositionIcon, Cancel01Icon, TickDouble02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { toast } from "sonner";
 
 import { SettingsFormCard } from "@/components/leagues/settings/settings-form-card";
 import { PageFormActions } from "@/components/layout/page-form-actions";
@@ -56,6 +57,9 @@ export function DraftOrderSettings({
   const router = useRouter();
   const [mode, setMode] = useState<ShuffleMode>("manual");
   const [teamIds, setTeamIds] = useState(() => orderedTeamIds(initialTeams));
+  const [baselineIds, setBaselineIds] = useState(() =>
+    orderedTeamIds(initialTeams),
+  );
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -64,10 +68,6 @@ export function DraftOrderSettings({
     [initialTeams],
   );
 
-  const baselineIds = useMemo(
-    () => orderedTeamIds(initialTeams),
-    [initialTeams],
-  );
   const hasChanges =
     mode === "random" ||
     teamIds.length !== baselineIds.length ||
@@ -90,22 +90,25 @@ export function DraftOrderSettings({
           : await updateDraftOrder(slug, teamIds);
 
       if (!result.success) {
-        setError(result.error ?? "Could not save draft order.");
+        const message = result.error ?? "Could not save draft order.";
+        setError(message);
+        toast.error(message);
         return;
       }
 
-      if (mode === "random" && result.teamIds) {
-        setTeamIds(result.teamIds);
-        setMode("manual");
-      }
-
+      const nextIds =
+        mode === "random" && result.teamIds ? result.teamIds : teamIds;
+      setTeamIds(nextIds);
+      setBaselineIds(nextIds);
+      setMode("manual");
+      toast.success("Draft order saved");
       router.refresh();
     });
   };
 
   const handleReset = () => {
     setMode("manual");
-    setTeamIds(orderedTeamIds(initialTeams));
+    setTeamIds(baselineIds);
     setError(null);
   };
 
