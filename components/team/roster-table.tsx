@@ -234,7 +234,12 @@ export function TeamRosterTable({
             <TableBody>
               {slots.map((slot) => (
                 <TableRow key={slot.key}>
-                  <TableCell className="max-md:sticky max-md:left-0 max-md:z-20 max-md:bg-background max-md:shadow-[4px_0_8px_-4px_rgba(0,0,0,0.45)] max-md:group-hover/tr:bg-muted/50">
+                  <TableCell
+                    className={cn(
+                      "max-md:sticky max-md:left-0 max-md:z-20 max-md:overflow-hidden max-md:shadow-[4px_0_8px_-4px_rgba(0,0,0,0.45)]",
+                      "max-md:bg-background max-md:group-hover/tr:bg-[color-mix(in_oklab,var(--muted)_50%,var(--background))] max-md:group-data-[state=selected]/tr:bg-muted",
+                    )}
+                  >
                     <div className="flex min-w-0 items-center gap-2">
                       <RosterSlotSwap
                         slotPositionId={slot.slotPositionId}

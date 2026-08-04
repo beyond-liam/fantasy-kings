@@ -16,6 +16,7 @@ import {
   ownerRemovalReasonLabel,
   type OwnerRemovalReason,
 } from "@/lib/leagues/membership";
+import { formatPersonName } from "@/lib/account/person-name";
 import { isPrimaryCommissioner } from "@/lib/queries/leagues";
 
 import {
@@ -52,6 +53,9 @@ export async function removeLeagueOwner(
     .select({
       userId: leagueMembers.userId,
       role: leagueMembers.role,
+      firstName: profiles.firstName,
+      lastName: profiles.lastName,
+      username: profiles.username,
       displayName: profiles.displayName,
     })
     .from(leagueMembers)
@@ -84,7 +88,7 @@ export async function removeLeagueOwner(
     .limit(1);
 
   const reasonLabel = ownerRemovalReasonLabel(reason ?? null);
-  const displayName = targetMember.displayName?.trim() || "Owner";
+  const displayName = formatPersonName(targetMember);
 
   await db.transaction(async (tx) => {
     if (targetTeam) {

@@ -15,6 +15,7 @@ import {
   userSettingsFormSchema,
   type UserSettingsFormValues,
 } from "@/lib/account/user-settings";
+import { formatPersonName } from "@/lib/account/person-name";
 import { requireSessionUser } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { createClient } from "@/lib/supabase/server";
@@ -62,6 +63,9 @@ export async function updateUserSettings(
   const user = await requireSessionUser();
   const values = parsed.data;
   const username = values.username.trim();
+  const firstName = values.firstName.trim() || null;
+  const lastName = values.lastName.trim() || null;
+  const displayName = formatPersonName({ firstName, lastName, username });
 
   const [taken] = await db
     .select({ id: profiles.id })
@@ -98,9 +102,9 @@ export async function updateUserSettings(
     .update(profiles)
     .set({
       username,
-      displayName: username,
-      firstName: values.firstName.trim() || null,
-      lastName: values.lastName.trim() || null,
+      displayName,
+      firstName,
+      lastName,
       avatarUrl: nextAvatarUrl,
     })
     .where(eq(profiles.id, user.id));

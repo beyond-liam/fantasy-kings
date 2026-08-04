@@ -126,10 +126,7 @@ export function PlayerProfilePanel({ profile }: PlayerProfilePanelProps) {
         </TabsContent>
 
         <TabsContent value="game-log" className="mt-0">
-          <PlayerGameLogTable
-            profile={profile}
-            stickyBgClassName="bg-background"
-          />
+          <PlayerGameLogTable profile={profile} />
         </TabsContent>
 
         {isPending ? (

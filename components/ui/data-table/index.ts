@@ -1,4 +1,4 @@
-export { DataTable } from "@/components/ui/data-table/data-table";
+export { DataTable, DATA_TABLE_STICKY_CELL_SURFACE } from "@/components/ui/data-table/data-table";
 export { DataTableColumnHeader } from "@/components/ui/data-table/data-table-column-header";
 export {
   DataTableHeaderProvider,

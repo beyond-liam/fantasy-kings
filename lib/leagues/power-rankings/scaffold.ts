@@ -1,4 +1,7 @@
-import type { LeagueStandingsMember } from "@/lib/leagues/standings";
+import {
+  standingsOwnerName,
+  type LeagueStandingsMember,
+} from "@/lib/leagues/standings";
 import {
   powerScoreTone,
   scalePowerScoresToBarometer,
@@ -43,7 +46,7 @@ export function buildScaffoldPowerRankingRows(
       teamId: team.teamId,
       teamPublicId: team.teamPublicId ?? null,
       teamName: team.teamName?.trim() || "Team",
-      ownerName: team.displayName?.trim() || "Manager",
+      ownerName: standingsOwnerName(team, "Manager"),
       ownerUserId: team.userId ?? null,
       logoUrl: team.logoUrl ?? null,
       powerScore,

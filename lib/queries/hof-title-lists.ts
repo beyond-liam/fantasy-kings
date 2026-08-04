@@ -27,7 +27,10 @@ import {
 } from "@/lib/leagues/playoff-settings";
 import { getPlayoffWeekRange } from "@/lib/leagues/season-calendar";
 import { buildLeagueStandings } from "@/lib/leagues/standings-from-matchups";
-import type { LeagueStandingsMember } from "@/lib/leagues/standings";
+import {
+  standingsOwnerName,
+  type LeagueStandingsMember,
+} from "@/lib/leagues/standings";
 import { getLeagueHomeData } from "@/lib/queries/leagues";
 import { db } from "@/lib/db";
 import { divisions, matchups } from "@/db/schema";
@@ -43,9 +46,7 @@ function hofTeamsFromStandings(
       teamId: team.teamId,
       teamPublicId: team.teamPublicId ?? null,
       teamName: team.teamName ?? "Team",
-      ownerName: team.userId
-        ? team.displayName?.trim() || "Manager"
-        : "Unclaimed",
+      ownerName: standingsOwnerName(team, "Unclaimed"),
       logoUrl: team.logoUrl ?? null,
       claimed: Boolean(team.userId),
       divisionId: team.divisionId ?? null,

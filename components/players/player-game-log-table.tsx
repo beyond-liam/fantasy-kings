@@ -28,8 +28,6 @@ type GameLogRow = {
 
 type PlayerGameLogTableProps = {
   profile: PlayerProfile;
-  /** Sticky cells use dialog bg in modal; page content uses background. */
-  stickyBgClassName?: string;
 };
 
 function formatPts(value: number | null | undefined) {
@@ -77,10 +75,7 @@ const FINISH_BADGE_BORDER: Record<
   destructive: "border-destructive/40",
 };
 
-export function PlayerGameLogTable({
-  profile,
-  stickyBgClassName = "bg-dialog",
-}: PlayerGameLogTableProps) {
+export function PlayerGameLogTable({ profile }: PlayerGameLogTableProps) {
   const [sorting, setSorting] = useState<SortingState>([
     { id: "week", desc: false },
   ]);
@@ -134,7 +129,7 @@ export function PlayerGameLogTable({
         meta: {
           width: 72,
           sticky: "left",
-          cellClassName: cn("tabular-nums", stickyBgClassName),
+          cellClassName: "tabular-nums",
         },
       },
       {
@@ -156,7 +151,6 @@ export function PlayerGameLogTable({
         meta: {
           width: 96,
           sticky: "left",
-          cellClassName: stickyBgClassName,
         },
       },
       {
@@ -279,7 +273,7 @@ export function PlayerGameLogTable({
     }
 
     return cols;
-  }, [profile.primaryPositionId, statColumns, stickyBgClassName]);
+  }, [profile.primaryPositionId, statColumns]);
 
   const table = useDataTable({
     data,

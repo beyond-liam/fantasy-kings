@@ -10,6 +10,7 @@ import {
   teams,
 } from "@/db/schema";
 import { profiles } from "@/db/schema/users";
+import { formatPersonName } from "@/lib/account/person-name";
 import { db } from "@/lib/db";
 import { getDraftBySeasonId } from "@/lib/queries/draft";
 import type { LeagueStandingsMember } from "@/lib/leagues/standings";
@@ -451,7 +452,12 @@ export async function getJoinPreview(inviteCode: string) {
     .where(eq(leagueMembers.leagueId, league.id));
 
   const [commissioner] = await db
-    .select({ displayName: profiles.displayName })
+    .select({
+      firstName: profiles.firstName,
+      lastName: profiles.lastName,
+      username: profiles.username,
+      displayName: profiles.displayName,
+    })
     .from(profiles)
     .where(eq(profiles.id, league.commissionerId))
     .limit(1);
@@ -464,6 +470,9 @@ export async function getJoinPreview(inviteCode: string) {
           teamPublicId: teams.publicId,
           userId: teams.userId,
           displayName: profiles.displayName,
+          firstName: profiles.firstName,
+          lastName: profiles.lastName,
+          username: profiles.username,
           draftSlot: teams.draftSlot,
           teamCreatedAt: teams.createdAt,
           waiverPriority: teams.waiverPriority,
@@ -480,7 +489,9 @@ export async function getJoinPreview(inviteCode: string) {
     league,
     season,
     memberCount: Number(memberCountRow?.value ?? 0),
-    commissionerName: commissioner?.displayName ?? "Commissioner",
+    commissionerName: commissioner
+      ? formatPersonName(commissioner)
+      : "Commissioner",
     acceptingMembers: season?.status === "recruiting",
     standingsTeams,
   };
@@ -507,6 +518,9 @@ export const getLeagueHomeData = cache(async (slug: string, userId: string) => {
         userId: leagueMembers.userId,
         role: leagueMembers.role,
         displayName: profiles.displayName,
+        firstName: profiles.firstName,
+        lastName: profiles.lastName,
+        username: profiles.username,
         teamId: teams.id,
         teamName: teams.name,
         teamSlug: teams.slug,
@@ -537,6 +551,9 @@ export const getLeagueHomeData = cache(async (slug: string, userId: string) => {
             teamPublicId: teams.publicId,
             userId: teams.userId,
             displayName: profiles.displayName,
+            firstName: profiles.firstName,
+            lastName: profiles.lastName,
+            username: profiles.username,
             draftSlot: teams.draftSlot,
             teamCreatedAt: teams.createdAt,
             waiverPriority: teams.waiverPriority,

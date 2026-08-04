@@ -5,8 +5,9 @@ export const profiles = pgTable(
   "profiles",
   {
     id: uuid("id").primaryKey(),
-    /** Public handle shown in leagues; kept in sync with displayName. */
+    /** Public handle (@username). */
     username: text("username"),
+    /** Denormalized person label (first + last); prefer formatPersonName at read time. */
     displayName: text("display_name"),
     firstName: text("first_name"),
     lastName: text("last_name"),

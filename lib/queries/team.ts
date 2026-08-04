@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { cache } from "react";
 
 import { profiles, teams } from "@/db/schema";
+import { formatPersonName } from "@/lib/account/person-name";
 import { db } from "@/lib/db";
 import { ensureSeasonTeamPublicIds } from "@/lib/leagues/ensure-public-ids";
 import { ensureSeasonTeamSlugs } from "@/lib/leagues/team-slug";
@@ -18,6 +19,22 @@ export type LeagueTeamDetail = {
   waiverPriority: number;
 };
 
+const ownerProfileSelect = {
+  firstName: profiles.firstName,
+  lastName: profiles.lastName,
+  username: profiles.username,
+  displayName: profiles.displayName,
+} as const;
+
+function ownerNameFromRow(row: {
+  firstName: string | null;
+  lastName: string | null;
+  username: string | null;
+  displayName: string | null;
+}): string {
+  return formatPersonName(row);
+}
+
 export const getLeagueTeamByPublicId = cache(
   async (
     leagueSeasonId: string,
@@ -33,8 +50,7 @@ export const getLeagueTeamByPublicId = cache(
         publicId: teams.publicId,
         userId: teams.userId,
         leagueSeasonId: teams.leagueSeasonId,
-        ownerName: profiles.username,
-        ownerDisplayName: profiles.displayName,
+        ...ownerProfileSelect,
         logoUrl: teams.logoUrl,
         waiverPriority: teams.waiverPriority,
       })
@@ -59,7 +75,7 @@ export const getLeagueTeamByPublicId = cache(
       publicId: row.publicId,
       userId: row.userId,
       leagueSeasonId: row.leagueSeasonId,
-      ownerName: row.ownerName?.trim() || row.ownerDisplayName?.trim() || null,
+      ownerName: ownerNameFromRow(row),
       logoUrl: row.logoUrl,
       waiverPriority: row.waiverPriority,
     };
@@ -85,8 +101,7 @@ export const getLeagueTeamBySlug = cache(
         publicId: teams.publicId,
         userId: teams.userId,
         leagueSeasonId: teams.leagueSeasonId,
-        ownerName: profiles.username,
-        ownerDisplayName: profiles.displayName,
+        ...ownerProfileSelect,
         logoUrl: teams.logoUrl,
         waiverPriority: teams.waiverPriority,
       })
@@ -111,7 +126,7 @@ export const getLeagueTeamBySlug = cache(
       publicId: row.publicId,
       userId: row.userId,
       leagueSeasonId: row.leagueSeasonId,
-      ownerName: row.ownerName?.trim() || row.ownerDisplayName?.trim() || null,
+      ownerName: ownerNameFromRow(row),
       logoUrl: row.logoUrl,
       waiverPriority: row.waiverPriority,
     };
@@ -133,8 +148,7 @@ export const getLeagueTeamById = cache(
         publicId: teams.publicId,
         userId: teams.userId,
         leagueSeasonId: teams.leagueSeasonId,
-        ownerName: profiles.username,
-        ownerDisplayName: profiles.displayName,
+        ...ownerProfileSelect,
         logoUrl: teams.logoUrl,
         waiverPriority: teams.waiverPriority,
       })
@@ -156,7 +170,7 @@ export const getLeagueTeamById = cache(
       publicId: row.publicId,
       userId: row.userId,
       leagueSeasonId: row.leagueSeasonId,
-      ownerName: row.ownerName?.trim() || row.ownerDisplayName?.trim() || null,
+      ownerName: ownerNameFromRow(row),
       logoUrl: row.logoUrl,
       waiverPriority: row.waiverPriority,
     };

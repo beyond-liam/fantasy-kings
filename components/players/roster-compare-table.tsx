@@ -22,15 +22,6 @@ type RosterCompareTableProps = {
 
 const PLACEHOLDER = "—";
 
-/** Sticky pin only — row paint is applied to every `td` so colors stay in sync. */
-const STICKY_PLAYER_CELL =
-  "sticky left-0 z-20 shadow-[4px_0_8px_-4px_rgba(0,0,0,0.45)]";
-const STICKY_PLAYER_HEADER =
-  "sticky left-0 z-30 shadow-[4px_0_8px_-4px_rgba(0,0,0,0.45)]";
-
-/** Same surface on all cells (incl. sticky) — default + hover. */
-const ROW_CELLS =
-  "[&>td]:bg-background [&>td]:group-hover/tr:bg-muted";
 /** Info accent via ::before (sticky already positions abs children — do not add `relative`). */
 const VIEWED_ROW_CELLS =
   "[&>td]:bg-[color-mix(in_oklab,var(--primary)_12%,var(--background))] [&>td]:group-hover/tr:bg-[color-mix(in_oklab,var(--primary)_12%,var(--background))] [&>td:first-child]:before:pointer-events-none [&>td:first-child]:before:absolute [&>td:first-child]:before:inset-y-0 [&>td:first-child]:before:left-0 [&>td:first-child]:before:z-10 [&>td:first-child]:before:w-[3px] [&>td:first-child]:before:bg-info [&>td:first-child]:before:content-['']";
@@ -235,10 +226,8 @@ export function RosterCompareTable({
         },
         meta: {
           width: 176,
-          // Manual pin — DataTable sticky is fine for opaque pins; this row
-          // uses custom viewed-row paints that need the same sticky surface.
-          headerClassName: STICKY_PLAYER_HEADER,
-          cellClassName: cn("align-top min-w-[11rem]", STICKY_PLAYER_CELL),
+          sticky: "left",
+          cellClassName: "align-top min-w-[11rem]",
         },
       },
       numericColumn({
@@ -410,9 +399,8 @@ export function RosterCompareTable({
       showPagination={false}
       emptyMessage="No roster mates at this position to compare."
       layout="fixed"
-      headerClassName="bg-background font-semibold"
       getRowClassName={(row) =>
-        cn(ROW_CELLS, row.original.isViewed && VIEWED_ROW_CELLS)
+        row.original.isViewed ? VIEWED_ROW_CELLS : undefined
       }
     />
   );

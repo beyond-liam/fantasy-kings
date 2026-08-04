@@ -13,6 +13,7 @@ import {
   teams,
 } from "@/db/schema";
 import { requireSessionUser } from "@/lib/auth/session";
+import { formatPersonName } from "@/lib/account/person-name";
 import { db } from "@/lib/db";
 import {
   teamIdentityFormSchema,
@@ -171,6 +172,9 @@ export async function dropOutOfLeague(slug: string): Promise<ActionResult> {
   const [membership] = await db
     .select({
       role: leagueMembers.role,
+      firstName: profiles.firstName,
+      lastName: profiles.lastName,
+      username: profiles.username,
       displayName: profiles.displayName,
     })
     .from(leagueMembers)
@@ -213,7 +217,7 @@ export async function dropOutOfLeague(slug: string): Promise<ActionResult> {
   }
 
   const team = await getUserTeamForSeason(season.id, user.id);
-  const displayName = membership.displayName?.trim() || "Owner";
+  const displayName = formatPersonName(membership);
 
   if (isPrimary && !successorId) {
     return {

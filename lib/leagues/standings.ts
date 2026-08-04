@@ -1,4 +1,5 @@
 import { resolveFaabRemaining } from "@/lib/leagues/waivers/faab";
+import { formatPersonName } from "@/lib/account/person-name";
 
 export type StandingsFormGame = {
   result: "W" | "L" | "T";
@@ -46,7 +47,11 @@ export type LeagueStandingsMember = {
   teamId: string | null;
   teamName: string | null;
   teamPublicId?: string | null;
+  /** @deprecated Prefer firstName/lastName via formatPersonName. */
   displayName: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+  username?: string | null;
   /** When set, team is claimed by this user. */
   userId?: string | null;
   draftSlot: number | null;
@@ -56,6 +61,18 @@ export type LeagueStandingsMember = {
   logoUrl?: string | null;
   divisionId?: string | null;
 };
+
+/** Owner label for a standings/power-rankings member row. */
+export function standingsOwnerName(
+  member: Pick<
+    LeagueStandingsMember,
+    "userId" | "firstName" | "lastName" | "username" | "displayName"
+  >,
+  unclaimedLabel = "Available",
+): string {
+  if (!member.userId) return unclaimedLabel;
+  return formatPersonName(member);
+}
 
 export type BuildStandingsOptions = {
   teamCount: number;
@@ -112,9 +129,7 @@ export function buildPlaceholderStandings(
       teamPublicId: member.teamPublicId?.trim() || null,
       claimed: Boolean(member.userId),
       ownerUserId: member.userId ?? null,
-      ownerName: member.userId
-        ? member.displayName?.trim() || "Manager"
-        : "Available",
+      ownerName: standingsOwnerName(member),
       draftSlot: member.draftSlot,
       teamCreatedAt: member.teamCreatedAt,
       waiverPriority: member.waiverPriority ?? null,

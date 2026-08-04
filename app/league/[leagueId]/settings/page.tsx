@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { LeagueSettings } from "@/components/leagues/league-settings";
+import { formatPersonName } from "@/lib/account/person-name";
 import { getSessionUser } from "@/lib/auth/session";
 import {
   getLeagueHomeData,
@@ -66,7 +67,7 @@ export default async function LeagueSettingsPage({
   const owners = data.members
     .map((member) => ({
       userId: member.userId,
-      displayName: member.displayName?.trim() || "Manager",
+      displayName: formatPersonName(member),
       teamName: member.teamName?.trim() || "Unnamed team",
       teamId: member.teamId,
       role: member.role as "commissioner" | "co_commissioner" | "member",

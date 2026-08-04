@@ -12,7 +12,10 @@ import {
   type ScoringPreset,
 } from "@/lib/leagues/scoring";
 import { getSeasonOpfByTeamId } from "@/lib/leagues/team-week-stats";
-import type { LeagueStandingsMember } from "@/lib/leagues/standings";
+import {
+  standingsOwnerName,
+  type LeagueStandingsMember,
+} from "@/lib/leagues/standings";
 import {
   getLeagueHomeStandingsBundle,
   type LeagueHomeStandingsBundleInput,
@@ -108,7 +111,7 @@ export async function LeagueHomeOverviewTab({
               teamId: t.teamId!,
               teamPublicId: t.teamPublicId ?? null,
               teamName: t.teamName ?? "Team",
-              ownerName: t.displayName?.trim() || "Manager",
+              ownerName: standingsOwnerName(t, "Manager"),
               ownerUserId: t.userId,
               logoUrl: t.logoUrl ?? null,
             })),

@@ -21,6 +21,7 @@ import {
 import { getLeagueBySlug, getLeagueMembership, getLeagueSeason } from "@/lib/queries/leagues";
 import { getRankedPlayers } from "@/lib/queries/players";
 import { getNflState } from "@/lib/sleeper/api";
+import { formatPersonName } from "@/lib/account/person-name";
 
 export type LeaguePositionStatsData = {
   leagueSlug: string;
@@ -87,6 +88,9 @@ function teamIdentityRows(
     teamName: string;
     teamPublicId: string | null;
     userId: string | null;
+    firstName: string | null;
+    lastName: string | null;
+    username: string | null;
     displayName: string | null;
     logoUrl: string | null;
   }>,
@@ -98,9 +102,7 @@ function teamIdentityRows(
       teamPublicId: team.teamPublicId,
       teamName: team.teamName,
       ownerUserId: team.userId,
-      ownerName: claimed
-        ? (team.displayName?.trim() || "Manager")
-        : "Unclaimed",
+      ownerName: claimed ? formatPersonName(team) : "Unclaimed",
       logoUrl: team.logoUrl,
       claimed,
       starters: [] as Array<{ slotPositionId: string; points: number }>,
@@ -139,6 +141,9 @@ export const getLeaguePositionStats = cache(
         teamName: teams.name,
         teamPublicId: teams.publicId,
         userId: teams.userId,
+        firstName: profiles.firstName,
+        lastName: profiles.lastName,
+        username: profiles.username,
         displayName: profiles.displayName,
         logoUrl: teams.logoUrl,
       })
@@ -321,9 +326,7 @@ export const getLeaguePositionStats = cache(
         teamPublicId: team.teamPublicId,
         teamName: team.teamName,
         ownerUserId: team.userId,
-        ownerName: claimed
-          ? (team.displayName?.trim() || "Manager")
-          : "Unclaimed",
+        ownerName: claimed ? formatPersonName(team) : "Unclaimed",
         logoUrl: team.logoUrl,
         claimed,
         starters,

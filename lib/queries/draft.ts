@@ -11,6 +11,7 @@ import {
   teams,
 } from "@/db/schema";
 import { profiles } from "@/db/schema/users";
+import { formatPersonName } from "@/lib/account/person-name";
 import { db } from "@/lib/db";
 import {
   buildDraftSchedule,
@@ -248,10 +249,18 @@ export async function getDraftRoomData(input: {
 export async function getTeamOwnersByIds(userIds: string[]) {
   if (userIds.length === 0) return new Map<string, string | null>();
   const rows = await db
-    .select({ id: profiles.id, displayName: profiles.displayName })
+    .select({
+      id: profiles.id,
+      firstName: profiles.firstName,
+      lastName: profiles.lastName,
+      username: profiles.username,
+      displayName: profiles.displayName,
+    })
     .from(profiles)
     .where(inArray(profiles.id, userIds));
-  return new Map(rows.map((row) => [row.id, row.displayName]));
+  return new Map(
+    rows.map((row) => [row.id, formatPersonName(row)]),
+  );
 }
 
 export async function getDraftedRosterForTeam(teamId: string) {

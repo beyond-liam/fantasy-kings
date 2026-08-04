@@ -1,5 +1,8 @@
 import { LeagueHallOfFame } from "@/components/leagues/hall-of-fame/league-hall-of-fame";
-import type { LeagueStandingsMember } from "@/lib/leagues/standings";
+import {
+  standingsOwnerName,
+  type LeagueStandingsMember,
+} from "@/lib/leagues/standings";
 import {
   emptyLeagueHallOfFame,
   loadLeagueHallOfFame,
@@ -49,9 +52,7 @@ export async function LeagueHomeHofTab({
     teamId: team.teamId!,
     teamPublicId: team.teamPublicId ?? null,
     teamName: team.teamName ?? "Team",
-    ownerName: team.userId
-      ? (team.displayName?.trim() || "Manager")
-      : "Unclaimed",
+    ownerName: standingsOwnerName(team, "Unclaimed"),
     logoUrl: team.logoUrl ?? null,
     claimed: Boolean(team.userId && team.teamId),
     divisionId: team.divisionId ?? null,

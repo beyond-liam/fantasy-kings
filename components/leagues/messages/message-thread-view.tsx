@@ -273,8 +273,8 @@ export function MessageThreadView({
         <div className="relative min-h-0 flex-1">
           <MessageScroller className="absolute inset-0">
             <MessageScrollerViewport>
-              <MessageScrollerContent className="gap-6 px-3 py-2 md:px-6">
-                <div className="flex flex-col gap-3 pt-4 md:pt-6">
+              <MessageScrollerContent className="justify-start gap-6 px-3 py-2 md:px-6">
+                <div className="flex shrink-0 flex-col gap-3 pt-4 md:pt-6">
                   <Button
                     nativeButton={false}
                     variant="ghost"
@@ -301,6 +301,7 @@ export function MessageThreadView({
                   </div>
                 </div>
 
+                <div className="flex min-h-0 flex-1 flex-col justify-end gap-6">
                 {groups.map((group) => {
                   const first = group[0]!;
                   const teamLabel = first.authorTeamName ?? "Manager";
@@ -479,6 +480,7 @@ export function MessageThreadView({
                     );
                   });
                 })}
+                </div>
               </MessageScrollerContent>
             </MessageScrollerViewport>
             <MessageScrollerButton />

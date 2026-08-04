@@ -7,6 +7,7 @@ import { settingsHref } from "@/lib/leagues/settings-tabs";
 
 import { CoCommissionerSettings } from "@/components/leagues/settings/co-commissioner-settings";
 import { Button } from "@/components/ui/button";
+import { formatPersonName } from "@/lib/account/person-name";
 import { getSessionUser } from "@/lib/auth/session";
 import {
   getLeagueHomeData,
@@ -43,7 +44,7 @@ export default async function CoCommissionersPage({
   const owners = data.members
     .map((member) => ({
       userId: member.userId,
-      displayName: member.displayName?.trim() || "Manager",
+      displayName: formatPersonName(member),
       teamName: member.teamName?.trim() || "Unnamed team",
       teamId: member.teamId,
       role: member.role as "commissioner" | "co_commissioner" | "member",

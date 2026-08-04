@@ -3,6 +3,7 @@ import {
   loadMyTeamNflContext,
   withPlayerOpponent,
 } from "@/components/team/panels/load-my-team-nfl-context";
+import { formatPersonName } from "@/lib/account/person-name";
 import { ensureProfile } from "@/lib/auth/session";
 import type { RosterSlotConfig, WaiverWireSettings } from "@/db/schema/league-seasons";
 import type { ScoringRuleDefinition } from "@/lib/leagues/scoring";
@@ -158,10 +159,7 @@ export async function MyTeamRosterPanel({
         waiverPriorityLabel: season.waiversEnabled
           ? formatWaiverPriority(team.waiverPriority)
           : null,
-        ownerName:
-          profile.username?.trim() ||
-          profile.displayName?.trim() ||
-          null,
+        ownerName: formatPersonName(profile),
         ownerUserId: user.id,
         previous,
         current,
