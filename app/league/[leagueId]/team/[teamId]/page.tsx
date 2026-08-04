@@ -50,7 +50,9 @@ import { getDraftedRosterForTeam } from "@/lib/queries/draft";
 import { getLeagueHomeData } from "@/lib/queries/leagues";
 import { getTeamSchedule } from "@/lib/queries/matchups";
 import { getRankedPlayers } from "@/lib/queries/players";
+import { getRosterEvaluationByMode } from "@/lib/queries/roster-evaluation";
 import { getTeamStatsCharts } from "@/lib/queries/team-stats-charts";
+import { getRosterEvaluationByModeMock } from "@/lib/leagues/roster-evaluation/mock";
 import { getTeamStatsChartsMock } from "@/lib/leagues/team-stats-charts-mock";
 import { getPlayerRosterRatesMap } from "@/lib/queries/player-roster-rates";
 import { enrichScheduleWinChances } from "@/lib/queries/schedule-win-chance";
@@ -298,22 +300,31 @@ export default async function LeagueTeamPage({
   }
 
   if (needsStatsPanel) {
-    const seasonProjections =
-      rosterPlayerIds.length > 0
-        ? await getRankedPlayers({
-            season: nflSeason,
-            week: 0,
-            kind: "projection",
-            scoringRules,
-            playerIds: rosterPlayerIds,
-          }).catch(() => [])
-        : [];
-    const charts = useChartsMock
-      ? getTeamStatsChartsMock()
-      : await getTeamStatsCharts({
-          leagueSlug: slug,
-          teamId: team.id,
-        }).catch(() => null);
+    const [seasonProjections, charts, rosterEvaluationByMode] =
+      await Promise.all([
+        rosterPlayerIds.length > 0
+          ? getRankedPlayers({
+              season: nflSeason,
+              week: 0,
+              kind: "projection",
+              scoringRules,
+              playerIds: rosterPlayerIds,
+            }).catch(() => [])
+          : Promise.resolve([]),
+        useChartsMock
+          ? Promise.resolve(getTeamStatsChartsMock())
+          : getTeamStatsCharts({
+              leagueSlug: slug,
+              teamId: team.id,
+            }).catch(() => null),
+        useChartsMock
+          ? Promise.resolve(getRosterEvaluationByModeMock())
+          : getRosterEvaluationByMode({
+              leagueSlug: slug,
+              teamId: team.id,
+              upcomingWeek: nflWeek,
+            }).catch(() => null),
+      ]);
     const scoredPlayers = seasonProjections.map((player) =>
       withOpponent(player),
     );
@@ -322,6 +333,8 @@ export default async function LeagueTeamPage({
         players={scoredPlayers}
         leagueSlug={slug}
         charts={charts}
+        upcomingWeek={nflWeek}
+        rosterEvaluationByMode={rosterEvaluationByMode}
       />
     );
   }

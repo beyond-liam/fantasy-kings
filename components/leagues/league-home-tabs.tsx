@@ -5,6 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import {
   Analytics02Icon,
+  BicepsFlexedIcon,
   DashboardSquare02Icon,
   HierarchySquare05Icon,
   Calculator01Icon,
@@ -33,6 +34,7 @@ import {
 const LEAGUE_HOME_TABS = [
   { value: "overview", label: "Overview", icon: DashboardSquare02Icon },
   { value: "standings", label: "Standings", icon: ListOrderedIcon },
+  { value: "power-rankings", label: "Power Rankings", icon: BicepsFlexedIcon },
   { value: "stats", label: "Stats", icon: Analytics02Icon },
   { value: "playoffs", label: "Playoffs", icon: HierarchySquare05Icon },
   { value: "hall-of-fame", label: "Hall of Fame", icon: StarAward01Icon },
@@ -47,6 +49,7 @@ const TAB_VALUES = new Set<string>(LEAGUE_HOME_TABS.map((tab) => tab.value));
 type LeagueHomeTabsProps = {
   overview: ReactNode;
   standings: ReactNode;
+  powerRankings?: ReactNode;
   stats?: ReactNode;
   playoffs?: ReactNode;
   hallOfFame?: ReactNode;
@@ -79,6 +82,7 @@ function resolveTab(raw: string | null, fallback: LeagueHomeTabValue) {
 export function LeagueHomeTabs({
   overview,
   standings,
+  powerRankings,
   stats,
   playoffs,
   hallOfFame,
@@ -94,6 +98,9 @@ export function LeagueHomeTabs({
   const content: Record<LeagueHomeTabValue, ReactNode> = {
     overview,
     standings,
+    "power-rankings": powerRankings ?? (
+      <ComingSoon description="Power rankings will show up here." />
+    ),
     stats: stats ?? (
       <ComingSoon description="League-wide team stats will show up here." />
     ),

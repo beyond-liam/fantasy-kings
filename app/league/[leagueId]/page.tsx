@@ -10,6 +10,7 @@ import { DraftUnderwayAlert } from "@/components/leagues/draft/draft-underway-al
 import { LeagueHomeHofTab } from "@/components/leagues/home/league-home-hof-tab";
 import { LeagueHomeOverviewTab } from "@/components/leagues/home/league-home-overview-tab";
 import { LeagueHomePlayoffsTab } from "@/components/leagues/home/league-home-playoffs-tab";
+import { LeagueHomePowerRankingsTab } from "@/components/leagues/home/league-home-power-rankings-tab";
 import { LeagueHomeStandingsTab } from "@/components/leagues/home/league-home-standings-tab";
 import { LeagueHomeStatsTab } from "@/components/leagues/home/league-home-stats-tab";
 import { LeagueHomeTabs } from "@/components/leagues/league-home-tabs";
@@ -171,6 +172,16 @@ export default async function LeagueHomePage({
                 leagueSlug={league.publicId}
                 myTeamPublicId={myTeamPublicId}
                 showFaabBudget={showFaabBudget}
+              />
+            </Suspense>
+          }
+          powerRankings={
+            <Suspense fallback={<PageSkeleton />}>
+              <LeagueHomePowerRankingsTab
+                leagueSlug={league.publicId}
+                standingsTeams={standingsTeams}
+                seasonYear={season?.seasonYear ?? new Date().getFullYear()}
+                championshipWeek={season?.championshipWeek ?? 17}
               />
             </Suspense>
           }

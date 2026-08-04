@@ -188,7 +188,7 @@ Entered via dashboard league picker or `/league/[leagueId]` (6-char public id). 
 
 | Route | Page | Description |
 |---|---|---|
-| `/league/[leagueId]` | League | League home — tabs: Overview, Standings, Stats, Playoffs, Hall of Fame, Rules, Scoring |
+| `/league/[leagueId]` | League | League home — tabs: Overview, Standings, Power Rankings, Stats, Playoffs, Hall of Fame, Rules, Scoring |
 | `/league/[leagueId]/hall-of-fame/champions` | Champions | Season-by-season championship winners |
 | `/league/[leagueId]/hall-of-fame/regular-season` | RS titles | Season-by-season regular-season #1 finishes |
 | `/league/[leagueId]/hall-of-fame/division-titles` | Division titles | Division winners by season (filter by division) |
@@ -345,6 +345,7 @@ Two variants via the `Empty` **`size`** prop:
 **Team page — Stats**
 - Player Stats tab — roster position tables with league-wide ranks (shipped)
 - Team Stats tab — secondary tab; chart dashboard (decision-first; see below)
+- Roster Evaluation tab — secondary tab; roster strength / power evaluation (scaffold)
 
 **Team Stats charts (decision lens)**  
 Every chart/card must answer: *what does this tell me, and how do I improve roster / start-sit decisions?* Prefer league-relative signals over vanity totals.
@@ -845,4 +846,11 @@ lib/
 | 2026-08-04 | Team DEF SoS buckets by offense rank: 1–8 Hard · 9–23 Average · 24–32 Easy |
 | 2026-08-04 | Kicker SoS like DEF bands but inverted: 1–8 Easy (most K FPts allowed) · 24–32 Hard |
 | 2026-08-04 | SoS schedule summary headline (Typically easy/average/difficult schedule) |
+| 2026-08-04 | League Power Rankings tab (muscle icon in mobile select) + team ranking cards (scaffold scores) |
+| 2026-08-04 | Power Rankings mode select: Draft Rankings · Week X · Rest of Season |
+| 2026-08-04 | Team Stats secondary tab: Roster Evaluation (scaffold empty) |
+| 2026-08-04 | Roster Evaluation: 4 cards (Position Strength, Starting Lineup, Positional/Starter Rankings) + mode select |
+| 2026-08-04 | Starting Lineup / Starter Rankings: league-relative 1..N slot ranks (depth pools, flex-eligible, settings bars, rank tones) |
+| 2026-08-04 | Roster Evaluation: current lineup chart, optimal starter rankings, positional avg ranks vs league |
+| 2026-08-04 | Position Strength radar: starters vs bench league ranks per position |
 | 2026-08-04 | DEF PA radar brackets: 0–7 · 8–10 · 11–14 · 15–21 · 22+ (NFL points conceded) |
