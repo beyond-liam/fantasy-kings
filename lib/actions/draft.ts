@@ -275,6 +275,25 @@ export async function makeDraftPick(
     return { success: false, error: committed.error };
   }
 
+  if (committed.isComplete) {
+    try {
+      const { computeAndPersistDraftGrades } = await import(
+        "@/lib/leagues/draft/persist-grades"
+      );
+      await computeAndPersistDraftGrades({
+        draftId: draft.id,
+        leagueSeasonId: season.id,
+        settings: season.settings,
+        scoringPreset: season.scoringPreset,
+        regularSeasonEndWeek: season.regularSeasonEndWeek,
+        playoffTeamCount: season.playoffTeamCount,
+        teamIds: seasonTeams.map((team) => team.id),
+      });
+    } catch (error) {
+      console.error("computeAndPersistDraftGrades failed", error);
+    }
+  }
+
   const { announceDraftAfterPick } = await import("@/lib/alerts/draft");
   await announceDraftAfterPick({
     seasonId: season.id,
@@ -513,6 +532,17 @@ export async function revertLastDraftPick(slug: string): Promise<ActionResult> {
       success: false,
       error: "Could not revert this pick. Refresh and try again.",
     };
+  }
+
+  if (wasComplete) {
+    try {
+      const { deleteDraftGradesForDraft } = await import(
+        "@/lib/leagues/draft/persist-grades"
+      );
+      await deleteDraftGradesForDraft(draft.id);
+    } catch (error) {
+      console.error("deleteDraftGradesForDraft failed", error);
+    }
   }
 
   revalidateDraftPaths(league.publicId);

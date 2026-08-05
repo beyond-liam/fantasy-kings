@@ -855,4 +855,4 @@ lib/
 | 2026-08-04 | Position Strength radar: starters vs bench league ranks per position |
 | 2026-08-04 | League player profiles at `/league/[id]/players/[playerId]` keep sidebar with Players active |
 | 2026-08-04 | DEF PA radar brackets: 0–7 · 8–10 · 11–14 · 15–21 · 22+ (NFL points conceded) |
-| 2026-08-04 | Player profile URLs use 6-char `publicId` (UUID bookmarks redirect) |
+| 2026-08-05 | Draft grades: one-time popup after draft complete (badge assets, projected record, playoff/champ odds, best/worst ADP) |

@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 import dynamic from "next/dynamic";
 import { redirect } from "next/navigation";
+import { Suspense } from "react";
 
+import { DraftGradeDialogSlot } from "@/components/leagues/draft/draft-grade-dialog-slot";
+import { Spinner } from "@/components/ui/spinner";
 import { getSessionUser } from "@/lib/auth/session";
 import { resolveDraftSettings } from "@/lib/leagues/draft-settings";
 import {
@@ -21,7 +24,6 @@ import {
 } from "@/lib/queries/leagues";
 import { getNflTeams, getRankedPlayers } from "@/lib/queries/players";
 import { getNflState } from "@/lib/sleeper/api";
-import { Spinner } from "@/components/ui/spinner";
 
 const DraftRoom = dynamic(
   () =>
@@ -121,6 +123,13 @@ export default async function LeagueDraftRoomPage({
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-6">
+      <Suspense fallback={null}>
+        <DraftGradeDialogSlot
+          leagueSlug={slug}
+          teamId={myTeam?.id}
+          leagueSeasonId={season.id}
+        />
+      </Suspense>
       <DraftRoom
         slug={slug}
         isCommissioner={isCommissioner}

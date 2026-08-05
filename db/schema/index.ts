@@ -11,6 +11,7 @@ export * from "./waiver-claims";
 export * from "./trades";
 export * from "./league-activity";
 export * from "./drafts";
+export * from "./draft-grades";
 export * from "./players";
 export * from "./player-external-ids";
 export * from "./player-scores";

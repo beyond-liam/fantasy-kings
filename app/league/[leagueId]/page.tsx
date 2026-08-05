@@ -6,6 +6,7 @@ import { ArrowLeft01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
 import { InviteLinkCard } from "@/components/leagues/invite-link-card";
+import { DraftGradeDialogSlot } from "@/components/leagues/draft/draft-grade-dialog-slot";
 import { DraftUnderwayAlert } from "@/components/leagues/draft/draft-underway-alert";
 import { LeagueHomeHofTab } from "@/components/leagues/home/league-home-hof-tab";
 import { LeagueHomeOverviewTab } from "@/components/leagues/home/league-home-overview-tab";
@@ -35,7 +36,7 @@ import type { LeagueHomeStandingsBundleInput } from "@/lib/queries/league-home-s
 
 type LeagueHomePageProps = {
   params: Promise<{ leagueId: string }>;
-  searchParams: Promise<{ tab?: string; mock?: string }>;
+  searchParams: Promise<{ tab?: string; mock?: string; draftGrade?: string }>;
 };
 
 export const metadata: Metadata = {
@@ -47,9 +48,11 @@ export default async function LeagueHomePage({
   searchParams,
 }: LeagueHomePageProps) {
   const { leagueId: slug } = await params;
-  const { mock } = await searchParams;
+  const { mock, draftGrade } = await searchParams;
   const useOverviewMock =
     process.env.NODE_ENV === "development" && (mock === "1" || mock === "true");
+  const previewDraftGrade =
+    process.env.NODE_ENV === "development" && Boolean(draftGrade);
   const user = await getSessionUser();
   if (!user) {
     redirect(`/login?next=/league/${slug}`);
@@ -97,8 +100,8 @@ export default async function LeagueHomePage({
 
   const myTeamPublicId =
     members.find((member) => member.userId === user.id)?.teamPublicId ?? null;
-  const myTeamId =
-    members.find((member) => member.userId === user.id)?.teamId ?? null;
+  const myMember = members.find((member) => member.userId === user.id);
+  const myTeamId = myMember?.teamId ?? null;
 
   const bundleInput: LeagueHomeStandingsBundleInput = {
     leagueSeasonId: season?.id ?? null,
@@ -125,6 +128,19 @@ export default async function LeagueHomePage({
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-6">
+      <Suspense fallback={null}>
+        <DraftGradeDialogSlot
+          leagueSlug={league.publicId}
+          teamId={myTeamId}
+          leagueSeasonId={season?.id}
+          preview={previewDraftGrade ? (draftGrade ?? true) : undefined}
+          teamName={myMember?.teamName}
+          teamLogoUrl={
+            standingsTeams.find((team) => team.teamId === myTeamId)?.logoUrl
+          }
+          leagueName={league.name}
+        />
+      </Suspense>
       <div className="flex items-center gap-3">
         <Avatar size="lg" className="shrink-0">
           {season?.settings.logoUrl ? (

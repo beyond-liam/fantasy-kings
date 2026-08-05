@@ -162,6 +162,13 @@
       "when": 1785850000000,
       "tag": "0022_player_public_id",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1785955403894,
+      "tag": "0023_draft_grades",
+      "breakpoints": true
     }
   ]
 }
