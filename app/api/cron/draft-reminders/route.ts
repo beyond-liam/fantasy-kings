@@ -20,7 +20,7 @@ async function handle(request: Request) {
 }
 
 /**
- * Live draft T-24h / T-15m reminders.
+ * Draft T-24h / T-15m reminders (live and email drafts).
  * Call every 5 minutes via cron-job.org (Vercel Hobby is daily-only).
  */
 export async function GET(request: Request) {

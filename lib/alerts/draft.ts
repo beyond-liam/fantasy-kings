@@ -205,7 +205,7 @@ export type DraftReminderResult = {
   sent15m: number;
 };
 
-/** Live drafts only — cron entry for T-24h / T-15m emails. */
+/** T-24h / T-15m start reminders for live and email drafts. */
 export async function sendDueDraftReminders(
   now = new Date(),
 ): Promise<DraftReminderResult> {
@@ -225,6 +225,7 @@ export async function sendDueDraftReminders(
     .select({
       seasonId: leagueSeasons.id,
       draftStartAt: leagueSeasons.draftStartAt,
+      draftType: leagueSeasons.draftType,
       leaguePublicId: leagues.publicId,
       leagueName: leagues.name,
     })
@@ -233,7 +234,7 @@ export async function sendDueDraftReminders(
     .leftJoin(drafts, eq(drafts.leagueSeasonId, leagueSeasons.id))
     .where(
       and(
-        eq(leagueSeasons.draftType, "live"),
+        inArray(leagueSeasons.draftType, ["live", "email"]),
         gt(leagueSeasons.draftStartAt, now),
         lte(leagueSeasons.draftStartAt, in25h),
         inArray(leagueSeasons.status, ["setup", "recruiting", "draft"]),
@@ -245,6 +246,7 @@ export async function sendDueDraftReminders(
     const start = row.draftStartAt.getTime();
     const href = draftRoomUrl(row.leaguePublicId);
     const userIds = await getSeasonOwnerUserIds(row.seasonId);
+    const draftLabel = row.draftType === "email" ? "email draft" : "live draft";
 
     if (start >= in23h.getTime() && start <= in25h.getTime()) {
       result.checked24h += 1;
@@ -253,7 +255,7 @@ export async function sendDueDraftReminders(
         email: {
           subject: `${row.leagueName}: Draft is tomorrow`,
           title: "Draft is tomorrow",
-          body: `Your ${row.leagueName} live draft starts around ${row.draftStartAt.toUTCString()}.`,
+          body: `Your ${row.leagueName} ${draftLabel} starts around ${row.draftStartAt.toUTCString()}.`,
           ctaLabel: "Open draft room",
           ctaUrl: href,
           dedupeKeyForUser: (userId) =>
@@ -272,7 +274,7 @@ export async function sendDueDraftReminders(
         email: {
           subject: `${row.leagueName}: Draft starts in 15 minutes`,
           title: "Draft starts soon",
-          body: `Your ${row.leagueName} live draft starts in about 15 minutes. Be ready in the draft room.`,
+          body: `Your ${row.leagueName} ${draftLabel} starts in about 15 minutes. Be ready in the draft room.`,
           ctaLabel: "Open draft room",
           ctaUrl: href,
           dedupeKeyForUser: (userId) =>
