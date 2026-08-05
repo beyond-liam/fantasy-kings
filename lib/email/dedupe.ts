@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 
 import { emailSends } from "@/db/schema";
 import { db } from "@/lib/db";
+import { isUniqueViolation } from "@/lib/db/errors";
 
 /**
  * Try to claim a dedupe key. Returns true if this caller should send.
@@ -15,12 +16,8 @@ export async function claimEmailSend(dedupeKey: string): Promise<boolean> {
     await db.insert(emailSends).values({ dedupeKey });
     return true;
   } catch (error) {
-    const code =
-      error && typeof error === "object" && "code" in error
-        ? String((error as { code: unknown }).code)
-        : null;
-    // Postgres unique_violation
-    if (code === "23505") {
+    // Drizzle wraps PostgresError in DrizzleQueryError — check cause chain.
+    if (isUniqueViolation(error)) {
       return false;
     }
     throw error;

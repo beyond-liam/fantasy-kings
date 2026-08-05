@@ -42,20 +42,7 @@ import {
 } from "@/lib/queries/leagues";
 import { ensureSeasonTeamSlots } from "@/lib/leagues/ensure-team-slots";
 
-function isUniqueViolation(error: unknown): boolean {
-  const codes = new Set<string>();
-  let current: unknown = error;
-  for (let i = 0; i < 4 && current; i++) {
-    if (typeof current === "object" && current !== null && "code" in current) {
-      codes.add(String((current as { code: unknown }).code));
-    }
-    current =
-      typeof current === "object" && current !== null && "cause" in current
-        ? (current as { cause: unknown }).cause
-        : null;
-  }
-  return codes.has("23505");
-}
+import { isUniqueViolation } from "@/lib/db/errors";
 
 async function generateUniqueInviteCode() {
   for (let attempt = 0; attempt < 10; attempt++) {
