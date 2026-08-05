@@ -33,7 +33,6 @@ import {
   DrawerTrigger,
 } from "@/components/ui/drawer";
 import { Field, FieldLabel } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
 import {
   InputGroup,
   InputGroupAddon,
@@ -515,7 +514,10 @@ export function DraftPlayerPool({
     onSortingChange: setSorting,
   });
 
-  const teamSelect = (size: "default" | "lg" = "default") => (
+  const teamSelect = (
+    size: "sm" | "default" | "lg" = "default",
+    className = "w-full",
+  ) => (
     <Select
       items={teamItems}
       value={team}
@@ -523,7 +525,7 @@ export function DraftPlayerPool({
         if (value) setTeam(value);
       }}
     >
-      <SelectTrigger size={size} className="w-full">
+      <SelectTrigger size={size} className={className} aria-label="NFL team">
         <SelectValue>
           {(value) =>
             value && value !== "ALL" ? (
@@ -545,6 +547,61 @@ export function DraftPlayerPool({
         </SelectGroup>
       </SelectContent>
     </Select>
+  );
+
+  const positionSelect = (
+    size: "sm" | "default" | "lg" = "sm",
+    className = "w-32",
+  ) => (
+    <Select
+      items={POSITION_ITEMS}
+      value={position}
+      onValueChange={(value) => {
+        if (value) {
+          setPosition(parsePositionFilter(value));
+          setSorting(DEFAULT_SORTING);
+        }
+      }}
+    >
+      <SelectTrigger size={size} className={className} aria-label="Position">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectGroup>
+          {POSITION_FILTERS.map((value) => (
+            <SelectItem key={value} value={value}>
+              {value}
+            </SelectItem>
+          ))}
+        </SelectGroup>
+      </SelectContent>
+    </Select>
+  );
+
+  const desktopSearch = (
+    <InputGroup className="h-8 w-[200px]">
+      <InputGroupAddon align="inline-start">
+        <HugeiconsIcon icon={SearchIcon} strokeWidth={2} />
+      </InputGroupAddon>
+      <InputGroupInput
+        placeholder="Search players..."
+        value={search}
+        onChange={(event) => setSearch(event.target.value)}
+        aria-label="Search players"
+      />
+      {search ? (
+        <InputGroupAddon align="inline-end">
+          <InputGroupButton
+            size="icon-xs"
+            aria-label="Clear search"
+            className="relative after:absolute after:top-1/2 after:left-1/2 after:size-10 after:-translate-x-1/2 after:-translate-y-1/2"
+            onClick={() => setSearch("")}
+          >
+            <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} />
+          </InputGroupButton>
+        </InputGroupAddon>
+      ) : null}
+    </InputGroup>
   );
 
   return (
@@ -592,8 +649,10 @@ export function DraftPlayerPool({
             </DrawerHeader>
             <div className="flex flex-col gap-6 p-4 pt-2">
               <Field className="gap-2">
-                <FieldLabel>NFL team</FieldLabel>
-                {teamSelect("lg")}
+                <FieldLabel htmlFor="draft-pool-mobile-team">
+                  NFL team
+                </FieldLabel>
+                <div id="draft-pool-mobile-team">{teamSelect("lg")}</div>
               </Field>
 
               <Field
@@ -642,59 +701,38 @@ export function DraftPlayerPool({
         />
       </div>
 
-      <div className="flex flex-col gap-3 max-md:hidden sm:flex-row sm:flex-wrap sm:items-end">
-        <Field className="sm:w-40">
-          <FieldLabel>Position</FieldLabel>
-          <Select
-            items={POSITION_ITEMS}
-            value={position}
-            onValueChange={(value) => {
-              if (value) {
-                setPosition(parsePositionFilter(value));
-                setSorting(DEFAULT_SORTING);
-              }
-            }}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectGroup>
-                {POSITION_FILTERS.map((value) => (
-                  <SelectItem key={value} value={value}>
-                    {value}
-                  </SelectItem>
-                ))}
-              </SelectGroup>
-            </SelectContent>
-          </Select>
-        </Field>
-
-        <Field className="sm:w-56">
-          <FieldLabel>NFL team</FieldLabel>
-          {teamSelect()}
-        </Field>
-
-        <Field className="sm:min-w-48 sm:flex-1">
-          <FieldLabel htmlFor="draft-pool-search">Search</FieldLabel>
-          <Input
-            id="draft-pool-search"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search players..."
+      <div className="flex w-full flex-wrap items-center gap-3 max-md:hidden">
+        {desktopSearch}
+        {positionSelect("sm", "w-32")}
+        {teamSelect("sm", "w-56")}
+        <Field orientation="horizontal" className="w-auto gap-2">
+          <Switch
+            id="draft-pool-desktop-hide-drafted"
+            size="sm"
+            checked={hideDrafted}
+            onCheckedChange={setHideDrafted}
           />
-        </Field>
-
-        <div className="flex flex-wrap gap-4 pb-1">
-          <label className="flex items-center gap-2 text-sm">
-            <Switch checked={rookiesOnly} onCheckedChange={setRookiesOnly} />
-            Rookies only
-          </label>
-          <label className="flex items-center gap-2 text-sm">
-            <Switch checked={hideDrafted} onCheckedChange={setHideDrafted} />
+          <FieldLabel
+            htmlFor="draft-pool-desktop-hide-drafted"
+            className="font-normal"
+          >
             Hide drafted
-          </label>
-        </div>
+          </FieldLabel>
+        </Field>
+        <Field orientation="horizontal" className="w-auto gap-2">
+          <Switch
+            id="draft-pool-desktop-rookies"
+            size="sm"
+            checked={rookiesOnly}
+            onCheckedChange={setRookiesOnly}
+          />
+          <FieldLabel
+            htmlFor="draft-pool-desktop-rookies"
+            className="font-normal"
+          >
+            Rookies only
+          </FieldLabel>
+        </Field>
       </div>
 
       <DataTable

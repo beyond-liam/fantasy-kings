@@ -5,6 +5,10 @@ import { Cancel01Icon, SearchIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
 import {
+  DraftPlayerAction,
+  type LeagueDraftTableActions,
+} from "@/components/leagues/draft/draft-player-action";
+import {
   PILL_CLASSNAME,
   PILL_INACTIVE_CLASSNAME,
 } from "@/components/rankings/filter-pills";
@@ -49,6 +53,7 @@ export type PlayerSearchDrawerProps = {
   tradesEnabled?: boolean;
   acquisitionsLocked?: boolean;
   acquisitionLockReason?: string;
+  draftActions?: LeagueDraftTableActions;
 };
 
 type SearchResponse = {
@@ -95,6 +100,7 @@ export function PlayerSearchDrawer({
   tradesEnabled = true,
   acquisitionsLocked,
   acquisitionLockReason,
+  draftActions,
 }: PlayerSearchDrawerProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -338,20 +344,50 @@ export function PlayerSearchDrawer({
             </p>
           ) : (
             <ul className="divide-y divide-border">
-              {players.map((player) => (
+              {players.map((player) => {
+                const isDrafted = draftActions
+                  ? draftActions.draftedPlayerIds.includes(player.id) ||
+                    Boolean(player.fantasyTeamId)
+                  : false;
+
+                return (
                 <li
                   key={player.id}
                   className="flex items-center gap-2 px-3 py-2.5"
                 >
                   {showActions && leagueSlug ? (
-                    <PlayerActionButton
-                      player={player}
-                      leagueSlug={leagueSlug}
-                      disabled={!resolvedActionsEnabled}
-                      tradesEnabled={resolvedTradesEnabled}
-                      acquisitionsLocked={acquisitionsLocked}
-                      acquisitionLockReason={acquisitionLockReason}
-                    />
+                    draftActions ? (
+                      <DraftPlayerAction
+                        slug={leagueSlug}
+                        playerId={player.id}
+                        drafted={isDrafted}
+                        canDraft={
+                          draftActions.draftLive &&
+                          draftActions.isMyTurn &&
+                          !isDrafted
+                        }
+                        canCommissionerPick={
+                          draftActions.draftLive &&
+                          draftActions.isCommissioner &&
+                          !draftActions.isMyTurn &&
+                          !isDrafted
+                        }
+                        disabledReason={
+                          draftActions.draftLive && !draftActions.isMyTurn
+                            ? "Waiting for your turn."
+                            : "Draft has not started."
+                        }
+                      />
+                    ) : (
+                      <PlayerActionButton
+                        player={player}
+                        leagueSlug={leagueSlug}
+                        disabled={!resolvedActionsEnabled}
+                        tradesEnabled={resolvedTradesEnabled}
+                        acquisitionsLocked={acquisitionsLocked}
+                        acquisitionLockReason={acquisitionLockReason}
+                      />
+                    )
                   ) : null}
                   <PlayerIdentity
                     className="min-w-0 flex-1"
@@ -368,7 +404,8 @@ export function PlayerSearchDrawer({
                     <WatchlistToggle playerId={player.id} />
                   ) : null}
                 </li>
-              ))}
+                );
+              })}
             </ul>
           )}
 

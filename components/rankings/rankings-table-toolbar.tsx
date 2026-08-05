@@ -9,6 +9,7 @@ import {
   PositionPills,
 } from "@/components/rankings/filter-pills";
 import { PlayerSearchDrawer } from "@/components/rankings/player-search-drawer";
+import type { LeagueDraftTableActions } from "@/components/leagues/draft/draft-player-action";
 import { NflTeamOption } from "@/components/nfl/nfl-team-option";
 import type { RankingsViewState } from "@/components/rankings/rankings-toolbar";
 import { useRankingsParams } from "@/components/rankings/use-rankings-params";
@@ -66,6 +67,7 @@ type PlayerSearchActions = {
   tradesEnabled?: boolean;
   acquisitionsLocked?: boolean;
   acquisitionLockReason?: string;
+  draftActions?: LeagueDraftTableActions;
 };
 
 type RankingsTableToolbarProps<TData> = {
@@ -365,6 +367,7 @@ export function RankingsTableToolbar<TData>({
           tradesEnabled={searchActions?.tradesEnabled}
           acquisitionsLocked={searchActions?.acquisitionsLocked}
           acquisitionLockReason={searchActions?.acquisitionLockReason}
+          draftActions={searchActions?.draftActions}
         />
 
         <Drawer showSwipeHandle>

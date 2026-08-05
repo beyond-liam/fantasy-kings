@@ -133,6 +133,11 @@ export default async function LeaguePlayersPage({
           waiversEnabled={season.waiversEnabled}
           tradesEnabled={season.tradesEnabled}
           seasonSettings={season.settings}
+          benchSlots={season.benchSlots}
+          isCommissioner={
+            membership.role === "commissioner" ||
+            membership.role === "co_commissioner"
+          }
           nflState={state}
         />
       </Suspense>

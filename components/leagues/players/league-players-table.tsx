@@ -1,3 +1,4 @@
+import type { LeagueDraftTableActions } from "@/components/leagues/draft/draft-player-action";
 import { PlayersDataTable } from "@/components/rankings/players-data-table";
 import { IrLockAlert } from "@/components/team/ir-lock-alert";
 import { TaxiLockAlert } from "@/components/team/taxi-lock-alert";
@@ -25,6 +26,8 @@ import {
   PLAYERS_PAGE_SIZE,
   playersPageOffset,
 } from "@/lib/rankings/players-page";
+import { getDraftBySeasonId, getDraftRoomData } from "@/lib/queries/draft";
+import { isDraftUnderway } from "@/lib/queries/leagues";
 import {
   getNflTeams,
   getRankedPlayers,
@@ -66,6 +69,8 @@ type LeaguePlayersTableProps = {
   waiversEnabled: boolean;
   tradesEnabled: boolean;
   seasonSettings: LeagueSeasonSettings;
+  benchSlots: number;
+  isCommissioner: boolean;
   nflState: SleeperNflState;
 };
 
@@ -94,6 +99,8 @@ export async function LeaguePlayersTable({
   waiversEnabled,
   tradesEnabled,
   seasonSettings,
+  benchSlots,
+  isCommissioner,
   nflState,
 }: LeaguePlayersTableProps) {
   let players: RankedPlayerRow[] = [];
@@ -107,7 +114,7 @@ export async function LeaguePlayersTable({
     freeAgencyOpen,
   });
 
-  const [playersResult, teams, watchlistIds, ownershipResult, userTeam] =
+  const [playersResult, teams, watchlistIds, ownershipResult, userTeam, draft] =
     await Promise.all([
       getRankedPlayers({
         season: seasonYear,
@@ -128,7 +135,32 @@ export async function LeaguePlayersTable({
         (error: unknown) => ({ ok: false as const, error }),
       ),
       getUserTeamForSeason(seasonId, userId),
+      getDraftBySeasonId(seasonId),
     ]);
+
+  let draftActions: LeagueDraftTableActions | undefined;
+  if (isDraftUnderway(draft?.status)) {
+    const draftRoom = await getDraftRoomData({
+      leagueSeasonId: seasonId,
+      settings: seasonSettings,
+      benchSlots,
+    });
+    const draftLive = draftRoom.draft?.status === "live";
+    const myDraftTeamId =
+      draftRoom.teams.find((teamRow) => teamRow.userId === userId)?.id ?? null;
+    const isMyTurn = Boolean(
+      draftLive &&
+        draftRoom.onTheClock &&
+        myDraftTeamId &&
+        draftRoom.onTheClock.teamId === myDraftTeamId,
+    );
+    draftActions = {
+      draftLive,
+      isMyTurn,
+      isCommissioner,
+      draftedPlayerIds: Array.from(draftRoom.draftedPlayerIds),
+    };
+  }
 
   const [rosterPlayers, pendingClaimPlayerIds] = await Promise.all([
     userTeam ? getTeamRosterPlayers(userTeam.id) : Promise.resolve([]),
@@ -278,6 +310,7 @@ export async function LeaguePlayersTable({
         tradesEnabled={tradesEnabled && actionsEnabled}
         acquisitionsLocked={acquisitionsLocked}
         acquisitionLockReason={acquisitionLockReason}
+        draftActions={draftActions}
         page={page}
         pageSize={PLAYERS_PAGE_SIZE}
         totalCount={totalCount}

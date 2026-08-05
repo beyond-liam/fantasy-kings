@@ -2,6 +2,10 @@
 
 import type { ColumnDef } from "@tanstack/react-table";
 
+import {
+  DraftPlayerAction,
+  type LeagueDraftTableActions,
+} from "@/components/leagues/draft/draft-player-action";
 import { PlayerActionButton } from "@/components/rankings/player-action-button";
 import { PlayerIdentity } from "@/components/rankings/player-identity";
 import { WatchlistToggle } from "@/components/rankings/watchlist-toggle";
@@ -53,6 +57,7 @@ export function getPlayersColumns(
     acquisitionLockReason?: string;
     leagueSlug?: string;
     tradesEnabled?: boolean;
+    draftActions?: LeagueDraftTableActions;
     /** Mobile pins action + player and moves watchlist to the end. */
     isMobile?: boolean;
   },
@@ -65,6 +70,10 @@ export function getPlayersColumns(
   const acquisitionLockReason = options?.acquisitionLockReason;
   const leagueSlug = options?.leagueSlug ?? "";
   const tradesEnabled = options?.tradesEnabled ?? true;
+  const draftActions = options?.draftActions;
+  const draftedIds = draftActions
+    ? new Set(draftActions.draftedPlayerIds)
+    : null;
   const isMobile = options?.isMobile ?? false;
 
   const watchlistColumn: ColumnDef<RankedPlayerRow> = {
@@ -102,28 +111,67 @@ export function getPlayersColumns(
     },
   };
 
+  const actionWidth = draftActions
+    ? isMobile
+      ? 48
+      : 148
+    : isMobile
+      ? 64
+      : 72;
+
   const actionColumn: ColumnDef<RankedPlayerRow> = {
     id: "action",
     enableSorting: false,
     enableHiding: false,
-    size: 72,
+    size: actionWidth,
     meta: {
-      width: isMobile ? 64 : 72,
+      width: actionWidth,
       sticky: isMobile ? "left" : undefined,
-      cellClassName: "px-1 text-center",
+      cellClassName: draftActions
+        ? "overflow-visible px-1 text-center"
+        : "px-1 text-center",
       headerClassName: "px-1",
     },
     header: () => <span className="sr-only">Action</span>,
-    cell: ({ row }) => (
-      <PlayerActionButton
-        player={row.original}
-        leagueSlug={leagueSlug}
-        disabled={!actionsEnabled}
-        tradesEnabled={tradesEnabled}
-        acquisitionsLocked={acquisitionsLocked}
-        acquisitionLockReason={acquisitionLockReason}
-      />
-    ),
+    cell: ({ row }) => {
+      const player = row.original;
+
+      if (draftActions && leagueSlug) {
+        const isDrafted =
+          draftedIds!.has(player.id) || Boolean(player.fantasyTeamId);
+
+        return (
+          <DraftPlayerAction
+            slug={leagueSlug}
+            playerId={player.id}
+            drafted={isDrafted}
+            canDraft={draftActions.draftLive && draftActions.isMyTurn && !isDrafted}
+            canCommissionerPick={
+              draftActions.draftLive &&
+              draftActions.isCommissioner &&
+              !draftActions.isMyTurn &&
+              !isDrafted
+            }
+            disabledReason={
+              draftActions.draftLive && !draftActions.isMyTurn
+                ? "Waiting for your turn."
+                : "Draft has not started."
+            }
+          />
+        );
+      }
+
+      return (
+        <PlayerActionButton
+          player={player}
+          leagueSlug={leagueSlug}
+          disabled={!actionsEnabled}
+          tradesEnabled={tradesEnabled}
+          acquisitionsLocked={acquisitionsLocked}
+          acquisitionLockReason={acquisitionLockReason}
+        />
+      );
+    },
   };
 
   const leadColumns = isMobile

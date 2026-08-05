@@ -15,6 +15,14 @@ import {
 } from "@/components/ui/tooltip";
 import { makeDraftPick } from "@/lib/actions/draft";
 
+/** League Players table / search — draft replaces add/trade while underway. */
+export type LeagueDraftTableActions = {
+  draftLive: boolean;
+  isMyTurn: boolean;
+  isCommissioner: boolean;
+  draftedPlayerIds: string[];
+};
+
 type DraftPlayerActionProps = {
   slug: string;
   playerId: string;
@@ -91,7 +99,7 @@ export function DraftPlayerAction({
       <Button
         type="button"
         size="icon-sm"
-        variant="secondary"
+        variant="outline"
         className="md:h-8 md:w-auto md:gap-1 md:px-2.5"
         aria-label="Commish pick"
         disabled={isPending}
@@ -102,7 +110,7 @@ export function DraftPlayerAction({
           strokeWidth={2}
           data-icon="inline-start"
         />
-        <span className="hidden md:inline">Commish pick</span>
+        <span className="hidden md:inline">Commish Pick</span>
       </Button>
     );
   }

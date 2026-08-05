@@ -7,6 +7,7 @@ import { PlayerAvatar } from "@/components/rankings/player-avatar";
 import { LicenseDraftIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
+import { ManagerPresenceBadge } from "@/components/leagues/presence/manager-presence-badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Empty,
@@ -39,6 +40,7 @@ type DraftBoardProps = {
     name: string;
     draftSlot: number;
     logoUrl?: string | null;
+    userId?: string | null;
   }>;
   rounds: number;
   currentPickIndex: number;
@@ -125,6 +127,7 @@ export function DraftBoard({
                         <AvatarImage src={team.logoUrl} alt="" />
                       ) : null}
                       <AvatarFallback>{teamInitials(team.name)}</AvatarFallback>
+                      <ManagerPresenceBadge userId={team.userId} />
                     </Avatar>
                     <span className="line-clamp-2 w-full truncate text-[11px] leading-tight">
                       {team.name}
@@ -174,7 +177,7 @@ export function DraftBoard({
                       : null;
 
                     const cellClass = cn(
-                      "relative flex h-14 w-full min-w-0 items-center overflow-hidden rounded-md px-1.5 py-1 pr-5 ring-1 ring-inset transition-colors",
+                      "relative flex h-14 w-full min-w-0 items-center justify-center overflow-hidden rounded-md px-1.5 py-1 pr-5 ring-1 ring-inset transition-colors",
                       pick
                         ? positionToneClass(pick.playerPositionId)
                         : "bg-muted/15 text-muted-foreground ring-border/40",
@@ -193,26 +196,28 @@ export function DraftBoard({
                             On the clock
                           </p>
                         ) : pick ? (
-                          <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden">
-                            <PlayerAvatar
-                              fullName={pick.playerFullName}
-                              sleeperId={pick.playerSleeperId}
-                              primaryPositionId={pick.playerPositionId}
-                              nflTeam={pick.playerNflTeam}
-                              size="sm"
-                              className="size-7 shrink-0"
-                            />
-                            <div className="min-w-0 flex-1 overflow-hidden">
-                              <p className="truncate text-[11px] font-semibold leading-tight">
-                                {shortName(pick.playerFullName)}
-                              </p>
-                              <p className="truncate text-[10px] opacity-80">
-                                {pick.playerNflTeam
-                                  ? `${pick.playerPositionId} · ${pick.playerNflTeam}${
-                                      bye != null ? ` (${bye})` : ""
-                                    }`
-                                  : pick.playerPositionId}
-                              </p>
+                          <div className="flex min-w-0 max-w-full items-center justify-center overflow-hidden">
+                            <div className="flex min-w-0 max-w-full items-center gap-1.5 overflow-hidden">
+                              <PlayerAvatar
+                                fullName={pick.playerFullName}
+                                sleeperId={pick.playerSleeperId}
+                                primaryPositionId={pick.playerPositionId}
+                                nflTeam={pick.playerNflTeam}
+                                size="sm"
+                                className="size-7 shrink-0"
+                              />
+                              <div className="min-w-0 overflow-hidden text-left">
+                                <p className="truncate text-[11px] font-semibold leading-tight">
+                                  {shortName(pick.playerFullName)}
+                                </p>
+                                <p className="truncate text-[10px] opacity-80">
+                                  {pick.playerNflTeam
+                                    ? `${pick.playerPositionId} · ${pick.playerNflTeam}${
+                                        bye != null ? ` (${bye})` : ""
+                                      }`
+                                    : pick.playerPositionId}
+                                </p>
+                              </div>
                             </div>
                           </div>
                         ) : null}

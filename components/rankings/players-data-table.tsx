@@ -3,6 +3,7 @@
 import { functionalUpdate, type ColumnFiltersState } from "@tanstack/react-table";
 import { useEffect, useMemo, useState } from "react";
 
+import type { LeagueDraftTableActions } from "@/components/leagues/draft/draft-player-action";
 import { getPlayersColumns } from "@/components/rankings/players-columns";
 import { WatchlistProvider } from "@/components/rankings/watchlist-provider";
 import { RankingsTableToolbar } from "@/components/rankings/rankings-table-toolbar";
@@ -37,6 +38,8 @@ type PlayersDataTableProps = {
   tradesEnabled?: boolean;
   acquisitionsLocked?: boolean;
   acquisitionLockReason?: string;
+  /** When set, action column shows draft instead of add/trade. */
+  draftActions?: LeagueDraftTableActions;
   /** Server-driven page of `data` (do not hydrate the full filtered set). */
   page?: number;
   pageSize?: number;
@@ -93,6 +96,7 @@ export function PlayersDataTable({
   tradesEnabled = true,
   acquisitionsLocked = false,
   acquisitionLockReason,
+  draftActions,
   page = 1,
   pageSize,
   totalCount,
@@ -167,6 +171,7 @@ export function PlayersDataTable({
         acquisitionsLocked,
         acquisitionLockReason,
         leagueSlug,
+        draftActions,
         isMobile,
       }),
     [
@@ -177,6 +182,7 @@ export function PlayersDataTable({
       tradesEnabled,
       acquisitionsLocked,
       acquisitionLockReason,
+      draftActions,
       isMobile,
     ],
   );
@@ -281,6 +287,7 @@ export function PlayersDataTable({
                 tradesEnabled,
                 acquisitionsLocked,
                 acquisitionLockReason,
+                draftActions,
               }
             : undefined
         }
