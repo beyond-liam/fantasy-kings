@@ -234,6 +234,7 @@ export async function sendDueDraftReminders(
     .leftJoin(drafts, eq(drafts.leagueSeasonId, leagueSeasons.id))
     .where(
       and(
+        // Both draft modes get start reminders.
         inArray(leagueSeasons.draftType, ["live", "email"]),
         gt(leagueSeasons.draftStartAt, now),
         lte(leagueSeasons.draftStartAt, in25h),
@@ -243,7 +244,16 @@ export async function sendDueDraftReminders(
     );
 
   for (const row of upcoming) {
-    const start = row.draftStartAt.getTime();
+    const start = new Date(row.draftStartAt).getTime();
+    if (!Number.isFinite(start)) {
+      console.error(
+        "[draft-reminders] invalid draftStartAt",
+        row.seasonId,
+        row.draftStartAt,
+      );
+      continue;
+    }
+
     const href = draftRoomUrl(row.leaguePublicId);
     const userIds = await getSeasonOwnerUserIds(row.seasonId);
     const draftLabel = row.draftType === "email" ? "email draft" : "live draft";
@@ -255,7 +265,7 @@ export async function sendDueDraftReminders(
         email: {
           subject: `${row.leagueName}: Draft is tomorrow`,
           title: "Draft is tomorrow",
-          body: `Your ${row.leagueName} ${draftLabel} starts around ${row.draftStartAt.toUTCString()}.`,
+          body: `Your ${row.leagueName} ${draftLabel} starts around ${new Date(row.draftStartAt).toUTCString()}.`,
           ctaLabel: "Open draft room",
           ctaUrl: href,
           dedupeKeyForUser: (userId) =>

@@ -12,11 +12,17 @@ async function handle(request: Request) {
     return unauthorized;
   }
 
-  const result = await sendDueDraftReminders(new Date());
-  return NextResponse.json({
-    ok: true,
-    ...result,
-  });
+  try {
+    const result = await sendDueDraftReminders(new Date());
+    return NextResponse.json({
+      ok: true,
+      ...result,
+    });
+  } catch (error) {
+    console.error("[cron/draft-reminders]", error);
+    const message = error instanceof Error ? error.message : "Unknown error";
+    return NextResponse.json({ ok: false, error: message }, { status: 500 });
+  }
 }
 
 /**

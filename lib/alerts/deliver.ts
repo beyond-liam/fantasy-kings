@@ -132,34 +132,33 @@ async function sendEmailsNow(userIds: string[], email: EmailAlert) {
     ctaUrl: email.ctaUrl,
   });
 
+  // Sequential: runtime DB pool is max:1 — parallel inserts race the connection.
   let sent = 0;
-  await Promise.all(
-    withAddresses.map(async (recipient) => {
-      const dedupeKey = email.dedupeKeyForUser(recipient.userId);
-      const claimed = await claimEmailSend(dedupeKey);
-      if (!claimed) {
-        return;
-      }
-      const result = await sendBrevoEmail({
-        to: { email: recipient.email },
-        subject: email.subject,
-        text: content.text,
-        html: content.html,
-        tags: email.tags,
-      });
-      if (result.ok) {
-        sent += 1;
-        return;
-      }
-      // Failed or skipped (e.g. Brevo unset) — free the key so retries can send.
-      await releaseEmailSend(dedupeKey).catch((error) => {
-        console.error(
-          "[alerts] failed to release email claim",
-          dedupeKey,
-          error,
-        );
-      });
-    }),
-  );
+  for (const recipient of withAddresses) {
+    const dedupeKey = email.dedupeKeyForUser(recipient.userId);
+    const claimed = await claimEmailSend(dedupeKey);
+    if (!claimed) {
+      continue;
+    }
+    const result = await sendBrevoEmail({
+      to: { email: recipient.email },
+      subject: email.subject,
+      text: content.text,
+      html: content.html,
+      tags: email.tags,
+    });
+    if (result.ok) {
+      sent += 1;
+      continue;
+    }
+    // Failed or skipped (e.g. Brevo unset) — free the key so retries can send.
+    await releaseEmailSend(dedupeKey).catch((error) => {
+      console.error(
+        "[alerts] failed to release email claim",
+        dedupeKey,
+        error,
+      );
+    });
+  }
   return sent;
 }
