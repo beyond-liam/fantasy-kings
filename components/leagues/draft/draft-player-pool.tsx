@@ -406,36 +406,37 @@ export function DraftPlayerPool({
       },
     };
 
-    return [
-      actionColumn,
-      {
-        id: "player",
-        accessorFn: (row) => row.fullName,
-        enableSorting: false,
-        size: playerWidth,
-        meta: {
-          width: playerWidth,
-          sticky: isMobile ? "left" : undefined,
-        },
-        header: ({ column }) => (
-          <DataTableColumnHeader column={column} title="Player" />
-        ),
-        cell: ({ row }) => {
-          const player = row.original;
-          return (
-            <PlayerIdentity
-              fullName={player.fullName}
-              sleeperId={player.sleeperId}
-              primaryPositionId={player.primaryPositionId}
-              nflTeam={player.nflTeam}
-              byeWeek={player.byeWeek}
-              injuryStatus={player.injuryStatus}
-              playerId={player.id}
-              leagueSlug={slug === "mock" ? undefined : slug}
-            />
-          );
-        },
+    const playerColumn: ColumnDef<RankedPlayerRow> = {
+      id: "player",
+      accessorFn: (row) => row.fullName,
+      enableSorting: false,
+      size: playerWidth,
+      meta: {
+        width: playerWidth,
+        sticky: isMobile ? "left" : undefined,
       },
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Player" />
+      ),
+      cell: ({ row }) => {
+        const player = row.original;
+        return (
+          <PlayerIdentity
+            fullName={player.fullName}
+            sleeperId={player.sleeperId}
+            primaryPositionId={player.primaryPositionId}
+            nflTeam={player.nflTeam}
+            byeWeek={player.byeWeek}
+            injuryStatus={player.injuryStatus}
+            playerId={player.id}
+            leagueSlug={slug === "mock" ? undefined : slug}
+          />
+        );
+      },
+    };
+
+    const middleColumns: ColumnDef<RankedPlayerRow>[] = [
+      playerColumn,
       {
         id: "positionRank",
         accessorFn: (row) => sortableValue(row.positionRank),
@@ -480,7 +481,21 @@ export function DraftPlayerPool({
           ),
         }),
       ),
+    ];
+
+    // Desktop: queue | player | stats | draft. Mobile: draft | player | stats | queue.
+    if (isMobile) {
+      return [
+        actionColumn,
+        ...middleColumns,
+        ...(showQueue ? [queueColumn] : []),
+      ];
+    }
+
+    return [
       ...(showQueue ? [queueColumn] : []),
+      ...middleColumns,
+      actionColumn,
     ];
   }, [
     draftComplete,
