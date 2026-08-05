@@ -109,10 +109,7 @@ export async function LeaguePlayersTable({
   let ownershipMap: Awaited<
     ReturnType<typeof getLeaguePlayerOwnershipMap>
   > = new Map();
-  let actionsEnabled = isRosterTransactionsEnabled({
-    status: seasonStatus,
-    freeAgencyOpen,
-  });
+  let actionsEnabled = false;
 
   const [playersResult, teams, watchlistIds, ownershipResult, userTeam, draft] =
     await Promise.all([
@@ -160,6 +157,14 @@ export async function LeaguePlayersTable({
       isCommissioner,
       draftedPlayerIds: Array.from(draftRoom.draftedPlayerIds),
     };
+  } else {
+    actionsEnabled = isRosterTransactionsEnabled(
+      {
+        status: seasonStatus,
+        freeAgencyOpen,
+      },
+      draft?.status,
+    );
   }
 
   const [rosterPlayers, pendingClaimPlayerIds] = await Promise.all([

@@ -159,6 +159,11 @@ export function PlayerIdentityCard({
               <PlayerActionButton
                 appearance="button"
                 leagueSlug={slug}
+                disabled={!ownership.actionsEnabled}
+                disabledReason={
+                  ownership.actionsLockReason ?? "Free agency is closed"
+                }
+                tradesEnabled={ownership.tradesEnabled}
                 player={{
                   id: profile.id,
                   fullName: profile.fullName,

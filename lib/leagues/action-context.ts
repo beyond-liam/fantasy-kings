@@ -1,8 +1,11 @@
 import "server-only";
 
 import { requireSessionUser } from "@/lib/auth/session";
-import { isRosterTransactionsEnabled } from "@/lib/leagues/free-agency";
-import { getSeasonDraftTeams } from "@/lib/queries/draft";
+import {
+  isDraftBlockingRosterActions,
+  isRosterTransactionsEnabled,
+} from "@/lib/leagues/free-agency";
+import { getDraftBySeasonId, getSeasonDraftTeams } from "@/lib/queries/draft";
 import {
   getLeagueBySlug,
   getLeagueMembership,
@@ -116,8 +119,16 @@ export async function loadLeagueActionContext(
     return { error: "League season not found." };
   }
 
-  if (options.requireFreeAgencyOpen && !isRosterTransactionsEnabled(season)) {
-    return { error: "Free agency is closed." };
+  if (options.requireFreeAgencyOpen) {
+    const draft = await getDraftBySeasonId(season.id);
+    if (isDraftBlockingRosterActions(draft?.status)) {
+      return {
+        error: "Roster changes are locked while the draft is underway.",
+      };
+    }
+    if (!isRosterTransactionsEnabled(season, draft?.status)) {
+      return { error: "Free agency is closed." };
+    }
   }
 
   let team: Team | null = null;

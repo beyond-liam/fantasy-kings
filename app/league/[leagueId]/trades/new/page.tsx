@@ -53,7 +53,7 @@ export default async function NewTradePage({
   }
 
   const season = data.season;
-  const proposeGate = canProposeTrades(season);
+  const proposeGate = canProposeTrades(season, data.draftStatus);
   if (!proposeGate.ok) {
     redirect(`/league/${slug}/trades`);
   }

@@ -3,6 +3,7 @@ import type { ScoringPreset } from "@/lib/leagues/scoring";
 import { isRosterTransactionsEnabled } from "@/lib/leagues/free-agency";
 import { resolveWaiverWireSettings } from "@/lib/leagues/waiver-wire";
 import { resolvePlayerAcquisitionKind } from "@/lib/leagues/waivers/resolve-kind";
+import { getDraftBySeasonId } from "@/lib/queries/draft";
 import {
   getRankedPlayers,
   type RankedPlayerRow,
@@ -188,18 +189,22 @@ export async function searchLeaguePlayersPage(input: {
     scoringRules,
   });
 
-  const [ownershipMap, userTeam] = await Promise.all([
+  const [ownershipMap, userTeam, draft] = await Promise.all([
     getLeaguePlayerOwnershipMap(season.id, input.userId),
     getUserTeamForSeason(season.id, input.userId),
+    getDraftBySeasonId(season.id),
   ]);
   const pendingClaimIds = userTeam
     ? new Set(await getTeamPendingClaimPlayerIds(userTeam.id))
     : new Set<string>();
 
-  const actionsEnabled = isRosterTransactionsEnabled({
-    status: season.status,
-    freeAgencyOpen: season.freeAgencyOpen,
-  });
+  const actionsEnabled = isRosterTransactionsEnabled(
+    {
+      status: season.status,
+      freeAgencyOpen: season.freeAgencyOpen,
+    },
+    draft?.status,
+  );
   const wire = resolveWaiverWireSettings(season.settings.waiverWire);
 
   const players = page.players.map((row) => {

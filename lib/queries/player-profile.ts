@@ -18,7 +18,10 @@ import type { LeagueActivityMetadata } from "@/db/schema/league-activity";
 import { getSessionUser } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { ensurePlayerPublicId } from "@/lib/leagues/ensure-public-ids";
-import { isRosterTransactionsEnabled } from "@/lib/leagues/free-agency";
+import {
+  isDraftBlockingRosterActions,
+  isRosterTransactionsEnabled,
+} from "@/lib/leagues/free-agency";
 import { isPublicIdFormat } from "@/lib/leagues/public-id";
 import { calculatePlayerPoints } from "@/lib/leagues/scoring/calculate";
 import { getDefaultScoringRuleDefinitions } from "@/lib/leagues/scoring/defaults";
@@ -40,6 +43,7 @@ import {
   getLeagueMembership,
   getLeagueSeason,
 } from "@/lib/queries/leagues";
+import { getDraftBySeasonId } from "@/lib/queries/draft";
 import {
   getLeaguePlayerOwnershipMap,
   resolvePlayerOwnership,
@@ -155,6 +159,9 @@ export type PlayerProfile = {
     onWaivers: boolean;
     acquisitionKind: "add" | "claim" | "owned" | "unavailable";
     hasPendingClaim: boolean;
+    actionsEnabled: boolean;
+    tradesEnabled: boolean;
+    actionsLockReason: string | null;
   } | null;
   isWatched: boolean;
   activity: PlayerProfileActivityRow[];
@@ -747,25 +754,28 @@ export const getPlayerProfile = cache(
               seasonRow.settings.scoringRules,
             );
 
-            const ownershipMap = await getLeaguePlayerOwnershipMap(
-              seasonRow.id,
-              user.id,
-            );
+            const [ownershipMap, draft, userTeam] = await Promise.all([
+              getLeaguePlayerOwnershipMap(seasonRow.id, user.id),
+              getDraftBySeasonId(seasonRow.id),
+              getUserTeamForSeason(seasonRow.id, user.id),
+            ]);
             const owned = resolvePlayerOwnership(ownershipMap, player.id);
             const wire = resolveWaiverWireSettings(
               seasonRow.settings.waiverWire,
             );
+            const actionsEnabled = isRosterTransactionsEnabled(
+              seasonRow,
+              draft?.status,
+            );
             const acquisitionKind = resolvePlayerAcquisitionKind({
               waiversEnabled: Boolean(seasonRow.waiversEnabled),
               waiverWire: wire,
-              rosterTransactionsEnabled:
-                isRosterTransactionsEnabled(seasonRow),
+              rosterTransactionsEnabled: actionsEnabled,
               fantasyTeamId: owned.fantasyTeamId,
               onWaivers: owned.onWaivers,
               nflTeam: player.nflTeam,
             });
 
-            const userTeam = await getUserTeamForSeason(seasonRow.id, user.id);
             userTeamId = userTeam?.id ?? null;
             let hasPendingClaim = false;
             if (userTeam) {
@@ -794,6 +804,13 @@ export const getPlayerProfile = cache(
               onWaivers: owned.onWaivers,
               acquisitionKind,
               hasPendingClaim,
+              actionsEnabled,
+              tradesEnabled: Boolean(seasonRow.tradesEnabled) && actionsEnabled,
+              actionsLockReason: actionsEnabled
+                ? null
+                : isDraftBlockingRosterActions(draft?.status)
+                  ? "Roster changes are locked while the draft is underway."
+                  : "Free agency is closed",
             };
 
             activity = await loadPlayerTransactionHistory({

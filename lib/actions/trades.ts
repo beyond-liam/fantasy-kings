@@ -46,6 +46,7 @@ import {
   listRosterPlayerRows,
   toTradeRosterPlayers,
 } from "@/lib/queries/trades";
+import { getDraftBySeasonId } from "@/lib/queries/draft";
 import { getTeamRosterPlayers } from "@/lib/queries/team-roster";
 import { getNflState, type SleeperNflState } from "@/lib/sleeper/api";
 
@@ -79,7 +80,8 @@ function revalidateTradePaths(slug: string) {
 }
 
 async function assertCanPropose(season: LeagueMemberTeamContext["season"]) {
-  const gate = canProposeTrades(season);
+  const draft = await getDraftBySeasonId(season.id);
+  const gate = canProposeTrades(season, draft?.status);
   if (!gate.ok) {
     return gate.error;
   }

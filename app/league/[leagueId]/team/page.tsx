@@ -98,7 +98,10 @@ export default async function MyTeamPage({
     scoringPreset,
     season.settings.scoringRules,
   );
-  const actionsEnabled = isRosterTransactionsEnabled(season);
+  const actionsEnabled = isRosterTransactionsEnabled(
+    season,
+    data.draftStatus,
+  );
   const wire = resolveWaiverWireSettings(season.settings.waiverWire);
   const isCommissioner = data.members.some(
     (member) =>

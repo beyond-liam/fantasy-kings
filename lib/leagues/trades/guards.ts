@@ -1,3 +1,4 @@
+import { isDraftBlockingRosterActions } from "@/lib/leagues/free-agency";
 import { resolveTransactionRules } from "@/lib/leagues/transaction-rules";
 
 export const OPEN_TRADE_STATUSES = [
@@ -14,13 +15,25 @@ export function isOpenTradeStatus(
   return OPEN_TRADE_STATUSES.includes(status as OpenTradeStatus);
 }
 
-export function canProposeTrades(season: {
-  status: string;
-  tradesEnabled: boolean;
-  settings: { transactionRules?: Parameters<typeof resolveTransactionRules>[0] };
-}) {
+export function canProposeTrades(
+  season: {
+    status: string;
+    tradesEnabled: boolean;
+    settings: {
+      transactionRules?: Parameters<typeof resolveTransactionRules>[0];
+    };
+  },
+  draftStatus?: string | null,
+) {
   if (!season.tradesEnabled) {
     return { ok: false as const, error: "Trades are disabled in this league." };
+  }
+
+  if (isDraftBlockingRosterActions(draftStatus)) {
+    return {
+      ok: false as const,
+      error: "Trades are locked while the draft is underway.",
+    };
   }
 
   const rules = resolveTransactionRules(season.settings.transactionRules);
