@@ -122,8 +122,11 @@ curl -X POST "https://<your-app>/api/cron/start-drafts" \
 
 ### `/api/cron/draft-reminders` (GET or POST)
 
-Sends T-24h and T-15m start reminders for **live and email** drafts.
+Sends T-24h and “starts soon” reminders for **live and email** drafts.
 Run every 5 minutes (Vercel Hobby only supports daily cron).
+
+- **T-24h:** draft start is 23–25 hours from now
+- **Starts soon:** draft start is within the next **20 minutes** (until start). Dedupe keys include `draftStartAt`, so rescheduling allows a new send.
 
 **Expected response (200):**
 ```json

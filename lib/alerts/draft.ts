@@ -219,7 +219,6 @@ export async function sendDueDraftReminders(
   const in25h = new Date(now.getTime() + 25 * 60 * 60 * 1000);
   const in23h = new Date(now.getTime() + 23 * 60 * 60 * 1000);
   const in20m = new Date(now.getTime() + 20 * 60 * 1000);
-  const in10m = new Date(now.getTime() + 10 * 60 * 1000);
 
   const upcoming = await db
     .select({
@@ -254,6 +253,8 @@ export async function sendDueDraftReminders(
       continue;
     }
 
+    // Bind dedupe to this scheduled start so reschedules can remind again.
+    const startKey = String(start);
     const href = draftRoomUrl(row.leaguePublicId);
     const userIds = await getSeasonOwnerUserIds(row.seasonId);
     const draftLabel = row.draftType === "email" ? "email draft" : "live draft";
@@ -269,7 +270,7 @@ export async function sendDueDraftReminders(
           ctaLabel: "Open draft room",
           ctaUrl: href,
           dedupeKeyForUser: (userId) =>
-            `draft:remind:24h:${row.seasonId}:${userId}`,
+            `draft:remind:24h:${row.seasonId}:${startKey}:${userId}`,
           tags: ["draft", "draft-remind-24h"],
           sync: true,
         },
@@ -277,7 +278,9 @@ export async function sendDueDraftReminders(
       result.sent24h += emailed;
     }
 
-    if (start >= in10m.getTime() && start <= in20m.getTime()) {
+    // Once within 20 minutes of start (until start), send once. Avoids missing
+    // a narrow 10–20m band when cron lags or the draft is rescheduled late.
+    if (start <= in20m.getTime()) {
       result.checked15m += 1;
       const { emailed } = await deliverAlert({
         userIds,
@@ -288,7 +291,7 @@ export async function sendDueDraftReminders(
           ctaLabel: "Open draft room",
           ctaUrl: href,
           dedupeKeyForUser: (userId) =>
-            `draft:remind:15m:${row.seasonId}:${userId}`,
+            `draft:remind:15m:${row.seasonId}:${startKey}:${userId}`,
           tags: ["draft", "draft-remind-15m"],
           sync: true,
         },
