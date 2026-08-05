@@ -1,4 +1,5 @@
-import dotenv from "dotenv";
+import "./load-env";
+
 import { drizzle } from "drizzle-orm/postgres-js";
 
 import {
@@ -7,8 +8,6 @@ import {
 } from "../../lib/scores/sync-sleeper-scores";
 import { getNflState } from "../../lib/sleeper/api";
 import { createSeedClient } from "./client";
-
-dotenv.config({ path: ".env.local" });
 
 const WEEKS = Array.from({ length: 18 }, (_, index) => index + 1);
 const MAX_JOB_RETRIES = 5;

@@ -338,7 +338,9 @@ export function PlayerProfileContent({
 
         <section className="flex min-w-0 flex-col gap-2">
           <h3 className="text-sm font-medium">
-            {useActualStats ? "Season stats" : "Season projection"}
+            {useActualStats
+              ? `Season stats · ${profile.season}`
+              : `Season projection · ${profile.season}`}
           </h3>
           {seasonBlock ? (
             <TableShell className="min-w-0">

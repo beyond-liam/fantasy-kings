@@ -75,10 +75,13 @@ export default async function LeagueDraftRoomPage({
       leagueSeasonId: season.id,
       settings: season.settings,
       benchSlots: season.benchSlots,
+      pickTimeLimitSeconds: season.pickTimeLimitSeconds,
     }),
     getNflState(),
     getSeasonDraftTeams(season.id),
   ]);
+
+  const draftSettings = resolveDraftSettings(season.settings.draft);
 
   const myTeam =
     room.teams.find((team) => team.userId === user.id) ?? null;
@@ -117,7 +120,6 @@ export default async function LeagueDraftRoomPage({
     }
   }
 
-  const draftSettings = resolveDraftSettings(season.settings.draft);
   const onTheClockTeam =
     room.teams.find((team) => team.id === room.onTheClock?.teamId) ?? null;
 

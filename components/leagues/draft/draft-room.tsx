@@ -41,7 +41,6 @@ import { formatDraftStartsAt } from "@/lib/leagues/draft-status";
 import type { DraftScheduleSlot } from "@/lib/leagues/draft/board";
 import type { DraftPickRow, DraftQueueRow } from "@/lib/queries/draft";
 import type { RankedPlayerRow } from "@/lib/queries/players";
-import { cn } from "@/lib/utils";
 
 type DraftRoomProps = {
   slug: string;
@@ -360,13 +359,25 @@ export function DraftRoom({
     return () => window.clearTimeout(timer);
   }, [draftStartAt, waitingToStart, slug, router]);
 
+  const onClockLabel = onTheClock
+    ? `${onTheClock.teamName}${onClockIsOpenSlot ? " (open)" : ""}`
+    : null;
+
   const clockCardTitle = waitingToStart
     ? "Waiting to start"
     : effectiveStatus === "paused"
       ? "Draft paused"
-      : isMyTurn
+      : onTheClock
         ? "On the clock"
         : "Up next";
+
+  const clockCardSubtitle = waitingToStart
+    ? null
+    : effectiveStatus === "paused"
+      ? onClockLabel
+      : isMyTurn
+        ? `You · Pick #${onTheClock?.overall ?? ""}`
+        : onClockLabel;
 
   const waitingMessage = (() => {
     if (!draftStartAt) {
@@ -397,6 +408,7 @@ export function DraftRoom({
           {!draftComplete ? (
             <DraftClockCard
               title={clockCardTitle}
+              subtitle={clockCardSubtitle}
               className="max-md:w-full max-md:min-w-0"
               showStopwatch
               headerAction={
@@ -413,11 +425,13 @@ export function DraftRoom({
                 <p className="text-sm text-muted-foreground">{waitingMessage}</p>
               ) : isMyTurn && onTheClock ? (
                 <div className="flex flex-col gap-1">
-                  <p className="text-sm font-medium">
-                    You · Pick #{onTheClock.overall}
-                  </p>
                   {secondsLeft != null ? (
-                    <DraftClockSeconds seconds={secondsLeft} />
+                    <>
+                      <p className="text-xs text-muted-foreground">
+                        Pick expires in
+                      </p>
+                      <DraftClockSeconds seconds={secondsLeft} />
+                    </>
                   ) : (
                     <p className="text-sm text-muted-foreground">
                       {clockEnabled
@@ -427,41 +441,25 @@ export function DraftRoom({
                   )}
                 </div>
               ) : onTheClock && picksUntilUser != null && picksUntilUser > 0 ? (
-                <div className="flex flex-col gap-1">
-                  <p className="text-sm text-muted-foreground">
-                    {onTheClock.teamName}
-                    {onClockIsOpenSlot ? " (open)" : ""} · Pick #
-                    {onTheClock.overall}
-                  </p>
-                  {onClockIsOpenSlot || onClockTeam?.autoPickEnabled ? (
+                secondsLeft != null ? (
+                  <div className="flex flex-col gap-1">
                     <p className="text-xs text-muted-foreground">
-                      Autopick on for this team
+                      Pick expires in
                     </p>
-                  ) : null}
-                  <p className="text-sm text-muted-foreground">You&apos;re up in</p>
-                  <p className="text-2xl font-semibold tabular-nums">
-                    {picksUntilUser}{" "}
-                    <span className="text-base font-medium text-muted-foreground">
+                    <DraftClockSeconds seconds={secondsLeft} />
+                    <p className="text-sm text-muted-foreground">
+                      You&apos;re up in {picksUntilUser}{" "}
                       {picksUntilUser === 1 ? "pick" : "picks"}
-                    </span>
-                  </p>
-                  {secondsLeft != null ? (
-                    <p
-                      className={cn(
-                        "text-sm tabular-nums text-muted-foreground",
-                        secondsLeft === 0 && "text-destructive",
-                      )}
-                    >
-                      Clock: {secondsLeft}s
                     </p>
-                  ) : null}
-                </div>
+                  </div>
+                ) : (
+                  <p className="text-sm">
+                    You&apos;re up in {picksUntilUser}{" "}
+                    {picksUntilUser === 1 ? "pick" : "picks"}
+                  </p>
+                )
               ) : onTheClock ? (
                 <div className="flex flex-col gap-1">
-                  <p className="text-sm font-medium">
-                    {onTheClock.teamName}
-                    {onClockIsOpenSlot ? " (open)" : ""}
-                  </p>
                   <p className="text-sm text-muted-foreground">
                     Round {onTheClock.round} · Pick #{onTheClock.overall}
                   </p>
@@ -471,7 +469,12 @@ export function DraftRoom({
                     </p>
                   ) : null}
                   {secondsLeft != null ? (
-                    <DraftClockSeconds seconds={secondsLeft} />
+                    <>
+                      <p className="text-xs text-muted-foreground">
+                        Pick expires in
+                      </p>
+                      <DraftClockSeconds seconds={secondsLeft} />
+                    </>
                   ) : !clockEnabled ? (
                     <p className="text-sm text-muted-foreground">
                       No time limit

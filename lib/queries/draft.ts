@@ -19,6 +19,7 @@ import {
   type DraftScheduleSlot,
   type DraftTeamSlot,
 } from "@/lib/leagues/draft/board";
+import { ensureDraftTurnClock } from "@/lib/leagues/draft/ensure-turn-clock";
 import { resolveDraftSettings } from "@/lib/leagues/draft-settings";
 import type { LeagueSeasonSettings } from "@/db/schema/league-seasons";
 
@@ -189,11 +190,26 @@ export async function getDraftRoomData(input: {
   leagueSeasonId: string;
   settings: LeagueSeasonSettings;
   benchSlots: number;
+  /** When set, backfill a missing live/paused pick clock for timed drafts. */
+  pickTimeLimitSeconds?: number;
 }): Promise<DraftRoomData> {
-  const [draft, seasonTeams] = await Promise.all([
+  const [draftRow, seasonTeams] = await Promise.all([
     getDraftBySeasonId(input.leagueSeasonId),
     getSeasonDraftTeams(input.leagueSeasonId),
   ]);
+
+  let draft = draftRow;
+  if (
+    draft &&
+    input.pickTimeLimitSeconds != null &&
+    (draft.status === "live" || draft.status === "paused")
+  ) {
+    const ensured = await ensureDraftTurnClock({
+      draft,
+      pickTimeLimitSeconds: input.pickTimeLimitSeconds,
+    });
+    draft = { ...draft, ...ensured };
+  }
 
   const draftSettings = resolveDraftSettings(input.settings.draft);
   const teamsWithSlots = seasonTeams

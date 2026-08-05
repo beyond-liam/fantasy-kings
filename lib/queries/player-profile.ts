@@ -214,6 +214,50 @@ function pickPositionRank(stats: Record<string, number | null>): number | null {
   return null;
 }
 
+/** Rank player among season actuals at their position (league scoring). */
+async function computeStatsPositionRank(input: {
+  playerId: string;
+  positionId: string;
+  season: string;
+  rules: ScoringRuleDefinition[];
+}): Promise<number | null> {
+  const rows = await db
+    .select({
+      playerId: playerScores.playerId,
+      stats: playerScores.stats,
+    })
+    .from(playerScores)
+    .innerJoin(players, eq(players.id, playerScores.playerId))
+    .where(
+      and(
+        eq(playerScores.season, input.season),
+        eq(playerScores.week, 0),
+        eq(playerScores.kind, "stats"),
+        eq(playerScores.seasonType, "regular"),
+        eq(players.primaryPositionId, input.positionId),
+      ),
+    );
+
+  if (rows.length === 0) {
+    return null;
+  }
+
+  const ranked = rows
+    .map((row) => {
+      const stats = normalizePlayerStats(
+        (row.stats ?? {}) as Record<string, number | null>,
+      ) as Record<string, number | null>;
+      return {
+        playerId: row.playerId,
+        fantasyPts: scoreRow(stats, input.positionId, input.rules) ?? 0,
+      };
+    })
+    .toSorted((a, b) => b.fantasyPts - a.fantasyPts);
+
+  const index = ranked.findIndex((row) => row.playerId === input.playerId);
+  return index >= 0 ? index + 1 : null;
+}
+
 /** Rank player among season projections at their position (league scoring). */
 async function computeProjectionPositionRank(input: {
   playerId: string;
@@ -849,13 +893,20 @@ export const getPlayerProfile = cache(
         rules: scoringRules,
       }),
       getPlayerRosterRatesMap([player.id]),
-      computeProjectionPositionRank({
+      computeStatsPositionRank({
         playerId: player.id,
         positionId: player.primaryPositionId,
         season,
         rules: scoringRules,
-      }).then(async (rank) => {
-        if (rank != null) return rank;
+      }).then(async (statsRank) => {
+        if (statsRank != null) return statsRank;
+        const projectionRank = await computeProjectionPositionRank({
+          playerId: player.id,
+          positionId: player.primaryPositionId,
+          season,
+          rules: scoringRules,
+        });
+        if (projectionRank != null) return projectionRank;
         return loadPriorSeasonPosRank({ playerId: player.id, season });
       }),
       getNflTeamSchedule({

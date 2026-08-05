@@ -1,9 +1,8 @@
-import dotenv from "dotenv";
+import "./load-env";
+
 import { drizzle } from "drizzle-orm/postgres-js";
 import { positions } from "../schema/positions";
 import { createSeedClient } from "./client";
-
-dotenv.config({ path: ".env.local" });
 
 const offensePositions = [
   { id: "QB", name: "Quarterback", side: "offense" as const, sortOrder: 1, isStarterSlot: true },

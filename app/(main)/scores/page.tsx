@@ -6,13 +6,19 @@ import { ScheduleList } from "@/components/scores/schedule-list";
 import { WeekFilter } from "@/components/scores/week-filter";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Spinner } from "@/components/ui/spinner";
-import { getNflScoreboard } from "@/lib/espn/scoreboard";
-import { getDefaultScheduleWeek } from "@/lib/nfl/schedule-week";
+import {
+  getNflScoreboard,
+  type EspnSeasonType,
+} from "@/lib/espn/scoreboard";
+import { getDefaultScheduleWeekEntry } from "@/lib/nfl/schedule-week";
 import { getNflState } from "@/lib/sleeper/api";
+
+const NFL_SCORES_CALENDAR: EspnSeasonType[] = [1, 2];
 
 type NflScoresPageProps = {
   searchParams: Promise<{
     week?: string;
+    seasontype?: string;
   }>;
 };
 
@@ -27,6 +33,17 @@ function parseWeekParam(raw: string | undefined): number | null {
   return week;
 }
 
+function parseSeasonTypeParam(raw: string | undefined): EspnSeasonType | null {
+  if (!raw) {
+    return null;
+  }
+  const seasonType = Number(raw);
+  if (seasonType === 1 || seasonType === 2) {
+    return seasonType;
+  }
+  return null;
+}
+
 export const metadata: Metadata = {
   title: "NFL scores",
 };
@@ -37,27 +54,44 @@ export default async function NflScoresPage({
   const [params, state] = await Promise.all([searchParams, getNflState()]);
   const season = Number(state.season);
   const requestedWeek = parseWeekParam(params.week);
+  const requestedSeasonType = parseSeasonTypeParam(params.seasontype);
 
   let scoreboard: Awaited<ReturnType<typeof getNflScoreboard>> | null = null;
   let error: string | null = null;
 
   try {
+    const bootstrapSeasonType =
+      requestedSeasonType ?? (state.season_type === "pre" ? 1 : 2);
     const bootstrap = await getNflScoreboard({
       season,
       week: requestedWeek ?? 1,
+      seasonType: bootstrapSeasonType,
+      calendarSeasonTypes: NFL_SCORES_CALENDAR,
     });
 
-    const defaultWeek = getDefaultScheduleWeek(bootstrap.weeks);
-    const week =
-      requestedWeek &&
-      bootstrap.weeks.some((entry) => entry.number === requestedWeek)
-        ? requestedWeek
-        : defaultWeek;
+    const defaultWeek = getDefaultScheduleWeekEntry(bootstrap.weeks);
+    const matched =
+      requestedWeek != null
+        ? bootstrap.weeks.find(
+            (entry) =>
+              entry.number === requestedWeek &&
+              entry.seasonType === (requestedSeasonType ?? 2),
+          )
+        : undefined;
+
+    const selected = matched ?? defaultWeek ?? bootstrap.weeks[0];
+    const week = selected?.number ?? 1;
+    const seasonType = selected?.seasonType ?? 2;
 
     scoreboard =
-      week === bootstrap.week
+      week === bootstrap.week && seasonType === bootstrap.seasonType
         ? bootstrap
-        : await getNflScoreboard({ season, week });
+        : await getNflScoreboard({
+            season,
+            week,
+            seasonType,
+            calendarSeasonTypes: NFL_SCORES_CALENDAR,
+          });
   } catch (caught) {
     error =
       caught instanceof Error ? caught.message : "Failed to load NFL schedule";
@@ -80,10 +114,12 @@ export default async function NflScoresPage({
             <WeekFilter
               weeks={scoreboard.weeks.map((week) => ({
                 number: week.number,
+                seasonType: week.seasonType,
                 label: week.label,
                 rangeLabel: week.rangeLabel,
               }))}
               value={scoreboard.week}
+              seasonType={scoreboard.seasonType}
             />
           </Suspense>
         ) : null}
@@ -97,7 +133,11 @@ export default async function NflScoresPage({
       ) : scoreboard ? (
         <>
           <LiveRefresh enabled={scoreboard.hasLiveGames} />
-          <ScheduleList games={scoreboard.games} week={scoreboard.week} />
+          <ScheduleList
+            games={scoreboard.games}
+            week={scoreboard.week}
+            seasonType={scoreboard.seasonType}
+          />
         </>
       ) : null}
     </div>

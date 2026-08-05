@@ -17,6 +17,8 @@ import {
   logSettingsUpdated,
 } from "@/lib/leagues/settings-activity";
 import { unwindDraftForFutureStart } from "@/lib/leagues/draft/reschedule";
+import { ensureDraftTurnClock } from "@/lib/leagues/draft/ensure-turn-clock";
+import { getDraftBySeasonId } from "@/lib/queries/draft";
 
 import {
   getCommissionerSeason,
@@ -84,6 +86,17 @@ export async function updateDraftConfig(
     seasonStatus: season.status,
     draftStartAt,
   });
+
+  const liveDraft = await getDraftBySeasonId(season.id);
+  if (
+    liveDraft &&
+    (liveDraft.status === "live" || liveDraft.status === "paused")
+  ) {
+    await ensureDraftTurnClock({
+      draft: liveDraft,
+      pickTimeLimitSeconds: after.pickTimeLimitSeconds,
+    });
+  }
 
   // Apply league autopick default to all teams.
   await db

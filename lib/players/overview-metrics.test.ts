@@ -462,6 +462,71 @@ describe("buildPlayerOverviewMetrics", () => {
     assert.ok(pprRec);
     assert.ok(pprRec.points > (stdRec?.points ?? 0));
   });
+
+  it("keeps Production and Breakdown PPG aligned when weekly thresholds fire", () => {
+    const overview = buildPlayerOverviewMetrics(
+      rbProfile({
+        seasonStats: {
+          // Intentionally wrong bag total (re-scored aggregate) — weekly mean wins.
+          fantasyPts: 999,
+          stats: {
+            rush_att: 60,
+            rush_yd: 320,
+            rush_td: 2,
+            rec: 6,
+            rec_yd: 40,
+            rec_td: 0,
+            rec_tgt: 8,
+            gp: 2,
+          },
+        },
+        gameLog: [
+          {
+            week: 1,
+            opponent: "vs SEA",
+            // Matches explainPlayerPoints for this bag under full_ppr.
+            fantasyPts: 30,
+            stats: {
+              rush_att: 30,
+              rush_yd: 160,
+              rush_td: 1,
+              rec: 3,
+              rec_yd: 20,
+              rec_td: 0,
+              rec_tgt: 4,
+            },
+          },
+          {
+            week: 2,
+            opponent: "@ LAR",
+            fantasyPts: 30,
+            stats: {
+              rush_att: 30,
+              rush_yd: 160,
+              rush_td: 1,
+              rec: 3,
+              rec_yd: 20,
+              rec_td: 0,
+              rec_tgt: 4,
+            },
+          },
+        ],
+      }),
+      rules,
+    );
+
+    const productionFpts = overview.production.find(
+      (tile) => tile.key === "fpts_weekly",
+    )?.value;
+    assert.equal(productionFpts, 30);
+    assert.equal(overview.scoringBreakdown.fptsPerGame, 30);
+    assert.equal(overview.fptsPerGame, 30);
+
+    const chipSumPerGame =
+      overview.scoringBreakdown.segments.reduce((sum, s) => sum + s.points, 0) /
+      overview.gamesPlayed;
+    assert.ok(Math.abs(chipSumPerGame - 30) < 0.05);
+  });
 });
 
 describe("classifyRbScoringArchetype", () => {

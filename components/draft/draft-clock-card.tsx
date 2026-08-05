@@ -10,10 +10,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { formatPickClock } from "@/lib/leagues/draft/clock";
 import { cn } from "@/lib/utils";
 
 type DraftClockCardProps = {
   title: string;
+  /** Shown under the title, aligned with the title text. */
+  subtitle?: ReactNode;
   /** Opposite the heading (e.g. play/pause). */
   headerAction?: ReactNode;
   showStopwatch?: boolean;
@@ -23,6 +26,7 @@ type DraftClockCardProps = {
 
 export function DraftClockCard({
   title,
+  subtitle,
   headerAction,
   showStopwatch = true,
   children,
@@ -31,18 +35,30 @@ export function DraftClockCard({
   return (
     <Card size="sm" className={cn("min-w-[16rem] gap-0 py-0", className)}>
       <CardHeader variant="panel">
-        <div className="flex items-center justify-between gap-2">
-          <CardTitle className="flex min-w-0 items-center gap-2 text-base text-balance">
-            {showStopwatch ? (
-              <HugeiconsIcon
-                icon={StopWatchIcon}
-                strokeWidth={2}
-                className="size-4 shrink-0"
-              />
-            ) : null}
-            {title}
-          </CardTitle>
-          {headerAction}
+        <div className="flex flex-col gap-0">
+          <div className="flex items-center justify-between gap-2">
+            <CardTitle className="flex min-w-0 items-center gap-2 text-base leading-none text-balance">
+              {showStopwatch ? (
+                <HugeiconsIcon
+                  icon={StopWatchIcon}
+                  strokeWidth={2}
+                  className="size-4 shrink-0"
+                />
+              ) : null}
+              {title}
+            </CardTitle>
+            {headerAction}
+          </div>
+          {subtitle ? (
+            <p
+              className={cn(
+                "text-xs leading-tight text-muted-foreground text-pretty",
+                showStopwatch && "pl-6",
+              )}
+            >
+              {subtitle}
+            </p>
+          ) : null}
         </div>
       </CardHeader>
       <CardContent className="py-3">{children}</CardContent>
@@ -71,7 +87,7 @@ export function DraftClockSeconds({
         className,
       )}
     >
-      {seconds}s
+      {formatPickClock(seconds)}
     </p>
   );
 }

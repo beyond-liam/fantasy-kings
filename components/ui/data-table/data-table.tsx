@@ -18,6 +18,7 @@ import {
   Table,
   TableBody,
   TableCell,
+  TableFooter,
   TableHead,
   TableHeader,
   TableRow,
@@ -77,6 +78,18 @@ const STICKY_LEFT_CLASSNAME = cn(
 );
 
 const STICKY_LEFT_HEADER_CLASSNAME = "sticky z-30 bg-muted overflow-hidden";
+
+/**
+ * Opaque stand-in for TableFooter `bg-muted/50`.
+ * Applied per cell — tfoot backgrounds often don't paint under overflow/sticky.
+ */
+const FOOTER_CELL_SURFACE =
+  "bg-[color-mix(in_oklab,var(--muted)_50%,var(--background))]";
+
+const STICKY_LEFT_FOOTER_CLASSNAME = cn(
+  "sticky z-20 overflow-hidden",
+  FOOTER_CELL_SURFACE,
+);
 
 const STICKY_LEFT_EDGE_CLASSNAME =
   "shadow-[4px_0_8px_-4px_rgba(0,0,0,0.45)]";
@@ -168,6 +181,10 @@ export function DataTable<TData>({
     fixedLayout && firstHeaderGroup
       ? getFixedTableMinWidth(visibleColumns)
       : undefined;
+  const footerGroups = table.getFooterGroups();
+  const showFooter = footerGroups.some((group) =>
+    group.headers.some((header) => header.column.columnDef.footer != null),
+  );
 
   return (
     <TooltipProvider>
@@ -291,6 +308,52 @@ export function DataTable<TData>({
                   </TableRow>
                 )}
               </TableBody>
+              {showFooter ? (
+                <TableFooter className="bg-transparent">
+                  {footerGroups.map((footerGroup) => (
+                    <TableRow
+                      key={footerGroup.id}
+                      className="border-0 hover:bg-transparent data-[state=selected]:bg-transparent"
+                    >
+                      {footerGroup.headers.map((header) => {
+                        const stickyLeft = stickyLeftOffsets.get(
+                          header.column.id,
+                        );
+                        const sticky = stickyLeft != null;
+
+                        return (
+                          <TableCell
+                            key={header.id}
+                            className={cn(
+                              "whitespace-nowrap",
+                              FOOTER_CELL_SURFACE,
+                              sticky && STICKY_LEFT_FOOTER_CLASSNAME,
+                              sticky &&
+                                isLastStickyLeftColumn(
+                                  visibleColumns,
+                                  header.column.id,
+                                ) &&
+                                STICKY_LEFT_EDGE_CLASSNAME,
+                            )}
+                            style={getColumnStyle(
+                              header.column,
+                              fixedLayout,
+                              stickyLeft,
+                            )}
+                          >
+                            {header.isPlaceholder
+                              ? null
+                              : flexRender(
+                                  header.column.columnDef.footer,
+                                  header.getContext(),
+                                )}
+                          </TableCell>
+                        );
+                      })}
+                    </TableRow>
+                  ))}
+                </TableFooter>
+              ) : null}
             </Table>
           </TableShell>
           {showPagination ? (

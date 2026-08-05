@@ -749,17 +749,37 @@ function segmentPct(points: number, total: number): number {
   return total > 0 ? (points / total) * 100 : 0;
 }
 
+/** Mean of scored weekly fantasy points — source of truth for Overview PPG. */
+function weeklyMeanFpts(profile: PlayerOverviewInput): number | null {
+  const scored = scoredWeeks(profile)
+    .filter((w) => w.fpts != null)
+    .map((w) => w.fpts!);
+  return mean(scored);
+}
+
+function scoredGameLogWeeksWithStats(profile: PlayerOverviewInput) {
+  return profile.gameLog.filter(
+    (row) =>
+      row.fantasyPts != null &&
+      Number.isFinite(row.fantasyPts) &&
+      row.stats != null &&
+      Object.keys(row.stats).length > 0,
+  );
+}
+
 function fptsPerGameFromProfile(
   profile: PlayerOverviewInput,
   seasonPts: number | null,
   total: number,
 ): number | null {
+  const weekly = weeklyMeanFpts(profile);
+  if (weekly != null) return weekly;
+
   const bag =
     profile.seasonStats?.stats ?? profile.seasonProjection?.stats ?? null;
   const gp = Math.max(
     1,
-    scoredWeeks(profile).filter((w) => w.fpts != null).length ||
-      (typeof bag?.gp === "number" && bag.gp > 0 ? bag.gp : 17),
+    typeof bag?.gp === "number" && bag.gp > 0 ? bag.gp : 17,
   );
   if (seasonPts != null && Number.isFinite(seasonPts)) {
     return seasonPts / gp;
@@ -829,33 +849,54 @@ function buildBucketedScoringSegments(
   total: number;
   segments: OverviewScoringSegment[];
 } {
-  const bag =
-    profile.seasonStats?.stats ??
-    profile.seasonProjection?.stats ??
-    null;
-  const seasonPts =
-    profile.seasonStats?.fantasyPts ??
-    profile.seasonProjection?.fantasyPts ??
-    null;
-
-  if (!bag) {
-    return { fptsPerGame: null, total: 0, segments: [] };
-  }
-
-  const explained = explainPlayerPoints(
-    bag,
-    profile.primaryPositionId,
-    rules,
-  );
-  const total = explained.total || Math.abs(seasonPts ?? 0);
+  const weeklyRows = scoredGameLogWeeksWithStats(profile);
   const pointsByBucket = new Map<BucketedScoringId, number>();
+  let total = 0;
 
-  for (const line of explained.lines) {
-    const bucket = bucketForStatKey(line.statKey, buckets);
-    pointsByBucket.set(
-      bucket,
-      (pointsByBucket.get(bucket) ?? 0) + line.points,
+  if (weeklyRows.length > 0) {
+    for (const row of weeklyRows) {
+      const explained = explainPlayerPoints(
+        row.stats!,
+        profile.primaryPositionId,
+        rules,
+      );
+      total += explained.total;
+      for (const line of explained.lines) {
+        const bucket = bucketForStatKey(line.statKey, buckets);
+        pointsByBucket.set(
+          bucket,
+          (pointsByBucket.get(bucket) ?? 0) + line.points,
+        );
+      }
+    }
+    total = Math.round(total * 100) / 100;
+  } else {
+    const bag =
+      profile.seasonStats?.stats ??
+      profile.seasonProjection?.stats ??
+      null;
+    const seasonPts =
+      profile.seasonStats?.fantasyPts ??
+      profile.seasonProjection?.fantasyPts ??
+      null;
+
+    if (!bag) {
+      return { fptsPerGame: null, total: 0, segments: [] };
+    }
+
+    const explained = explainPlayerPoints(
+      bag,
+      profile.primaryPositionId,
+      rules,
     );
+    total = explained.total || Math.abs(seasonPts ?? 0);
+    for (const line of explained.lines) {
+      const bucket = bucketForStatKey(line.statKey, buckets);
+      pointsByBucket.set(
+        bucket,
+        (pointsByBucket.get(bucket) ?? 0) + line.points,
+      );
+    }
   }
 
   const segments: OverviewScoringSegment[] = [];
@@ -880,6 +921,11 @@ function buildBucketedScoringSegments(
     });
   }
 
+  const seasonPts =
+    profile.seasonStats?.fantasyPts ??
+    profile.seasonProjection?.fantasyPts ??
+    total;
+
   return {
     fptsPerGame: fptsPerGameFromProfile(profile, seasonPts, total),
     total,
@@ -899,6 +945,33 @@ function buildDefScoringSegments(
   total: number;
   segments: OverviewScoringSegment[];
 } {
+  if (scoredGameLogWeeksWithStats(profile).length > 0) {
+    const base = buildBucketedScoringSegments(
+      profile,
+      rules,
+      DEF_SCORING_BUCKETS,
+    );
+    const bag =
+      profile.seasonStats?.stats ??
+      profile.seasonProjection?.stats ??
+      null;
+    const tackleVol = numStat(bag ?? undefined, "tkl_solo") ?? 0;
+    const hasTackle = base.segments.some((s) => s.id === "tkl_solo");
+    if (tackleVol > 0 && !hasTackle) {
+      const segments = [
+        ...base.segments,
+        {
+          id: "tkl_solo",
+          label: "Tackles",
+          points: 0,
+          pct: 0,
+        },
+      ];
+      return { ...base, segments };
+    }
+    return base;
+  }
+
   const bag =
     profile.seasonStats?.stats ??
     profile.seasonProjection?.stats ??
@@ -1004,27 +1077,11 @@ function sumStatKeys(
  * Attribute kicker fantasy points by FG distance + XP using league rules.
  * Distance bags include `fgm` so base FG rules still apply per group.
  */
-function buildKickerScoringSegments(
-  profile: PlayerOverviewInput,
+function attributeKickerBag(
+  bag: Record<string, number | null>,
   rules: ScoringRuleDefinition[],
-): {
-  fptsPerGame: number | null;
-  total: number;
-  segments: OverviewScoringSegment[];
-} {
-  const bag =
-    profile.seasonStats?.stats ??
-    profile.seasonProjection?.stats ??
-    null;
-  const seasonPts =
-    profile.seasonStats?.fantasyPts ??
-    profile.seasonProjection?.fantasyPts ??
-    null;
-
-  if (!bag) {
-    return { fptsPerGame: null, total: 0, segments: [] };
-  }
-
+  seasonPts: number | null,
+): { total: number; candidates: OverviewScoringSegment[] } {
   const mid = numStat(bag, "fgm_40_49") ?? 0;
   const long = numStat(bag, "fgm_50p") ?? 0;
   const shortFromBuckets = sumStatKeys(bag, [
@@ -1082,11 +1139,7 @@ function buildKickerScoringSegments(
     }
   }
 
-  if (
-    candidates.length === 0 &&
-    fgmTotal != null &&
-    fgmTotal > 0
-  ) {
+  if (candidates.length === 0 && fgmTotal != null && fgmTotal > 0) {
     const points = scoreBag({ fgm: fgmTotal });
     if (Math.abs(points) >= 0.05) {
       candidates.push({
@@ -1124,6 +1177,79 @@ function buildKickerScoringSegments(
     });
   }
 
+  return { total, candidates };
+}
+
+function buildKickerScoringSegments(
+  profile: PlayerOverviewInput,
+  rules: ScoringRuleDefinition[],
+): {
+  fptsPerGame: number | null;
+  total: number;
+  segments: OverviewScoringSegment[];
+} {
+  const bag =
+    profile.seasonStats?.stats ??
+    profile.seasonProjection?.stats ??
+    null;
+  const seasonPts =
+    profile.seasonStats?.fantasyPts ??
+    profile.seasonProjection?.fantasyPts ??
+    null;
+
+  const seasonHasDistance =
+    bag != null &&
+    ((numStat(bag, "fgm_40_49") ?? 0) > 0 ||
+      (numStat(bag, "fgm_50p") ?? 0) > 0 ||
+      sumStatKeys(bag, ["fgm_0_19", "fgm_20_29", "fgm_30_39"]) > 0);
+
+  /** Prefer season bag for FG-distance DNA when present; weekly bags often omit brackets. */
+  if (!seasonHasDistance) {
+    const weeklyRows = scoredGameLogWeeksWithStats(profile);
+    if (weeklyRows.length > 0) {
+      const pointsById = new Map<string, { label: string; points: number }>();
+      let total = 0;
+      for (const row of weeklyRows) {
+        const { total: weekTotal, candidates } = attributeKickerBag(
+          row.stats!,
+          rules,
+          row.fantasyPts,
+        );
+        total += weekTotal;
+        for (const candidate of candidates) {
+          const prev = pointsById.get(candidate.id);
+          if (prev) {
+            prev.points += candidate.points;
+          } else {
+            pointsById.set(candidate.id, {
+              label: candidate.label,
+              points: candidate.points,
+            });
+          }
+        }
+      }
+      total = Math.round(total * 100) / 100;
+      const segments: OverviewScoringSegment[] = [...pointsById.entries()]
+        .map(([id, row]) => ({
+          id,
+          label: row.label,
+          points: Math.round(row.points * 100) / 100,
+          pct: segmentPct(row.points, total),
+        }))
+        .filter((s) => Math.abs(s.points) >= 0.05 || s.id === "other");
+      return {
+        fptsPerGame: fptsPerGameFromProfile(profile, seasonPts ?? total, total),
+        total,
+        segments,
+      };
+    }
+  }
+
+  if (!bag) {
+    return { fptsPerGame: null, total: 0, segments: [] };
+  }
+
+  const { total, candidates } = attributeKickerBag(bag, rules, seasonPts);
   const segments = candidates.map((segment) => ({
     ...segment,
     pct: segmentPct(segment.points, total),

@@ -1,6 +1,4 @@
-import dotenv from "dotenv";
-
-dotenv.config({ path: ".env.local" });
+import "./load-env";
 
 import { backfillAllPublicIds } from "@/lib/leagues/ensure-public-ids";
 

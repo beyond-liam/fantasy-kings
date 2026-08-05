@@ -1,7 +1,6 @@
-import dotenv from "dotenv";
-import postgres from "postgres";
+import "./load-env";
 
-dotenv.config({ path: ".env.local" });
+import postgres from "postgres";
 
 const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const LENGTH = 6;

@@ -30,6 +30,16 @@ type PlayerGameLogTableProps = {
   profile: PlayerProfile;
 };
 
+/** Rate / ratio keys — averages would mislead; leave blank in totals. */
+const NON_SUMMABLE_STAT_KEYS = new Set([
+  "ypr",
+  "ypc",
+  "ypa",
+  "cmp_pct",
+  "fg_pct",
+  "xp_pct",
+]);
+
 function formatPts(value: number | null | undefined) {
   if (value == null || !Number.isFinite(value)) return "—";
   return value.toFixed(1);
@@ -39,6 +49,17 @@ function formatStat(value: number | null | undefined, decimals = 1) {
   if (value == null || !Number.isFinite(value)) return "—";
   if (Number.isInteger(value) && decimals <= 1) return String(value);
   return value.toFixed(decimals);
+}
+
+function sumNullable(values: Array<number | null | undefined>): number | null {
+  let sum = 0;
+  let any = false;
+  for (const value of values) {
+    if (value == null || !Number.isFinite(value)) continue;
+    sum += value;
+    any = true;
+  }
+  return any ? sum : null;
 }
 
 function compareNullableNumber(
@@ -104,6 +125,26 @@ export function PlayerGameLogTable({ profile }: PlayerGameLogTableProps) {
     [finishByWeek, profile.gameLog],
   );
 
+  const scoredRows = useMemo(
+    () => data.filter((row) => row.fantasyPts != null),
+    [data],
+  );
+
+  const totals = useMemo(() => {
+    const fantasyPts = sumNullable(scoredRows.map((row) => row.fantasyPts));
+    const stats: Record<string, number | null> = {};
+    for (const column of profile.gameLogColumns.slice(0, 8)) {
+      if (NON_SUMMABLE_STAT_KEYS.has(column.key)) {
+        stats[column.key] = null;
+        continue;
+      }
+      stats[column.key] = sumNullable(
+        scoredRows.map((row) => row.stats[column.key] ?? null),
+      );
+    }
+    return { fantasyPts, stats };
+  }, [profile.gameLogColumns, scoredRows]);
+
   const statColumns = useMemo(
     () => profile.gameLogColumns.slice(0, 8),
     [profile.gameLogColumns],
@@ -126,6 +167,7 @@ export function PlayerGameLogTable({ profile }: PlayerGameLogTableProps) {
         cell: ({ row }) => (
           <span className="tabular-nums">{row.original.week}</span>
         ),
+        footer: () => <span>Total</span>,
         meta: {
           width: 72,
           sticky: "left",
@@ -148,6 +190,7 @@ export function PlayerGameLogTable({ profile }: PlayerGameLogTableProps) {
             {row.original.opponent ?? "—"}
           </span>
         ),
+        footer: () => null,
         meta: {
           width: 96,
           sticky: "left",
@@ -183,6 +226,7 @@ export function PlayerGameLogTable({ profile }: PlayerGameLogTableProps) {
           ) : (
             <span className="text-muted-foreground">—</span>
           ),
+        footer: () => null,
         meta: { width: 52 },
       },
       {
@@ -203,6 +247,9 @@ export function PlayerGameLogTable({ profile }: PlayerGameLogTableProps) {
             {formatPts(row.original.fantasyPts)}
           </span>
         ),
+        footer: () => (
+          <span className="tabular-nums">{formatPts(totals.fantasyPts)}</span>
+        ),
         meta: { width: 64, cellClassName: "tabular-nums" },
       },
       {
@@ -215,7 +262,7 @@ export function PlayerGameLogTable({ profile }: PlayerGameLogTableProps) {
           <DataTableColumnHeader
             column={column}
             title="Rnk"
-            tooltip="Weekly finish at position"
+            tooltip="Weekly finish at position (footer: season finish)"
           />
         ),
         cell: ({ row }) => {
@@ -239,11 +286,34 @@ export function PlayerGameLogTable({ profile }: PlayerGameLogTableProps) {
             </Badge>
           );
         },
+        footer: () => {
+          const seasonRank = profile.positionRank;
+          const badgeVariant = getPositionRankBadgeVariant(seasonRank);
+          if (badgeVariant == null || seasonRank == null) {
+            return null;
+          }
+          return (
+            <Badge
+              variant={badgeVariant}
+              className={cn(
+                "border font-semibold tabular-nums",
+                FINISH_BADGE_BORDER[badgeVariant],
+              )}
+              title={`${profile.season} season finish at ${profile.primaryPositionId}`}
+            >
+              {formatPositionRank(
+                profile.primaryPositionId,
+                Math.round(seasonRank),
+              )}
+            </Badge>
+          );
+        },
         meta: { width: 72 },
       },
     ];
 
     for (const column of statColumns) {
+      const summable = !NON_SUMMABLE_STAT_KEYS.has(column.key);
       cols.push({
         id: column.key,
         accessorFn: (row) => row.stats[column.key] ?? null,
@@ -268,12 +338,21 @@ export function PlayerGameLogTable({ profile }: PlayerGameLogTableProps) {
             )}
           </span>
         ),
+        footer: () =>
+          summable ? (
+            <span className="tabular-nums">
+              {formatStat(
+                totals.stats[column.key] ?? null,
+                column.decimals ?? 1,
+              )}
+            </span>
+          ) : null,
         meta: { cellClassName: "tabular-nums" },
       });
     }
 
     return cols;
-  }, [profile.primaryPositionId, statColumns]);
+  }, [profile.positionRank, profile.primaryPositionId, profile.season, statColumns, totals]);
 
   const table = useDataTable({
     data,

@@ -116,17 +116,37 @@ export type ScheduleGame = {
   away: ScheduleTeam;
 };
 
+/** ESPN scoreboard seasontype: 1=preseason, 2=regular, 3=postseason. */
+export type EspnSeasonType = 1 | 2 | 3;
+
 export type ScheduleWeek = WeekWindow & {
   label: string;
   rangeLabel: string;
+  seasonType: EspnSeasonType;
 };
 
 export type NflScoreboard = {
   season: number;
   week: number;
+  seasonType: EspnSeasonType;
   weeks: ScheduleWeek[];
   games: ScheduleGame[];
   hasLiveGames: boolean;
+};
+
+const CALENDAR_GROUP_BY_SEASON_TYPE: Record<
+  EspnSeasonType,
+  string
+> = {
+  1: "Preseason",
+  2: "Regular Season",
+  3: "Postseason",
+};
+
+const SEASON_TYPE_BY_CALENDAR_GROUP: Record<string, EspnSeasonType> = {
+  Preseason: 1,
+  "Regular Season": 2,
+  Postseason: 3,
 };
 
 /** ESPN uses WSH; Sleeper CDN uses WAS. */
@@ -275,40 +295,65 @@ function parseGame(event: EspnEvent): ScheduleGame | null {
   };
 }
 
-function parseWeeks(payload: EspnScoreboardResponse): ScheduleWeek[] {
+function parseWeeks(
+  payload: EspnScoreboardResponse,
+  calendarSeasonTypes: EspnSeasonType[],
+): ScheduleWeek[] {
   const groups = payload.leagues?.[0]?.calendar ?? [];
-  const regular = groups.find((group) => group.label === "Regular Season");
+  const wanted = new Set(
+    calendarSeasonTypes.map((type) => CALENDAR_GROUP_BY_SEASON_TYPE[type]),
+  );
 
-  return (regular?.entries ?? [])
-    .map((entry) => {
+  const weeks: ScheduleWeek[] = [];
+
+  for (const group of groups) {
+    const label = group.label;
+    if (!label || !wanted.has(label)) continue;
+    const seasonType = SEASON_TYPE_BY_CALENDAR_GROUP[label];
+    if (!seasonType) continue;
+
+    for (const entry of group.entries ?? []) {
       const number = Number(entry.value);
       if (!Number.isFinite(number) || !entry.startDate || !entry.endDate) {
-        return null;
+        continue;
       }
 
       const startDate = new Date(entry.startDate);
       const endDate = new Date(entry.endDate);
 
-      return {
+      weeks.push({
         number,
+        seasonType,
         label: entry.label ?? `Week ${number}`,
         rangeLabel: formatWeekRange(startDate, endDate),
         startDate,
         endDate,
-      } satisfies ScheduleWeek;
-    })
-    .filter((week): week is ScheduleWeek => week !== null)
-    .sort((a, b) => a.number - b.number);
+      });
+    }
+  }
+
+  return weeks.sort(
+    (a, b) => a.startDate.getTime() - b.startDate.getTime(),
+  );
 }
 
 export async function getNflScoreboard(options: {
   season: number;
   week: number;
+  /** Defaults to regular season (2). */
+  seasonType?: EspnSeasonType;
+  /**
+   * Which ESPN calendar groups to expose in `weeks`.
+   * Defaults to regular only so fantasy matchup callers stay unchanged.
+   */
+  calendarSeasonTypes?: EspnSeasonType[];
 }): Promise<NflScoreboard> {
+  const seasonType = options.seasonType ?? 2;
+  const calendarSeasonTypes = options.calendarSeasonTypes ?? [2];
   const { season, week } = options;
   const url = new URL(ESPN_SCOREBOARD);
   url.searchParams.set("dates", String(season));
-  url.searchParams.set("seasontype", "2");
+  url.searchParams.set("seasontype", String(seasonType));
   url.searchParams.set("week", String(week));
 
   const response = await fetch(url, {
@@ -321,7 +366,7 @@ export async function getNflScoreboard(options: {
   }
 
   const payload = (await response.json()) as EspnScoreboardResponse;
-  const weeks = parseWeeks(payload);
+  const weeks = parseWeeks(payload, calendarSeasonTypes);
   const games = (payload.events ?? [])
     .map(parseGame)
     .filter((game): game is ScheduleGame => game !== null)
@@ -334,6 +379,7 @@ export async function getNflScoreboard(options: {
   return {
     season,
     week,
+    seasonType,
     weeks,
     games,
     hasLiveGames,

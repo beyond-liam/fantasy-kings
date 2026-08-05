@@ -1,4 +1,5 @@
-import dotenv from "dotenv";
+import "./load-env";
+
 import { drizzle } from "drizzle-orm/postgres-js";
 import { eq } from "drizzle-orm";
 
@@ -8,8 +9,6 @@ import {
   type ScoringPreset,
 } from "../../lib/leagues/scoring";
 import { createSeedClient } from "./client";
-
-dotenv.config({ path: ".env.local" });
 
 async function resetScoringRules() {
   const client = createSeedClient();

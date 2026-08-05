@@ -75,6 +75,31 @@ export function formatWeekRange(startDate: Date, endDate: Date): string {
 }
 
 /**
+ * Forthcoming week window using ESPN Wed→Tue bounds. Before the season starts,
+ * returns the first week; after the final week ends, returns the last week.
+ */
+export function getDefaultScheduleWeekEntry<T extends WeekWindow>(
+  weeks: T[],
+  now: Date = new Date(),
+): T | null {
+  if (weeks.length === 0) {
+    return null;
+  }
+
+  if (now < weeks[0].startDate) {
+    return weeks[0];
+  }
+
+  for (const week of weeks) {
+    if (now < week.endDate) {
+      return week;
+    }
+  }
+
+  return weeks[weeks.length - 1];
+}
+
+/**
  * Forthcoming week using ESPN windows (Wed→Tue). Before the season starts,
  * returns week 1; after the final week ends, returns the last week.
  */
@@ -82,21 +107,7 @@ export function getDefaultScheduleWeek(
   weeks: WeekWindow[],
   now: Date = new Date(),
 ): number {
-  if (weeks.length === 0) {
-    return 1;
-  }
-
-  if (now < weeks[0].startDate) {
-    return weeks[0].number;
-  }
-
-  for (const week of weeks) {
-    if (now < week.endDate) {
-      return week.number;
-    }
-  }
-
-  return weeks[weeks.length - 1].number;
+  return getDefaultScheduleWeekEntry(weeks, now)?.number ?? 1;
 }
 
 export function formatKickoffDay(date: Date): string {

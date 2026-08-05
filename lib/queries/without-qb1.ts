@@ -3,7 +3,6 @@ import { and, asc, eq, gte, inArray, lte, sql } from "drizzle-orm";
 import { playerScores, playerExternalIds, players } from "@/db/schema";
 import { db } from "@/lib/db";
 import { normalizePlayerStats } from "@/lib/leagues/scoring/normalize-stats";
-import { calculatePlayerPoints } from "@/lib/leagues/scoring/calculate";
 import type { ScoringRuleDefinition } from "@/lib/leagues/scoring/types";
 import { normalizeNflTeamAbbrev } from "@/lib/nfl/matchups";
 import {
@@ -301,12 +300,15 @@ export function seasonStatsWithoutWeeks(input: {
     stats?: Record<string, number | null>;
   }>;
   withoutWeeks: number[];
+  /** Kept for call-site compatibility; fantasy pts are summed from weekly scores. */
   positionId: string;
   rules: ScoringRuleDefinition[];
 }): {
   fantasyPts: number | null;
   stats: Record<string, number | null>;
 } | null {
+  void input.positionId;
+  void input.rules;
   const weekSet = new Set(input.withoutWeeks);
   const rows = input.gameLog.filter(
     (row) =>
@@ -318,10 +320,10 @@ export function seasonStatsWithoutWeeks(input: {
 
   const stats = sumWeeklyStatBags(rows.map((r) => r.stats));
   stats.gp = rows.length;
-  const fantasyPts = calculatePlayerPoints(
-    stats,
-    input.positionId,
-    input.rules,
-  );
+  /** Sum weekly scores — never re-score the aggregated bag (thresholds are per-game). */
+  const fantasyPts =
+    Math.round(
+      rows.reduce((sum, row) => sum + (row.fantasyPts ?? 0), 0) * 100,
+    ) / 100;
   return { fantasyPts, stats };
 }

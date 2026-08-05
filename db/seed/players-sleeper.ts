@@ -1,4 +1,5 @@
-import dotenv from "dotenv";
+import "./load-env";
+
 import { and, eq, inArray, isNotNull } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import {
@@ -7,8 +8,6 @@ import {
 } from "../schema";
 import { createSeedClient } from "./client";
 import { generatePublicId } from "../../lib/leagues/public-id";
-
-dotenv.config({ path: ".env.local" });
 
 const SLEEPER_PLAYERS_URL = "https://api.sleeper.app/v1/players/nfl";
 const OFFENSE_POSITIONS = ["QB", "RB", "WR", "TE", "K"] as const;

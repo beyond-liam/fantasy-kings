@@ -22,7 +22,7 @@ import {
   TableRow,
   TableShell,
 } from "@/components/ui/table";
-import type { ScheduleGame, ScheduleTeam } from "@/lib/espn/scoreboard";
+import type { EspnSeasonType, ScheduleGame, ScheduleTeam } from "@/lib/espn/scoreboard";
 import {
   dayKey,
   formatKickoffDay,
@@ -33,6 +33,7 @@ import { cn } from "@/lib/utils";
 type ScheduleListProps = {
   games: ScheduleGame[];
   week: number;
+  seasonType?: EspnSeasonType;
 };
 
 function TeamBlock({
@@ -78,8 +79,16 @@ function MatchupCell({ game }: { game: ScheduleGame }) {
   );
 }
 
-function gameHref(gameId: string, week: number) {
-  return `/scores/${gameId}?week=${week}`;
+function gameHref(
+  gameId: string,
+  week: number,
+  seasonType: EspnSeasonType,
+) {
+  const params = new URLSearchParams({
+    week: String(week),
+    seasontype: String(seasonType),
+  });
+  return `/scores/${gameId}?${params.toString()}`;
 }
 
 function StatusCell({ game }: { game: ScheduleGame }) {
@@ -121,7 +130,15 @@ function StatusCell({ game }: { game: ScheduleGame }) {
 }
 
 /** Compact per-game card row used on mobile. */
-function MobileGameRow({ game, week }: { game: ScheduleGame; week: number }) {
+function MobileGameRow({
+  game,
+  week,
+  seasonType,
+}: {
+  game: ScheduleGame;
+  week: number;
+  seasonType: EspnSeasonType;
+}) {
   const showScore = game.status !== "pre";
   const kickoff = new Date(game.kickoff);
 
@@ -171,7 +188,7 @@ function MobileGameRow({ game, week }: { game: ScheduleGame; week: number }) {
         size="icon-sm"
         nativeButton={false}
         aria-label={`View ${game.away.nickname} at ${game.home.nickname}`}
-        render={<Link href={gameHref(game.id, week)} />}
+        render={<Link href={gameHref(game.id, week, seasonType)} />}
       >
         <HugeiconsIcon icon={ArrowRight01Icon} strokeWidth={2} />
       </Button>
@@ -192,7 +209,11 @@ function LocationCell({ game }: { game: ScheduleGame }) {
   );
 }
 
-export function ScheduleList({ games, week }: ScheduleListProps) {
+export function ScheduleList({
+  games,
+  week,
+  seasonType = 2,
+}: ScheduleListProps) {
   if (games.length === 0) {
     return (
       <Empty>
@@ -235,7 +256,12 @@ export function ScheduleList({ games, week }: ScheduleListProps) {
             <h2 className="text-sm font-medium">{group.label}</h2>
             <ul className="flex flex-col rounded-xl border bg-card/40">
               {group.games.map((game) => (
-                <MobileGameRow key={game.id} game={game} week={week} />
+                <MobileGameRow
+                  key={game.id}
+                  game={game}
+                  week={week}
+                  seasonType={seasonType}
+                />
               ))}
             </ul>
           </section>
@@ -296,7 +322,9 @@ export function ScheduleList({ games, week }: ScheduleListProps) {
                         size="icon-sm"
                         nativeButton={false}
                         aria-label={`View ${game.away.nickname} at ${game.home.nickname}`}
-                        render={<Link href={gameHref(game.id, week)} />}
+                        render={
+                          <Link href={gameHref(game.id, week, seasonType)} />
+                        }
                       >
                         <HugeiconsIcon
                           icon={ArrowRight01Icon}

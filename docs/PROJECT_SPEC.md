@@ -856,3 +856,5 @@ lib/
 | 2026-08-04 | League player profiles at `/league/[id]/players/[playerId]` keep sidebar with Players active |
 | 2026-08-04 | DEF PA radar brackets: 0–7 · 8–10 · 11–14 · 15–21 · 22+ (NFL points conceded) |
 | 2026-08-05 | Draft grades: one-time popup after draft complete (badge assets, projected record, playoff/champ odds, best/worst ADP) |
+| 2026-08-05 | NFL Scores includes preseason fixtures in the week filter (ESPN seasontype 1) |
+| 2026-08-05 | Player Overview PPG: Production, Breakdown, and roster subject use weekly mean (not re-scored season bag) |
