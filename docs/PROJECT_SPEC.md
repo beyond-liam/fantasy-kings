@@ -861,3 +861,4 @@ lib/
 | 2026-08-06 | Activity feed: draft picks and commissioner pick reverts |
 | 2026-08-06 | Backfill script `pnpm db:backfill:draft-activity` mirrors existing draft_picks into activity |
 | 2026-08-06 | Draft Rankings (Power Rankings) use live draft-grade scores from picks + season projections |
+| 2026-08-06 | Power Rankings overview: trends, my ranks, season trajectory chart, then mode list |

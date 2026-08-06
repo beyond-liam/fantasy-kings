@@ -1,8 +1,12 @@
 import { PowerRankingsCard } from "@/components/leagues/power-rankings/power-rankings-card";
-import { resolveFantasyMatchupWeek } from "@/lib/leagues/matchup-week";
 import type { LeagueSeasonSettings } from "@/db/schema/league-seasons";
+import { resolveFantasyMatchupWeek } from "@/lib/leagues/matchup-week";
+import { buildMockPowerRankingsOverview } from "@/lib/leagues/power-rankings/mock";
 import type { LeagueStandingsMember } from "@/lib/leagues/standings";
-import { getDraftPowerRankingRows } from "@/lib/queries/power-rankings";
+import {
+  getPowerRankingsOverview,
+  type PowerRankingsOverview,
+} from "@/lib/queries/power-rankings";
 
 type LeagueHomePowerRankingsTabProps = {
   leagueSlug: string;
@@ -14,6 +18,22 @@ type LeagueHomePowerRankingsTabProps = {
   scoringPreset: string | null;
   regularSeasonEndWeek: number;
   playoffTeamCount: number;
+  teamCount: number;
+  myTeamId: string | null;
+  showFaabBudget: boolean;
+  faabBudget: number | null;
+  useMock?: boolean;
+};
+
+const EMPTY_OVERVIEW: PowerRankingsOverview = {
+  draftRows: [],
+  ticks: [],
+  chartData: [],
+  summaries: [],
+  trendingUp: [],
+  trendingDown: [],
+  teamCount: 0,
+  mySummary: null,
 };
 
 export async function LeagueHomePowerRankingsTab({
@@ -26,14 +46,26 @@ export async function LeagueHomePowerRankingsTab({
   scoringPreset,
   regularSeasonEndWeek,
   playoffTeamCount,
+  teamCount,
+  myTeamId,
+  showFaabBudget,
+  faabBudget,
+  useMock = false,
 }: LeagueHomePowerRankingsTabProps) {
-  const [{ week: upcomingWeek }, draftRows] = await Promise.all([
-    resolveFantasyMatchupWeek({
-      seasonYear,
-      maxWeek: Math.max(1, championshipWeek),
-    }).catch(() => ({ week: 1, weeks: [], calendarWeeks: [] })),
-    leagueSeasonId && settings && scoringPreset
-      ? getDraftPowerRankingRows({
+  const upcomingWeekPromise = resolveFantasyMatchupWeek({
+    seasonYear,
+    maxWeek: Math.max(1, championshipWeek),
+  }).catch(() => ({ week: 1, weeks: [], calendarWeeks: [] }));
+
+  const overviewPromise = useMock
+    ? Promise.resolve(
+        buildMockPowerRankingsOverview({
+          standingsTeams,
+          myTeamId,
+        }),
+      )
+    : leagueSeasonId && settings && scoringPreset
+      ? getPowerRankingsOverview({
           leagueSeasonId,
           seasonYear,
           standingsTeams,
@@ -41,8 +73,16 @@ export async function LeagueHomePowerRankingsTab({
           scoringPreset,
           regularSeasonEndWeek,
           playoffTeamCount,
+          teamCount,
+          myTeamId,
+          showFaabBudget,
+          faabBudget,
         })
-      : Promise.resolve([]),
+      : Promise.resolve(EMPTY_OVERVIEW);
+
+  const [{ week: upcomingWeek }, overview] = await Promise.all([
+    upcomingWeekPromise,
+    overviewPromise,
   ]);
 
   return (
@@ -50,7 +90,14 @@ export async function LeagueHomePowerRankingsTab({
       leagueSlug={leagueSlug}
       standingsTeams={standingsTeams}
       upcomingWeek={upcomingWeek}
-      draftRows={draftRows}
+      draftRows={overview.draftRows}
+      chartData={overview.chartData}
+      summaries={overview.summaries}
+      trendingUp={overview.trendingUp}
+      trendingDown={overview.trendingDown}
+      teamCount={overview.teamCount}
+      myTeamId={myTeamId}
+      mySummary={overview.mySummary}
     />
   );
 }

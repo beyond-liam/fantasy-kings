@@ -216,6 +216,11 @@ export default async function LeagueHomePage({
                 scoringPreset={season?.scoringPreset ?? null}
                 regularSeasonEndWeek={season?.regularSeasonEndWeek ?? 14}
                 playoffTeamCount={season?.playoffTeamCount ?? 0}
+                teamCount={season?.teamCount ?? standingsTeams.length}
+                myTeamId={myTeamId}
+                showFaabBudget={showFaabBudget}
+                faabBudget={season?.faabBudget ?? null}
+                useMock={useOverviewMock}
               />
             </Suspense>
           }

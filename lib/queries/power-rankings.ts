@@ -8,18 +8,42 @@ import {
   countStarterSlots,
   toDraftGradePickInputs,
 } from "@/lib/leagues/draft/grade-picks";
+import { getFinalMatchupsForSeason } from "@/lib/leagues/matchups/finals";
 import {
   buildDraftPowerRankingRows,
   buildEmptyDraftPowerRankingRows,
 } from "@/lib/leagues/power-rankings/draft";
+import {
+  buildPowerRankTrajectory,
+  pickTrendingTeams,
+  summarizePowerRankTrajectory,
+  trajectoryToChartData,
+  type PowerRankTeamSummary,
+  type PowerRankTrendEntry,
+  type PowerRankTrajectoryTick,
+} from "@/lib/leagues/power-rankings/trajectory";
 import type { PowerRankingTeamRow } from "@/lib/leagues/power-rankings/types";
-import type { LeagueStandingsMember } from "@/lib/leagues/standings";
+import {
+  standingsOwnerName,
+  type LeagueStandingsMember,
+} from "@/lib/leagues/standings";
 import {
   resolveScoringRuleDefinitions,
   type ScoringPreset,
 } from "@/lib/leagues/scoring";
 import { getDraftBySeasonId, getDraftPicks } from "@/lib/queries/draft";
 import { getRankedPlayers } from "@/lib/queries/players";
+
+export type PowerRankingsOverview = {
+  draftRows: PowerRankingTeamRow[];
+  ticks: PowerRankTrajectoryTick[];
+  chartData: Array<Record<string, string | number>>;
+  summaries: PowerRankTeamSummary[];
+  trendingUp: PowerRankTrendEntry[];
+  trendingDown: PowerRankTrendEntry[];
+  teamCount: number;
+  mySummary: PowerRankTeamSummary | null;
+};
 
 export const getDraftPowerRankingRows = cache(
   async (input: {
@@ -73,5 +97,75 @@ export const getDraftPowerRankingRows = cache(
       teams: input.standingsTeams,
       grades,
     });
+  },
+);
+
+export const getPowerRankingsOverview = cache(
+  async (input: {
+    leagueSeasonId: string;
+    seasonYear: number;
+    standingsTeams: LeagueStandingsMember[];
+    settings: LeagueSeasonSettings;
+    scoringPreset: string;
+    regularSeasonEndWeek: number;
+    playoffTeamCount: number;
+    teamCount: number;
+    myTeamId: string | null;
+    showFaabBudget: boolean;
+    faabBudget: number | null;
+  }): Promise<PowerRankingsOverview> => {
+    const [draftRows, finals] = await Promise.all([
+      getDraftPowerRankingRows(input),
+      getFinalMatchupsForSeason(input.leagueSeasonId).catch(() => []),
+    ]);
+
+    const claimedTeams = input.standingsTeams.flatMap((team) => {
+      if (!team.teamId) return [];
+      return [
+        {
+          teamId: team.teamId,
+          teamPublicId: team.teamPublicId ?? null,
+          teamName: team.teamName?.trim() || "Team",
+          ownerName: standingsOwnerName(team, "Manager"),
+          logoUrl: team.logoUrl ?? null,
+        },
+      ];
+    });
+
+    const ticks = buildPowerRankTrajectory({
+      draftRows,
+      members: input.standingsTeams,
+      standingsOptions: {
+        teamCount: input.teamCount,
+        faabBudget: input.showFaabBudget ? input.faabBudget : null,
+      },
+      finals,
+      tiebreakers: input.settings.tiebreakers,
+      maxWeek: input.regularSeasonEndWeek,
+    });
+
+    const summaries = summarizePowerRankTrajectory({
+      ticks,
+      teams: claimedTeams,
+    });
+    const summaryById = new Map(
+      summaries.map((row) => [row.teamId, row] as const),
+    );
+
+    return {
+      draftRows,
+      ticks,
+      chartData: trajectoryToChartData(
+        ticks,
+        claimedTeams.map((team) => team.teamId),
+      ),
+      summaries,
+      trendingUp: pickTrendingTeams(summaries, "up"),
+      trendingDown: pickTrendingTeams(summaries, "down"),
+      teamCount: claimedTeams.length,
+      mySummary: input.myTeamId
+        ? (summaryById.get(input.myTeamId) ?? null)
+        : null,
+    };
   },
 );
