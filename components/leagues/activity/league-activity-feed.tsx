@@ -54,6 +54,63 @@ type LeagueActivityFeedProps = {
 const ALL_TYPES = "all";
 const PAGE_SIZE = 20;
 
+/** Condensed filter buckets for the activity select. */
+const ACTIVITY_FILTER_GROUPS = [
+  {
+    value: "draft",
+    label: "Draft picks",
+    types: ["draft_pick", "draft_pick_reverted"],
+  },
+  {
+    value: "trades",
+    label: "Trades",
+    types: [
+      "trade_accepted",
+      "trade_completed",
+      "trade_vetoed",
+      "trade_cancelled",
+    ],
+  },
+  {
+    value: "waivers",
+    label: "Waivers",
+    types: ["waiver_awarded"],
+  },
+  {
+    value: "roster",
+    label: "Roster",
+    types: [
+      "player_added",
+      "player_dropped",
+      "ir_added",
+      "ir_removed",
+      "taxi_added",
+      "taxi_removed",
+    ],
+  },
+  {
+    value: "league",
+    label: "League",
+    types: ["settings_updated", "score_corrected", "member_removed"],
+  },
+] as const satisfies ReadonlyArray<{
+  value: string;
+  label: string;
+  types: readonly FeedActivityType[];
+}>;
+
+type ActivityFilterValue =
+  | typeof ALL_TYPES
+  | (typeof ACTIVITY_FILTER_GROUPS)[number]["value"];
+
+const FILTER_TYPES_BY_VALUE: Record<string, ReadonlySet<FeedActivityType>> =
+  Object.fromEntries(
+    ACTIVITY_FILTER_GROUPS.map((group) => [
+      group.value,
+      new Set<FeedActivityType>(group.types),
+    ]),
+  );
+
 const ACTIVITY_META: Record<
   FeedActivityType,
   {
@@ -222,7 +279,7 @@ function formatActivityTime(date: Date) {
 }
 
 export function LeagueActivityFeed({ items }: LeagueActivityFeedProps) {
-  const [typeFilter, setTypeFilter] = useState(ALL_TYPES);
+  const [typeFilter, setTypeFilter] = useState<ActivityFilterValue>(ALL_TYPES);
   const [page, setPage] = useState(0);
   const [settingsDetail, setSettingsDetail] =
     useState<LeagueActivityRow | null>(null);
@@ -231,19 +288,23 @@ export function LeagueActivityFeed({ items }: LeagueActivityFeedProps) {
     const present = new Set(items.map((item) => item.type));
     return [
       { value: ALL_TYPES, label: "All types" },
-      ...Object.entries(ACTIVITY_META)
-        .filter(([type]) => present.has(type as FeedActivityType))
-        .map(([type, meta]) => ({
-          value: type,
-          label: meta.label,
-        })),
+      ...ACTIVITY_FILTER_GROUPS.filter((group) =>
+        group.types.some((type) => present.has(type)),
+      ).map((group) => ({
+        value: group.value,
+        label: group.label,
+      })),
     ];
   }, [items]);
 
   const filtered =
     typeFilter === ALL_TYPES
       ? items
-      : items.filter((item) => item.type === typeFilter);
+      : items.filter((item) =>
+          FILTER_TYPES_BY_VALUE[typeFilter]?.has(
+            item.type as FeedActivityType,
+          ),
+        );
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const safePage = Math.min(page, pageCount - 1);
@@ -285,7 +346,11 @@ export function LeagueActivityFeed({ items }: LeagueActivityFeedProps) {
           items={filterItems}
           value={typeFilter}
           onValueChange={(value) => {
-            if (value) {
+            if (value == null) return;
+            if (
+              value === ALL_TYPES ||
+              ACTIVITY_FILTER_GROUPS.some((group) => group.value === value)
+            ) {
               setTypeFilter(value);
               setPage(0);
             }
@@ -293,8 +358,8 @@ export function LeagueActivityFeed({ items }: LeagueActivityFeedProps) {
         >
           <SelectTrigger
             size="sm"
-            className="w-56 shrink-0"
-            aria-label="Filter activity by type"
+            className="w-44 shrink-0"
+            aria-label="Filter activity by category"
           >
             <SelectValue />
           </SelectTrigger>
@@ -316,7 +381,7 @@ export function LeagueActivityFeed({ items }: LeagueActivityFeedProps) {
             <EmptyMedia variant="icon">
               <HugeiconsIcon icon={Activity01Icon} strokeWidth={2} />
             </EmptyMedia>
-            <EmptyTitle>No activity for this type.</EmptyTitle>
+            <EmptyTitle>No activity for this category.</EmptyTitle>
             <EmptyDescription>
               Try another filter or check back after more league events.
             </EmptyDescription>
