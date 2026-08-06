@@ -5,10 +5,11 @@ import { eq } from "drizzle-orm";
 import { draftGrades, leagueSeasons } from "@/db/schema";
 import type { LeagueSeasonSettings } from "@/db/schema/league-seasons";
 import { db } from "@/lib/db";
+import { computeDraftGrades } from "@/lib/leagues/draft/grades";
 import {
-  adpFromPlayerStats,
-  computeDraftGrades,
-} from "@/lib/leagues/draft/grades";
+  countStarterSlots,
+  toDraftGradePickInputs,
+} from "@/lib/leagues/draft/grade-picks";
 import {
   resolveScoringRuleDefinitions,
   type ScoringPreset,
@@ -20,12 +21,6 @@ import {
 } from "@/lib/queries/draft";
 import { getRankedPlayers } from "@/lib/queries/players";
 import { getNflState } from "@/lib/sleeper/api";
-
-function countStarterSlots(settings: LeagueSeasonSettings) {
-  return settings.rosterSlots
-    .filter((slot) => slot.isStarter)
-    .reduce((sum, slot) => sum + slot.slotCount, 0);
-}
 
 export async function computeAndPersistDraftGrades(input: {
   draftId: string;
@@ -64,20 +59,7 @@ export async function computeAndPersistDraftGrades(input: {
   ]);
 
   const rankedById = new Map(ranked.map((row) => [row.id, row]));
-
-  const gradeInputs = picks.map((pick) => {
-    const player = rankedById.get(pick.playerId);
-    return {
-      teamId: pick.teamId,
-      playerId: pick.playerId,
-      overall: pick.overall,
-      round: pick.round,
-      pickInRound: pick.pickInRound,
-      fantasyPts: player?.fantasyPts ?? null,
-      adp: adpFromPlayerStats(player?.stats),
-      primaryPositionId: player?.primaryPositionId ?? pick.playerPositionId,
-    };
-  });
+  const gradeInputs = toDraftGradePickInputs(picks, rankedById);
 
   const results = computeDraftGrades({
     teams: input.teamIds.map((teamId) => ({ teamId })),

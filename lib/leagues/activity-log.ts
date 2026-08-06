@@ -20,7 +20,9 @@ export type FeedActivityType =
   | "trade_cancelled"
   | "settings_updated"
   | "score_corrected"
-  | "member_removed";
+  | "member_removed"
+  | "draft_pick"
+  | "draft_pick_reverted";
 
 export const FEED_ACTIVITY_TYPES = [
   "player_added",
@@ -37,6 +39,8 @@ export const FEED_ACTIVITY_TYPES = [
   "settings_updated",
   "score_corrected",
   "member_removed",
+  "draft_pick",
+  "draft_pick_reverted",
 ] as const satisfies readonly FeedActivityType[];
 
 type LogLeagueActivityInput = {

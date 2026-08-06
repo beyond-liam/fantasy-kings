@@ -18,7 +18,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { buildScaffoldPowerRankingRows } from "@/lib/leagues/power-rankings/scaffold";
-import type { PowerRankingMode } from "@/lib/leagues/power-rankings/types";
+import type {
+  PowerRankingMode,
+  PowerRankingTeamRow,
+} from "@/lib/leagues/power-rankings/types";
 import type { LeagueStandingsMember } from "@/lib/leagues/standings";
 
 type PowerRankingsCardProps = {
@@ -26,12 +29,15 @@ type PowerRankingsCardProps = {
   standingsTeams: LeagueStandingsMember[];
   /** Fantasy week used for the Week X option (current/upcoming slate). */
   upcomingWeek: number;
+  /** Live draft-grade rankings; Week / ROS stay scaffold until projections land. */
+  draftRows: PowerRankingTeamRow[];
 };
 
 export function PowerRankingsCard({
   leagueSlug,
   standingsTeams,
   upcomingWeek,
+  draftRows,
 }: PowerRankingsCardProps) {
   const [mode, setMode] = useState<PowerRankingMode>("draft");
 
@@ -44,10 +50,10 @@ export function PowerRankingsCard({
     [upcomingWeek],
   );
 
-  const rows = useMemo(
-    () => buildScaffoldPowerRankingRows(standingsTeams, mode),
-    [standingsTeams, mode],
-  );
+  const rows = useMemo(() => {
+    if (mode === "draft") return draftRows;
+    return buildScaffoldPowerRankingRows(standingsTeams, mode);
+  }, [draftRows, mode, standingsTeams]);
 
   return (
     <div className="flex flex-col gap-4">

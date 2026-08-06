@@ -74,7 +74,10 @@ function PowerMeter({
       aria-label={`Power score ${score}`}
     >
       <div
-        className={cn("h-full rounded-full transition-[width]", fill)}
+        className={cn(
+          "h-full rounded-full transition-[width,background-color] duration-300 ease-out",
+          fill,
+        )}
         style={{ width: `${score}%` }}
       />
     </div>

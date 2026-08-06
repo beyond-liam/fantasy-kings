@@ -262,6 +262,59 @@ export async function getDraftRoomData(input: {
   };
 }
 
+export type DraftUnderwayBoardSummary = {
+  previous: {
+    overall: number;
+    teamName: string;
+    playerFullName: string;
+  } | null;
+  onTheClock: {
+    overall: number;
+    teamName: string;
+  } | null;
+  upNext: {
+    overall: number;
+    teamName: string;
+  } | null;
+};
+
+/** Lightweight previous / on-clock / up-next snapshot for league home (email drafts). */
+export async function getDraftUnderwayBoard(input: {
+  leagueSeasonId: string;
+  settings: LeagueSeasonSettings;
+  benchSlots: number;
+}): Promise<DraftUnderwayBoardSummary> {
+  const room = await getDraftRoomData(input);
+  const previousPick = room.picks.at(-1) ?? null;
+  const previous = previousPick
+    ? {
+        overall: previousPick.overall,
+        teamName:
+          room.teams.find((team) => team.id === previousPick.teamId)?.name ??
+          "Unknown",
+        playerFullName: previousPick.playerFullName,
+      }
+    : null;
+
+  const onTheClock = room.onTheClock
+    ? {
+        overall: room.onTheClock.overall,
+        teamName: room.onTheClock.teamName,
+      }
+    : null;
+
+  const nextSlot =
+    room.draft != null &&
+    room.draft.currentPickIndex + 1 < room.schedule.length
+      ? (room.schedule[room.draft.currentPickIndex + 1] ?? null)
+      : null;
+  const upNext = nextSlot
+    ? { overall: nextSlot.overall, teamName: nextSlot.teamName }
+    : null;
+
+  return { previous, onTheClock, upNext };
+}
+
 export async function getTeamOwnersByIds(userIds: string[]) {
   if (userIds.length === 0) return new Map<string, string | null>();
   const rows = await db

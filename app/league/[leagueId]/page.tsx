@@ -28,11 +28,13 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { getSessionUser } from "@/lib/auth/session";
-import { teamInitials } from "@/lib/leagues/standings";
+import { resolveDraftType } from "@/lib/leagues/draft-settings";
 import { formatLeagueLabel } from "@/lib/leagues/format";
 import type { ScoringPreset } from "@/lib/leagues/scoring";
-import { getLeagueHomeData, isDraftUnderway } from "@/lib/queries/leagues";
+import { teamInitials } from "@/lib/leagues/standings";
+import { getDraftUnderwayBoard } from "@/lib/queries/draft";
 import type { LeagueHomeStandingsBundleInput } from "@/lib/queries/league-home-standings";
+import { getLeagueHomeData, isDraftUnderway } from "@/lib/queries/leagues";
 
 type LeagueHomePageProps = {
   params: Promise<{ leagueId: string }>;
@@ -92,6 +94,15 @@ export default async function LeagueHomePage({
   const claimedCount = standingsTeams.filter((team) => team.userId).length;
   const isFull = season != null && claimedCount >= season.teamCount;
   const draftUnderway = isDraftUnderway(draftStatus);
+  const draftType = resolveDraftType(season?.draftType);
+  const draftBoard =
+    draftUnderway && draftType === "email" && season
+      ? await getDraftUnderwayBoard({
+          leagueSeasonId: season.id,
+          settings: season.settings,
+          benchSlots: season.benchSlots,
+        })
+      : null;
   const showFaabBudget =
     Boolean(season?.waiversEnabled) &&
     season?.waiverType === "faab" &&
@@ -162,6 +173,8 @@ export default async function LeagueHomePage({
         <DraftUnderwayAlert
           slug={league.publicId}
           paused={draftStatus === "paused"}
+          draftType={draftType}
+          board={draftBoard}
         />
       ) : null}
 
@@ -195,9 +208,14 @@ export default async function LeagueHomePage({
             <Suspense fallback={<PageSkeleton />}>
               <LeagueHomePowerRankingsTab
                 leagueSlug={league.publicId}
+                leagueSeasonId={season?.id ?? null}
                 standingsTeams={standingsTeams}
                 seasonYear={season?.seasonYear ?? new Date().getFullYear()}
                 championshipWeek={season?.championshipWeek ?? 17}
+                settings={season?.settings ?? null}
+                scoringPreset={season?.scoringPreset ?? null}
+                regularSeasonEndWeek={season?.regularSeasonEndWeek ?? 14}
+                playoffTeamCount={season?.playoffTeamCount ?? 0}
               />
             </Suspense>
           }

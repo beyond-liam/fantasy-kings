@@ -21,6 +21,7 @@
     "db:seed:players": "tsx db/seed/players-sleeper.ts",
     "db:seed:scores": "tsx db/seed/player-scores-sleeper.ts",
     "db:seed:scores:stats": "SEED_SCORES_MODE=stats tsx db/seed/player-scores-sleeper.ts",
+    "db:backfill:draft-activity": "tsx db/seed/backfill-draft-pick-activity.ts",
     "db:reset:scoring": "tsx db/seed/reset-scoring-rules.ts"
   },
   "dependencies": {

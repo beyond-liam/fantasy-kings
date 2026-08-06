@@ -6,12 +6,14 @@ import {
   Hospital01Icon,
   RefreshIcon,
   Settings01Icon,
+  StudentCardIcon,
   UserBlock01Icon,
   UserCheck01Icon,
   UserDollarIcon,
   UserMinus01Icon,
   UserSwitchIcon,
   Activity01Icon,
+  ArrowTurnBackwardIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import type { IconSvgElement } from "@hugeicons/react";
@@ -130,6 +132,16 @@ const ACTIVITY_META: Record<
     icon: UserMinus01Icon,
     tone: "destructive",
   },
+  draft_pick: {
+    label: "Drafted",
+    icon: StudentCardIcon,
+    tone: "success",
+  },
+  draft_pick_reverted: {
+    label: "Pick reverted",
+    icon: ArrowTurnBackwardIcon,
+    tone: "destructive",
+  },
 };
 
 const ACTIVITY_TONE_CLASS: Record<"success" | "destructive" | "info", string> = {
@@ -169,6 +181,18 @@ function resolveActivitySummary(item: LeagueActivityRow): string {
           ? ` (dropped ${meta.dropPlayerName})`
           : "";
         return `${liveName} claimed ${playerName}${bidPart}${dropPart}.`;
+      }
+      case "draft_pick": {
+        const pickPart =
+          meta?.overall != null ? ` · Pick #${meta.overall}` : "";
+        const autopickPart =
+          meta?.draftSource === "autopick" ? " (autopick)" : "";
+        return `${liveName} drafted ${playerName}${pickPart}${autopickPart}`;
+      }
+      case "draft_pick_reverted": {
+        const pickPart =
+          meta?.overall != null ? ` · Pick #${meta.overall}` : "";
+        return `${liveName} pick of ${playerName} reverted${pickPart}`;
       }
       default:
         break;

@@ -1,7 +1,7 @@
 # Fantasy Kings — Project Specification
 
 > Living document. Update this file as requirements, decisions, and scope change.
-> Last updated: 2026-08-02
+> Last updated: 2026-08-06
 
 ---
 
@@ -402,7 +402,7 @@ Explicitly out of Team Stats v1: radar/H2H vibe charts, OPF-vs-OPF as headline r
 
 ### Notifications & activity
 
-- Chronological activity log of league events **(shipped)** — adds/drops, waivers, trades, IR/taxi, membership, commissioner settings changes (click for before/after), **score corrections**
+- Chronological activity log of league events **(shipped)** — adds/drops, waivers, trades, IR/taxi, membership, commissioner settings changes (click for before/after), **score corrections**, **draft picks / pick reverts**
 - In-app bell dropdown shipped (trade + waiver + matchup-result / score-correction producers); **league name on each notification** planned (near-term)
 - Email via **Brevo** **(wired)** — `lib/email/*` adapters; scope **locked** to draft + trade only (no expansion)
 - **League Alert** fan-out (`lib/alerts/`): Trade + Draft + Matchup announce helpers resolve recipients once, then in-app + email adapters (`CONTEXT.md`)
@@ -858,3 +858,6 @@ lib/
 | 2026-08-05 | Draft grades: one-time popup after draft complete (badge assets, projected record, playoff/champ odds, best/worst ADP) |
 | 2026-08-05 | NFL Scores includes preseason fixtures in the week filter (ESPN seasontype 1) |
 | 2026-08-05 | Player Overview PPG: Production, Breakdown, and roster subject use weekly mean (not re-scored season bag) |
+| 2026-08-06 | Activity feed: draft picks and commissioner pick reverts |
+| 2026-08-06 | Backfill script `pnpm db:backfill:draft-activity` mirrors existing draft_picks into activity |
+| 2026-08-06 | Draft Rankings (Power Rankings) use live draft-grade scores from picks + season projections |

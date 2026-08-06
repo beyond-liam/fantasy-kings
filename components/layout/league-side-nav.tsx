@@ -14,28 +14,51 @@ type LeagueSideNavProps = {
   isCommissioner: boolean;
   tradesAttention?: boolean;
   messagesAttention?: boolean;
+  /** Draft is live or paused — show pulsing live indicator on Draft. */
+  draftLive?: boolean;
 };
+
+/** Small solid core + hollow ring that expands and fades out. */
+function LivePulseDot({ className }: { className?: string }) {
+  return (
+    <span
+      className={cn(
+        "relative inline-flex size-1.5 shrink-0 items-center justify-center",
+        className,
+      )}
+      aria-hidden
+    >
+      <span className="animate-live-pulse absolute size-1.5 rounded-full border border-success bg-transparent" />
+      <span className="relative size-1.5 rounded-full bg-success" />
+    </span>
+  );
+}
 
 function NavLink({
   item,
   pathname,
   showAttention,
+  showLive,
   variant,
 }: {
   item: NavItem;
   pathname: string;
   showAttention?: boolean;
+  showLive?: boolean;
   variant: "rail" | "pill";
 }) {
   const active = item.isActive(pathname);
   const pill = variant === "pill";
+  const statusLabel = showLive
+    ? `${item.label} — draft underway`
+    : showAttention
+      ? `${item.label} — action needed`
+      : item.label;
 
   return (
     <Link
       href={item.href}
-      aria-label={
-        showAttention ? `${item.label} — action needed` : item.label
-      }
+      aria-label={statusLabel}
       aria-current={active ? "page" : undefined}
       className={cn(
         "group relative flex shrink-0 items-center justify-center transition-colors",
@@ -49,7 +72,7 @@ function NavLink({
           : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
       )}
     >
-      {showAttention ? (
+      {showAttention && !showLive ? (
         <span
           className={cn(
             "absolute size-2 rounded-full bg-destructive",
@@ -64,8 +87,16 @@ function NavLink({
         strokeWidth={active ? 2 : 1.75}
         className="transition-[color] duration-150 ease-out"
       />
-      <span className={cn(pill ? "whitespace-nowrap" : "truncate text-center")}>
-        {item.shortLabel}
+      <span
+        className={cn(
+          "inline-flex items-center gap-1",
+          pill ? "whitespace-nowrap" : "max-w-full justify-center",
+        )}
+      >
+        <span className={cn(!pill && "truncate text-center")}>
+          {item.shortLabel}
+        </span>
+        {showLive ? <LivePulseDot /> : null}
       </span>
     </Link>
   );
@@ -76,6 +107,7 @@ export function LeagueSideNav({
   isCommissioner,
   tradesAttention = false,
   messagesAttention = false,
+  draftLive = false,
 }: LeagueSideNavProps) {
   const pathname = usePathname();
   const pillScrollerRef = useRef<HTMLDivElement>(null);
@@ -108,6 +140,7 @@ export function LeagueSideNav({
         : item.href.endsWith("/messages")
           ? messagesAttention
           : false;
+      const showLive = item.href.endsWith("/draft") ? draftLive : false;
 
       return (
         <NavLink
@@ -115,6 +148,7 @@ export function LeagueSideNav({
           item={item}
           pathname={pathname}
           showAttention={showAttention}
+          showLive={showLive}
           variant={variant}
         />
       );

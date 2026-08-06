@@ -169,6 +169,13 @@
       "when": 1785955403894,
       "tag": "0023_draft_grades",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1785985260000,
+      "tag": "0024_activity_draft_pick",
+      "breakpoints": true
     }
   ]
 }

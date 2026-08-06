@@ -20,7 +20,7 @@ export function formatPresenceLabel({
     return "Online";
   }
 
-  const date = format(lastSeenAt, "do MMM yyyy");
+  const date = format(lastSeenAt, "do MMM yyyy · HH:mm");
   return status === "inactive"
     ? `Inactive since ${date}`
     : `Last seen ${date}`;

@@ -4,6 +4,7 @@ import Link from "next/link";
 
 import { TeamTableColumnHeader } from "@/components/team/team-table-column-header";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import {
   Table,
@@ -15,7 +16,10 @@ import {
   TABLE_ENTITY_LINK_CLASSNAME,
 } from "@/components/ui/table";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { resolveDraftListStatus } from "@/lib/leagues/draft-status";
+import {
+  resolveDraftListStatus,
+  type DraftListStatusKind,
+} from "@/lib/leagues/draft-status";
 import { formatWinPct, teamInitials } from "@/lib/leagues/standings";
 import type { UserLeagueListItem } from "@/lib/queries/leagues";
 import { cn } from "@/lib/utils";
@@ -33,6 +37,16 @@ const STAT_HEADERS = [
   { id: "rank", title: "Rank", tooltip: "Rank", className: "w-14" },
 ] as const;
 
+const DRAFT_STATUS_BADGE: Record<
+  DraftListStatusKind,
+  { variant: "success" | "warning" | "info" | "outline"; borderClass: string }
+> = {
+  complete: { variant: "success", borderClass: "border-success/40" },
+  in_progress: { variant: "warning", borderClass: "border-warning/40" },
+  scheduled: { variant: "info", borderClass: "border-info/40" },
+  unscheduled: { variant: "outline", borderClass: "border-border" },
+};
+
 type LeaguesTableProps = {
   leagues: UserLeagueListItem[];
 };
@@ -43,17 +57,12 @@ function DraftStatusCell({ league }: { league: UserLeagueListItem }) {
     draftStartAt: league.draftStartAt,
     draftType: league.draftType,
   });
+  const badge = DRAFT_STATUS_BADGE[draft.kind];
 
   return (
-    <span
-      className={cn(
-        draft.kind === "in_progress" && "text-warning",
-        (draft.kind === "unscheduled" || draft.kind === "complete") &&
-          "text-muted-foreground",
-      )}
-    >
-      {draft.label}
-    </span>
+    <Badge variant={badge.variant} className={cn("max-w-full", badge.borderClass)}>
+      <span className="truncate">{draft.label}</span>
+    </Badge>
   );
 }
 

@@ -1,3 +1,7 @@
+"use client";
+
+import { LayoutGroup, motion, useReducedMotion } from "motion/react";
+
 import { PowerRankingRow } from "@/components/leagues/power-rankings/power-ranking-row";
 import {
   Empty,
@@ -12,10 +16,18 @@ type PowerRankingsListProps = {
   leagueSlug: string;
 };
 
+const LAYOUT_TRANSITION = {
+  type: "spring" as const,
+  duration: 0.3,
+  bounce: 0,
+};
+
 export function PowerRankingsList({
   rows,
   leagueSlug,
 }: PowerRankingsListProps) {
+  const reduceMotion = useReducedMotion();
+
   if (rows.length === 0) {
     return (
       <Empty size="sm">
@@ -30,12 +42,19 @@ export function PowerRankingsList({
   }
 
   return (
-    <ul className="flex flex-col gap-2">
-      {rows.map((row) => (
-        <li key={row.teamId}>
-          <PowerRankingRow row={row} leagueSlug={leagueSlug} />
-        </li>
-      ))}
-    </ul>
+    <LayoutGroup id="power-rankings">
+      <ul className="flex flex-col gap-2">
+        {rows.map((row) => (
+          <motion.li
+            key={row.teamId}
+            layout={reduceMotion ? false : "position"}
+            transition={LAYOUT_TRANSITION}
+            className="relative"
+          >
+            <PowerRankingRow row={row} leagueSlug={leagueSlug} />
+          </motion.li>
+        ))}
+      </ul>
+    </LayoutGroup>
   );
 }

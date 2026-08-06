@@ -45,6 +45,10 @@ export type LeagueActivityMetadata = {
   awayPtsBefore?: number;
   homePtsAfter?: number;
   awayPtsAfter?: number;
+  overall?: number;
+  round?: number;
+  pickInRound?: number;
+  draftSource?: "manual" | "commissioner" | "autopick";
 };
 
 export const leagueActivity = pgTable(

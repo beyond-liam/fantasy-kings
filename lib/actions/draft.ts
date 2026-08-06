@@ -8,8 +8,11 @@ import {
   draftPicks,
   drafts,
   draftQueue,
+  leagueActivity,
   leagueSeasons,
+  players,
   rosterPlayers,
+  teams,
 } from "@/db/schema";
 import { db } from "@/lib/db";
 import {
@@ -42,6 +45,7 @@ function revalidateDraftPaths(slug: string) {
   revalidatePath(`/league/${slug}/draft`);
   revalidatePath(`/league/${slug}/players`);
   revalidatePath(`/league/${slug}/team`);
+  revalidatePath(`/league/${slug}/activity`);
   revalidatePath(`/league/${slug}`);
 }
 
@@ -451,7 +455,7 @@ export async function revertLastDraftPick(slug: string): Promise<ActionResult> {
     return { success: false, error: context.error };
   }
 
-  const { league, season, isCommissioner } = context;
+  const { league, season, isCommissioner, user } = context;
   if (!isCommissioner) {
     return {
       success: false,
@@ -482,8 +486,15 @@ export async function revertLastDraftPick(slug: string): Promise<ActionResult> {
       teamId: draftPicks.teamId,
       playerId: draftPicks.playerId,
       overall: draftPicks.overall,
+      round: draftPicks.round,
+      pickInRound: draftPicks.pickInRound,
+      source: draftPicks.source,
+      teamName: teams.name,
+      playerFullName: players.fullName,
     })
     .from(draftPicks)
+    .innerJoin(teams, eq(draftPicks.teamId, teams.id))
+    .innerJoin(players, eq(draftPicks.playerId, players.id))
     .where(eq(draftPicks.draftId, draft.id))
     .orderBy(desc(draftPicks.overall))
     .limit(1);
@@ -525,6 +536,23 @@ export async function revertLastDraftPick(slug: string): Promise<ActionResult> {
           .set({ status: "draft" })
           .where(eq(leagueSeasons.id, season.id));
       }
+
+      await tx.insert(leagueActivity).values({
+        leagueSeasonId: season.id,
+        type: "draft_pick_reverted",
+        teamId: lastPick.teamId,
+        actorUserId: user.id,
+        playerId: lastPick.playerId,
+        summary: `${lastPick.teamName} pick of ${lastPick.playerFullName} reverted · Pick #${lastPick.overall}`,
+        metadata: {
+          playerName: lastPick.playerFullName,
+          teamName: lastPick.teamName,
+          overall: lastPick.overall,
+          round: lastPick.round,
+          pickInRound: lastPick.pickInRound,
+          draftSource: lastPick.source,
+        },
+      });
     });
   } catch (error) {
     console.error("revertLastDraftPick failed", error);

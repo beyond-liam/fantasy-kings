@@ -6,6 +6,7 @@ import {
   draftPicks,
   drafts,
   draftQueue,
+  leagueActivity,
   leagueSeasons,
   players,
   rosterPlayers,
@@ -293,6 +294,24 @@ export async function commitDraftPick(
           .set({ status: "active" })
           .where(eq(leagueSeasons.id, input.leagueSeasonId));
       }
+
+      const autopickSuffix = input.source === "autopick" ? " (autopick)" : "";
+      await tx.insert(leagueActivity).values({
+        leagueSeasonId: input.leagueSeasonId,
+        type: "draft_pick",
+        teamId: slot.teamId,
+        actorUserId: input.madeByUserId,
+        playerId: input.playerId,
+        summary: `${slot.teamName} drafted ${player.fullName} · Pick #${slot.overall}${autopickSuffix}`,
+        metadata: {
+          playerName: player.fullName,
+          teamName: slot.teamName,
+          overall: slot.overall,
+          round: slot.round,
+          pickInRound: slot.pickInRound,
+          draftSource: input.source,
+        },
+      });
     });
   } catch (error) {
     console.error("commitDraftPick failed", error);

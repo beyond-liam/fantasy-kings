@@ -75,22 +75,24 @@ export function resolveDraftListStatus(input: {
   draftStartAt: Date | null | undefined;
   draftType?: "live" | "email" | null;
 }): DraftListStatus {
+  const draftType = input.draftType === "email" ? "email" : "live";
+  const typeLabel = draftType === "email" ? "Email" : "Live";
+
   if (input.status === "complete") {
-    return { kind: "complete", label: "Draft Complete" };
+    return { kind: "complete", label: "Drafted" };
   }
 
   if (input.status === "live" || input.status === "paused") {
     return {
       kind: "in_progress",
-      label:
-        input.draftType === "email" ? "In Progress (Email)" : "In Progress",
+      label: `${typeLabel} draft in progress`,
     };
   }
 
   if (input.draftStartAt) {
     return {
       kind: "scheduled",
-      label: formatDraftScheduledAt(input.draftStartAt),
+      label: `${typeLabel} draft scheduled ${formatDraftScheduledAt(input.draftStartAt)}`,
     };
   }
 

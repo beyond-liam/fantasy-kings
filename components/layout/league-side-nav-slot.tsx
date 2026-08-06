@@ -1,10 +1,12 @@
 import { LeagueSideNav } from "@/components/layout/league-side-nav";
 import { getSessionUser } from "@/lib/auth/session";
 import { hasCommissionerPowers } from "@/lib/leagues/membership";
+import { getDraftBySeasonId } from "@/lib/queries/draft";
 import {
   getLeagueBySlug,
   getLeagueMembership,
   getLeagueSeason,
+  isDraftUnderway,
 } from "@/lib/queries/leagues";
 import { getMessageNavIndicator } from "@/lib/queries/messages";
 import { getTradeNavIndicator } from "@/lib/queries/trades";
@@ -20,6 +22,7 @@ export async function LeagueSideNavSlot({ slug }: { slug: string }) {
         isCommissioner={false}
         tradesAttention={false}
         messagesAttention={false}
+        draftLive={false}
       />
     );
   }
@@ -32,6 +35,7 @@ export async function LeagueSideNavSlot({ slug }: { slug: string }) {
         isCommissioner={false}
         tradesAttention={false}
         messagesAttention={false}
+        draftLive={false}
       />
     );
   }
@@ -47,7 +51,7 @@ export async function LeagueSideNavSlot({ slug }: { slug: string }) {
       ? await getUserTeamForSeason(season.id, user.id)
       : null;
 
-  const [tradeIndicator, messageIndicator] = await Promise.all([
+  const [tradeIndicator, messageIndicator, draft] = await Promise.all([
     season && team
       ? getTradeNavIndicator({
           leagueSeasonId: season.id,
@@ -62,6 +66,9 @@ export async function LeagueSideNavSlot({ slug }: { slug: string }) {
           userId: user.id,
         })
       : Promise.resolve({ showDot: false }),
+    season
+      ? getDraftBySeasonId(season.id)
+      : Promise.resolve(null),
   ]);
 
   return (
@@ -70,6 +77,7 @@ export async function LeagueSideNavSlot({ slug }: { slug: string }) {
       isCommissioner={isCommissioner}
       tradesAttention={tradeIndicator.showDot}
       messagesAttention={messageIndicator.showDot}
+      draftLive={isDraftUnderway(draft?.status)}
     />
   );
 }

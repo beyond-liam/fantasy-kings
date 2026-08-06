@@ -27,11 +27,11 @@ describe("presence status", () => {
     );
     assert.equal(
       formatPresenceLabel({ status: "offline", lastSeenAt }),
-      "Last seen 23rd Jan 2027",
+      "Last seen 23rd Jan 2027 · 12:00",
     );
     assert.equal(
       formatPresenceLabel({ status: "inactive", lastSeenAt }),
-      "Inactive since 23rd Jan 2027",
+      "Inactive since 23rd Jan 2027 · 12:00",
     );
   });
 
