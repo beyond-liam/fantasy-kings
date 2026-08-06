@@ -110,21 +110,22 @@ export async function DraftGradeDialogSlot({
     return null;
   }
 
+  let grade: UnseenDraftGrade | null = null;
   try {
     await ensureDraftGradesForSeason(leagueSeasonId);
-    const grade = await getUnseenDraftGradeForTeam({
+    grade = await getUnseenDraftGradeForTeam({
       teamId,
       leagueSeasonId,
     });
-
-    if (!grade) {
-      return null;
-    }
-
-    return <DraftGradeDialog leagueSlug={leagueSlug} grade={grade} />;
   } catch (error) {
     // Missing migration / transient DB errors must not break draft or league pages.
     console.error("DraftGradeDialogSlot failed", error);
     return null;
   }
+
+  if (!grade) {
+    return null;
+  }
+
+  return <DraftGradeDialog leagueSlug={leagueSlug} grade={grade} />;
 }
