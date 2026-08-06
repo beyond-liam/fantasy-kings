@@ -191,8 +191,7 @@ export function PowerRankingsSeasonChart({
       <CardHeader variant="panel">
         <CardTitle className="text-balance">Season trajectory</CardTitle>
         <CardDescription className="text-pretty">
-          Rank from draft through each scored week. Lower on the chart is
-          better.
+          Rank from draft through each week of the regular season.
         </CardDescription>
       </CardHeader>
       <CardContent className="py-4">
