@@ -71,6 +71,7 @@ import {
   type PlayerOverviewMetrics,
 } from "@/lib/players/overview-metrics";
 import { applyPlayerOverviewMocks } from "@/lib/players/overview-mocks";
+import { playerWeekHasFantasyAppearance } from "@/lib/players/week-appearance";
 import {
   loadOpportunityShareForWeeks,
   loadOverviewExtrasSeed,
@@ -379,12 +380,14 @@ async function loadScoreBundle(input: {
     }
 
     if (row.kind === "stats" && row.week >= 1 && row.week <= 18) {
+      const appeared = playerWeekHasFantasyAppearance(stats);
       gameLog.push({
         week: row.week,
         opponent: null,
         result: null,
         stats,
-        fantasyPts,
+        // Rank-only placeholder rows score as 0 — treat as no appearance (DNP).
+        fantasyPts: appeared ? fantasyPts : null,
       });
     }
   }

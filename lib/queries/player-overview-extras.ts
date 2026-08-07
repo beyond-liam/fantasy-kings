@@ -441,6 +441,8 @@ async function loadWeeklyFinishesAndSos(input: {
   seasonMaxWeek: number;
 }): Promise<{
   weeklyFinishesByWeek: Record<number, number>;
+  /** Max week that had any ingested position score rows. */
+  scoresThroughWeek: number;
   matchupDifficultyByWeek: Record<number, "easy" | "mid" | "hard">;
   matchupRanksByWeek: Record<number, number>;
   ptsAllowedByWeek: Record<number, number>;
@@ -482,10 +484,12 @@ async function loadWeeklyFinishesAndSos(input: {
   const finishesByPlayerWeek = new Map<string, Record<number, number>>();
   /** Defense → week → FPts from each opposing player at this position. */
   const weekScoresByTeam = new Map<string, Map<number, number[]>>();
+  let scoresThroughWeek = 0;
 
   weekNumbers.forEach((week, index) => {
     const rows = weekRows[index] ?? [];
     if (rows.length === 0) return;
+    scoresThroughWeek = Math.max(scoresThroughWeek, week);
 
     const scored = rows.map((row) => ({
       id: row.id,
@@ -543,6 +547,22 @@ async function loadWeeklyFinishesAndSos(input: {
   const isLiveSeason =
     nflState != null && String(nflState.season) === String(input.season);
   const seasonType = nflState?.season_type ?? "";
+
+  /**
+   * Prior seasons are complete: any week without a player score is DNP/bye,
+   * not "upcoming". Don't rely on ESPN result flags (often missing historically).
+   * Same once the live calendar season is in postseason / offseason / preseason
+   * after scores exist — the regular slate is done.
+   */
+  if (
+    scoresThroughWeek > 0 &&
+    (!isLiveSeason ||
+      seasonType === "pre" ||
+      seasonType === "off" ||
+      seasonType === "post")
+  ) {
+    scoresThroughWeek = maxWeek;
+  }
 
   // Archive seasons use that season only. Live preseason/offseason → prior only.
   let scoredThroughWeek = maxScoredWeek(weekTotalsByTeam);
@@ -618,6 +638,7 @@ async function loadWeeklyFinishesAndSos(input: {
 
   return {
     weeklyFinishesByWeek,
+    scoresThroughWeek,
     matchupDifficultyByWeek,
     matchupRanksByWeek,
     ptsAllowedByWeek,
@@ -974,6 +995,7 @@ export async function loadOverviewExtrasSeed(
   return {
     share,
     weeklyFinishesByWeek: weeklyAndSos.weeklyFinishesByWeek,
+    scoresThroughWeek: weeklyAndSos.scoresThroughWeek,
     matchupDifficultyByWeek: weeklyAndSos.matchupDifficultyByWeek,
     matchupRanksByWeek: weeklyAndSos.matchupRanksByWeek,
     ptsAllowedByWeek: weeklyAndSos.ptsAllowedByWeek,

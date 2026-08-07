@@ -13,6 +13,7 @@ import {
 import type { ScoringRuleDefinition } from "@/lib/leagues/scoring/types";
 import { explainPlayerPoints } from "@/lib/leagues/scoring/calculate";
 import { getGameSiteRoof } from "@/lib/nfl/stadiums";
+import { playerWeekHasFantasyAppearance } from "@/lib/players/week-appearance";
 
 /** Profile fields needed to derive Overview metrics. */
 export type PlayerOverviewInput = ProjectionProfileInput & {
@@ -27,6 +28,8 @@ export type PlayerOverviewInput = ProjectionProfileInput & {
     opponent: string | null;
     fantasyPts: number | null;
     stats?: Record<string, number | null>;
+    /** Team game result when the NFL week has been played. */
+    result?: "W" | "L" | "T" | null;
   }[];
   /** Optional seed for sections that need team/league context (mocks or future queries). */
   overviewExtras?: OverviewExtrasSeed | null;
@@ -40,7 +43,7 @@ export type OverviewWeekPoint = {
   opponentAbbrev: string | null;
   fpts: number | null;
   isBye: boolean;
-  /** Past week with no score while later weeks are scored (injury / inactive). */
+  /** Completed slate week with no fantasy score (inactive / injured / scratched). */
   isDnp: boolean;
   venue: OverviewVenue | null;
 };
@@ -334,6 +337,11 @@ export type OverviewExtrasSeed = {
     teamTotal: number;
   } | null;
   weeklyFinishesByWeek: Record<number, number>;
+  /**
+   * Latest NFL week with ingested position score rows. Used to mark trailing
+   * missed weeks as DNP when the player never scores again.
+   */
+  scoresThroughWeek?: number;
   matchupDifficultyByWeek: Record<number, OverviewMatchupBucketId>;
   /** 1 = hardest … 32 = easiest. */
   matchupRanksByWeek: Record<number, number>;
@@ -501,28 +509,63 @@ export function formatOpponentMatchupLabel(
 function scoredWeeks(profile: PlayerOverviewInput): OverviewWeekPoint[] {
   const points = profile.gameLog.map((row) => {
     const meta = parseOpponentMeta(row.opponent);
-    const hasPts =
-      row.fantasyPts != null && Number.isFinite(row.fantasyPts);
+    const rawPts =
+      row.fantasyPts != null && Number.isFinite(row.fantasyPts)
+        ? row.fantasyPts
+        : null;
+    const hasStats =
+      row.stats != null && Object.keys(row.stats).length > 0;
+    // Placeholder inactive rows often arrive as 0 FPts with rank-only stats.
+    const fpts =
+      hasStats && !playerWeekHasFantasyAppearance(row.stats) ? null : rawPts;
     return {
       week: row.week,
       opponent: row.opponent,
       opponentAbbrev: meta.abbrev,
-      fpts: hasPts ? row.fantasyPts : null,
+      fpts,
       isBye: meta.isBye,
       isDnp: false,
       venue: meta.venue,
+      result: row.result ?? null,
     };
   });
+
+  /** Furthest week this player scored — covers mid-season gaps without a team result. */
   let lastScoredWeek = 0;
   for (const point of points) {
     if (point.fpts != null && point.week > lastScoredWeek) {
       lastScoredWeek = point.week;
     }
   }
-  return points.map((point) => ({
+
+  /**
+   * Furthest week the season has actually progressed through:
+   * - ingested score slates (any player at this position)
+   * - team game results on the schedule
+   * - this player's own later scored weeks (mid-season gaps)
+   */
+  let lastPlayedWeek = lastScoredWeek;
+  const scoresThroughWeek = profile.overviewExtras?.scoresThroughWeek;
+  if (
+    scoresThroughWeek != null &&
+    Number.isFinite(scoresThroughWeek) &&
+    scoresThroughWeek > lastPlayedWeek
+  ) {
+    lastPlayedWeek = scoresThroughWeek;
+  }
+  for (const point of points) {
+    if (point.result != null && point.week > lastPlayedWeek) {
+      lastPlayedWeek = point.week;
+    }
+  }
+
+  return points.map(({ result: _result, ...point }) => ({
     ...point,
     isDnp:
-      !point.isBye && point.fpts == null && point.week < lastScoredWeek,
+      !point.isBye &&
+      point.fpts == null &&
+      lastPlayedWeek > 0 &&
+      point.week <= lastPlayedWeek,
   }));
 }
 
@@ -2231,7 +2274,13 @@ function buildWeeklyFinish(
 ): OverviewWeeklyFinish | null {
   if (!finishesByWeek) return null;
   const rows = weeks
-    .filter((w) => !w.isBye && finishesByWeek[w.week] != null)
+    .filter(
+      (w) =>
+        !w.isBye &&
+        !w.isDnp &&
+        w.fpts != null &&
+        finishesByWeek[w.week] != null,
+    )
     .map((w) => ({
       week: w.week,
       finish: finishesByWeek[w.week]!,

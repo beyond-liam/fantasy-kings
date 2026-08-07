@@ -14,6 +14,7 @@ import {
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
+  chartAxisTick,
   type ChartConfig,
 } from "@/components/ui/chart";
 import type { StartingLineupSlot } from "@/lib/leagues/roster-evaluation/types";
@@ -21,6 +22,8 @@ import { getSleeperPlayerAvatarThumbUrl } from "@/lib/sleeper/avatars";
 
 const AVATAR_SIZE = 24;
 const RANK_LABEL_GAP = 14;
+/** Fixed px per rank step so 4- and 12-team leagues share equal spacing. */
+const Y_STEP_PX = 36;
 
 const chartConfig = {
   barValue: {
@@ -37,7 +40,10 @@ const TONE_FILL: Record<StartingLineupSlot["tone"], string> = {
 };
 
 type ChartSlot = StartingLineupSlot & {
-  /** Inverted height so rank 1 reaches the top of a 1..N axis. */
+  /**
+   * Inverted height on a 0..N domain. Rank N is half a step (0.5) so the
+   * lowest bar is shorter while consecutive ranks stay 1 unit apart.
+   */
   barValue: number;
 };
 
@@ -72,7 +78,8 @@ function StartingLineupBarShape({
 }: BarShapeProps) {
   if (!payload) return null;
 
-  const barHeight = Math.max(height, 8);
+  // Keep proportional heights — no min floor that breaks equal steps.
+  const barHeight = Math.max(height, 1);
   const barY = y + (height - barHeight);
   const avatarSrc = payload.sleeperId
     ? getSleeperPlayerAvatarThumbUrl(payload.sleeperId)
@@ -106,9 +113,12 @@ function StartingLineupBarShape({
         width={AVATAR_SIZE}
         height={AVATAR_SIZE}
       >
-        <Avatar size="sm" className="size-6 ring-2 ring-card">
+        <Avatar
+          size="sm"
+          className="size-6 bg-muted ring-2 ring-card"
+        >
           {avatarSrc ? <AvatarImage src={avatarSrc} alt="" /> : null}
-          <AvatarFallback className="text-[9px]">
+          <AvatarFallback className="bg-muted text-[9px]">
             {initials(payload.playerName)}
           </AvatarFallback>
         </Avatar>
@@ -130,10 +140,13 @@ export function StartingLineupChart({
     () =>
       slots.map((slot) => ({
         ...slot,
-        barValue: n - slot.rank + 1,
+        // Rank 1 → n-0.5 (near top); rank n → 0.5 (half step).
+        barValue: n - slot.rank + 0.5,
       })),
     [slots, n],
   );
+  const chartHeight =
+    n * Y_STEP_PX + RANK_LABEL_GAP + AVATAR_SIZE + 28;
 
   return (
     <Card size="sm" className="h-full gap-0 py-0">
@@ -143,7 +156,8 @@ export function StartingLineupChart({
       <CardContent className="py-4">
         <ChartContainer
           config={chartConfig}
-          className="aspect-auto h-72 w-full"
+          className="aspect-auto w-full"
+          style={{ height: chartHeight }}
         >
           <BarChart
             accessibilityLayer
@@ -152,7 +166,7 @@ export function StartingLineupChart({
               top: RANK_LABEL_GAP + 4,
               right: 8,
               left: 8,
-              bottom: AVATAR_SIZE / 2,
+              bottom: AVATAR_SIZE / 2 + 8,
             }}
           >
             <XAxis
@@ -161,17 +175,18 @@ export function StartingLineupChart({
               axisLine={false}
               tickMargin={10}
               interval={0}
-              tick={{ fontSize: 10 }}
+              tick={chartAxisTick}
             />
             <YAxis
-              domain={[1, n]}
+              type="number"
+              domain={[0, n]}
               ticks={ticks}
               allowDecimals={false}
               tickLine={false}
               axisLine={false}
               width={28}
               tickMargin={4}
-              tick={{ fontSize: 10 }}
+              tick={chartAxisTick}
               tickFormatter={(value) => String(n - Number(value) + 1)}
             />
             <ChartTooltip

@@ -2,6 +2,7 @@
 
 import {
   Avatar,
+  AvatarBadge,
   AvatarFallback,
   AvatarImage,
 } from "@/components/ui/avatar";
@@ -45,23 +46,20 @@ export function PlayerAvatar({
   const injury = getInjuryIndicator(injuryStatus);
 
   return (
-    <span className={cn("relative inline-flex shrink-0", className)}>
-      <Avatar size={size} className="bg-muted">
-        {src ? <AvatarImage src={src} alt="" /> : null}
-        <AvatarFallback>{getPlayerInitials(fullName)}</AvatarFallback>
-      </Avatar>
+    <Avatar size={size} className={cn("bg-muted", className)}>
+      {src ? <AvatarImage src={src} alt="" /> : null}
+      <AvatarFallback>{getPlayerInitials(fullName)}</AvatarFallback>
       {injury ? (
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger
               render={
-                <span
+                <AvatarBadge
+                  aria-label={injury.label}
                   className={cn(
-                    "absolute -right-0.5 -bottom-0.5 size-2.5 rounded-full ring-2 ring-background",
                     injury.tone === "questionable" && "bg-warning",
                     injury.tone === "out" && "bg-destructive",
                   )}
-                  aria-label={injury.label}
                 />
               }
             />
@@ -69,6 +67,6 @@ export function PlayerAvatar({
           </Tooltip>
         </TooltipProvider>
       ) : null}
-    </span>
+    </Avatar>
   );
 }

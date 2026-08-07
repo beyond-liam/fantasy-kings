@@ -13,6 +13,7 @@ import {
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
+  chartAxisTick,
   type ChartConfig,
 } from "@/components/ui/chart";
 import {
@@ -84,12 +85,14 @@ export function BenchWasteChart({ data }: BenchWasteChartProps) {
                 tickLine={false}
                 axisLine={false}
                 tickMargin={8}
+                tick={chartAxisTick}
               />
               <YAxis
                 tickLine={false}
                 axisLine={false}
                 tickMargin={8}
                 width={36}
+                tick={chartAxisTick}
                 tickFormatter={(value) => formatPoints(Number(value))}
               />
               <ChartTooltip

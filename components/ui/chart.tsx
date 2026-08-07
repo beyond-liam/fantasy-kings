@@ -12,6 +12,16 @@ const THEMES = { light: "", dark: ".dark" } as const
 const INITIAL_DIMENSION = { width: 320, height: 200 } as const
 type TooltipNameType = number | string
 
+/**
+ * Shared Recharts axis tick props. Prefer relying on ChartContainer CSS;
+ * pass this when a chart sets `tick={{ fontSize }}` so Recharts' default
+ * `#666` fill does not override the design token.
+ */
+export const chartAxisTick = {
+  fontSize: 10,
+  fill: "var(--muted-foreground)",
+} as const
+
 export type ChartConfig = Record<
   string,
   {
@@ -65,7 +75,9 @@ function ChartContainer({
         data-slot="chart"
         data-chart={chartId}
         className={cn(
-          "flex aspect-video justify-center text-xs [&_.recharts-cartesian-axis-tick_text]:fill-muted-foreground [&_.recharts-cartesian-grid_line[stroke='#ccc']]:stroke-border/50 [&_.recharts-curve.recharts-tooltip-cursor]:stroke-border [&_.recharts-dot[stroke='#fff']]:stroke-transparent [&_.recharts-layer]:outline-hidden [&_.recharts-polar-grid_[stroke='#ccc']]:stroke-border [&_.recharts-radial-bar-background-sector]:fill-muted [&_.recharts-rectangle.recharts-tooltip-cursor]:fill-muted [&_.recharts-reference-line_[stroke='#ccc']]:stroke-border [&_.recharts-sector]:outline-hidden [&_.recharts-sector[stroke='#fff']]:stroke-transparent [&_.recharts-surface]:outline-hidden",
+          "flex aspect-video justify-center text-xs [&_.recharts-cartesian-grid_line[stroke='#ccc']]:stroke-border/50 [&_.recharts-curve.recharts-tooltip-cursor]:stroke-border [&_.recharts-dot[stroke='#fff']]:stroke-transparent [&_.recharts-layer]:outline-hidden [&_.recharts-polar-grid_[stroke='#ccc']]:stroke-border [&_.recharts-radial-bar-background-sector]:fill-muted [&_.recharts-rectangle.recharts-tooltip-cursor]:fill-muted [&_.recharts-reference-line_[stroke='#ccc']]:stroke-border [&_.recharts-sector]:outline-hidden [&_.recharts-sector[stroke='#fff']]:stroke-transparent [&_.recharts-surface]:outline-hidden",
+          // Recharts paints ticks with inline fill (#666); force muted-foreground.
+          "[&_.recharts-cartesian-axis-tick_text]:![fill:var(--muted-foreground)] [&_.recharts-polar-angle-axis-tick_text]:![fill:var(--muted-foreground)] [&_.recharts-polar-radius-axis-tick_text]:![fill:var(--muted-foreground)]",
           className
         )}
         {...props}
@@ -369,4 +381,5 @@ export {
   ChartLegend,
   ChartLegendContent,
   ChartStyle,
+  chartAxisTick,
 }

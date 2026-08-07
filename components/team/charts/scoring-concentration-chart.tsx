@@ -13,6 +13,7 @@ import {
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
+  chartAxisTick,
   type ChartConfig,
 } from "@/components/ui/chart";
 import {
@@ -94,12 +95,14 @@ export function ScoringConcentrationChart({
                 tickLine={false}
                 axisLine={false}
                 width={72}
+                tick={chartAxisTick}
               />
               <XAxis
                 type="number"
                 tickLine={false}
                 axisLine={false}
                 tickMargin={8}
+                tick={chartAxisTick}
                 tickFormatter={(value) => `${value}%`}
               />
               <ChartTooltip

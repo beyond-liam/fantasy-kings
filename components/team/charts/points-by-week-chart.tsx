@@ -15,6 +15,7 @@ import {
   ChartLegendContent,
   ChartTooltip,
   ChartTooltipContent,
+  chartAxisTick,
   type ChartConfig,
 } from "@/components/ui/chart";
 import {
@@ -100,12 +101,14 @@ export function PointsByWeekChart({
                 tickLine={false}
                 axisLine={false}
                 tickMargin={8}
+                tick={chartAxisTick}
               />
               <YAxis
                 tickLine={false}
                 axisLine={false}
                 tickMargin={8}
                 width={40}
+                tick={chartAxisTick}
                 tickFormatter={(value) => formatPoints(Number(value))}
               />
               <ChartTooltip content={<ChartTooltipContent />} />

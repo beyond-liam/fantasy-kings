@@ -16,10 +16,9 @@ import {
 } from "@/components/ui/card";
 import {
   ChartContainer,
-  ChartLegend,
-  ChartLegendContent,
   ChartTooltip,
   ChartTooltipContent,
+  chartAxisTick,
   type ChartConfig,
 } from "@/components/ui/chart";
 import type { PositionStrengthPoint } from "@/lib/leagues/roster-evaluation/types";
@@ -45,7 +44,7 @@ export function PositionStrengthRadar({ data }: PositionStrengthRadarProps) {
       <CardHeader variant="panel">
         <CardTitle className="text-base text-balance">Position Strength</CardTitle>
       </CardHeader>
-      <CardContent className="py-4">
+      <CardContent className="flex flex-col gap-3 py-4">
         <ChartContainer
           config={chartConfig}
           className="mx-auto aspect-square w-full max-h-72"
@@ -87,7 +86,7 @@ export function PositionStrengthRadar({ data }: PositionStrengthRadarProps) {
                 />
               }
             />
-            <PolarAngleAxis dataKey="position" />
+            <PolarAngleAxis dataKey="position" tick={chartAxisTick} />
             <PolarGrid radialLines={false} />
             <PolarRadiusAxis
               angle={90}
@@ -111,9 +110,23 @@ export function PositionStrengthRadar({ data }: PositionStrengthRadarProps) {
               strokeWidth={2}
               dot={{ r: 3, fillOpacity: 1 }}
             />
-            <ChartLegend content={<ChartLegendContent />} />
           </RadarChart>
         </ChartContainer>
+        <div className="flex items-center justify-center gap-4 text-xs">
+          {(Object.keys(chartConfig) as (keyof typeof chartConfig)[]).map(
+            (key) => (
+              <div key={key} className="flex items-center gap-1.5">
+                <div
+                  className="size-2 shrink-0 rounded-[2px]"
+                  style={{ backgroundColor: chartConfig[key].color }}
+                />
+                <span className="text-muted-foreground">
+                  {chartConfig[key].label}
+                </span>
+              </div>
+            ),
+          )}
+        </div>
       </CardContent>
     </Card>
   );

@@ -143,6 +143,108 @@ describe("buildPlayerOverviewMetrics", () => {
     assert.equal(overview.weeklyPoints.find((w) => w.week === 10)?.isBye, true);
   });
 
+  it("marks trailing missed weeks as DNP when the NFL week has a result", () => {
+    const overview = buildPlayerOverviewMetrics(
+      baseProfile({
+        gameLog: [
+          { week: 1, opponent: "vs BAL", fantasyPts: 12, result: "W" },
+          { week: 2, opponent: "@ BUF", fantasyPts: 8, result: "L" },
+          { week: 3, opponent: "vs CIN", fantasyPts: null, result: "W" },
+          { week: 4, opponent: "@ MIA", fantasyPts: null, result: "L" },
+          { week: 5, opponent: "vs KC", fantasyPts: null, result: null },
+        ],
+      }),
+      rules,
+    );
+
+    assert.equal(overview.weeklyPoints.find((w) => w.week === 3)?.isDnp, true);
+    assert.equal(overview.weeklyPoints.find((w) => w.week === 4)?.isDnp, true);
+    assert.equal(overview.weeklyPoints.find((w) => w.week === 5)?.isDnp, false);
+    assert.equal(overview.weeklyPoints.find((w) => w.week === 5)?.fpts, null);
+  });
+
+  it("marks trailing missed weeks as DNP from position finish weeks", () => {
+    const overview = buildPlayerOverviewMetrics(
+      baseProfile({
+        gameLog: [
+          { week: 1, opponent: "vs BAL", fantasyPts: 12 },
+          { week: 2, opponent: "@ BUF", fantasyPts: 8 },
+          { week: 3, opponent: "vs CIN", fantasyPts: null },
+          { week: 4, opponent: "@ MIA", fantasyPts: null },
+          { week: 5, opponent: "vs KC", fantasyPts: null },
+        ],
+        overviewExtras: {
+          share: null,
+          weeklyFinishesByWeek: { 1: 10, 2: 12 },
+          scoresThroughWeek: 4,
+          matchupDifficultyByWeek: {},
+          matchupRanksByWeek: {},
+          ptsAllowedByWeek: {},
+          playoffWeeks: [],
+          multiYear: [],
+        },
+      }),
+      rules,
+    );
+
+    assert.equal(overview.weeklyPoints.find((w) => w.week === 3)?.isDnp, true);
+    assert.equal(overview.weeklyPoints.find((w) => w.week === 4)?.isDnp, true);
+    assert.equal(overview.weeklyPoints.find((w) => w.week === 5)?.isDnp, false);
+  });
+
+  it("treats rank-only placeholder score rows as DNP, not 0-point games", () => {
+    const overview = buildPlayerOverviewMetrics(
+      baseProfile({
+        gameLog: [
+          {
+            week: 1,
+            opponent: "vs BAL",
+            fantasyPts: 12,
+            stats: { gp: 1, rush_att: 10, pts_ppr: 12 },
+          },
+          {
+            week: 2,
+            opponent: "@ BUF",
+            fantasyPts: 0,
+            stats: {
+              gms_active: 1,
+              pos_rank_ppr: 55,
+              pos_rank_std: 55,
+            },
+          },
+          {
+            week: 3,
+            opponent: "vs CIN",
+            fantasyPts: 0,
+            stats: {
+              gms_active: 1,
+              pos_rank_ppr: 60,
+            },
+          },
+          { week: 4, opponent: "@ MIA", fantasyPts: null, stats: {} },
+        ],
+        overviewExtras: {
+          share: null,
+          weeklyFinishesByWeek: { 1: 8 },
+          scoresThroughWeek: 3,
+          matchupDifficultyByWeek: {},
+          matchupRanksByWeek: {},
+          ptsAllowedByWeek: {},
+          playoffWeeks: [],
+          multiYear: [],
+        },
+      }),
+      rules,
+    );
+
+    assert.equal(overview.weeklyPoints.find((w) => w.week === 1)?.isDnp, false);
+    assert.equal(overview.weeklyPoints.find((w) => w.week === 1)?.fpts, 12);
+    assert.equal(overview.weeklyPoints.find((w) => w.week === 2)?.isDnp, true);
+    assert.equal(overview.weeklyPoints.find((w) => w.week === 2)?.fpts, null);
+    assert.equal(overview.weeklyPoints.find((w) => w.week === 3)?.isDnp, true);
+    assert.equal(overview.weeklyPoints.find((w) => w.week === 4)?.isDnp, false);
+  });
+
   it("builds weekly points, floor/ceiling, and splits", () => {
     const overview = buildPlayerOverviewMetrics(baseProfile(), rules);
 

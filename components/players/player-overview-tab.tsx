@@ -19,11 +19,18 @@ import {
 } from "recharts";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useIsMobile } from "@/hooks/use-mobile";
+import {
+  BriefcaseMedicalIcon,
+  ZzzIcon,
+} from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
   ChartContainer,
   ChartLegend,
   ChartLegendContent,
   ChartTooltip,
+  chartAxisTick,
   type ChartConfig,
 } from "@/components/ui/chart";
 import {
@@ -478,6 +485,7 @@ type WeeklyChartRow = {
 };
 
 const WEEKLY_STATUS_BAR_HEIGHT = 22;
+const WEEKLY_STATUS_ICON_SIZE = 8;
 
 type WeeklyBarShapeProps = {
   x?: number;
@@ -486,6 +494,8 @@ type WeeklyBarShapeProps = {
   height?: number;
   fill?: string;
   payload?: WeeklyChartRow;
+  /** Mobile: icon instead of BYE/DNP text in the status bar. */
+  compact?: boolean;
 };
 
 function WeeklyFptsBarShape({
@@ -495,43 +505,68 @@ function WeeklyFptsBarShape({
   height = 0,
   fill,
   payload,
+  compact = false,
 }: WeeklyBarShapeProps) {
   if (!payload || payload.kind === "upcoming" || payload.barValue == null) {
     return null;
   }
 
   if (payload.kind === "bye" || payload.kind === "dnp") {
-    const boxWidth = Math.max(width, 18);
+    // Stay inside the Recharts bar slot — never widen past `width` (causes overlap).
+    const gap = Math.min(1, Math.max(width * 0.1, 0));
+    const boxWidth = Math.max(width - gap, 1);
     const boxX = x + (width - boxWidth) / 2;
     const baseline = height > 0 ? y + height : y;
     const boxY = baseline - WEEKLY_STATUS_BAR_HEIGHT;
     const isDnp = payload.kind === "dnp";
+    const statusColor = isDnp
+      ? "var(--destructive)"
+      : "var(--muted-foreground)";
+    const iconSize = Math.min(WEEKLY_STATUS_ICON_SIZE, Math.max(boxWidth - 2, 6));
+    const radius = Math.min(4, boxWidth / 2);
     return (
-      <g>
+      <g opacity={payload.muted ? 0.28 : 1}>
         <rect
           x={boxX}
           y={boxY}
           width={boxWidth}
           height={WEEKLY_STATUS_BAR_HEIGHT}
-          rx={4}
-          ry={4}
+          rx={radius}
+          ry={radius}
           fill="var(--muted)"
           stroke={isDnp ? "var(--destructive)" : "var(--color-border)"}
           strokeWidth={1}
-          opacity={payload.muted ? 0.28 : 1}
         />
-        <text
-          x={boxX + boxWidth / 2}
-          y={boxY + WEEKLY_STATUS_BAR_HEIGHT / 2}
-          textAnchor="middle"
-          dominantBaseline="central"
-          fill={isDnp ? "var(--destructive)" : "var(--muted-foreground)"}
-          fontSize={9}
-          fontWeight={600}
-          opacity={payload.muted ? 0.28 : 1}
-        >
-          {isDnp ? "DNP" : "BYE"}
-        </text>
+        {compact ? (
+          <foreignObject
+            x={boxX + (boxWidth - iconSize) / 2}
+            y={boxY + (WEEKLY_STATUS_BAR_HEIGHT - iconSize) / 2}
+            width={iconSize}
+            height={iconSize}
+          >
+            <div className="flex size-full items-center justify-center">
+              <HugeiconsIcon
+                icon={isDnp ? BriefcaseMedicalIcon : ZzzIcon}
+                strokeWidth={2}
+                size={iconSize}
+                color={statusColor}
+                aria-label={isDnp ? "Did not play" : "Bye week"}
+              />
+            </div>
+          </foreignObject>
+        ) : (
+          <text
+            x={boxX + boxWidth / 2}
+            y={boxY + WEEKLY_STATUS_BAR_HEIGHT / 2}
+            textAnchor="middle"
+            dominantBaseline="central"
+            fill={statusColor}
+            fontSize={9}
+            fontWeight={600}
+          >
+            {isDnp ? "DNP" : "BYE"}
+          </text>
+        )}
       </g>
     );
   }
@@ -555,11 +590,14 @@ function WeeklyOpponentTick({
   y,
   payload,
   rows,
+  compact,
 }: {
   x?: number | string;
   y?: number | string;
   payload?: { value?: number | string };
   rows: WeeklyChartRow[];
+  /** Mobile: week digits only — opponent lives in the bar tooltip. */
+  compact?: boolean;
 }) {
   const week = Number(payload?.value);
   const row = rows.find((r) => r.week === week);
@@ -567,6 +605,29 @@ function WeeklyOpponentTick({
   const tickY = typeof y === "number" ? y : Number(y);
   if (row == null || !Number.isFinite(tickX) || !Number.isFinite(tickY)) {
     return null;
+  }
+
+  if (compact) {
+    const lastWeek = rows[rows.length - 1]?.week;
+    const showLabel =
+      row.week === 1 ||
+      row.week === lastWeek ||
+      row.week % 2 === 1;
+    if (!showLabel) return null;
+
+    return (
+      <g transform={`translate(${tickX},${tickY})`}>
+        <text
+          dy={10}
+          textAnchor="middle"
+          fill="var(--muted-foreground)"
+          fontSize={10}
+          className="tabular-nums"
+        >
+          {row.week}
+        </text>
+      </g>
+    );
   }
 
   const secondary =
@@ -877,7 +938,7 @@ function CombinedKicksLineCard({
             tickLine={false}
             axisLine={false}
             tickMargin={6}
-            tick={{ fontSize: 10 }}
+            tick={chartAxisTick}
             interval="preserveStartEnd"
           />
           <YAxis
@@ -885,7 +946,7 @@ function CombinedKicksLineCard({
             axisLine={false}
             width={28}
             ticks={yTicks}
-            tick={{ fontSize: 10 }}
+            tick={chartAxisTick}
             allowDecimals={false}
             domain={[0, yMax]}
           />
@@ -1126,7 +1187,7 @@ function FgMakeRadarCard({
             cursor={false}
             content={<FgMakeRadarTooltipContent config={chartConfig} />}
           />
-          <PolarAngleAxis dataKey="bracket" />
+          <PolarAngleAxis dataKey="bracket" tick={chartAxisTick} />
           <PolarGrid />
           <Radar
             dataKey="leagueAvg"
@@ -1266,7 +1327,7 @@ function PtsAllowRadarCard({
             cursor={false}
             content={<PtsAllowRadarTooltipContent config={chartConfig} />}
           />
-          <PolarAngleAxis dataKey="bracket" />
+          <PolarAngleAxis dataKey="bracket" tick={chartAxisTick} />
           <PolarGrid />
           <Radar
             dataKey="leagueAvg"
@@ -1433,7 +1494,7 @@ function PtsAllowWeeklyCard({
             tickLine={false}
             axisLine={false}
             tickMargin={6}
-            tick={{ fontSize: 10 }}
+            tick={chartAxisTick}
             interval="preserveStartEnd"
           />
           <YAxis
@@ -1441,7 +1502,7 @@ function PtsAllowWeeklyCard({
             axisLine={false}
             width={28}
             ticks={yTicks}
-            tick={{ fontSize: 10 }}
+            tick={chartAxisTick}
             allowDecimals={false}
             domain={[0, yMax]}
           />
@@ -1677,7 +1738,7 @@ function EfficiencyCard({
               tickLine={false}
               axisLine={false}
               tickMargin={6}
-              tick={{ fontSize: 10 }}
+              tick={chartAxisTick}
               interval="preserveStartEnd"
             />
             <YAxis
@@ -1685,7 +1746,7 @@ function EfficiencyCard({
               axisLine={false}
               width={32}
               tickCount={6}
-              tick={{ fontSize: 10 }}
+              tick={chartAxisTick}
               tickFormatter={(v) =>
                 efficiency.format === "percent"
                   ? String(Math.round(Number(v)))
@@ -1994,6 +2055,7 @@ export function PlayerOverviewTab({
   withoutQb1 = null,
   withoutActive = false,
 }: PlayerOverviewTabProps) {
+  const isMobile = useIsMobile();
   const withoutOn =
     withoutActive &&
     withoutQb1 != null &&
@@ -2108,6 +2170,7 @@ export function PlayerOverviewTab({
   const weekByNumber = new Map(
     overviewAll.weeklyPoints.map((w) => [w.week, w] as const),
   );
+  /** Active weeks only; string `label` keeps the axis categorical (even spacing). */
   const finishSpark = weeklyFinish?.weeks.map((w) => {
     const weekRow = weekByNumber.get(w.week);
     const opponentTick = weekRow
@@ -2117,11 +2180,21 @@ export function PlayerOverviewTab({
       : "";
     return {
       week: w.week,
-      label: `W${w.week}`,
+      label: String(w.week),
       finish: w.finish,
       opponentTick,
     };
   });
+  const finishWeekTicks = (() => {
+    const labels = finishSpark?.map((row) => row.label) ?? [];
+    if (labels.length === 0) return [];
+    if (!isMobile || labels.length <= 9) return labels;
+    const first = labels[0]!;
+    const last = labels[labels.length - 1]!;
+    return labels.filter(
+      (label, index) => label === first || label === last || index % 2 === 0,
+    );
+  })();
   const finishMaxRank = weeklyFinish
     ? Math.max(
         ...weeklyFinish.weeks.map((w) => w.finish),
@@ -2349,7 +2422,12 @@ export function PlayerOverviewTab({
             <BarChart
               accessibilityLayer
               data={chartData}
-              margin={{ left: 4, right: 4, top: 8, bottom: 8 }}
+              margin={{
+                left: 4,
+                right: 4,
+                top: 8,
+                bottom: isMobile ? 0 : 8,
+              }}
             >
               <CartesianGrid vertical={false} />
               <XAxis
@@ -2359,14 +2437,19 @@ export function PlayerOverviewTab({
                 tickMargin={4}
                 interval={0}
                 tick={(props) => (
-                  <WeeklyOpponentTick {...props} rows={chartData} />
+                  <WeeklyOpponentTick
+                    {...props}
+                    rows={chartData}
+                    compact={isMobile}
+                  />
                 )}
-                height={36}
+                height={isMobile ? 20 : 36}
               />
               <YAxis
                 tickLine={false}
                 axisLine={false}
                 width={32}
+                tick={chartAxisTick}
                 tickFormatter={(v) => String(v)}
               />
               <ChartTooltip
@@ -2386,7 +2469,9 @@ export function PlayerOverviewTab({
               ) : null}
               <Bar
                 dataKey="barValue"
-                shape={WeeklyFptsBarShape}
+                shape={(props) => (
+                  <WeeklyFptsBarShape {...props} compact={isMobile} />
+                )}
                 maxBarSize={28}
                 isAnimationActive={false}
               >
@@ -2652,10 +2737,15 @@ export function PlayerOverviewTab({
                 >
                   <CartesianGrid vertical={false} />
                   <XAxis
+                    type="category"
                     dataKey="label"
                     tickLine={false}
                     axisLine={false}
                     tickMargin={8}
+                    ticks={finishWeekTicks}
+                    interval={0}
+                    allowDuplicatedCategory={false}
+                    tick={chartAxisTick}
                   />
                   <YAxis
                     reversed
@@ -2665,7 +2755,7 @@ export function PlayerOverviewTab({
                     domain={[1, finishDomainMax]}
                     ticks={finishTicks}
                     allowDecimals={false}
-                    tick={{ fontSize: 10 }}
+                    tick={chartAxisTick}
                   />
                   <ChartTooltip
                     content={
@@ -2681,7 +2771,7 @@ export function PlayerOverviewTab({
                     strokeOpacity={0.55}
                   />
                   <Line
-                    type="monotone"
+                    type="linear"
                     dataKey="finish"
                     stroke="var(--color-finish)"
                     strokeWidth={2}

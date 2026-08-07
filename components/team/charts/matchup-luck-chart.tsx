@@ -13,6 +13,7 @@ import {
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
+  chartAxisTick,
   type ChartConfig,
 } from "@/components/ui/chart";
 import {
@@ -110,12 +111,14 @@ export function MatchupLuckChart({ data }: MatchupLuckChartProps) {
                 tickLine={false}
                 axisLine={false}
                 tickMargin={8}
+                tick={chartAxisTick}
               />
               <YAxis
                 tickLine={false}
                 axisLine={false}
                 tickMargin={8}
                 width={36}
+                tick={chartAxisTick}
                 domain={["dataMin - 5", "dataMax + 5"]}
               />
               <ReferenceLine y={0} stroke="var(--border)" strokeDasharray="3 3" />

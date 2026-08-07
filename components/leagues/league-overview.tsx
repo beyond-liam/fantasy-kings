@@ -246,7 +246,7 @@ function PlayerSpotlight({
         primaryPositionId={player.primaryPositionId}
         nflTeam={player.nflTeam}
         size="lg"
-        className="**:data-[slot=avatar]:size-16"
+        className="size-16"
       />
       <div className="min-w-0 max-w-full">
         <p className="truncate text-sm font-medium text-balance">

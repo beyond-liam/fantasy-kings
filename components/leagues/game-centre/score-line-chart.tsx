@@ -6,6 +6,7 @@ import {
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
+  chartAxisTick,
   type ChartConfig,
 } from "@/components/ui/chart";
 import {
@@ -69,12 +70,14 @@ export function ScoreLineChart({
               axisLine={false}
               tickMargin={8}
               minTickGap={24}
+              tick={chartAxisTick}
             />
             <YAxis
               tickLine={false}
               axisLine={false}
               tickMargin={8}
               width={36}
+              tick={chartAxisTick}
             />
             <ChartTooltip content={<ChartTooltipContent />} />
             <Line

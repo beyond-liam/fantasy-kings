@@ -13,6 +13,7 @@ import {
 import {
   ChartContainer,
   ChartTooltip,
+  chartAxisTick,
   type ChartConfig,
 } from "@/components/ui/chart";
 import {
@@ -232,6 +233,7 @@ export function PowerRankingsSeasonChart({
                     axisLine={false}
                     tickMargin={8}
                     minTickGap={24}
+                    tick={chartAxisTick}
                   />
                   <YAxis
                     reversed
@@ -241,6 +243,7 @@ export function PowerRankingsSeasonChart({
                     axisLine={false}
                     tickMargin={8}
                     width={28}
+                    tick={chartAxisTick}
                     ticks={Array.from(
                       { length: Math.max(1, teamCount) },
                       (_, index) => index + 1,

@@ -197,9 +197,8 @@ function PlayerProfileHeader({
               sleeperId={profile.sleeperId}
               primaryPositionId={profile.primaryPositionId}
               nflTeam={profile.nflTeam}
-              injuryStatus={profile.injuryStatus}
               size="lg"
-              className="sm:hidden [&_[data-slot=avatar]]:!size-12"
+              className="size-12 sm:hidden"
             />
             <div className="flex min-w-0 flex-1 flex-col leading-none">
               <Heading className="min-w-0 text-[17px] leading-tight font-semibold tracking-tight text-balance sm:text-3xl sm:leading-snug">
