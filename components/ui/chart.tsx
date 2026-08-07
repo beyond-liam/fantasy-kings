@@ -381,5 +381,4 @@ export {
   ChartLegend,
   ChartLegendContent,
   ChartStyle,
-  chartAxisTick,
 }
