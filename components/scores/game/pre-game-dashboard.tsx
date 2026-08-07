@@ -8,6 +8,7 @@ import {
   TableRow,
   TableShell,
 } from "@/components/ui/table";
+import { GameInformationCard } from "@/components/scores/game/game-information-card";
 import { LeadersList } from "@/components/scores/game/leaders-list";
 import { ScheduleTeamLogo } from "@/components/scores/schedule-team-logo";
 import {
@@ -15,7 +16,6 @@ import {
   type GameDashboardData,
 } from "@/lib/espn/game-summary";
 import { getInjuryIndicator } from "@/lib/players/injury";
-import { formatKickoffDayShort, formatKickoffTime } from "@/lib/nfl/schedule-week";
 import { cn } from "@/lib/utils";
 
 type PreGameDashboardProps = {
@@ -152,10 +152,6 @@ function InjuryDot({ status }: { status: string }) {
 
 export function PreGameDashboard({ data }: PreGameDashboardProps) {
   const { game } = data;
-  const kickoff = new Date(game.kickoff);
-  const venueLabel = game.venueLocation
-    ? `${game.venue}, ${game.venueLocation}`
-    : game.venue;
 
   const awayInjuries =
     data.injuries?.filter((row) => row.side === "away") ?? null;
@@ -180,31 +176,18 @@ export function PreGameDashboard({ data }: PreGameDashboardProps) {
           )}
         </SectionCard>
 
-        <SectionCard title="Game Information">
-          <div className="flex flex-col gap-3">
-            <div>
-              <p className="text-sm font-medium tabular-nums">
-                {formatKickoffTime(kickoff)}, {formatKickoffDayShort(kickoff)}
-              </p>
-              <p className="text-sm text-muted-foreground">{venueLabel}</p>
-            </div>
-            <div className="border-t pt-3">
-              <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                Where to watch
-              </p>
-              <p className="mt-1 text-sm font-medium">
-                {game.network ?? MISSING_VALUE}
-              </p>
-            </div>
-          </div>
-        </SectionCard>
+        <GameInformationCard
+          game={game}
+          attendance={data.attendance}
+          officials={data.officials}
+        />
       </div>
 
       <div className="flex min-w-0 flex-col gap-4">
         <SectionCard title="Game Odds">
           {data.odds ? (
             <>
-              <TableShell className="rounded-lg border-0">
+              <TableShell>
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -344,7 +327,7 @@ export function PreGameDashboard({ data }: PreGameDashboardProps) {
                       {MISSING_VALUE}
                     </p>
                   ) : (
-                    <TableShell className="rounded-lg border-0">
+                    <TableShell>
                       <Table>
                         <TableHeader>
                           <TableRow>
@@ -393,7 +376,7 @@ export function PreGameDashboard({ data }: PreGameDashboardProps) {
               {data.standings.map((division) => (
                 <div key={division.name} className="flex flex-col gap-2">
                   <p className="text-sm text-muted-foreground">{division.name}</p>
-                  <TableShell className="rounded-lg border-0">
+                  <TableShell>
                     <Table>
                       <TableHeader>
                         <TableRow>

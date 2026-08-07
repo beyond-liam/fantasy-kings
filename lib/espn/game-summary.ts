@@ -56,6 +56,13 @@ type EspnSummaryResponse = {
       fullName?: string;
       address?: { city?: string; state?: string };
     };
+    attendance?: number;
+    officials?: Array<{
+      displayName?: string;
+      fullName?: string;
+      order?: number;
+      position?: { displayName?: string; name?: string };
+    }>;
   };
   predictor?: {
     homeTeam?: { gameProjection?: string };
@@ -107,9 +114,11 @@ type EspnSummaryResponse = {
       leaders?: Array<{
         displayValue?: string;
         athlete?: {
+          id?: string;
           displayName?: string;
           shortName?: string;
           position?: { abbreviation?: string };
+          headshot?: { href?: string; alt?: string };
         };
       }>;
     }>;
@@ -200,6 +209,7 @@ export type GameLeaderSide = {
   name: string;
   position: string;
   line: string;
+  headshotUrl: string | null;
 };
 
 export type GameLeaderCategory = {
@@ -278,6 +288,11 @@ export type WinProbabilityPoint = {
   awayPct: number;
 };
 
+export type GameOfficial = {
+  role: string;
+  name: string;
+};
+
 export type GameDashboardData = {
   game: ScheduleGame;
   predictor: { awayPct: number; homePct: number } | null;
@@ -293,6 +308,10 @@ export type GameDashboardData = {
   scoringPlays: ScoringPlay[] | null;
   allPlays: ScoringPlay[] | null;
   teamStats: TeamStatRow[] | null;
+  /** Present once ESPN reports it (typically in-progress / final). */
+  attendance: number | null;
+  /** Present once ESPN reports it (typically in-progress / final). */
+  officials: GameOfficial[] | null;
 };
 
 /** ESPN uses WSH; Sleeper CDN uses WAS. */
@@ -315,6 +334,7 @@ const EMPTY_LEADER: GameLeaderSide = {
   name: "None",
   position: "",
   line: "--",
+  headshotUrl: null,
 };
 
 function formatMoneyline(value: number | string | null | undefined): string {
@@ -431,6 +451,11 @@ function parseTeam(competitor: EspnCompetitor | undefined): ScheduleTeam {
         : undefined) ||
       "0-0",
     score: Number.isFinite(score) ? score : null,
+    linescores: (competitor?.linescores ?? []).map((line) => {
+      const raw = line.displayValue ?? line.value;
+      const num = typeof raw === "number" ? raw : Number(raw);
+      return Number.isFinite(num) ? num : 0;
+    }),
     winner: competitor?.winner ?? null,
   };
 }
@@ -563,6 +588,7 @@ function parseLeaderSide(
           displayName?: string;
           shortName?: string;
           position?: { abbreviation?: string };
+          headshot?: { href?: string };
         };
       }
     | undefined,
@@ -574,6 +600,7 @@ function parseLeaderSide(
     name: entry.athlete?.displayName?.trim() || "None",
     position: entry.athlete?.position?.abbreviation?.trim() || "",
     line: entry.displayValue?.trim() || "--",
+    headshotUrl: entry.athlete?.headshot?.href?.trim() || null,
   };
 }
 
@@ -766,11 +793,26 @@ function parseStandings(
   });
 }
 
-function quarterLabel(period: number | undefined): string {
+function ordinal(n: number): string {
+  const mod100 = n % 100;
+  if (mod100 >= 11 && mod100 <= 13) return `${n}th`;
+  switch (n % 10) {
+    case 1:
+      return `${n}st`;
+    case 2:
+      return `${n}nd`;
+    case 3:
+      return `${n}rd`;
+    default:
+      return `${n}th`;
+  }
+}
+
+export function formatPlayQuarterLabel(period: number | undefined): string {
   if (period == null) return MISSING_VALUE;
-  if (period <= 4) return `Q${period}`;
-  if (period === 5) return "OT";
-  return `OT${period - 4}`;
+  if (period <= 4) return `${ordinal(period)} Quarter`;
+  if (period === 5) return "Overtime";
+  return `${ordinal(period - 4)} Overtime`;
 }
 
 function parseLineScore(
@@ -884,7 +926,7 @@ function parseScoringPlays(
   if (!plays) return null;
 
   return plays.map((play) => ({
-    quarter: quarterLabel(play.period?.number),
+    quarter: formatPlayQuarterLabel(play.period?.number),
     teamAbbrev: play.team?.abbreviation?.toUpperCase() || MISSING_VALUE,
     description: play.text?.trim() || MISSING_VALUE,
     score: `${play.awayScore ?? MISSING_VALUE}-${play.homeScore ?? MISSING_VALUE}`,
@@ -906,7 +948,7 @@ function parseAllPlays(
       const text = play.text?.trim();
       if (!text) continue;
       plays.push({
-        quarter: quarterLabel(play.period?.number),
+        quarter: formatPlayQuarterLabel(play.period?.number),
         teamAbbrev:
           play.team?.abbreviation?.toUpperCase() ||
           driveAbbrev ||
@@ -935,6 +977,37 @@ function parseWinProbability(
     .filter((point): point is WinProbabilityPoint => point !== null);
 }
 
+function parseAttendance(payload: EspnSummaryResponse): number | null {
+  const attendance = payload.gameInfo?.attendance;
+  if (attendance == null || !Number.isFinite(attendance) || attendance <= 0) {
+    return null;
+  }
+  return attendance;
+}
+
+function parseOfficials(payload: EspnSummaryResponse): GameOfficial[] | null {
+  const officials = payload.gameInfo?.officials;
+  if (!officials?.length) return null;
+
+  const rows = officials
+    .map((official, index) => ({
+      role:
+        official.position?.displayName?.trim() ||
+        official.position?.name?.trim() ||
+        MISSING_VALUE,
+      name:
+        official.displayName?.trim() ||
+        official.fullName?.trim() ||
+        MISSING_VALUE,
+      order: official.order ?? index,
+    }))
+    .filter((row) => row.name !== MISSING_VALUE)
+    .toSorted((a, b) => a.order - b.order)
+    .map(({ role, name }) => ({ role, name }));
+
+  return rows.length ? rows : null;
+}
+
 function buildDashboard(payload: EspnSummaryResponse, eventId: string): GameDashboardData {
   const game = parseGame(payload, eventId);
   const away = game.away.abbreviation;
@@ -960,6 +1033,8 @@ function buildDashboard(payload: EspnSummaryResponse, eventId: string): GameDash
     scoringPlays: parseScoringPlays(payload),
     allPlays: parseAllPlays(payload, away, home),
     teamStats: parseTeamStats(payload, away, home),
+    attendance: parseAttendance(payload),
+    officials: parseOfficials(payload),
   };
 }
 

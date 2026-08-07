@@ -176,6 +176,13 @@
       "when": 1785985260000,
       "tag": "0024_activity_draft_pick",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1786134146587,
+      "tag": "0025_profile_schedule_prefs",
+      "breakpoints": true
     }
   ]
 }

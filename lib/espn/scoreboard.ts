@@ -24,6 +24,11 @@ type EspnCompetitor = {
   homeAway?: string;
   score?: string;
   winner?: boolean | null;
+  linescores?: Array<{
+    value?: number;
+    displayValue?: string;
+    period?: number;
+  }>;
   records?: Array<{
     type?: string;
     name?: string;
@@ -96,6 +101,8 @@ export type ScheduleTeam = {
   logoUrl: string;
   record: string;
   score: number | null;
+  /** Points per period (Q1–Q4, then OT). Empty when not yet scored. */
+  linescores: number[];
   winner: boolean | null;
 };
 
@@ -154,6 +161,19 @@ const SLEEPER_ABBREV: Record<string, string> = {
   WSH: "WAS",
 };
 
+function parseLinescores(
+  competitor: EspnCompetitor | undefined,
+): number[] {
+  const lines = competitor?.linescores;
+  if (!lines?.length) return [];
+
+  return lines.map((line) => {
+    const raw = line.displayValue ?? line.value;
+    const num = typeof raw === "number" ? raw : Number(raw);
+    return Number.isFinite(num) ? num : 0;
+  });
+}
+
 function parseTeam(competitor: EspnCompetitor | undefined): ScheduleTeam {
   const abbreviation = competitor?.team?.abbreviation?.toUpperCase() ?? "???";
   const espnLogo = competitor?.team?.logo;
@@ -193,6 +213,7 @@ function parseTeam(competitor: EspnCompetitor | undefined): ScheduleTeam {
     logoUrl: sleeperLogo ?? espnLogo ?? "",
     record: overall?.summary?.trim() || "0-0",
     score: Number.isFinite(score) ? score : null,
+    linescores: parseLinescores(competitor),
     winner: competitor?.winner ?? null,
   };
 }

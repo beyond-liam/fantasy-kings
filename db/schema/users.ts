@@ -1,4 +1,12 @@
-import { pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import {
+  boolean,
+  integer,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+} from "drizzle-orm/pg-core";
 
 /** App profile — id matches Supabase auth.users.id */
 export const profiles = pgTable(
@@ -14,6 +22,10 @@ export const profiles = pgTable(
     /** Favourite NFL team abbreviation (e.g. BUF). */
     favouriteNflTeam: text("favourite_nfl_team"),
     avatarUrl: text("avatar_url"),
+    /** Include ESPN preseason weeks in NFL Scores. */
+    includePreseason: boolean("include_preseason").default(true).notNull(),
+    /** First preseason week to show when includePreseason is on (1–4). */
+    preseasonStartWeek: integer("preseason_start_week").default(1).notNull(),
     /** Null until first-login onboarding completes. */
     onboardedAt: timestamp("onboarded_at", { withTimezone: true }),
     /** Most recent authenticated app heartbeat, using server time. */

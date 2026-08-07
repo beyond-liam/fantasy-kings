@@ -863,3 +863,4 @@ lib/
 | 2026-08-06 | Draft Rankings (Power Rankings) use live draft-grade scores from picks + season projections |
 | 2026-08-06 | Power Rankings overview: trends, my ranks, season trajectory chart, then mode list |
 | 2026-08-06 | Activity feed filters condensed: Draft picks · Trades · Waivers · Roster · League |
+| 2026-08-07 | NFL Scores schedule settings: include preseason switch + start-week select on `/settings` |

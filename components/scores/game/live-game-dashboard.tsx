@@ -2,6 +2,12 @@
 
 import { useState } from "react";
 
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -13,18 +19,26 @@ import {
   TableShell,
 } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { GameInformationCard } from "@/components/scores/game/game-information-card";
 import { LeadersList } from "@/components/scores/game/leaders-list";
 import { ScheduleTeamLogo } from "@/components/scores/schedule-team-logo";
+import { TeamStatsComparison } from "@/components/scores/game/team-stats-comparison";
+import { WinProbabilityChart } from "@/components/scores/game/win-probability-chart";
 import {
   MISSING_VALUE,
+  formatPlayQuarterLabel,
   type GameDashboardData,
   type ScoringPlay,
-  type WinProbabilityPoint,
 } from "@/lib/espn/game-summary";
 import { cn } from "@/lib/utils";
 
 type LiveGameDashboardProps = {
   data: GameDashboardData;
+};
+
+type QuarterGroup = {
+  quarter: string;
+  plays: ScoringPlay[];
 };
 
 function SectionCard({
@@ -52,8 +66,8 @@ function MissingBlock() {
   );
 }
 
-function groupPlaysByQuarter(plays: ScoringPlay[]) {
-  const groups: { quarter: string; plays: ScoringPlay[] }[] = [];
+function groupPlaysByQuarter(plays: ScoringPlay[]): QuarterGroup[] {
+  const groups: QuarterGroup[] = [];
   for (const play of plays) {
     const last = groups[groups.length - 1];
     if (last && last.quarter === play.quarter) {
@@ -65,71 +79,79 @@ function groupPlaysByQuarter(plays: ScoringPlay[]) {
   return groups;
 }
 
-function WinProbabilityChart({
-  points,
-  awayAbbrev,
-  homeAbbrev,
-}: {
-  points: WinProbabilityPoint[];
-  awayAbbrev: string;
-  homeAbbrev: string;
-}) {
-  if (points.length === 0) {
-    return <MissingBlock />;
+function withCurrentQuarterGroup(
+  groups: QuarterGroup[],
+  game: GameDashboardData["game"],
+): QuarterGroup[] {
+  if (game.status !== "in" || game.period == null) {
+    return groups;
   }
 
-  const width = 280;
-  const height = 120;
-  const pad = 8;
-  const coords = points.map((point, index) => {
-    const x =
-      pad + (index / Math.max(points.length - 1, 1)) * (width - pad * 2);
-    const y = pad + ((100 - point.awayPct) / 100) * (height - pad * 2);
-    return `${x},${y}`;
-  });
-  const line = coords.join(" ");
-  const latest = points[points.length - 1]?.awayPct ?? 50;
+  const current = formatPlayQuarterLabel(game.period);
+  if (groups.some((group) => group.quarter === current)) {
+    return groups;
+  }
+
+  return [...groups, { quarter: current, plays: [] }];
+}
+
+function defaultOpenQuarters(
+  groups: QuarterGroup[],
+  game: GameDashboardData["game"],
+): string[] {
+  if (groups.length === 0) return [];
+
+  if (game.status === "in" && game.period != null) {
+    const current = formatPlayQuarterLabel(game.period);
+    if (groups.some((group) => group.quarter === current)) {
+      return [current];
+    }
+  }
+
+  const latest = groups.at(-1)?.quarter;
+  return latest ? [latest] : [];
+}
+
+function PlayRow({
+  play,
+  awayAbbrev,
+  awayLogoUrl,
+  homeAbbrev,
+  homeLogoUrl,
+}: {
+  play: ScoringPlay;
+  awayAbbrev: string;
+  awayLogoUrl: string;
+  homeAbbrev: string;
+  homeLogoUrl: string;
+}) {
+  const logo =
+    play.teamAbbrev === awayAbbrev
+      ? awayLogoUrl
+      : play.teamAbbrev === homeAbbrev
+        ? homeLogoUrl
+        : "";
 
   return (
-    <div className="flex flex-col gap-3">
-      <svg
-        viewBox={`0 0 ${width} ${height}`}
-        className="h-auto w-full"
-        role="img"
-        aria-label={`${awayAbbrev} win probability ${latest}%`}
-      >
-        <line
-          x1={pad}
-          x2={width - pad}
-          y1={height / 2}
-          y2={height / 2}
-          className="stroke-border"
-          strokeWidth={1}
+    <li className="flex items-start gap-3">
+      {logo ? (
+        <ScheduleTeamLogo
+          src={logo}
+          size={20}
+          className="mt-0.5 size-5"
         />
-        <polyline
-          fill="none"
-          points={line}
-          className="stroke-primary"
-          strokeWidth={2}
-          strokeLinejoin="round"
-          strokeLinecap="round"
-        />
-      </svg>
-      <div className="flex justify-between text-xs text-muted-foreground">
-        <span>
-          {awayAbbrev}{" "}
-          <span className="font-medium tabular-nums text-foreground">
-            {latest}%
-          </span>
+      ) : (
+        <span className="mt-0.5 size-5 shrink-0 text-xs text-muted-foreground">
+          {play.teamAbbrev}
         </span>
-        <span>
-          {homeAbbrev}{" "}
-          <span className="font-medium tabular-nums text-foreground">
-            {(100 - latest).toFixed(0)}%
-          </span>
-        </span>
+      )}
+      <div className="min-w-0 flex-1">
+        <p className="text-sm text-pretty !mb-0">{play.description}</p>
+        <p className="text-xs tabular-nums text-muted-foreground">
+          {play.score}
+        </p>
       </div>
-    </div>
+    </li>
   );
 }
 
@@ -138,77 +160,38 @@ export function LiveGameDashboard({ data }: LiveGameDashboardProps) {
   const [playTab, setPlayTab] = useState("scoring");
   const plays =
     playTab === "scoring" ? data.scoringPlays : data.allPlays;
-  const groups = plays ? groupPlaysByQuarter(plays) : null;
+  const groups =
+    plays == null
+      ? null
+      : withCurrentQuarterGroup(groupPlaysByQuarter(plays), game);
+  const defaultOpen = groups ? defaultOpenQuarters(groups, game) : [];
+  const accordionKey = `${playTab}:${game.status}:${game.period ?? "none"}`;
 
   return (
     <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,17rem)_minmax(0,1fr)_minmax(0,17rem)]">
       <div className="flex min-w-0 flex-col gap-4">
-        <SectionCard title="Game leaders">
-          {data.gameLeaders ? (
-            <LeadersList leaders={data.gameLeaders} />
-          ) : (
-            <MissingBlock />
-          )}
-        </SectionCard>
-
-        <SectionCard title="Team stats">
+        <SectionCard title="Team Stats">
           {data.teamStats ? (
-            <TableShell className="rounded-lg border-0">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead />
-                    <TableHead className="text-right">
-                      {game.away.logoUrl ? (
-                        <ScheduleTeamLogo
-                          src={game.away.logoUrl}
-                          alt={game.away.abbreviation}
-                          size={20}
-                          className="ml-auto size-5"
-                        />
-                      ) : (
-                        game.away.abbreviation
-                      )}
-                    </TableHead>
-                    <TableHead className="text-right">
-                      {game.home.logoUrl ? (
-                        <ScheduleTeamLogo
-                          src={game.home.logoUrl}
-                          alt={game.home.abbreviation}
-                          size={20}
-                          className="ml-auto size-5"
-                        />
-                      ) : (
-                        game.home.abbreviation
-                      )}
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {data.teamStats.map((row) => (
-                    <TableRow key={row.label}>
-                      <TableCell>{row.label}</TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {row.away}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {row.home}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableShell>
+            <TeamStatsComparison
+              rows={data.teamStats}
+              awayAbbrev={game.away.abbreviation}
+              homeAbbrev={game.home.abbreviation}
+            />
           ) : (
             <MissingBlock />
           )}
         </SectionCard>
+        <GameInformationCard
+          game={game}
+          attendance={data.attendance}
+          officials={data.officials}
+        />
       </div>
 
       <div className="flex min-w-0 flex-col gap-4">
-        <SectionCard title="Box score">
+        <SectionCard title="Box Score">
           {data.lineScore ? (
-            <TableShell className="rounded-lg border-0">
+            <TableShell>
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -281,70 +264,70 @@ export function LiveGameDashboard({ data }: LiveGameDashboardProps) {
           )}
         </SectionCard>
 
-        <SectionCard title="Play-by-play">
+        <SectionCard title="Play By Play">
           <Tabs value={playTab} onValueChange={setPlayTab}>
             <TabsList className="mb-4">
-              <TabsTrigger value="scoring">Scoring plays</TabsTrigger>
-              <TabsTrigger value="all">All plays</TabsTrigger>
+              <TabsTrigger value="scoring">Scoring Plays</TabsTrigger>
+              <TabsTrigger value="all">All Plays</TabsTrigger>
             </TabsList>
           </Tabs>
-          {groups == null ? (
-            <MissingBlock />
-          ) : groups.length === 0 ? (
+          {groups == null || groups.length === 0 ? (
             <MissingBlock />
           ) : (
-            <ul className="flex flex-col gap-4">
+            <Accordion
+              key={accordionKey}
+              multiple
+              defaultValue={defaultOpen}
+              className="w-full"
+            >
               {groups.map((group) => (
-                <li key={group.quarter} className="flex flex-col gap-3">
-                  <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                    {group.quarter}
-                  </p>
-                  <ul className="flex flex-col gap-3">
-                    {group.plays.map((play, index) => {
-                      const logo =
-                        play.teamAbbrev === game.away.abbreviation
-                          ? game.away.logoUrl
-                          : play.teamAbbrev === game.home.abbreviation
-                            ? game.home.logoUrl
-                            : "";
-
-                      return (
-                        <li
-                          key={`${play.description}-${index}`}
-                          className="flex items-start gap-3"
-                        >
-                          {logo ? (
-                            <ScheduleTeamLogo
-                              src={logo}
-                              size={20}
-                              className="mt-0.5 size-5"
-                            />
-                          ) : (
-                            <span className="mt-0.5 size-5 shrink-0 text-xs text-muted-foreground">
-                              {play.teamAbbrev}
-                            </span>
-                          )}
-                          <div className="min-w-0 flex-1">
-                            <p className="text-sm text-pretty">
-                              {play.description}
-                            </p>
-                            <p className="text-xs tabular-nums text-muted-foreground">
-                              {play.score}
-                            </p>
-                          </div>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </li>
+                <AccordionItem key={group.quarter} value={group.quarter}>
+                  <AccordionTrigger className="py-3 hover:no-underline">
+                    <span className="flex min-w-0 items-baseline gap-2">
+                      <span className="text-sm font-medium">{group.quarter}</span>
+                      <span className="text-xs font-normal tabular-nums text-muted-foreground">
+                        {group.plays.length}{" "}
+                        {group.plays.length === 1 ? "play" : "plays"}
+                      </span>
+                    </span>
+                  </AccordionTrigger>
+                  <AccordionContent className="[&_p]:mb-0">
+                    {group.plays.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">
+                        No plays yet
+                      </p>
+                    ) : (
+                      <ul className="flex flex-col gap-3">
+                        {group.plays.map((play, index) => (
+                          <PlayRow
+                            key={`${play.description}-${index}`}
+                            play={play}
+                            awayAbbrev={game.away.abbreviation}
+                            awayLogoUrl={game.away.logoUrl}
+                            homeAbbrev={game.home.abbreviation}
+                            homeLogoUrl={game.home.logoUrl}
+                          />
+                        ))}
+                      </ul>
+                    )}
+                  </AccordionContent>
+                </AccordionItem>
               ))}
-            </ul>
+            </Accordion>
+          )}
+        </SectionCard>
+
+        <SectionCard title="Game Leaders">
+          {data.gameLeaders ? (
+            <LeadersList leaders={data.gameLeaders} />
+          ) : (
+            <MissingBlock />
           )}
         </SectionCard>
       </div>
 
       <div className="flex min-w-0 flex-col gap-4">
-        <SectionCard title="Win probability">
+        <SectionCard title="Win Probability">
           {data.winProbability ? (
             <WinProbabilityChart
               points={data.winProbability}
@@ -362,7 +345,7 @@ export function LiveGameDashboard({ data }: LiveGameDashboardProps) {
               {data.standings.map((division) => (
                 <div key={division.name} className="flex flex-col gap-2">
                   <p className="text-sm text-muted-foreground">{division.name}</p>
-                  <TableShell className="rounded-lg border-0">
+                  <TableShell>
                     <Table>
                       <TableHeader>
                         <TableRow>

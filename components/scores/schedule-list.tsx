@@ -1,10 +1,7 @@
-import { Fragment } from "react";
 import Link from "next/link";
-import { ArrowRight01Icon, CalendarBlock01Icon } from "@hugeicons/core-free-icons";
+import { CalendarBlock01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { ScheduleTeamLogo } from "@/components/scores/schedule-team-logo";
 import {
   Empty,
@@ -13,19 +10,13 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
+import type {
+  EspnSeasonType,
+  ScheduleGame,
+  ScheduleTeam,
+} from "@/lib/espn/scoreboard";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-  TableShell,
-} from "@/components/ui/table";
-import type { EspnSeasonType, ScheduleGame, ScheduleTeam } from "@/lib/espn/scoreboard";
-import {
-  dayKey,
-  formatKickoffDay,
+  formatKickoffDayShort,
   formatKickoffTime,
 } from "@/lib/nfl/schedule-week";
 import { cn } from "@/lib/utils";
@@ -36,48 +27,9 @@ type ScheduleListProps = {
   seasonType?: EspnSeasonType;
 };
 
-function TeamBlock({
-  team,
-  showScore,
-}: {
-  team: ScheduleTeam;
-  showScore: boolean;
-}) {
-  return (
-    <div className="flex w-[154px] shrink-0 items-center gap-2.5">
-      <ScheduleTeamLogo src={team.logoUrl} size={24} className="size-6" />
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-xs leading-tight text-muted-foreground">
-          {team.city}
-          <span className="tabular-nums"> ({team.record})</span>
-        </p>
-        <p
-          className={cn(
-            "truncate text-sm font-semibold leading-tight",
-            showScore && team.winner === false && "text-muted-foreground",
-          )}
-        >
-          {team.nickname}
-          {showScore ? (
-            <span className="ml-2 tabular-nums">{team.score ?? 0}</span>
-          ) : null}
-        </p>
-      </div>
-    </div>
-  );
-}
-
-function MatchupCell({ game }: { game: ScheduleGame }) {
-  const showScore = game.status !== "pre";
-
-  return (
-    <div className="flex items-center py-1">
-      <TeamBlock team={game.away} showScore={showScore} />
-      <span className="ml-3 mr-6 shrink-0 text-muted-foreground">@</span>
-      <TeamBlock team={game.home} showScore={showScore} />
-    </div>
-  );
-}
+const PLACEHOLDER = "—";
+const SECTION_HEADER_CLASS =
+  "text-[10px] font-medium tracking-wide text-muted-foreground uppercase";
 
 function gameHref(
   gameId: string,
@@ -91,46 +43,105 @@ function gameHref(
   return `/scores/${gameId}?${params.toString()}`;
 }
 
-function StatusCell({ game }: { game: ScheduleGame }) {
-  const kickoff = new Date(game.kickoff);
-
-  if (game.status === "in") {
-    return (
-      <div className="flex flex-col gap-0.5">
-        <Badge variant="destructive" className="w-fit">
-          Live
-        </Badge>
-        <span className="text-xs text-muted-foreground">{game.statusText}</span>
-        {game.network ? (
-          <span className="text-xs text-muted-foreground">{game.network}</span>
-        ) : null}
-      </div>
-    );
+/** Period labels for the linescore grid (1–4, OT…, F). */
+function periodLabels(game: ScheduleGame): string[] {
+  const count = Math.max(
+    game.away.linescores.length,
+    game.home.linescores.length,
+    game.status === "pre" ? 0 : 4,
+  );
+  if (count === 0) {
+    return ["1", "2", "3", "4", "F"];
   }
 
-  if (game.status === "post") {
-    return (
-      <div className="flex flex-col gap-0.5">
-        <span className="font-medium">Final</span>
-        {game.network ? (
-          <span className="text-xs text-muted-foreground">{game.network}</span>
-        ) : null}
-      </div>
-    );
-  }
+  const labels = Array.from({ length: count }, (_, index) => {
+    if (index < 4) return String(index + 1);
+    if (index === 4 && count === 5) return "OT";
+    return `OT${index - 3}`;
+  });
+  labels.push("F");
+  return labels;
+}
 
+function periodValue(
+  team: ScheduleTeam,
+  index: number,
+  isTotal: boolean,
+): string {
+  if (isTotal) {
+    return team.score != null ? String(team.score) : PLACEHOLDER;
+  }
+  if (index >= team.linescores.length) return PLACEHOLDER;
+  return String(team.linescores[index]!);
+}
+
+function TeamIdentity({
+  team,
+  muted,
+}: {
+  team: ScheduleTeam;
+  muted: boolean;
+}) {
   return (
-    <div className="flex flex-col gap-0.5">
-      <span className="font-medium">{formatKickoffTime(kickoff)}</span>
-      {game.network ? (
-        <span className="text-xs text-muted-foreground">{game.network}</span>
-      ) : null}
+    <div className="flex min-w-0 items-center gap-2.5">
+      <ScheduleTeamLogo src={team.logoUrl} size={32} className="size-8" />
+      <div className="min-w-0">
+        <p
+          className={cn(
+            "truncate text-xs leading-tight text-muted-foreground",
+            muted && "text-muted-foreground/70",
+          )}
+        >
+          {team.city}
+          <span className="tabular-nums"> ({team.record})</span>
+        </p>
+        <p
+          className={cn(
+            "truncate text-sm font-semibold leading-tight",
+            muted ? "text-muted-foreground" : "text-foreground",
+          )}
+        >
+          {team.nickname}
+        </p>
+      </div>
     </div>
   );
 }
 
-/** Compact per-game card row used on mobile. */
-function MobileGameRow({
+function ScoreCells({
+  team,
+  labels,
+  muted,
+}: {
+  team: ScheduleTeam;
+  labels: string[];
+  muted: boolean;
+}) {
+  return (
+    <>
+      {labels.map((label, index) => {
+        const isTotal = index === labels.length - 1;
+        return (
+          <span
+            key={`${team.abbreviation}-${label}`}
+            className={cn(
+              "w-full text-center tabular-nums",
+              isTotal
+                ? "text-lg font-semibold tracking-tight"
+                : "text-xs text-muted-foreground",
+              muted && "text-muted-foreground/60",
+              isTotal && !muted && "text-foreground",
+            )}
+          >
+            {periodValue(team, index, isTotal)}
+          </span>
+        );
+      })}
+    </>
+  );
+}
+
+function ScheduleGameCard({
   game,
   week,
   seasonType,
@@ -139,73 +150,103 @@ function MobileGameRow({
   week: number;
   seasonType: EspnSeasonType;
 }) {
-  const showScore = game.status !== "pre";
   const kickoff = new Date(game.kickoff);
+  const labels = periodLabels(game);
 
   return (
-    <li className="flex items-center gap-3 border-b border-border/60 px-3 py-3 last:border-b-0">
-      <div className="flex min-w-0 flex-1 flex-col gap-2">
-        {[game.away, game.home].map((team) => (
-          <div key={team.abbreviation} className="flex items-center gap-2">
-            <ScheduleTeamLogo src={team.logoUrl} size={20} className="size-5" />
-            <span
-              className={cn(
-                "truncate text-sm font-semibold",
-                showScore && team.winner === false && "text-muted-foreground",
-              )}
-            >
-              {team.nickname}
-            </span>
-            <span className="ml-auto shrink-0 text-sm tabular-nums text-muted-foreground">
-              {showScore ? (team.score ?? 0) : team.record}
-            </span>
-          </div>
-        ))}
-      </div>
-
-      <div className="flex shrink-0 flex-col items-end gap-0.5 text-right whitespace-nowrap">
-        {game.status === "in" ? (
-          <>
-            <Badge variant="destructive">Live</Badge>
-            <span className="text-[11px] text-muted-foreground">
-              {game.statusText}
-            </span>
-          </>
-        ) : (
-          <span className="text-xs font-medium tabular-nums">
-            {game.status === "post" ? "Final" : formatKickoffTime(kickoff)}
-          </span>
-        )}
-        {game.network ? (
-          <span className="text-[11px] text-muted-foreground">
-            {game.network}
-          </span>
-        ) : null}
-      </div>
-
-      <Button
-        variant="ghost"
-        size="icon-sm"
-        nativeButton={false}
-        aria-label={`View ${game.away.nickname} at ${game.home.nickname}`}
-        render={<Link href={gameHref(game.id, week, seasonType)} />}
+    <Link
+      href={gameHref(game.id, week, seasonType)}
+      aria-label={`View ${game.away.nickname} at ${game.home.nickname}`}
+      className={cn(
+        "grid min-w-0 gap-3 overflow-hidden rounded-xl border bg-card p-3 transition-colors outline-none",
+        "hover:bg-muted/40 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50",
+        "grid-cols-1 md:gap-4 md:p-4",
+        "xl:grid-cols-[minmax(0,1fr)_auto_minmax(10rem,13rem)] xl:items-stretch",
+      )}
+    >
+      <div
+        className="grid min-w-0 items-center gap-x-0.5 gap-y-1.5 xl:pr-10"
+        style={{
+          gridTemplateColumns: `minmax(0, 1fr) repeat(${labels.length}, 1.75rem)`,
+        }}
       >
-        <HugeiconsIcon icon={ArrowRight01Icon} strokeWidth={2} />
-      </Button>
-    </li>
-  );
-}
+        <span
+          className={cn(
+            SECTION_HEADER_CLASS,
+            "truncate tabular-nums whitespace-nowrap xl:hidden",
+          )}
+        >
+          {formatKickoffDayShort(kickoff)} · {formatKickoffTime(kickoff)}
+        </span>
+        <span className={cn(SECTION_HEADER_CLASS, "hidden xl:inline")}>
+          Matchup
+        </span>
+        {labels.map((label) => (
+          <span
+            key={label}
+            className={cn(SECTION_HEADER_CLASS, "w-full text-center")}
+          >
+            {label}
+          </span>
+        ))}
 
-function LocationCell({ game }: { game: ScheduleGame }) {
-  return (
-    <div className="min-w-0">
-      <p className="truncate font-medium">{game.venue}</p>
-      {game.venueLocation ? (
-        <p className="truncate text-xs text-muted-foreground">
-          {game.venueLocation}
-        </p>
-      ) : null}
-    </div>
+        <TeamIdentity
+          team={game.away}
+          muted={game.away.winner === false}
+        />
+        <ScoreCells
+          team={game.away}
+          labels={labels}
+          muted={game.away.winner === false}
+        />
+
+        <TeamIdentity
+          team={game.home}
+          muted={game.home.winner === false}
+        />
+        <ScoreCells
+          team={game.home}
+          labels={labels}
+          muted={game.home.winner === false}
+        />
+      </div>
+
+      <div className="hidden min-w-0 flex-col gap-1.5 xl:flex xl:w-28 xl:shrink-0">
+        <span className={SECTION_HEADER_CLASS}>Status</span>
+        <div className="flex flex-col gap-0.5 xl:flex-1 xl:justify-center">
+          <p className="text-sm font-medium text-pretty">
+            {formatKickoffDayShort(kickoff)}
+          </p>
+          <p className="text-xs tabular-nums text-muted-foreground">
+            {formatKickoffTime(kickoff)}
+          </p>
+        </div>
+      </div>
+
+      <div className="min-w-0 xl:flex xl:flex-col xl:gap-1.5">
+        <span
+          className={cn(
+            SECTION_HEADER_CLASS,
+            "truncate xl:hidden",
+          )}
+        >
+          {game.venueLocation
+            ? `${game.venue}, ${game.venueLocation}`
+            : game.venue}
+        </span>
+        <span className={cn(SECTION_HEADER_CLASS, "hidden xl:inline")}>
+          Location
+        </span>
+        <div className="hidden min-w-0 xl:flex xl:flex-1 xl:flex-col xl:justify-center">
+          <p className="truncate text-sm font-medium">{game.venue}</p>
+          {game.venueLocation ? (
+            <p className="truncate text-xs text-muted-foreground">
+              {game.venueLocation}
+            </p>
+          ) : null}
+        </div>
+      </div>
+    </Link>
   );
 }
 
@@ -230,115 +271,20 @@ export function ScheduleList({
     );
   }
 
-  const groups = new Map<string, { label: string; games: ScheduleGame[] }>();
-
-  for (const game of games) {
-    const kickoff = new Date(game.kickoff);
-    const key = dayKey(kickoff);
-    const existing = groups.get(key);
-    if (existing) {
-      existing.games.push(game);
-    } else {
-      groups.set(key, {
-        label: formatKickoffDay(kickoff),
-        games: [game],
-      });
-    }
-  }
-
-  const days = [...groups.entries()];
+  const sorted = games.toSorted(
+    (a, b) => new Date(a.kickoff).getTime() - new Date(b.kickoff).getTime(),
+  );
 
   return (
-    <>
-      <div className="flex flex-col gap-5 md:hidden">
-        {days.map(([key, group]) => (
-          <section key={key} className="flex flex-col gap-3">
-            <h2 className="text-sm font-medium">{group.label}</h2>
-            <ul className="flex flex-col rounded-xl border bg-card/40">
-              {group.games.map((game) => (
-                <MobileGameRow
-                  key={game.id}
-                  game={game}
-                  week={week}
-                  seasonType={seasonType}
-                />
-              ))}
-            </ul>
-          </section>
-        ))}
-      </div>
-
-      <TableShell className="max-md:hidden">
-        <Table className="table-fixed">
-          <colgroup>
-            <col className="w-[44%]" />
-            <col className="w-[17%]" />
-            <col className="w-[22%]" />
-            <col className="w-[11%]" />
-            <col className="w-[6%]" />
-          </colgroup>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Matchup</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Location</TableHead>
-              <TableHead>Odds</TableHead>
-              <TableHead>
-                <span className="sr-only">Actions</span>
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {days.map(([key, group], index) => (
-              <Fragment key={key}>
-                <TableRow className="hover:bg-transparent">
-                  <TableCell
-                    colSpan={5}
-                    className={cn(
-                      "border-b-0 px-2 text-sm font-medium whitespace-normal text-muted-foreground",
-                      index === 0 ? "pt-2" : "pt-6",
-                    )}
-                  >
-                    {group.label}
-                  </TableCell>
-                </TableRow>
-                {group.games.map((game) => (
-                  <TableRow key={game.id}>
-                    <TableCell className="whitespace-normal">
-                      <MatchupCell game={game} />
-                    </TableCell>
-                    <TableCell className="whitespace-normal">
-                      <StatusCell game={game} />
-                    </TableCell>
-                    <TableCell className="whitespace-normal">
-                      <LocationCell game={game} />
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {game.odds ?? "—"}
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        nativeButton={false}
-                        aria-label={`View ${game.away.nickname} at ${game.home.nickname}`}
-                        render={
-                          <Link href={gameHref(game.id, week, seasonType)} />
-                        }
-                      >
-                        <HugeiconsIcon
-                          icon={ArrowRight01Icon}
-                          strokeWidth={2}
-                        />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </Fragment>
-            ))}
-          </TableBody>
-        </Table>
-      </TableShell>
-    </>
+    <div className="flex flex-col gap-3">
+      {sorted.map((game) => (
+        <ScheduleGameCard
+          key={game.id}
+          game={game}
+          week={week}
+          seasonType={seasonType}
+        />
+      ))}
+    </div>
   );
 }

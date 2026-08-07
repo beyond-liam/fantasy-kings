@@ -48,7 +48,10 @@ export async function ensureProfile(user: {
       lastName: null,
       favouriteNflTeam: null,
       avatarUrl: null,
+      includePreseason: true,
+      preseasonStartWeek: 1,
       onboardedAt: null,
+      lastSeenAt: new Date(),
       createdAt: new Date(),
     }
   );

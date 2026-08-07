@@ -17,6 +17,7 @@ function side(abbreviation: string) {
     shortName: abbreviation,
     logoUrl: "",
     score: null as number | null,
+    linescores: [] as number[],
     record: "",
     winner: null as boolean | null,
   };
