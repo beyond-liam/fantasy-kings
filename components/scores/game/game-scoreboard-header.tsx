@@ -129,7 +129,7 @@ function MobileScoreboard({ game }: GameScoreboardHeaderProps) {
           <p
             className={cn(
               "text-xl font-bold tabular-nums tracking-tight",
-              game.home.winner === false && "text-muted-foreground",
+              game.home.winner === false && "text-muted-foreground/60",
             )}
           >
             {game.home.score ?? 0}

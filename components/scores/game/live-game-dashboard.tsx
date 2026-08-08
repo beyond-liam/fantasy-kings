@@ -169,8 +169,9 @@ export function LiveGameDashboard({ data }: LiveGameDashboardProps) {
 
   return (
     <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,17rem)_minmax(0,1fr)_minmax(0,17rem)]">
-      <div className="flex min-w-0 flex-col gap-4">
-        <SectionCard title="Team Stats">
+      {/* Mobile order via `contents` + order-*; desktop restores column stacks. */}
+      <div className="contents lg:flex lg:min-w-0 lg:flex-col lg:gap-4">
+        <SectionCard title="Team Stats" className="order-1 lg:order-0">
           {data.teamStats ? (
             <TeamStatsComparison
               rows={data.teamStats}
@@ -182,14 +183,15 @@ export function LiveGameDashboard({ data }: LiveGameDashboardProps) {
           )}
         </SectionCard>
         <GameInformationCard
+          className="order-7 lg:order-0"
           game={game}
           attendance={data.attendance}
           officials={data.officials}
         />
       </div>
 
-      <div className="flex min-w-0 flex-col gap-4">
-        <SectionCard title="Box Score">
+      <div className="contents lg:flex lg:min-w-0 lg:flex-col lg:gap-4">
+        <SectionCard title="Box Score" className="order-2 lg:order-0">
           {data.lineScore ? (
             <TableShell>
               <Table>
@@ -264,7 +266,7 @@ export function LiveGameDashboard({ data }: LiveGameDashboardProps) {
           )}
         </SectionCard>
 
-        <SectionCard title="Play By Play">
+        <SectionCard title="Play By Play" className="order-3 lg:order-0">
           <Tabs value={playTab} onValueChange={setPlayTab}>
             <TabsList className="mb-4">
               <TabsTrigger value="scoring">Scoring Plays</TabsTrigger>
@@ -317,7 +319,7 @@ export function LiveGameDashboard({ data }: LiveGameDashboardProps) {
           )}
         </SectionCard>
 
-        <SectionCard title="Game Leaders">
+        <SectionCard title="Game Leaders" className="order-4 lg:order-0">
           {data.gameLeaders ? (
             <LeadersList leaders={data.gameLeaders} />
           ) : (
@@ -326,8 +328,8 @@ export function LiveGameDashboard({ data }: LiveGameDashboardProps) {
         </SectionCard>
       </div>
 
-      <div className="flex min-w-0 flex-col gap-4">
-        <SectionCard title="Win Probability">
+      <div className="contents lg:flex lg:min-w-0 lg:flex-col lg:gap-4">
+        <SectionCard title="Win Probability" className="order-5 lg:order-0">
           {data.winProbability ? (
             <WinProbabilityChart
               points={data.winProbability}
@@ -339,7 +341,7 @@ export function LiveGameDashboard({ data }: LiveGameDashboardProps) {
           )}
         </SectionCard>
 
-        <SectionCard title="Standings">
+        <SectionCard title="Standings" className="order-6 lg:order-0">
           {data.standings ? (
             <div className="flex flex-col gap-4">
               {data.standings.map((division) => (

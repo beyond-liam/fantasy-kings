@@ -15,11 +15,13 @@ import {
 } from "@/lib/espn/game-summary";
 import type { ScheduleGame } from "@/lib/espn/scoreboard";
 import { formatKickoffDayShort, formatKickoffTime } from "@/lib/nfl/schedule-week";
+import { cn } from "@/lib/utils";
 
 type GameInformationCardProps = {
   game: Pick<ScheduleGame, "kickoff" | "venue" | "venueLocation" | "network">;
   attendance?: number | null;
   officials?: GameOfficial[] | null;
+  className?: string;
 };
 
 function InfoRow({
@@ -45,12 +47,13 @@ export function GameInformationCard({
   game,
   attendance = null,
   officials = null,
+  className,
 }: GameInformationCardProps) {
   const kickoff = new Date(game.kickoff);
   const network = game.network?.trim() || null;
 
   return (
-    <Card size="sm" className="gap-0 py-0">
+    <Card size="sm" className={cn("gap-0 py-0", className)}>
       <CardHeader variant="panel">
         <CardTitle className="text-base text-balance">Game Information</CardTitle>
       </CardHeader>
