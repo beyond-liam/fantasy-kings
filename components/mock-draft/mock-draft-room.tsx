@@ -293,12 +293,14 @@ export function MockDraftRoom({ players }: MockDraftRoomProps) {
 
     const teamPicks = picksByTeam.get(onTheClock.teamId) ?? [];
     const draftedPositions = teamPicks.map((pick) => pick.playerPositionId);
+    const draftedByeWeeks = teamPicks.map((pick) => pick.playerByeWeek);
     const teamPickCount = teamPicks.length;
     const picksRemainingForTeam = rounds - teamPickCount;
 
     const choice = pickBotPlayer({
       available: availablePlayers,
       draftedPositions,
+      draftedByeWeeks,
       rosterSlots,
       scoring: config.scoring,
       picksRemainingForTeam,

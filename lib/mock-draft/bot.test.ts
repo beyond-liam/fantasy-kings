@@ -8,6 +8,7 @@ function player(
   id: string,
   position: string,
   adp: number,
+  byeWeek: number | null = null,
 ): MockDraftPlayer {
   return {
     id,
@@ -15,6 +16,7 @@ function player(
     primaryPositionId: position,
     nflTeam: "DET",
     fantasyPts: 100 - adp,
+    byeWeek,
     stats: { adp_ppr: adp, adp_half_ppr: adp, adp_std: adp },
   };
 }
@@ -23,12 +25,7 @@ describe("pickBotPlayer", () => {
   const rosterSlots = buildStandardRosterSlots(6, 0, 0);
 
   it("prefers best ADP at a position of need over BPA of another position", () => {
-    const available = [
-      player("wr1", "WR", 5),
-      player("qb1", "QB", 40),
-    ];
-    // Empty roster needs QB; WR is also needed but QB is scarcer slot —
-    // both are needs, so ADP among need pool: WR wins at 5.
+    const available = [player("wr1", "WR", 5), player("qb1", "QB", 40)];
     const pick = pickBotPlayer({
       available,
       draftedPositions: [],
@@ -58,15 +55,7 @@ describe("pickBotPlayer", () => {
 
     const late = pickBotPlayer({
       available,
-      draftedPositions: [
-        "QB",
-        "RB",
-        "RB",
-        "WR",
-        "WR",
-        "TE",
-        "RB",
-      ],
+      draftedPositions: ["QB", "RB", "RB", "WR", "WR", "TE", "RB"],
       rosterSlots,
       scoring: "full_ppr",
       picksRemainingForTeam: 2,
@@ -76,10 +65,7 @@ describe("pickBotPlayer", () => {
   });
 
   it("fills open QB need when skill positions are already stacked", () => {
-    const available = [
-      player("wr3", "WR", 10),
-      player("qb1", "QB", 60),
-    ];
+    const available = [player("wr3", "WR", 10), player("qb1", "QB", 60)];
     const pick = pickBotPlayer({
       available,
       draftedPositions: ["RB", "RB", "WR", "WR", "TE", "RB"],
@@ -89,5 +75,21 @@ describe("pickBotPlayer", () => {
       random: () => 0,
     });
     assert.equal(pick?.id, "qb1");
+  });
+
+  it("avoids same-position bye clash when drafting a second QB", () => {
+    const pick = pickBotPlayer({
+      available: [
+        player("qb-clash", "QB", 80, 9),
+        player("qb-ok", "QB", 85, 12),
+      ],
+      draftedPositions: ["QB", "RB", "RB", "WR", "WR", "TE", "RB"],
+      draftedByeWeeks: [9, 5, 7, 6, 8, 10, 11],
+      rosterSlots,
+      scoring: "full_ppr",
+      picksRemainingForTeam: 6,
+      random: () => 0,
+    });
+    assert.equal(pick?.id, "qb-ok");
   });
 });

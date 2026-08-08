@@ -638,7 +638,7 @@ lib/
 - [x] Scores (fantasy Matchups) — week matchup board + Live/Final + freshness
 - [x] Trades — composer, transactions tab, processing, vetoes, history
 - [x] Activity — league event log (waivers + trades + settings + score corrections)
-- [x] Draft Room (league) — live room (mock layout, pick clock, queue→ADP autopick)
+- [x] Draft Room (league) — live room (mock layout, pick clock, queue→need-aware ADP autopick)
 
 ### Phase 3 — Backend wiring
 
@@ -864,3 +864,4 @@ lib/
 | 2026-08-06 | Power Rankings overview: trends, my ranks, season trajectory chart, then mode list |
 | 2026-08-06 | Activity feed filters condensed: Draft picks · Trades · Waivers · Roster · League |
 | 2026-08-07 | NFL Scores schedule settings: include preseason switch + start-week select on `/settings` |
+| 2026-08-08 | League autopick: queue → need-aware ADP (BPA fallback) + same-position bye avoidance; shared with mock bot |

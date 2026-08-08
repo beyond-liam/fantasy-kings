@@ -319,7 +319,8 @@ export async function makeDraftPick(
 }
 
 /**
- * Clock expiry / autopick: queue-first, then best remaining projection rank.
+ * Clock expiry / autopick: queue-first, then need-aware ADP (BPA fallback)
+ * with same-position bye avoidance.
  * Idempotent if the pick already advanced.
  */
 export async function autoDraftCurrentPick(
@@ -404,10 +405,22 @@ export async function autoDraftCurrentPick(
   }
 
   const existingPicks = await db
-    .select({ playerId: draftPicks.playerId })
+    .select({
+      playerId: draftPicks.playerId,
+      teamId: draftPicks.teamId,
+      primaryPositionId: players.primaryPositionId,
+      byeWeek: players.byeWeek,
+    })
     .from(draftPicks)
+    .innerJoin(players, eq(players.id, draftPicks.playerId))
     .where(eq(draftPicks.draftId, draft.id));
   const drafted = new Set(existingPicks.map((row) => row.playerId));
+  const teamRoster = existingPicks
+    .filter((row) => row.teamId === slot.teamId)
+    .map((row) => ({
+      primaryPositionId: row.primaryPositionId,
+      byeWeek: row.byeWeek,
+    }));
 
   const queueRows = await db
     .select({ playerId: draftQueue.playerId })
@@ -419,24 +432,56 @@ export async function autoDraftCurrentPick(
     queueRows.find((row) => !drafted.has(row.playerId))?.playerId ?? null;
 
   if (!playerId) {
+    const { pickNeedAwarePlayer } = await import("@/lib/draft/need-aware-pick");
     const { resolveScoringRuleDefinitions } = await import(
       "@/lib/leagues/scoring"
     );
     const { getRankedPlayers } = await import("@/lib/queries/players");
     const { getNflState } = await import("@/lib/sleeper/api");
     const nflState = await getNflState();
+    const scoringPreset = season.scoringPreset as
+      | "full_ppr"
+      | "half_ppr"
+      | "standard";
     const scoringRules = resolveScoringRuleDefinitions(
-      season.scoringPreset as "full_ppr" | "half_ppr" | "standard",
+      scoringPreset,
       season.settings.scoringRules,
     );
     const ranked = await getRankedPlayers({
       season: nflState.season,
       week: 0,
       kind: "projection",
+      scoringPreset,
       scoringRules,
     }).catch(() => []);
-    playerId =
-      ranked.find((player) => !drafted.has(player.id))?.id ?? null;
+
+    const available = ranked
+      .filter((player) => !drafted.has(player.id))
+      .map((player) => ({
+        id: player.id,
+        fullName: player.fullName,
+        primaryPositionId: player.primaryPositionId,
+        nflTeam: player.nflTeam,
+        stats: player.stats,
+        fantasyPts: player.fantasyPts,
+        byeWeek: player.byeWeek,
+      }));
+
+    const picksRemainingForTeam = schedule.filter(
+      (entry, index) =>
+        index >= draft.currentPickIndex && entry.teamId === slot.teamId,
+    ).length;
+
+    const choice = pickNeedAwarePlayer({
+      available,
+      draftedRoster: teamRoster,
+      rosterSlots: season.settings.rosterSlots,
+      scoring: scoringPreset,
+      picksRemainingForTeam,
+      // Deterministic: always take the top ranked eligible player.
+      random: () => 0,
+    });
+    playerId = choice?.id ?? null;
   }
 
   if (!playerId) {
