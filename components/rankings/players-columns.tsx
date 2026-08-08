@@ -83,7 +83,7 @@ export function getPlayersColumns(
     size: 40,
     meta: {
       width: 40,
-      cellClassName: "px-1 text-center",
+      cellClassName: "overflow-visible px-1 text-center",
       headerClassName: "px-1",
     },
     header: () => <span className="sr-only">Watchlist</span>,

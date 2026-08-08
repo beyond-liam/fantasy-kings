@@ -34,7 +34,7 @@ type JoinPageProps = {
 };
 
 export const metadata: Metadata = {
-  title: "Join league",
+  title: "Join League",
 };
 
 export default async function JoinLeaguePage({ params }: JoinPageProps) {

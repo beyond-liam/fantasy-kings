@@ -1,4 +1,3 @@
-import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
@@ -39,10 +38,6 @@ import { getLeagueHomeData, isDraftUnderway } from "@/lib/queries/leagues";
 type LeagueHomePageProps = {
   params: Promise<{ leagueId: string }>;
   searchParams: Promise<{ tab?: string; mock?: string; draftGrade?: string }>;
-};
-
-export const metadata: Metadata = {
-  title: "League",
 };
 
 export default async function LeagueHomePage({

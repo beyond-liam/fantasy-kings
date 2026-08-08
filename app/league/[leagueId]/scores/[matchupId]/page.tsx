@@ -8,7 +8,10 @@ import { Spinner } from "@/components/ui/spinner";
 import { getSessionUser } from "@/lib/auth/session";
 import { getDefaultScheduleWeek } from "@/lib/nfl/schedule-week";
 import { resolveFantasyMatchupWeek } from "@/lib/leagues/matchup-week";
+import { formatAwayAtHome } from "@/lib/metadata/page-title";
 import { getGameCentreData } from "@/lib/queries/game-centre";
+import { getLeagueBySlug } from "@/lib/queries/leagues";
+import { getMatchupByKey } from "@/lib/queries/matchups";
 import { getPlayerScoresFreshness } from "@/lib/queries/score-freshness";
 
 const GameCentre = dynamic(
@@ -23,9 +26,27 @@ type MatchupPageProps = {
   params: Promise<{ leagueId: string; matchupId: string }>;
 };
 
-export const metadata: Metadata = {
-  title: "Matchup",
-};
+export async function generateMetadata({
+  params,
+}: MatchupPageProps): Promise<Metadata> {
+  const { leagueId: slug, matchupId } = await params;
+  const league = await getLeagueBySlug(slug);
+  if (!league) {
+    return { title: "Matchup" };
+  }
+
+  const matchup = await getMatchupByKey({
+    leagueId: league.id,
+    matchupKey: matchupId,
+  });
+  if (!matchup) {
+    return { title: "Matchup" };
+  }
+
+  return {
+    title: formatAwayAtHome(matchup.awayTeamName, matchup.homeTeamName),
+  };
+}
 
 export default async function MatchupPage({ params }: MatchupPageProps) {
   const [{ leagueId: slug, matchupId }, user] = await Promise.all([

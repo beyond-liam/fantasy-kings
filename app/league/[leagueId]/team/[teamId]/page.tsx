@@ -73,9 +73,24 @@ type LeagueTeamPageProps = {
   searchParams: Promise<{ tab?: string; mock?: string }>;
 };
 
-export const metadata: Metadata = {
-  title: "Team",
-};
+export async function generateMetadata({
+  params,
+}: LeagueTeamPageProps): Promise<Metadata> {
+  const { leagueId: slug, teamId } = await params;
+  const user = await getSessionUser();
+  if (!user) {
+    return { title: "Team" };
+  }
+
+  const data = await getLeagueHomeData(slug, user.id);
+  if (!data?.season) {
+    return { title: "Team" };
+  }
+
+  await ensureSeasonTeamPublicIds(data.season.id);
+  const team = await getLeagueTeamByPublicId(data.season.id, teamId);
+  return { title: team?.name ?? "Team" };
+}
 
 const TAB_VALUES = new Set<string>(OTHER_TEAM_TABS.map((tab) => tab.value));
 

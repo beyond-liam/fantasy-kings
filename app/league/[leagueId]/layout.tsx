@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { Suspense } from "react";
 
 import { ContentContainer } from "@/components/layout/content-container";
@@ -6,14 +7,33 @@ import { LeagueSideNavSlot } from "@/components/layout/league-side-nav-slot";
 import { LeagueDraftNotifierSlot } from "@/components/leagues/draft/league-draft-notifier-slot";
 import { LeagueLayoutGuard } from "@/components/leagues/league-layout-guard";
 import { LeaguePresenceProvider } from "@/components/leagues/presence/league-presence-provider";
+import { getLeagueBySlug } from "@/lib/queries/leagues";
+
+type LeagueLayoutProps = Readonly<{
+  children: React.ReactNode;
+  params: Promise<{ leagueId: string }>;
+}>;
+
+export async function generateMetadata({
+  params,
+}: LeagueLayoutProps): Promise<Metadata> {
+  const { leagueId: slug } = await params;
+  const league = await getLeagueBySlug(slug);
+  const leagueName = league?.name ?? "League";
+  return {
+    title: {
+      // League home uses default (no page title). Child routes become
+      // `Messages | {leagueName}`, `Matchups | {leagueName}`, etc.
+      default: leagueName,
+      template: `%s | ${leagueName}`,
+    },
+  };
+}
 
 export default async function LeagueLayout({
   children,
   params,
-}: Readonly<{
-  children: React.ReactNode;
-  params: Promise<{ leagueId: string }>;
-}>) {
+}: LeagueLayoutProps) {
   const { leagueId: slug } = await params;
 
   return (

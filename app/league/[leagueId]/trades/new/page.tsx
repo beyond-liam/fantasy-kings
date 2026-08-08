@@ -28,7 +28,7 @@ type NewTradePageProps = {
 };
 
 export const metadata: Metadata = {
-  title: "Propose trade",
+  title: "Propose Trade",
 };
 
 export default async function NewTradePage({

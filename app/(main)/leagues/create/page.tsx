@@ -5,7 +5,7 @@ import { CreateLeagueWizard } from "@/components/leagues/create-wizard/create-wi
 import { Spinner } from "@/components/ui/spinner";
 
 export const metadata: Metadata = {
-  title: "Create league",
+  title: "Create League",
 };
 
 export default function CreateLeaguePage() {

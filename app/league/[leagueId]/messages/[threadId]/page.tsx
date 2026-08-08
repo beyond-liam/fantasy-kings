@@ -18,9 +18,27 @@ type MessageThreadPageProps = {
   params: Promise<{ leagueId: string; threadId: string }>;
 };
 
-export const metadata: Metadata = {
-  title: "Message",
-};
+export async function generateMetadata({
+  params,
+}: MessageThreadPageProps): Promise<Metadata> {
+  const { leagueId: slug, threadId } = await params;
+  const user = await getSessionUser();
+  if (!user) {
+    return { title: "Message" };
+  }
+
+  const data = await getLeagueHomeData(slug, user.id);
+  if (!data?.season) {
+    return { title: "Message" };
+  }
+
+  const thread = await getMessageThreadByPublicId({
+    leagueSeasonId: data.season.id,
+    publicId: threadId,
+  });
+
+  return { title: thread?.title?.trim() || "Message" };
+}
 
 export default async function MessageThreadPage({
   params,

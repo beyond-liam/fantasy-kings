@@ -268,7 +268,7 @@ export function LiveGameDashboard({ data }: LiveGameDashboardProps) {
 
         <SectionCard title="Play By Play" className="order-3 lg:order-0">
           <Tabs value={playTab} onValueChange={setPlayTab}>
-            <TabsList className="mb-4">
+            <TabsList className="mb-4 w-full">
               <TabsTrigger value="scoring">Scoring Plays</TabsTrigger>
               <TabsTrigger value="all">All Plays</TabsTrigger>
             </TabsList>
@@ -321,7 +321,17 @@ export function LiveGameDashboard({ data }: LiveGameDashboardProps) {
 
         <SectionCard title="Game Leaders" className="order-4 lg:order-0">
           {data.gameLeaders ? (
-            <LeadersList leaders={data.gameLeaders} />
+            <LeadersList
+              leaders={data.gameLeaders}
+              away={{
+                nickname: game.away.nickname,
+                logoUrl: game.away.logoUrl,
+              }}
+              home={{
+                nickname: game.home.nickname,
+                logoUrl: game.home.logoUrl,
+              }}
+            />
           ) : (
             <MissingBlock />
           )}

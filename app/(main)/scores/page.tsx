@@ -71,7 +71,7 @@ async function getScheduleSettings(): Promise<ScheduleSettingsValues> {
 }
 
 export const metadata: Metadata = {
-  title: "NFL scores",
+  title: "NFL Scores",
 };
 
 export default async function NflScoresPage({

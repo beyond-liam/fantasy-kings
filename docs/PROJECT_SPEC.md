@@ -865,3 +865,4 @@ lib/
 | 2026-08-06 | Activity feed filters condensed: Draft picks · Trades · Waivers · Roster · League |
 | 2026-08-07 | NFL Scores schedule settings: include preseason switch + start-week select on `/settings` |
 | 2026-08-08 | League autopick: queue → need-aware ADP (BPA fallback) + same-position bye avoidance; shared with mock bot |
+| 2026-08-08 | Page titles: NFL game / fantasy matchup `Away @ Home`, league & team names, message subject; league routes use `Page | League Name` |

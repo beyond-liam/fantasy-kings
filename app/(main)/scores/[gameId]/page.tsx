@@ -5,14 +5,28 @@ import { LiveGameDashboard } from "@/components/scores/game/live-game-dashboard"
 import { PreGameDashboard } from "@/components/scores/game/pre-game-dashboard";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { getNflGameSummary } from "@/lib/espn/game-summary";
+import { formatAwayAtHome } from "@/lib/metadata/page-title";
 
 type NflGamePageProps = {
   params: Promise<{ gameId: string }>;
 };
 
-export const metadata: Metadata = {
-  title: "Game",
-};
+export async function generateMetadata({
+  params,
+}: NflGamePageProps): Promise<Metadata> {
+  const { gameId } = await params;
+  try {
+    const data = await getNflGameSummary(gameId);
+    return {
+      title: formatAwayAtHome(
+        data.game.away.nickname,
+        data.game.home.nickname,
+      ),
+    };
+  } catch {
+    return { title: "Game" };
+  }
+}
 
 export default async function NflGamePage({ params }: NflGamePageProps) {
   const { gameId } = await params;

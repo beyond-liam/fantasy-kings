@@ -62,7 +62,9 @@ function ColorSwatch({
       aria-hidden
       className={cn(
         "size-3 shrink-0 rounded-xs",
-        tone === "primary" ? "bg-primary" : "bg-muted",
+        tone === "primary"
+          ? "bg-primary"
+          : "bg-muted ring-1 ring-foreground/25",
         className,
       )}
     />
@@ -186,7 +188,7 @@ function LeaderSide({
   return (
     <div
       className={cn(
-        "flex min-w-0 items-center gap-2",
+        "flex min-w-0 items-center gap-2.5",
         align === "right" && "flex-row-reverse text-right",
       )}
     >
@@ -205,6 +207,72 @@ function LeaderSide({
         <p className="text-xs tabular-nums text-muted-foreground">{side.line}</p>
       </div>
     </div>
+  );
+}
+
+function TeamLeadersStack({
+  team,
+  leaders,
+  sideKey,
+}: {
+  team: GameCentreTeamSide;
+  leaders: GameCentrePreview["leaders"];
+  sideKey: "away" | "home";
+}) {
+  return (
+    <section className="flex flex-col gap-3">
+      <div className="flex items-center gap-2">
+        <TeamMark name={team.teamName} logoUrl={team.logoUrl} />
+        <h3 className="text-sm font-semibold tracking-tight">{team.teamName}</h3>
+      </div>
+      <ul className="flex flex-col gap-3">
+        {leaders.map((leader) => (
+          <li
+            key={`${sideKey}-${leader.category}`}
+            className="flex flex-col gap-1.5"
+          >
+            <p className="text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
+              {leader.category}
+            </p>
+            <LeaderSide side={leader[sideKey]} align="left" />
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function SeasonLeadersList({
+  leaders,
+  away,
+  home,
+}: {
+  leaders: GameCentrePreview["leaders"];
+  away: GameCentreTeamSide;
+  home: GameCentreTeamSide;
+}) {
+  return (
+    <>
+      <div className="flex flex-col gap-6 md:hidden">
+        <TeamLeadersStack team={away} leaders={leaders} sideKey="away" />
+        <TeamLeadersStack team={home} leaders={leaders} sideKey="home" />
+      </div>
+
+      <ul className="hidden flex-col gap-4 md:flex">
+        {leaders.map((leader) => (
+          <li
+            key={leader.category}
+            className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3"
+          >
+            <LeaderSide side={leader.away} align="left" />
+            <p className="max-w-28 text-center text-[10px] font-medium leading-tight tracking-wide text-muted-foreground uppercase sm:max-w-32">
+              {leader.category}
+            </p>
+            <LeaderSide side={leader.home} align="right" />
+          </li>
+        ))}
+      </ul>
+    </>
   );
 }
 
@@ -295,73 +363,51 @@ export function MatchupPreviewDashboard({
               </EmptyHeader>
             </Empty>
           ) : (
-            <ul className="flex flex-col gap-4">
-              {leaders.map((leader) => (
-                <li
-                  key={leader.category}
-                  className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3"
-                >
-                  <LeaderSide side={leader.away} align="left" />
-                  <p className="max-w-28 text-center text-[10px] font-medium leading-tight tracking-wide text-muted-foreground uppercase sm:max-w-32">
-                    {leader.category}
-                  </p>
-                  <LeaderSide side={leader.home} align="right" />
-                </li>
-              ))}
-            </ul>
+            <SeasonLeadersList leaders={leaders} away={away} home={home} />
           )}
         </SectionCard>
 
         <SectionCard title="Injury Report">
-          {injuries.length === 0 ? (
-            <Empty size="sm">
-              <EmptyHeader>
-                <EmptyTitle>No injuries listed</EmptyTitle>
-                <EmptyDescription>
-                  Starter injury updates appear closer to kickoff.
-                </EmptyDescription>
-              </EmptyHeader>
-            </Empty>
-          ) : (
-            <div className="grid gap-4 sm:grid-cols-2">
-              {(
-                [
-                  [away.teamName, awayInjuries],
-                  [home.teamName, homeInjuries],
-                ] as const
-              ).map(([teamName, rows]) => (
-                <div key={teamName} className="flex flex-col gap-2">
-                  <p className="text-sm text-muted-foreground">{teamName}</p>
-                  {rows.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">—</p>
-                  ) : (
-                    <ul className="flex flex-col gap-2">
-                      {rows.map((row) => (
-                        <li
-                          key={`${row.side}-${row.playerName}-${row.status}`}
-                          className="flex items-start justify-between gap-2 text-sm"
-                        >
-                          <span className="min-w-0">
-                            <span className="font-medium">{row.playerName}</span>
-                            {row.position ? (
-                              <span className="text-muted-foreground">
-                                {" "}
-                                {row.position}
-                              </span>
-                            ) : null}
-                          </span>
-                          <span className="flex shrink-0 items-center gap-1.5 text-xs">
-                            <InjuryDot tone={row.tone} />
-                            <span>{row.statusLabel}</span>
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
+          <div className="grid gap-4 sm:grid-cols-2">
+            {(
+              [
+                [away.teamName, awayInjuries],
+                [home.teamName, homeInjuries],
+              ] as const
+            ).map(([teamName, rows]) => (
+              <div key={teamName} className="flex flex-col gap-2">
+                <p className="text-sm text-muted-foreground">{teamName}</p>
+                {rows.length === 0 ? (
+                  <p className="text-sm text-foreground">
+                    Clean bill of health
+                  </p>
+                ) : (
+                  <ul className="flex flex-col gap-2">
+                    {rows.map((row) => (
+                      <li
+                        key={`${row.side}-${row.playerName}-${row.status}`}
+                        className="flex items-start justify-between gap-2 text-sm"
+                      >
+                        <span className="min-w-0">
+                          <span className="font-medium">{row.playerName}</span>
+                          {row.position ? (
+                            <span className="text-muted-foreground">
+                              {" "}
+                              {row.position}
+                            </span>
+                          ) : null}
+                        </span>
+                        <span className="flex shrink-0 items-center gap-1.5 text-xs">
+                          <InjuryDot tone={row.tone} />
+                          <span>{row.statusLabel}</span>
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            ))}
+          </div>
         </SectionCard>
       </div>
 

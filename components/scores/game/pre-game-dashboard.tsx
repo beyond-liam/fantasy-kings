@@ -59,7 +59,9 @@ function ColorSwatch({
       aria-hidden
       className={cn(
         "size-3 shrink-0 rounded-xs",
-        tone === "primary" ? "bg-primary" : "bg-muted",
+        tone === "primary"
+          ? "bg-primary"
+          : "bg-muted ring-1 ring-foreground/25",
         className,
       )}
     />
@@ -255,7 +257,17 @@ export function PreGameDashboard({ data }: PreGameDashboardProps) {
 
         <SectionCard title="Season Leaders">
           {data.seasonLeaders ? (
-            <LeadersList leaders={data.seasonLeaders} />
+            <LeadersList
+              leaders={data.seasonLeaders}
+              away={{
+                nickname: game.away.nickname,
+                logoUrl: game.away.logoUrl,
+              }}
+              home={{
+                nickname: game.home.nickname,
+                logoUrl: game.home.logoUrl,
+              }}
+            />
           ) : (
             <MissingBlock />
           )}
@@ -273,8 +285,8 @@ export function PreGameDashboard({ data }: PreGameDashboardProps) {
                 <div key={label} className="flex flex-col gap-2">
                   <p className="text-sm text-muted-foreground">{label}</p>
                   {rows.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">
-                      {MISSING_VALUE}
+                    <p className="text-sm text-foreground">
+                      Clean bill of health
                     </p>
                   ) : (
                     <ul className="flex flex-col gap-2">
