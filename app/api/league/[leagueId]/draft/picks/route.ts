@@ -44,6 +44,7 @@ export async function GET(request: Request, context: RouteContext) {
     return NextResponse.json({
       status: null,
       afterOverall: 0,
+      turnExpiresAt: null,
       picks: [],
     });
   }
@@ -53,6 +54,7 @@ export async function GET(request: Request, context: RouteContext) {
     return NextResponse.json({
       status: draft?.status ?? null,
       afterOverall: draft?.currentPickIndex ?? 0,
+      turnExpiresAt: draft?.turnExpiresAt?.toISOString() ?? null,
       picks: [],
     });
   }
@@ -68,6 +70,7 @@ export async function GET(request: Request, context: RouteContext) {
   return NextResponse.json({
     status: draft.status,
     afterOverall: draft.currentPickIndex,
+    turnExpiresAt: draft.turnExpiresAt?.toISOString() ?? null,
     picks,
   });
 }

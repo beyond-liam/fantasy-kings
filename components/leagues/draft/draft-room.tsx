@@ -151,12 +151,19 @@ export function DraftRoom({
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [optimisticStatus, setOptimisticStatus] = useState(status);
   const [prevStatus, setPrevStatus] = useState(status);
+  const [liveTurnExpiresAt, setLiveTurnExpiresAt] = useState(turnExpiresAt);
+  const [prevTurnExpiresAt, setPrevTurnExpiresAt] = useState(turnExpiresAt);
   const autopickRef = useRef(false);
   const lastTurnCueRef = useRef<number | null>(null);
 
   if (status !== prevStatus) {
     setPrevStatus(status);
     setOptimisticStatus(status);
+  }
+
+  if (turnExpiresAt !== prevTurnExpiresAt) {
+    setPrevTurnExpiresAt(turnExpiresAt);
+    setLiveTurnExpiresAt(turnExpiresAt);
   }
 
   const effectiveStatus = optimisticStatus;
@@ -173,7 +180,7 @@ export function DraftRoom({
   const secondsLeft = computeSecondsLeft({
     status: effectiveStatus,
     clockEnabled,
-    turnExpiresAt,
+    turnExpiresAt: liveTurnExpiresAt,
     pausedSecondsRemaining,
     nowMs,
   });
@@ -216,6 +223,23 @@ export function DraftRoom({
       if (!detail) {
         return;
       }
+
+      if (detail.turnExpiresAt !== undefined) {
+        setLiveTurnExpiresAt((prev) =>
+          prev === detail.turnExpiresAt ? prev : (detail.turnExpiresAt ?? null),
+        );
+      }
+      if (detail.status) {
+        setOptimisticStatus((prev) =>
+          prev === detail.status ? prev : detail.status,
+        );
+      }
+
+      const sawNewPick = (detail.picks?.length ?? 0) > 0;
+      if (!sawNewPick) {
+        return;
+      }
+
       window.clearTimeout(debounceId);
       debounceId = window.setTimeout(() => {
         router.refresh();
@@ -238,7 +262,7 @@ export function DraftRoom({
       setNowMs(Date.now());
     }, 250);
     return () => window.clearInterval(timer);
-  }, [clockEnabled, effectiveStatus, turnExpiresAt, currentPickIndex]);
+  }, [clockEnabled, effectiveStatus, liveTurnExpiresAt, currentPickIndex]);
 
   // Cue sound when it becomes your turn.
   useEffect(() => {
@@ -282,7 +306,7 @@ export function DraftRoom({
     onTheClock?.overall,
   ]);
 
-  // Autopick once when the clock hits zero.
+  // Autopick when the clock hits zero; retry while it stays expired.
   useEffect(() => {
     if (!draftLive || !clockEnabled || !autopickAllowed) {
       autopickRef.current = false;
@@ -294,19 +318,37 @@ export function DraftRoom({
       }
       return;
     }
-    if (autopickRef.current) {
-      return;
-    }
-    autopickRef.current = true;
-    void (async () => {
+
+    let cancelled = false;
+    let retryId = 0;
+    let inFlight = false;
+
+    const attempt = async () => {
+      if (cancelled || inFlight) {
+        return;
+      }
+      inFlight = true;
       const result = await autoDraftCurrentPick(slug);
+      inFlight = false;
+      if (cancelled) {
+        return;
+      }
       if (result.success) {
         router.refresh();
         return;
       }
-      // Allow a retry after refresh if the pick is still open.
-      autopickRef.current = false;
-    })();
+      // Server may still be catching up; retry until the pick advances.
+      retryId = window.setTimeout(() => {
+        void attempt();
+      }, 5_000);
+    };
+
+    void attempt();
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(retryId);
+    };
   }, [
     autopickAllowed,
     clockEnabled,
@@ -315,6 +357,7 @@ export function DraftRoom({
     secondsLeft,
     slug,
     currentPickIndex,
+    liveTurnExpiresAt,
   ]);
 
   // Auto-start when the scheduled draft time is reached (also covered by cron).

@@ -278,6 +278,7 @@ Two variants via the `Empty` **`size`** prop:
 - Mock draft room at app level (practice) — **solo vs need-aware ADP bots only**; no friends lobby
 - Fully customizable: snake vs linear, manual order edits **(snake/linear + pick clock + autopick honored in live room)**
 - Auto-start at scheduled `draftStartAt` **(cron + draft-room client trigger)**
+- Autopick on pick-clock expiry **(`/api/cron/process-draft-picks` + draft-room fallback)**
 - Per-team autopick toggle (My Team → Settings); open/unclaimed slots forced onto autopick
 - Pause preserves remaining pick-clock time (`turnExpiresAt` / `pausedSecondsRemaining`)
 - **Email alerts (Brevo):** see Notifications; draft-specific:
@@ -872,3 +873,4 @@ lib/
 | 2026-08-08 | Page titles: NFL game / fantasy matchup `Away @ Home`, league & team names, message subject; league routes use `Page | League Name` |
 | 2026-08-08 | Auth: email/password; forgot/reset + settings password; OTP removed; Google deferred |
 | 2026-08-08 | Settings: set/change password card above delete account |
+| 2026-08-09 | Draft clock expiry autopick via `/api/cron/process-draft-picks` (no browser required); poll refreshes `turnExpiresAt` |

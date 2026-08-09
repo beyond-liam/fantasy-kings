@@ -78,6 +78,8 @@ export async function announceDraftAfterPick(input: {
     draftSlot: number | null;
     userId: string | null;
   }>;
+  /** Cron expiry autopick must send inline (no after()). */
+  sync?: boolean;
 }) {
   const href = draftRoomUrl(input.leaguePublicId);
 
@@ -93,6 +95,7 @@ export async function announceDraftAfterPick(input: {
         dedupeKeyForUser: (userId) =>
           `draft:end:${input.draftId}:${userId}`,
         tags: ["draft", "draft-end"],
+        sync: input.sync,
       },
     });
     return;
@@ -105,6 +108,7 @@ export async function announceDraftAfterPick(input: {
     draftId: input.draftId,
     currentPickIndex: input.nextPickIndex,
     seasonTeams: input.seasonTeams,
+    sync: input.sync,
   });
 }
 

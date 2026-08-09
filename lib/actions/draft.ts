@@ -1,6 +1,6 @@
 "use server";
 
-import { and, asc, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -15,14 +15,9 @@ import {
   teams,
 } from "@/db/schema";
 import { db } from "@/lib/db";
-import {
-  buildDraftSchedule,
-  getDraftRounds,
-} from "@/lib/leagues/draft/board";
 import { activateDraftLive } from "@/lib/leagues/draft/activate";
 import { secondsUntil } from "@/lib/leagues/draft/clock";
 import { commitDraftPick } from "@/lib/leagues/draft/pick";
-import { resolveDraftSettings } from "@/lib/leagues/draft-settings";
 import { loadDraftActionContext } from "@/lib/leagues/action-context";
 import { getDraftBySeasonId } from "@/lib/queries/draft";
 
@@ -321,7 +316,8 @@ export async function makeDraftPick(
 /**
  * Clock expiry / autopick: queue-first, then need-aware ADP (BPA fallback)
  * with same-position bye avoidance.
- * Idempotent if the pick already advanced.
+ * Idempotent if the pick already advanced. Always enforces clock expiry so a
+ * stale draft-room tab cannot fire early (cron is the authoritative path).
  */
 export async function autoDraftCurrentPick(
   slug: string,
@@ -331,7 +327,7 @@ export async function autoDraftCurrentPick(
     return { success: false, error: context.error };
   }
 
-  const { season, isCommissioner, seasonTeams, userTeam } = context;
+  const { season, league, isCommissioner, userTeam, user } = context;
   if (!userTeam && !isCommissioner) {
     return {
       success: false,
@@ -339,159 +335,27 @@ export async function autoDraftCurrentPick(
     };
   }
 
-  const draft = await getDraftBySeasonId(season.id);
-  if (!draft || draft.status !== "live") {
-    return {
-      success: false,
-      error:
-        draft?.status === "paused"
-          ? "Draft is paused."
-          : "Draft is not live.",
-    };
-  }
-
-  const draftSettings = resolveDraftSettings(season.settings.draft);
-  const teamsWithSlots = seasonTeams
-    .filter((team) => team.draftSlot != null)
-    .map((team) => ({
-      id: team.id,
-      name: team.name,
-      draftSlot: team.draftSlot as number,
-      autoPickEnabled: team.autoPickEnabled,
-    }));
-
-  const rounds = getDraftRounds(season.settings.rosterSlots, season.benchSlots);
-  const schedule = buildDraftSchedule({
-    teams: teamsWithSlots,
-    rounds,
-    style: draftSettings.style,
+  const { runDraftAutopick } = await import(
+    "@/lib/leagues/draft/process-expired-picks"
+  );
+  const outcome = await runDraftAutopick({
+    leagueSeasonId: season.id,
+    leaguePublicId: league.publicId,
+    leagueName: league.name,
+    enforceExpiry: true,
+    madeByUserId: user.id,
   });
 
-  const slot = schedule[draft.currentPickIndex];
-  if (!slot) {
-    return { success: true };
+  if (!outcome.ok) {
+    return { success: false, error: outcome.error };
   }
 
-  const onClockSeasonTeam = seasonTeams.find((team) => team.id === slot.teamId);
-  const isOpenSlot = onClockSeasonTeam?.userId == null;
-  const clockExpired =
-    draft.turnExpiresAt != null && draft.turnExpiresAt.getTime() <= Date.now();
-
-  if (!isCommissioner) {
-    if (draft.turnExpiresAt != null) {
-      // Timed draft: members may only trigger once the clock has hit zero.
-      if (!clockExpired) {
-        return {
-          success: false,
-          error: "The pick clock has not expired yet.",
-        };
-      }
-    } else if (!isOpenSlot) {
-      // Untimed draft: members may only autopick open/unclaimed slots
-      // (draft-room.tsx open-slot effect). Claimed seats need commissioner.
-      return {
-        success: false,
-        error:
-          "Only the commissioner can force an autopick on a claimed seat when there is no pick clock.",
-      };
-    }
-  }
-
-  const onClockTeam = teamsWithSlots.find((team) => team.id === slot.teamId);
-  const autopickAllowed =
-    draftSettings.autoPickEnabled || Boolean(onClockTeam?.autoPickEnabled);
-  if (!autopickAllowed) {
-    return { success: false, error: "Autopick is not enabled for this pick." };
-  }
-
-  const existingPicks = await db
-    .select({
-      playerId: draftPicks.playerId,
-      teamId: draftPicks.teamId,
-      primaryPositionId: players.primaryPositionId,
-      byeWeek: players.byeWeek,
-    })
-    .from(draftPicks)
-    .innerJoin(players, eq(players.id, draftPicks.playerId))
-    .where(eq(draftPicks.draftId, draft.id));
-  const drafted = new Set(existingPicks.map((row) => row.playerId));
-  const teamRoster = existingPicks
-    .filter((row) => row.teamId === slot.teamId)
-    .map((row) => ({
-      primaryPositionId: row.primaryPositionId,
-      byeWeek: row.byeWeek,
-    }));
-
-  const queueRows = await db
-    .select({ playerId: draftQueue.playerId })
-    .from(draftQueue)
-    .where(eq(draftQueue.teamId, slot.teamId))
-    .orderBy(asc(draftQueue.sortOrder));
-
-  let playerId =
-    queueRows.find((row) => !drafted.has(row.playerId))?.playerId ?? null;
-
-  if (!playerId) {
-    const { pickNeedAwarePlayer } = await import("@/lib/draft/need-aware-pick");
-    const { resolveScoringRuleDefinitions } = await import(
-      "@/lib/leagues/scoring"
-    );
-    const { getRankedPlayers } = await import("@/lib/queries/players");
-    const { getNflState } = await import("@/lib/sleeper/api");
-    const nflState = await getNflState();
-    const scoringPreset = season.scoringPreset as
-      | "full_ppr"
-      | "half_ppr"
-      | "standard";
-    const scoringRules = resolveScoringRuleDefinitions(
-      scoringPreset,
-      season.settings.scoringRules,
-    );
-    const ranked = await getRankedPlayers({
-      season: nflState.season,
-      week: 0,
-      kind: "projection",
-      scoringPreset,
-      scoringRules,
-    }).catch(() => []);
-
-    const available = ranked
-      .filter((player) => !drafted.has(player.id))
-      .map((player) => ({
-        id: player.id,
-        fullName: player.fullName,
-        primaryPositionId: player.primaryPositionId,
-        nflTeam: player.nflTeam,
-        stats: player.stats,
-        fantasyPts: player.fantasyPts,
-        byeWeek: player.byeWeek,
-      }));
-
-    const picksRemainingForTeam = schedule.filter(
-      (entry, index) =>
-        index >= draft.currentPickIndex && entry.teamId === slot.teamId,
-    ).length;
-
-    const choice = pickNeedAwarePlayer({
-      available,
-      draftedRoster: teamRoster,
-      rosterSlots: season.settings.rosterSlots,
-      scoring: scoringPreset,
-      picksRemainingForTeam,
-      // Deterministic: always take the top ranked eligible player.
-      random: () => 0,
-    });
-    playerId = choice?.id ?? null;
-  }
-
-  if (!playerId) {
-    return { success: false, error: "No players left to autopick." };
-  }
-
-  return makeDraftPick(slug, playerId, {
-    autopick: true,
-    expectPickIndex: draft.currentPickIndex,
-  });
+  return {
+    success: true,
+    overall: outcome.overall || undefined,
+    playerFullName: outcome.playerFullName || undefined,
+    teamName: outcome.teamName || undefined,
+  };
 }
 
 export async function revertLastDraftPick(slug: string): Promise<ActionResult> {

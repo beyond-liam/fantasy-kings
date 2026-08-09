@@ -120,6 +120,30 @@ curl -X POST "https://<your-app>/api/cron/start-drafts" \
   -H "Authorization: Bearer $CRON_SECRET"
 ```
 
+### `/api/cron/process-draft-picks` (GET or POST)
+
+Autopicks seats whose pick clock has expired (and open seats with no clock).
+This is the authoritative expiry path — do **not** rely on someone keeping the draft room open.
+
+Run every **1–5 minutes** while any draft is live or in email/slow mode with a pick clock (Vercel Hobby daily is only a backup).
+
+**Expected response (200):**
+```json
+{
+  "ok": true,
+  "checked": 2,
+  "picked": 1,
+  "skipped": 1,
+  "errors": []
+}
+```
+
+**Manual trigger:**
+```bash
+curl -X POST "https://<your-app>/api/cron/process-draft-picks" \
+  -H "Authorization: Bearer $CRON_SECRET"
+```
+
 ### `/api/cron/draft-reminders` (GET or POST)
 
 Sends T-24h and “starts soon” reminders for **live and email** drafts.
@@ -157,6 +181,7 @@ Recommended schedule for game days (all times UTC):
 | `process-waivers` | Every hour | Run overnight Tuesday/Wednesday when waivers clear. |
 | `process-trades` | Every hour | Can run 24/7 or gate to business hours. |
 | `start-drafts` | Every 1–5 minutes | Only during draft season; narrow to draft windows if possible. |
+| `process-draft-picks` | Every 1–5 minutes | While drafts are live / on a pick clock. Critical for 6h+ email drafts. |
 | `draft-reminders` | Every 5 minutes | Only during draft season. |
 
 **Game day example (Sunday):**
@@ -203,6 +228,7 @@ Before Week 1:
 - Check `BREVO_API_KEY` and `BREVO_FROM_EMAIL` in Vercel (and that the sender is verified in Brevo).
 - Verify cron-job.org is hitting `/api/cron/draft-reminders` every **5 minutes** — Vercel Hobby daily cron cannot hit the T-15m window.
 - Same for `/api/cron/start-drafts` every 1–5 minutes near draft time (Hobby daily is not enough).
+- Same for `/api/cron/process-draft-picks` every 1–5 minutes while a draft clock is running — without it, autopicks only fire when someone has the draft room open.
 - Check Vercel logs for `[email] Brevo not configured` or `Brevo send failed`.
 - If Brevo was misconfigured earlier, failed attempts no longer permanently burn dedupe keys (claims are released on failure). To clear old burned keys: `delete from email_sends where dedupe_key like 'draft:%';` (scoped carefully).
 - Confirm managers have emails on `auth.users` (OTP login accounts do).

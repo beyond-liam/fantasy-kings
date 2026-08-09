@@ -50,7 +50,7 @@ export type CommitDraftPickInput = {
   taxiEnabled: boolean;
   seasonTeams: SeasonDraftTeam[];
   playerId: string;
-  madeByUserId: string;
+  madeByUserId: string | null;
   source: DraftPickSource;
   /**
    * When set, enforce that this team is on the clock.

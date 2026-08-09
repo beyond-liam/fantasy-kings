@@ -16,6 +16,7 @@ type DraftPickEvent = {
 export type DraftPicksPollResponse = {
   status: "scheduled" | "live" | "paused" | "complete" | null;
   afterOverall: number;
+  turnExpiresAt?: string | null;
   picks: DraftPickEvent[];
   error?: string;
 };
@@ -120,14 +121,16 @@ export function DraftPickNotifier({
         const statusChanged =
           previousStatus !== undefined && previousStatus !== data.status;
 
-        if (onDraft && (sawNewPick || statusChanged)) {
+        // Always notify the draft room so the clock can adopt a fresh deadline
+        // even when no new pick rows were returned yet.
+        if (onDraft) {
           window.dispatchEvent(
             new CustomEvent(DRAFT_PICKS_EVENT, { detail: data }),
           );
         }
 
         // Status transitions (pause/complete) need a refresh even off-draft.
-        if (statusChanged) {
+        if (statusChanged || sawNewPick) {
           router.refresh();
         }
       } catch {

@@ -18,6 +18,10 @@
       "schedule": "0 12 * * *"
     },
     {
+      "path": "/api/cron/process-draft-picks",
+      "schedule": "5 12 * * *"
+    },
+    {
       "path": "/api/cron/draft-reminders",
       "schedule": "30 12 * * *"
     }

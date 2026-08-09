@@ -13,7 +13,6 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
   Field,
-  FieldDescription,
   FieldGroup,
   FieldLabel,
 } from "@/components/ui/field";
@@ -225,7 +224,6 @@ export function LeagueSizeSettings({
               ))}
             </SelectContent>
           </Select>
-          <FieldDescription>Minimum right now: {minAllowed}</FieldDescription>
         </Field>
 
         <Field>
@@ -245,10 +243,6 @@ export function LeagueSizeSettings({
               ))}
             </SelectContent>
           </Select>
-          <FieldDescription>
-            Changing divisions may clear team assignments — use Realign
-            Divisions after saving.
-          </FieldDescription>
         </Field>
 
         {selectedDivisionCount > 1 ? (
