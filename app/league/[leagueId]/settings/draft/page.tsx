@@ -19,7 +19,7 @@ type DraftConfigSettingsPageProps = {
 };
 
 export const metadata: Metadata = {
-  title: "Draft settings",
+  title: "Configure Draft",
 };
 
 export default async function DraftConfigSettingsPage({

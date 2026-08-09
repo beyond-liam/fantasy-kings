@@ -173,7 +173,7 @@ export function LeagueSizeSettings({
       ) : null}
 
       <SettingsFormCard
-        title="Edit League Size"
+        title="League Size"
         footer={
           <PageFormActions float={hasChanges}>
             <Button

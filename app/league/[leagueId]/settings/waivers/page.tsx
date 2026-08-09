@@ -19,7 +19,7 @@ type WaiverWireSettingsPageProps = {
 };
 
 export const metadata: Metadata = {
-  title: "Waiver settings",
+  title: "Waiver Wire Rules",
 };
 
 export default async function WaiverWireSettingsPage({

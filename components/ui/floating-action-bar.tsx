@@ -25,26 +25,25 @@ export function FloatingActionBar({
   className,
   open = true,
 }: FloatingActionBarProps) {
-  const [rendered, setRendered] = useState(false);
-  const [phase, setPhase] = useState<"in" | "out">("out");
+  const [rendered, setRendered] = useState(open);
+  const [phase, setPhase] = useState<"in" | "out">(open ? "in" : "out");
+  const [prevOpen, setPrevOpen] = useState(open);
 
-  useEffect(() => {
+  // Adjust visibility when `open` changes — during render, not in an effect.
+  if (open !== prevOpen) {
+    setPrevOpen(open);
     if (open) {
       setRendered(true);
       setPhase("in");
-      return;
+    } else if (rendered) {
+      if (prefersReducedMotion()) {
+        setRendered(false);
+        setPhase("out");
+      } else {
+        setPhase("out");
+      }
     }
-
-    if (!rendered) return;
-
-    if (prefersReducedMotion()) {
-      setRendered(false);
-      setPhase("out");
-      return;
-    }
-
-    setPhase("out");
-  }, [open, rendered]);
+  }
 
   useEffect(() => {
     if (open || phase !== "out" || !rendered) return;

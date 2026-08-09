@@ -21,7 +21,7 @@ type DraftOrderSettingsPageProps = {
 };
 
 export const metadata: Metadata = {
-  title: "Draft order",
+  title: "Draft Order",
 };
 
 export default async function DraftOrderSettingsPage({

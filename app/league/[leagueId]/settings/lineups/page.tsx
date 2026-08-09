@@ -23,7 +23,7 @@ type StartingLineupsPageProps = {
 };
 
 export const metadata: Metadata = {
-  title: "Lineups",
+  title: "Set Starting Lineups",
 };
 
 export default async function StartingLineupsPage({

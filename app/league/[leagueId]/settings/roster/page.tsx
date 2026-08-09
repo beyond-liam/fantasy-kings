@@ -25,7 +25,7 @@ type RosterSettingsPageProps = {
 };
 
 export const metadata: Metadata = {
-  title: "Roster settings",
+  title: "Roster Requirements",
 };
 
 export default async function RosterSettingsPage({

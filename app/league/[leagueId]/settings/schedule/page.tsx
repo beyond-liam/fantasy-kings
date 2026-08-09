@@ -24,7 +24,7 @@ type ScheduleSettingsPageProps = {
 };
 
 export const metadata: Metadata = {
-  title: "Schedule",
+  title: "Regular Season Schedule",
 };
 
 export default async function ScheduleSettingsPage({

@@ -21,7 +21,7 @@ type LeagueSizePageProps = {
 };
 
 export const metadata: Metadata = {
-  title: "League size",
+  title: "League Size",
 };
 
 export default async function LeagueSizePage({ params }: LeagueSizePageProps) {

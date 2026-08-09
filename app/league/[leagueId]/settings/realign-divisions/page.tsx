@@ -21,7 +21,7 @@ type RealignDivisionsPageProps = {
 };
 
 export const metadata: Metadata = {
-  title: "Realign divisions",
+  title: "Realign Divisions",
 };
 
 export default async function RealignDivisionsPage({

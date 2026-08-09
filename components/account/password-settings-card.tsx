@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import Link from "next/link";
 import { Key01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { toast } from "sonner";
@@ -15,7 +14,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { FieldDescription, FieldGroup } from "@/components/ui/field";
+import { FieldGroup } from "@/components/ui/field";
 import { updateAccountPassword } from "@/lib/actions/account-password";
 
 const MIN_PASSWORD_LENGTH = 8;

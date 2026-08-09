@@ -21,7 +21,7 @@ type WaiverOrderSettingsPageProps = {
 };
 
 export const metadata: Metadata = {
-  title: "Waiver order",
+  title: "Waiver Order",
 };
 
 export default async function WaiverOrderSettingsPage({

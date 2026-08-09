@@ -21,7 +21,7 @@ type LeagueIdentityPageProps = {
 };
 
 export const metadata: Metadata = {
-  title: "League settings",
+  title: "League Name & Logo",
 };
 
 export default async function LeagueIdentityPage({

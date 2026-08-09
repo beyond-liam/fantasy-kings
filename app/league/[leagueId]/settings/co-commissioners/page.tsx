@@ -19,7 +19,7 @@ type CoCommissionersPageProps = {
 };
 
 export const metadata: Metadata = {
-  title: "Co-commissioners",
+  title: "Appoint Co-Commissioners",
 };
 
 export default async function CoCommissionersPage({

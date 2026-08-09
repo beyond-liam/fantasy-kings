@@ -22,7 +22,7 @@ type ScoringSettingsPageProps = {
 };
 
 export const metadata: Metadata = {
-  title: "Scoring",
+  title: "Scoring Rules",
 };
 
 export default async function ScoringSettingsPage({

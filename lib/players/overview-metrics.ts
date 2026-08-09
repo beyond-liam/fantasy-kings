@@ -559,14 +559,18 @@ function scoredWeeks(profile: PlayerOverviewInput): OverviewWeekPoint[] {
     }
   }
 
-  return points.map(({ result: _result, ...point }) => ({
-    ...point,
-    isDnp:
-      !point.isBye &&
-      point.fpts == null &&
-      lastPlayedWeek > 0 &&
-      point.week <= lastPlayedWeek,
-  }));
+  return points.map((point) => {
+    const { result: _gameResult, ...rest } = point;
+    void _gameResult;
+    return {
+      ...rest,
+      isDnp:
+        !rest.isBye &&
+        rest.fpts == null &&
+        lastPlayedWeek > 0 &&
+        rest.week <= lastPlayedWeek,
+    };
+  });
 }
 
 function positionMedianBenchmark(position: string | null | undefined): {

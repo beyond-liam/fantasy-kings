@@ -19,7 +19,7 @@ type TiebreakerSettingsPageProps = {
 };
 
 export const metadata: Metadata = {
-  title: "Tiebreakers",
+  title: "Tiebreak Rules",
 };
 
 export default async function TiebreakerSettingsPage({

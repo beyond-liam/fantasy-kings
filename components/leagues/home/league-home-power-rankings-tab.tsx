@@ -41,7 +41,6 @@ export async function LeagueHomePowerRankingsTab({
   leagueSeasonId,
   standingsTeams,
   seasonYear,
-  championshipWeek,
   settings,
   scoringPreset,
   regularSeasonEndWeek,

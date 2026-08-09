@@ -19,7 +19,7 @@ type LineupLockSettingsPageProps = {
 };
 
 export const metadata: Metadata = {
-  title: "Lineup locking",
+  title: "Lineup Locking",
 };
 
 export default async function LineupLockSettingsPage({

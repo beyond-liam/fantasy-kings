@@ -19,7 +19,7 @@ type TransactionRulesPageProps = {
 };
 
 export const metadata: Metadata = {
-  title: "Transaction settings",
+  title: "Transaction Rules",
 };
 
 export default async function TransactionRulesPage({

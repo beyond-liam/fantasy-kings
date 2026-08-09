@@ -80,16 +80,16 @@ export function NflStandingsPanel({
 }: NflStandingsPanelProps) {
   return (
     <aside className={cn("min-w-0", className)}>
-      <Tabs defaultValue="all" className="gap-3">
+      <Tabs defaultValue="div" className="gap-3">
         <TabsList className="w-full">
-          <TabsTrigger value="all" className="flex-1">
+          <TabsTrigger value="all" className="flex-1 px-1.5 text-xs">
             All
           </TabsTrigger>
-          <TabsTrigger value="conf" className="flex-1">
-            Conf
+          <TabsTrigger value="conf" className="flex-1 px-1.5 text-xs">
+            Conference
           </TabsTrigger>
-          <TabsTrigger value="div" className="flex-1">
-            Div
+          <TabsTrigger value="div" className="flex-1 px-1.5 text-xs">
+            Division
           </TabsTrigger>
         </TabsList>
         <TabsContent value="all" className="mt-0">
