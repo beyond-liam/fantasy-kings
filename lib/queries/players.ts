@@ -25,6 +25,8 @@ export type RankingsFilters = {
   season: string;
   week: number;
   kind: "projection" | "stats";
+  /** player_scores.season_type — defaults to regular. */
+  seasonType?: string;
   position?: string;
   team?: string;
   rookiesOnly?: boolean;
@@ -91,6 +93,7 @@ export async function getRankedPlayers(
           season: filters.season,
           week: filters.week,
           kind: filters.kind,
+          seasonType: filters.seasonType,
           playerIds: filters.playerIds,
           limit: filters.limit,
           offset: filters.offset,
@@ -99,6 +102,7 @@ export async function getRankedPlayers(
           season: filters.season,
           week: filters.week,
           kind: filters.kind,
+          seasonType: filters.seasonType,
           limit: filters.limit,
           offset: filters.offset,
           position: filters.position,

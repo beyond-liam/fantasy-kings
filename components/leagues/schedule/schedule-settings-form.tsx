@@ -36,11 +36,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { PRESEASON_START_WEEK_OPTIONS } from "@/lib/account/schedule-settings";
 import type { PlayEachOtherTimes } from "@/db/schema/league-seasons";
 import {
   regenerateRegularSeasonSchedule,
   updateRegularSeasonSchedule,
 } from "@/lib/actions/league-settings";
+import { fantasyRegularSeasonEndWeek } from "@/lib/leagues/schedule/fantasy-week-map";
 import {
   clampPlayEachOtherTimes,
   maxPlayEachOtherTimes,
@@ -55,6 +58,8 @@ type ScheduleSettingsFormProps = {
   teamCount: number;
   regularSeasonEndWeek: number;
   initialPlayEachOtherTimes: PlayEachOtherTimes;
+  initialIncludePreseason: boolean;
+  initialPreseasonStartWeek: number;
   isLeagueFull: boolean;
   matchupCount: number;
   editable: boolean;
@@ -71,6 +76,8 @@ export function ScheduleSettingsForm({
   teamCount,
   regularSeasonEndWeek,
   initialPlayEachOtherTimes,
+  initialIncludePreseason,
+  initialPreseasonStartWeek,
   isLeagueFull,
   matchupCount,
   editable,
@@ -80,22 +87,46 @@ export function ScheduleSettingsForm({
   const [times, setTimes] = useState(
     clampPlayEachOtherTimes(initialPlayEachOtherTimes, divisionCount),
   );
+  const [includePreseason, setIncludePreseason] = useState(
+    initialIncludePreseason,
+  );
+  const [preseasonStartWeek, setPreseasonStartWeek] = useState(
+    initialPreseasonStartWeek,
+  );
   const [error, setError] = useState<string | null>(null);
   const [regenOpen, setRegenOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
 
-  const hasChanges = times !== initialPlayEachOtherTimes;
+  const hasChanges =
+    times !== initialPlayEachOtherTimes ||
+    includePreseason !== initialIncludePreseason ||
+    preseasonStartWeek !== initialPreseasonStartWeek;
   const options = PLAY_EACH_OTHER_OPTIONS.filter((option) => option <= maxTimes);
+  const fantasyWeekCount = fantasyRegularSeasonEndWeek(regularSeasonEndWeek, {
+    playEachOtherTimes: times,
+    includePreseason,
+    preseasonStartWeek,
+  });
+  const weekItems = PRESEASON_START_WEEK_OPTIONS.map((option) => ({
+    value: option.value,
+    label: option.label,
+  }));
 
   const handleReset = () => {
     setTimes(clampPlayEachOtherTimes(initialPlayEachOtherTimes, divisionCount));
+    setIncludePreseason(initialIncludePreseason);
+    setPreseasonStartWeek(initialPreseasonStartWeek);
     setError(null);
   };
 
   const handleSave = () => {
     setError(null);
     startTransition(async () => {
-      const result = await updateRegularSeasonSchedule(slug, times);
+      const result = await updateRegularSeasonSchedule(slug, {
+        playEachOtherTimes: times,
+        includePreseason,
+        preseasonStartWeek,
+      });
       if (!result.success) {
         setError(result.error ?? "Could not save schedule settings.");
         return;
@@ -128,7 +159,7 @@ export function ScheduleSettingsForm({
       {!editable ? (
         <Alert>
           <AlertDescription>
-            Schedule settings lock once NFL Week 1 of the season begins.
+            Schedule settings lock once the fantasy season begins.
           </AlertDescription>
         </Alert>
       ) : null}
@@ -206,53 +237,109 @@ export function ScheduleSettingsForm({
         }
       >
         <FieldGroup>
-        <Field>
-          <FieldLabel htmlFor="play-each-other">Play each other</FieldLabel>
-          <Select
-            items={options.map((option) => ({
-              value: String(option),
-              label: timesLabel(option),
-            }))}
-            value={String(times)}
-            disabled={!editable}
-            onValueChange={(value) => {
-              if (!value) return;
-              setTimes(
-                clampPlayEachOtherTimes(Number(value), divisionCount),
-              );
-            }}
-          >
-            <SelectTrigger id="play-each-other" className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectGroup>
-                {options.map((option) => (
-                  <SelectItem key={option} value={String(option)}>
-                    {timesLabel(option)}
-                  </SelectItem>
-                ))}
-              </SelectGroup>
-            </SelectContent>
-          </Select>
-          <FieldDescription>
-            {divisionCount <= 1
-              ? "Single-division leagues play each other once. Everyone faces everyone before any rematch. Rematches only fill leftover weeks after that first cycle."
-              : "Choose how many times opponents play each other over the regular season (time permitting). Multi-division leagues can select up to three."}
-          </FieldDescription>
-        </Field>
+          <Field>
+            <FieldLabel htmlFor="play-each-other">Play each other</FieldLabel>
+            <Select
+              items={options.map((option) => ({
+                value: String(option),
+                label: timesLabel(option),
+              }))}
+              value={String(times)}
+              disabled={!editable}
+              onValueChange={(value) => {
+                if (!value) return;
+                setTimes(
+                  clampPlayEachOtherTimes(Number(value), divisionCount),
+                );
+              }}
+            >
+              <SelectTrigger id="play-each-other" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  {options.map((option) => (
+                    <SelectItem key={option} value={String(option)}>
+                      {timesLabel(option)}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+            <FieldDescription>
+              {divisionCount <= 1
+                ? "Single-division leagues play each other once. Everyone faces everyone before any rematch. Rematches only fill leftover weeks after that first cycle."
+                : "Choose how many times opponents play each other over the regular season (time permitting). Multi-division leagues can select up to three."}
+            </FieldDescription>
+          </Field>
 
-        <Field>
-          <FieldLabel>Calendar</FieldLabel>
-          <FieldDescription>
-            {teamCount} teams · weeks 1–{regularSeasonEndWeek}
-            {isLeagueFull
-              ? matchupCount > 0
-                ? ` · ${matchupCount} matchups generated`
-                : " · schedule will generate on save"
-              : " · schedule generates automatically when the league is full"}
-          </FieldDescription>
-        </Field>
+          <Field>
+            <div className="flex items-center justify-between gap-4">
+              <div className="min-w-0 space-y-1">
+                <FieldLabel htmlFor="includePreseason">
+                  Include preseason
+                </FieldLabel>
+                <FieldDescription>
+                  Extend the fantasy schedule so Week 1 starts in NFL preseason.
+                  Championship still ends on the configured NFL championship
+                  week.
+                </FieldDescription>
+              </div>
+              <Switch
+                id="includePreseason"
+                checked={includePreseason}
+                disabled={!editable}
+                onCheckedChange={setIncludePreseason}
+              />
+            </div>
+          </Field>
+
+          {includePreseason ? (
+            <Field>
+              <FieldLabel htmlFor="preseasonStartWeek">
+                Preseason start week
+              </FieldLabel>
+              <Select
+                items={weekItems}
+                value={String(preseasonStartWeek)}
+                disabled={!editable}
+                onValueChange={(next) => {
+                  if (next == null) return;
+                  const week = Number(next);
+                  if (!Number.isFinite(week)) return;
+                  setPreseasonStartWeek(week);
+                }}
+              >
+                <SelectTrigger id="preseasonStartWeek" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    {PRESEASON_START_WEEK_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            </Field>
+          ) : null}
+
+          <Field>
+            <FieldLabel>Calendar</FieldLabel>
+            <FieldDescription>
+              {teamCount} teams · weeks 1–{fantasyWeekCount}
+              {includePreseason
+                ? ` (NFL regular season ends week ${regularSeasonEndWeek})`
+                : null}
+              {isLeagueFull
+                ? matchupCount > 0
+                  ? ` · ${matchupCount} matchups generated`
+                  : " · schedule will generate on save"
+                : " · schedule generates automatically when the league is full"}
+            </FieldDescription>
+          </Field>
         </FieldGroup>
       </SettingsFormCard>
 
@@ -264,14 +351,14 @@ export function ScheduleSettingsForm({
         }}
       >
         <AlertDialogContent>
-                    <AlertDialogHeader>
+          <AlertDialogHeader>
             <AlertDialogTitle>Regenerate schedule?</AlertDialogTitle>
             <AlertDialogDescription>
               This replaces all regular-season matchups for weeks 1–
-              {regularSeasonEndWeek} using the current play-each-other setting.
+              {fantasyWeekCount} using the current schedule settings.
             </AlertDialogDescription>
           </AlertDialogHeader>
-                    <AlertDialogFooter>
+          <AlertDialogFooter>
             <AlertDialogCancel disabled={isPending}>Cancel</AlertDialogCancel>
             <Button
               type="button"

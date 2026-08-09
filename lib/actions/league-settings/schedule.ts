@@ -10,6 +10,7 @@ import {
   resolvePlayoffSettings,
 } from "@/lib/leagues/playoff-settings";
 import { replaceSeasonMatchups } from "@/lib/leagues/schedule/persist";
+import { fantasyRegularSeasonEndWeek } from "@/lib/leagues/schedule/fantasy-week-map";
 import {
   clampPlayEachOtherTimes,
   resolveScheduleSettings,
@@ -28,7 +29,11 @@ import {
 
 export async function updateRegularSeasonSchedule(
   slug: string,
-  playEachOtherTimes: number,
+  input: {
+    playEachOtherTimes: number;
+    includePreseason: boolean;
+    preseasonStartWeek: number;
+  },
 ): Promise<ActionResult> {
   try {
     const result = await getCommissionerSeason(slug);
@@ -37,17 +42,29 @@ export async function updateRegularSeasonSchedule(
     }
 
     const { season, user } = result;
-    const editable = await assertScheduleStillEditable(season.seasonYear);
+    const editable = await assertScheduleStillEditable(
+      season.seasonYear,
+      season.settings.schedule,
+    );
     if (!editable.success) {
       return editable;
     }
 
+    const before = resolveScheduleSettings(season.settings.schedule);
     const times = clampPlayEachOtherTimes(
-      playEachOtherTimes,
+      input.playEachOtherTimes,
       season.divisionCount,
     );
-    const beforeTimes = resolveScheduleSettings(season.settings.schedule)
-      .playEachOtherTimes;
+    const preseasonStartWeek = Math.min(
+      3,
+      Math.max(1, Math.trunc(input.preseasonStartWeek) || 1),
+    );
+    const nextSchedule = {
+      ...before,
+      playEachOtherTimes: times,
+      includePreseason: input.includePreseason,
+      preseasonStartWeek,
+    };
 
     const seasonTeams = await db
       .select({ id: teams.id })
@@ -61,7 +78,7 @@ export async function updateRegularSeasonSchedule(
         .set({
           settings: {
             ...season.settings,
-            schedule: { playEachOtherTimes: times },
+            schedule: nextSchedule,
           },
         })
         .where(eq(leagueSeasons.id, season.id));
@@ -70,7 +87,10 @@ export async function updateRegularSeasonSchedule(
         await replaceSeasonMatchups(tx, {
           leagueSeasonId: season.id,
           teamIds: seasonTeams.map((team) => team.id),
-          weekCount: season.regularSeasonEndWeek,
+          weekCount: fantasyRegularSeasonEndWeek(
+            season.regularSeasonEndWeek,
+            nextSchedule,
+          ),
           playEachOtherTimes: times,
         });
       }
@@ -82,13 +102,27 @@ export async function updateRegularSeasonSchedule(
       section: "schedule",
       label: "Regular-season schedule",
       changes: diffSettingsValues(
-        { playEachOtherTimes: beforeTimes },
-        { playEachOtherTimes: times },
-        [{ path: "playEachOtherTimes", label: "Play each other times" }],
+        {
+          playEachOtherTimes: before.playEachOtherTimes,
+          includePreseason: before.includePreseason,
+          preseasonStartWeek: before.preseasonStartWeek,
+        },
+        {
+          playEachOtherTimes: times,
+          includePreseason: nextSchedule.includePreseason,
+          preseasonStartWeek: nextSchedule.preseasonStartWeek,
+        },
+        [
+          { path: "playEachOtherTimes", label: "Play each other times" },
+          { path: "includePreseason", label: "Include preseason" },
+          { path: "preseasonStartWeek", label: "Preseason start week" },
+        ],
       ),
     });
 
     revalidateSettingsPaths(slug);
+    revalidatePath("/scores");
+    revalidatePath(`/league/${slug}/scores`);
 
     return { success: true };
   } catch (error) {
@@ -110,7 +144,10 @@ export async function regenerateRegularSeasonSchedule(
     }
 
     const { season } = result;
-    const editable = await assertScheduleStillEditable(season.seasonYear);
+    const editable = await assertScheduleStillEditable(
+      season.seasonYear,
+      season.settings.schedule,
+    );
     if (!editable.success) {
       return editable;
     }
@@ -137,7 +174,10 @@ export async function regenerateRegularSeasonSchedule(
     await replaceSeasonMatchups(db, {
       leagueSeasonId: season.id,
       teamIds: seasonTeams.map((team) => team.id),
-      weekCount: season.regularSeasonEndWeek,
+      weekCount: fantasyRegularSeasonEndWeek(
+        season.regularSeasonEndWeek,
+        schedule,
+      ),
       playEachOtherTimes: times,
     });
 
@@ -170,7 +210,10 @@ export async function updatePlayoffSettings(
     }
 
     const { season, user } = result;
-    const editable = await assertScheduleStillEditable(season.seasonYear);
+    const editable = await assertScheduleStillEditable(
+      season.seasonYear,
+      season.settings.schedule,
+    );
     if (!editable.success) {
       return editable;
     }
@@ -239,7 +282,7 @@ export async function updatePlayoffSettings(
         await replaceSeasonMatchups(tx, {
           leagueSeasonId: season.id,
           teamIds: seasonTeams.map((team) => team.id),
-          weekCount: regularSeasonEndWeek,
+          weekCount: fantasyRegularSeasonEndWeek(regularSeasonEndWeek, schedule),
           playEachOtherTimes: times,
         });
       }

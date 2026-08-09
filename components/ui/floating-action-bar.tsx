@@ -25,24 +25,26 @@ export function FloatingActionBar({
   className,
   open = true,
 }: FloatingActionBarProps) {
-  const [rendered, setRendered] = useState(open);
-  const [phase, setPhase] = useState<"in" | "out">(open ? "in" : "out");
+  const [rendered, setRendered] = useState(false);
+  const [phase, setPhase] = useState<"in" | "out">("out");
 
-  // Sync enter/exit phase from `open` during render (avoids setState-in-effect).
-  if (open) {
-    if (!rendered || phase !== "in") {
+  useEffect(() => {
+    if (open) {
       setRendered(true);
       setPhase("in");
+      return;
     }
-  } else if (rendered && phase === "in") {
-    // Reduced motion: unmount immediately. Otherwise exit animation, then effect.
+
+    if (!rendered) return;
+
     if (prefersReducedMotion()) {
       setRendered(false);
       setPhase("out");
-    } else {
-      setPhase("out");
+      return;
     }
-  }
+
+    setPhase("out");
+  }, [open, rendered]);
 
   useEffect(() => {
     if (open || phase !== "out" || !rendered) return;

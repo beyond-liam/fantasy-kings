@@ -54,8 +54,9 @@ export async function LeagueHomePowerRankingsTab({
 }: LeagueHomePowerRankingsTabProps) {
   const upcomingWeekPromise = resolveFantasyMatchupWeek({
     seasonYear,
-    maxWeek: Math.max(1, championshipWeek),
-  }).catch(() => ({ week: 1, weeks: [], calendarWeeks: [] }));
+    nflRegularSeasonEndWeek: regularSeasonEndWeek,
+    schedule: settings?.schedule ?? null,
+  }).catch(() => ({ week: 1, weeks: [], calendarWeeks: [], currentWeek: 1 }));
 
   const overviewPromise = useMock
     ? Promise.resolve(

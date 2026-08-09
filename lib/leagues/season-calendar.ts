@@ -1,4 +1,6 @@
 import { WIZARD_DEFAULTS } from "@/lib/leagues/defaults";
+import { resolveScheduleSettings } from "@/lib/leagues/schedule/settings";
+import type { ScheduleSettings } from "@/db/schema/league-seasons";
 
 export const CHAMPIONSHIP_WEEKS = [13, 14, 15, 16, 17, 18] as const;
 export const PLAYOFF_TEAM_COUNTS = [4, 6, 8] as const;
@@ -159,13 +161,14 @@ export function isValidSeasonCalendar(
 }
 
 /**
- * True once the NFL year for this league season is underway (regular season
- * or later). Offseason / preseason stay unlocked so commissioners can still
- * tweak the calendar before Week 1.
+ * True once this league's fantasy season is underway for the NFL year.
+ * Offseason stays unlocked. Preseason only locks when the league includes
+ * those preseason weeks and we've reached the configured start week.
  */
 export function isNflSeasonUnderway(
   seasonYear: number,
   nfl: { season: string; season_type: string; week: number },
+  schedule?: ScheduleSettings | null,
 ): boolean {
   const nflSeason = Number(nfl.season);
   if (!Number.isFinite(nflSeason)) {
@@ -178,8 +181,18 @@ export function isNflSeasonUnderway(
     return false;
   }
 
-  if (nfl.season_type === "off" || nfl.season_type === "pre") {
+  if (nfl.season_type === "off") {
     return false;
+  }
+
+  if (nfl.season_type === "pre") {
+    const settings = resolveScheduleSettings(schedule);
+    if (!settings.includePreseason) {
+      return false;
+    }
+    // ESPN/Sleeper week 1 = Hall of Fame; user Week 1 starts at ESPN week 2.
+    const espnStart = (settings.preseasonStartWeek ?? 1) + 1;
+    return nfl.week >= espnStart;
   }
 
   if (nfl.season_type === "regular") {
@@ -190,10 +203,11 @@ export function isNflSeasonUnderway(
   return true;
 }
 
-/** Schedule / playoff calendar edits until NFL Week 1 of the season year. */
+/** Schedule / playoff calendar edits until the fantasy season begins. */
 export function isScheduleEditable(
   seasonYear: number,
   nfl: { season: string; season_type: string; week: number },
+  schedule?: ScheduleSettings | null,
 ): boolean {
-  return !isNflSeasonUnderway(seasonYear, nfl);
+  return !isNflSeasonUnderway(seasonYear, nfl, schedule);
 }

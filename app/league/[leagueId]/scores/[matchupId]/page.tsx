@@ -6,8 +6,8 @@ import { LiveRefresh } from "@/components/scores/live-refresh";
 import { ScoresFreshnessBanner } from "@/components/scores/scores-freshness-banner";
 import { Spinner } from "@/components/ui/spinner";
 import { getSessionUser } from "@/lib/auth/session";
-import { getDefaultScheduleWeek } from "@/lib/nfl/schedule-week";
 import { resolveFantasyMatchupWeek } from "@/lib/leagues/matchup-week";
+import { fantasyWeekToNfl } from "@/lib/leagues/schedule/fantasy-week-map";
 import { formatAwayAtHome } from "@/lib/metadata/page-title";
 import { getGameCentreData } from "@/lib/queries/game-centre";
 import { getLeagueBySlug } from "@/lib/queries/leagues";
@@ -76,21 +76,22 @@ export default async function MatchupPage({ params }: MatchupPageProps) {
     redirect(`/league/${slug}/scores/${data.matchupPublicId}`);
   }
 
+  const nflPoint = fantasyWeekToNfl(data.week, data.scheduleSettings);
   const [freshness, resolved] = await Promise.all([
     getPlayerScoresFreshness({
       season: String(data.seasonYear),
-      week: data.week,
+      week: nflPoint?.week ?? data.week,
       kind: "stats",
+      seasonType: nflPoint?.seasonType ?? "regular",
     }).catch(() => null),
     resolveFantasyMatchupWeek({
       seasonYear: data.seasonYear,
-      maxWeek: 18,
+      nflRegularSeasonEndWeek: data.regularSeasonEndWeek,
+      schedule: data.scheduleSettings,
     }).catch(() => null),
   ]);
 
-  const currentWeek = resolved
-    ? getDefaultScheduleWeek(resolved.calendarWeeks)
-    : data.week;
+  const currentWeek = resolved?.currentWeek ?? data.week;
   const liveRefresh = data.week === currentWeek;
 
   return (

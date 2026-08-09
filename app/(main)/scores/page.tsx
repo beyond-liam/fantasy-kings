@@ -7,6 +7,8 @@ import { ScheduleList } from "@/components/scores/schedule-list";
 import { WeekFilter } from "@/components/scores/week-filter";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Spinner } from "@/components/ui/spinner";
+import { asc, eq } from "drizzle-orm";
+
 import {
   calendarSeasonTypesForSchedule,
   DEFAULT_SCHEDULE_SETTINGS,
@@ -14,14 +16,16 @@ import {
   type ScheduleSettingsValues,
 } from "@/lib/account/schedule-settings";
 import { getSessionUser } from "@/lib/auth/session";
+import { db } from "@/lib/db";
 import {
   getNflScoreboard,
   type EspnSeasonType,
 } from "@/lib/espn/scoreboard";
 import { getNflStandings, type NflStandings } from "@/lib/espn/standings";
+import { resolveScheduleSettings } from "@/lib/leagues/schedule/settings";
 import { getDefaultScheduleWeekEntry } from "@/lib/nfl/schedule-week";
-import { getProfileByUserId } from "@/lib/queries/profile";
 import { getNflState } from "@/lib/sleeper/api";
+import { leagueMembers, leagueSeasons, leagues } from "@/db/schema";
 
 type NflScoresPageProps = {
   searchParams: Promise<{
@@ -57,15 +61,26 @@ async function getScheduleSettings(): Promise<ScheduleSettingsValues> {
   if (!user) {
     return DEFAULT_SCHEDULE_SETTINGS;
   }
-  const profile = await getProfileByUserId(user.id);
-  if (!profile) {
+
+  const [row] = await db
+    .select({ settings: leagueSeasons.settings })
+    .from(leagueMembers)
+    .innerJoin(leagues, eq(leagueMembers.leagueId, leagues.id))
+    .innerJoin(leagueSeasons, eq(leagueSeasons.leagueId, leagues.id))
+    .where(eq(leagueMembers.userId, user.id))
+    .orderBy(asc(leagues.createdAt))
+    .limit(1);
+
+  if (!row?.settings?.schedule) {
     return DEFAULT_SCHEDULE_SETTINGS;
   }
+
+  const resolved = resolveScheduleSettings(row.settings.schedule);
   return {
     includePreseason:
-      profile.includePreseason ?? DEFAULT_SCHEDULE_SETTINGS.includePreseason,
+      resolved.includePreseason ?? DEFAULT_SCHEDULE_SETTINGS.includePreseason,
     preseasonStartWeek:
-      profile.preseasonStartWeek ??
+      resolved.preseasonStartWeek ??
       DEFAULT_SCHEDULE_SETTINGS.preseasonStartWeek,
   };
 }

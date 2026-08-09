@@ -391,7 +391,7 @@ export async function claimTeam(
     divisionCount: season.divisionCount,
     regularSeasonEndWeek: season.regularSeasonEndWeek,
     teamIds: seasonTeams.map((team) => team.id),
-    storedPlayEachOtherTimes: season.settings.schedule?.playEachOtherTimes,
+    scheduleSettings: season.settings.schedule,
   });
 
   redirect(`/league/${league.publicId}`);

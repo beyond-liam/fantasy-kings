@@ -21,14 +21,14 @@ describe("finalizeMaxWeek", () => {
     );
   });
 
-  it("caps at week 18", () => {
+  it("caps at max fantasy week", () => {
     assert.equal(
       finalizeMaxWeek({
-        inputWeek: 20,
-        regularSeasonEndWeek: 19,
-        playoffEndWeek: 19,
+        inputWeek: 30,
+        regularSeasonEndWeek: 25,
+        playoffEndWeek: 25,
       }),
-      18,
+      21,
     );
   });
 

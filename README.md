@@ -61,8 +61,21 @@ Open [http://localhost:3000](http://localhost:3000).
 
 - **Fonts:** Figtree via `next/font`
 - **Icons:** Hugeicons free (Stroke Rounded)
-- **Auth:** magic link / OTP
+- **Auth:** email/password (Supabase)
 - **Free tier only** — see operating rules in the project spec
+
+### Auth setup (Supabase dashboard)
+
+1. **Authentication → Providers → Email:** enable Email and allow sign-ups; turn on “Confirm email” if you want verification links.
+2. **Authentication → URL configuration:** set Site URL to your app origin; add redirect URLs:
+   - `http://localhost:3000/auth/callback`
+   - `https://<your-domain>/auth/callback`
+3. Existing OTP-only users: either use **Forgot password?**, or set a shared temp password for all testers:
+
+```bash
+# Add SUPABASE_SERVICE_ROLE_KEY to .env.local (Supabase → Settings → API)
+SET_PASSWORD='TempPass123' pnpm auth:set-passwords
+```
 
 ## Agent / contributor guidance
 

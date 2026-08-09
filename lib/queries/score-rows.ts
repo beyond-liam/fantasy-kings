@@ -44,6 +44,8 @@ export type LoadScoreRowsFilters = {
   season: string;
   week: number;
   kind: "projection" | "stats";
+  /** player_scores.season_type — pre | regular | post. Defaults to regular. */
+  seasonType?: string;
   playerIds?: string[];
   limit?: number;
   offset?: number;
@@ -58,6 +60,7 @@ function scoreRowsCacheKey(filters: LoadScoreRowsFilters) {
     season,
     week,
     kind,
+    seasonType,
     playerIds,
     limit,
     offset,
@@ -65,7 +68,7 @@ function scoreRowsCacheKey(filters: LoadScoreRowsFilters) {
     team,
     rookiesOnly,
   } = filters;
-  let key = `${season}|${week}|${kind}|lim:${limit ?? "all"}|off:${offset ?? 0}`;
+  let key = `${season}|${week}|${seasonType ?? "regular"}|${kind}|lim:${limit ?? "all"}|off:${offset ?? 0}`;
   if (position) key += `|pos:${position}`;
   if (team && team !== "ALL") key += `|team:${team}`;
   if (rookiesOnly) key += `|rookies`;
@@ -117,7 +120,7 @@ export async function loadScoreRows(
     eq(playerScores.season, filters.season),
     eq(playerScores.week, filters.week),
     eq(playerScores.kind, filters.kind),
-    eq(playerScores.seasonType, "regular"),
+    eq(playerScores.seasonType, filters.seasonType ?? "regular"),
   ];
   if (filters.playerIds != null) {
     joinConditions.push(inArray(playerScores.playerId, filters.playerIds));

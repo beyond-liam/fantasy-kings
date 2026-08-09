@@ -8,7 +8,7 @@ import { Suspense } from "react";
 import Image from "next/image";
 
 export const metadata: Metadata = {
-  title: "Log in",
+  title: "Log In",
 };
 
 export default function LoginPage() {

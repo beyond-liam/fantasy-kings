@@ -8,6 +8,7 @@ export async function getPlayerScoresFreshness(input: {
   season: string;
   week: number;
   kind?: "stats" | "projection";
+  seasonType?: string;
 }): Promise<Date | null> {
   const kind = input.kind ?? "stats";
   const [row] = await db
@@ -17,7 +18,7 @@ export async function getPlayerScoresFreshness(input: {
       and(
         eq(playerScores.season, input.season),
         eq(playerScores.week, input.week),
-        eq(playerScores.seasonType, "regular"),
+        eq(playerScores.seasonType, input.seasonType ?? "regular"),
         eq(playerScores.kind, kind),
       ),
     );

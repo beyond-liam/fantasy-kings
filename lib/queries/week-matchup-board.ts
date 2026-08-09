@@ -66,6 +66,12 @@ export type EnrichWeekMatchupBoardInput = {
   week: number;
   currentWeek: number;
   seasonYear: string;
+  /**
+   * NFL week / season type for player_scores + ESPN (defaults to fantasy week /
+   * regular when the league does not extend into preseason).
+   */
+  scoringWeek?: number;
+  scoringSeasonType?: string;
   scoringRules: ScoringRuleDefinition[];
   rosterSlots: RosterSlotConfig[];
   benchSlots: number;
@@ -472,10 +478,14 @@ export async function enrichWeekMatchupBoard(
     }));
   }
 
+  const scoringWeek = input.scoringWeek ?? input.week;
+  const scoringSeasonType = input.scoringSeasonType ?? "regular";
+
   const [projections, actuals] = await Promise.all([
     getRankedPlayers({
       season: input.seasonYear,
-      week: input.week,
+      week: scoringWeek,
+      seasonType: scoringSeasonType,
       kind: "projection",
       scoringRules: input.scoringRules,
       playerIds: allStarterIds,
@@ -484,7 +494,8 @@ export async function enrichWeekMatchupBoard(
     input.week <= input.currentWeek
       ? getRankedPlayers({
           season: input.seasonYear,
-          week: input.week,
+          week: scoringWeek,
+          seasonType: scoringSeasonType,
           kind: "stats",
           scoringRules: input.scoringRules,
           playerIds: allStarterIds,

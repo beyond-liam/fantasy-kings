@@ -11,6 +11,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { toast } from "sonner";
 
 import { LogoField } from "@/components/shared/logo-field";
+import { PasswordSettingsCard } from "@/components/account/password-settings-card";
 import { PageFormActions } from "@/components/layout/page-form-actions";
 import {
   AlertDialog,
@@ -47,6 +48,7 @@ import type { UserSettingsFormValues } from "@/lib/account/user-settings";
 type UserSettingsFormProps = {
   initialValues: UserSettingsFormValues;
   initialAvatarUrl: string | null;
+  hasEmailIdentity: boolean;
 };
 
 function valuesEqual(a: UserSettingsFormValues, b: UserSettingsFormValues) {
@@ -56,6 +58,7 @@ function valuesEqual(a: UserSettingsFormValues, b: UserSettingsFormValues) {
 export function UserSettingsForm({
   initialValues,
   initialAvatarUrl,
+  hasEmailIdentity,
 }: UserSettingsFormProps) {
   const router = useRouter();
   const [values, setValues] = useState(initialValues);
@@ -237,6 +240,8 @@ export function UserSettingsForm({
           Save
         </Button>
       </PageFormActions>
+
+      <PasswordSettingsCard hasEmailIdentity={hasEmailIdentity} />
 
       <Card size="sm" className="gap-0 py-0">
         <CardHeader variant="destructive">

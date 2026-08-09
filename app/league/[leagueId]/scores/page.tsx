@@ -16,9 +16,13 @@ import {
   parseYearQueryParam,
   resolveFantasyMatchupWeek,
 } from "@/lib/leagues/matchup-week";
+import {
+  espnSeasonTypeForNfl,
+  fantasyWeekToNfl,
+} from "@/lib/leagues/schedule/fantasy-week-map";
+import { resolveScheduleSettings } from "@/lib/leagues/schedule/settings";
 import { resolveScoringRuleDefinitions } from "@/lib/leagues/scoring/rules";
 import type { ScoringPreset } from "@/lib/leagues/scoring/types";
-import { getDefaultScheduleWeek } from "@/lib/nfl/schedule-week";
 import {
   getLeagueHomeData,
   getLeagueSeasonByYear,
@@ -87,30 +91,34 @@ export default async function FantasyScoresPage({
     ReturnType<typeof getNflScoreboard>
   >["games"] = [];
   let scoresUpdatedAt: string | null = null;
+  const schedule = resolveScheduleSettings(season.settings.schedule);
 
   try {
     const resolved = await resolveFantasyMatchupWeek({
       seasonYear: season.seasonYear,
-      maxWeek: season.regularSeasonEndWeek,
+      nflRegularSeasonEndWeek: season.regularSeasonEndWeek,
+      schedule,
       requestedWeek,
     });
     week = resolved.week;
     weeks = resolved.weeks;
-    currentWeek = Math.min(
-      getDefaultScheduleWeek(resolved.calendarWeeks),
-      season.regularSeasonEndWeek,
-    );
+    currentWeek = resolved.currentWeek;
+    const nflWeek = fantasyWeekToNfl(week, schedule);
+    const scoringWeek = nflWeek?.week ?? week;
+    const scoringSeasonType = nflWeek?.seasonType ?? "regular";
 
     const [matchups, scoreboard, freshness, finals] = await Promise.all([
       getWeekMatchups(season.id, week),
       getNflScoreboard({
         season: season.seasonYear,
-        week,
+        week: scoringWeek,
+        seasonType: espnSeasonTypeForNfl(scoringSeasonType),
       }).catch(() => null),
       getPlayerScoresFreshness({
         season: String(season.seasonYear),
-        week,
+        week: scoringWeek,
         kind: "stats",
+        seasonType: scoringSeasonType,
       }).catch(() => null),
       getFinalMatchupsForSeason(season.id).catch(() => []),
     ]);
@@ -131,6 +139,8 @@ export default async function FantasyScoresPage({
       week,
       currentWeek,
       seasonYear: String(season.seasonYear),
+      scoringWeek,
+      scoringSeasonType,
       scoringRules,
       rosterSlots: season.settings.rosterSlots,
       benchSlots: season.benchSlots,
@@ -225,11 +235,16 @@ export default async function FantasyScoresPage({
         : "Failed to resolve the current matchup week";
     week = requestedWeek ?? 1;
     currentWeek = week;
-    weeks = Array.from({ length: season.regularSeasonEndWeek }, (_, index) => ({
-      number: index + 1,
-      label: `Week ${index + 1}`,
-      rangeLabel: "",
-    }));
+    weeks = Array.from(
+      {
+        length: Math.max(season.regularSeasonEndWeek, week),
+      },
+      (_, index) => ({
+        number: index + 1,
+        label: `Week ${index + 1}`,
+        rangeLabel: "",
+      }),
+    );
     rows = await getWeekMatchups(season.id, week).catch(() => []);
   }
 
@@ -239,6 +254,9 @@ export default async function FantasyScoresPage({
     scoringPreset,
     season.settings.scoringRules,
   );
+  const fallbackNfl = fantasyWeekToNfl(week, schedule);
+  const scoringWeek = fallbackNfl?.week ?? week;
+  const scoringSeasonType = fallbackNfl?.seasonType ?? "regular";
 
   const finals = await getFinalMatchupsForSeason(season.id).catch(() => []);
   const recordsByTeamId = recordsFromFinalMatchups(finals);
@@ -248,6 +266,8 @@ export default async function FantasyScoresPage({
     week,
     currentWeek,
     seasonYear: String(season.seasonYear),
+    scoringWeek,
+    scoringSeasonType,
     scoringRules,
     rosterSlots: season.settings.rosterSlots,
     benchSlots: season.benchSlots,

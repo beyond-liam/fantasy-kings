@@ -1,15 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { HugeiconsIcon } from "@hugeicons/react";
-import {
-  ArrowLeft01Icon,
-  Login01Icon,
-  Mail01Icon,
-  UserAdd01Icon,
-} from "@hugeicons/core-free-icons";
+import { Login01Icon, UserAdd01Icon } from "@hugeicons/core-free-icons";
 
+import { PasswordField } from "@/components/auth/password-field";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,162 +16,108 @@ import {
 } from "@/components/ui/card";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import {
-  InputOTP,
-  InputOTPGroup,
-  InputOTPSlot,
-} from "@/components/ui/input-otp";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { mapAuthError } from "@/lib/auth/auth-errors";
 import { safeNextPath } from "@/lib/auth/safe-next";
-import { mapOtpSendError } from "@/lib/auth/otp-errors";
 import { createClient } from "@/lib/supabase/client";
 
 type Mode = "register" | "login";
-type Step = "email" | "otp";
 
 const MODE_COPY = {
   register: {
-    title: "Register your account",
-    description: "Add and verify your email address to get started.",
+    title: "Create your account",
+    description: "Register with your email and a password.",
   },
   login: {
     title: "Welcome back",
-    description:
-      "Login with your email address and your verification code.",
+    description: "Log in with your email and password.",
   },
 } as const;
+
+const MIN_PASSWORD_LENGTH = 8;
 
 export function LoginForm() {
   const searchParams = useSearchParams();
   const next = safeNextPath(searchParams.get("next"));
+  const authError = searchParams.get("error") === "auth";
+
   const [mode, setMode] = useState<Mode>("register");
-  const [step, setStep] = useState<Step>("email");
   const [email, setEmail] = useState("");
-  const [otp, setOtp] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [message, setMessage] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(
+    authError ? "Sign-in was cancelled or failed. Please try again." : null,
+  );
   const [loading, setLoading] = useState(false);
 
-  const sendCode = async (event: React.FormEvent) => {
+  const authRedirectTo = () => {
+    const url = new URL("/auth/callback", window.location.origin);
+    url.searchParams.set("next", next);
+    return url.toString();
+  };
+
+  const submitEmailAuth = async (event: React.FormEvent) => {
     event.preventDefault();
     setLoading(true);
     setError(null);
     setMessage(null);
 
-    const supabase = createClient();
-    const { error: signInError } = await supabase.auth.signInWithOtp({
-      email: email.trim(),
-      options: {
-        shouldCreateUser: mode === "register",
-      },
-    });
+    const trimmedEmail = email.trim();
+    if (password.length < MIN_PASSWORD_LENGTH) {
+      setLoading(false);
+      setError(`Password must be at least ${MIN_PASSWORD_LENGTH} characters.`);
+      return;
+    }
 
-    setLoading(false);
+    if (mode === "register" && password !== confirmPassword) {
+      setLoading(false);
+      setError("Passwords do not match.");
+      return;
+    }
+
+    const supabase = createClient();
+
+    if (mode === "register") {
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email: trimmedEmail,
+        password,
+        options: {
+          emailRedirectTo: authRedirectTo(),
+        },
+      });
+
+      setLoading(false);
+
+      if (signUpError) {
+        setError(mapAuthError(signUpError.message, "register"));
+        return;
+      }
+
+      if (data.session) {
+        window.location.assign(next);
+        return;
+      }
+
+      setMessage(
+        "Check your email for a verification link to finish creating your account.",
+      );
+      return;
+    }
+
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email: trimmedEmail,
+      password,
+    });
 
     if (signInError) {
-      setError(mapOtpSendError(signInError.message, mode));
-      return;
-    }
-
-    setMessage("Check your email for a 6-digit code.");
-    setStep("otp");
-  };
-
-  const verifyCode = async (event: React.FormEvent) => {
-    event.preventDefault();
-    setLoading(true);
-    setError(null);
-
-    const supabase = createClient();
-    const { error: verifyError } = await supabase.auth.verifyOtp({
-      email: email.trim(),
-      token: otp.trim(),
-      type: "email",
-    });
-
-    if (verifyError) {
       setLoading(false);
-      setError(verifyError.message);
+      setError(mapAuthError(signInError.message, "login"));
       return;
     }
 
-    // Full navigation so the server re-renders app chrome with the new session.
     window.location.assign(next);
   };
-
-  if (step === "otp") {
-    return (
-      <form onSubmit={verifyCode} className="flex w-full flex-col gap-4">
-        {error ? (
-          <Alert variant="destructive">
-            <AlertTitle>Couldn&apos;t verify code</AlertTitle>
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        ) : null}
-
-        {message ? (
-          <Alert className="border-success/30 bg-success/10 text-success *:data-[slot=alert-description]:text-success/90">
-            <AlertTitle>Code sent</AlertTitle>
-            <AlertDescription>{message}</AlertDescription>
-          </Alert>
-        ) : null}
-
-        <FieldGroup>
-          <Field data-invalid={error ? true : undefined}>
-            <FieldLabel htmlFor="otp">Verification code</FieldLabel>
-            <InputOTP
-              id="otp"
-              maxLength={6}
-              value={otp}
-              onChange={setOtp}
-              disabled={loading}
-              aria-invalid={error ? true : undefined}
-              containerClassName="w-full"
-            >
-              <InputOTPGroup className="w-full">
-                <InputOTPSlot index={0} className="h-12 flex-1 text-lg" />
-                <InputOTPSlot index={1} className="h-12 flex-1 text-lg" />
-                <InputOTPSlot index={2} className="h-12 flex-1 text-lg" />
-                <InputOTPSlot index={3} className="h-12 flex-1 text-lg" />
-                <InputOTPSlot index={4} className="h-12 flex-1 text-lg" />
-                <InputOTPSlot index={5} className="h-12 flex-1 text-lg" />
-              </InputOTPGroup>
-            </InputOTP>
-            <p className="text-xs text-muted-foreground">
-              Sent to {email.trim()}
-            </p>
-          </Field>
-        </FieldGroup>
-
-        <Button type="submit" disabled={loading || otp.trim().length !== 6}>
-          <HugeiconsIcon
-            icon={Login01Icon}
-            strokeWidth={2}
-            data-icon="inline-start"
-          />
-          Verify and continue
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          disabled={loading}
-          onClick={() => {
-            setStep("email");
-            setOtp("");
-            setError(null);
-            setMessage(null);
-          }}
-        >
-          <HugeiconsIcon
-            icon={ArrowLeft01Icon}
-            strokeWidth={2}
-            data-icon="inline-start"
-          />
-          Use a different email
-        </Button>
-      </form>
-    );
-  }
 
   return (
     <Tabs
@@ -197,13 +140,19 @@ export function LoginForm() {
           <CardTitle>{MODE_COPY.register.title}</CardTitle>
           <CardDescription>{MODE_COPY.register.description}</CardDescription>
         </CardHeader>
-        <EmailStep
+        <AuthFields
           mode="register"
           email={email}
+          password={password}
+          confirmPassword={confirmPassword}
           error={error}
+          message={message}
           loading={loading}
+          next={next}
           onEmailChange={setEmail}
-          onSubmit={sendCode}
+          onPasswordChange={setPassword}
+          onConfirmPasswordChange={setConfirmPassword}
+          onSubmit={submitEmailAuth}
         />
       </TabsContent>
 
@@ -212,35 +161,57 @@ export function LoginForm() {
           <CardTitle>{MODE_COPY.login.title}</CardTitle>
           <CardDescription>{MODE_COPY.login.description}</CardDescription>
         </CardHeader>
-        <EmailStep
+        <AuthFields
           mode="login"
           email={email}
+          password={password}
+          confirmPassword={confirmPassword}
           error={error}
+          message={message}
           loading={loading}
+          next={next}
           onEmailChange={setEmail}
-          onSubmit={sendCode}
+          onPasswordChange={setPassword}
+          onConfirmPasswordChange={setConfirmPassword}
+          onSubmit={submitEmailAuth}
         />
       </TabsContent>
     </Tabs>
   );
 }
 
-function EmailStep({
+function AuthFields({
   mode,
   email,
+  password,
+  confirmPassword,
   error,
+  message,
   loading,
+  next,
   onEmailChange,
+  onPasswordChange,
+  onConfirmPasswordChange,
   onSubmit,
 }: {
   mode: Mode;
   email: string;
+  password: string;
+  confirmPassword: string;
   error: string | null;
+  message: string | null;
   loading: boolean;
+  next: string;
   onEmailChange: (value: string) => void;
+  onPasswordChange: (value: string) => void;
+  onConfirmPasswordChange: (value: string) => void;
   onSubmit: (event: React.FormEvent) => void;
 }) {
   const isRegister = mode === "register";
+  const forgotHref =
+    next === "/dashboard"
+      ? "/forgot-password"
+      : `/forgot-password?next=${encodeURIComponent(next)}`;
 
   return (
     <form onSubmit={onSubmit} className="flex w-full flex-col gap-4">
@@ -255,27 +226,74 @@ function EmailStep({
             value={email}
             onChange={(event) => onEmailChange(event.target.value)}
             required
+            disabled={loading}
             aria-invalid={error ? true : undefined}
           />
         </Field>
+
+        <PasswordField
+          id={`password-${mode}`}
+          label="Password"
+          value={password}
+          onChange={onPasswordChange}
+          autoComplete={isRegister ? "new-password" : "current-password"}
+          disabled={loading}
+          invalid={Boolean(error)}
+          minLength={MIN_PASSWORD_LENGTH}
+        />
+
+        {isRegister ? (
+          <PasswordField
+            id="confirm-password"
+            label="Confirm password"
+            value={confirmPassword}
+            onChange={onConfirmPasswordChange}
+            autoComplete="new-password"
+            disabled={loading}
+            invalid={Boolean(error)}
+            minLength={MIN_PASSWORD_LENGTH}
+          />
+        ) : null}
       </FieldGroup>
+
+      {isRegister ? (
+        <p className="text-sm text-muted-foreground">
+          We&apos;ll email a verification link to confirm your address.
+        </p>
+      ) : (
+        <div className="flex justify-end">
+          <Link
+            href={forgotHref}
+            className="text-sm text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+          >
+            Forgot password?
+          </Link>
+        </div>
+      )}
 
       {error ? (
         <Alert variant="destructive">
           <AlertTitle>
-            {isRegister ? "Couldn't register" : "Couldn't send code"}
+            {isRegister ? "Couldn't register" : "Couldn't log in"}
           </AlertTitle>
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       ) : null}
 
+      {message ? (
+        <Alert className="border-success/30 bg-success/10 text-success *:data-[slot=alert-description]:text-success/90">
+          <AlertTitle>Check your email</AlertTitle>
+          <AlertDescription>{message}</AlertDescription>
+        </Alert>
+      ) : null}
+
       <Button type="submit" disabled={loading}>
         <HugeiconsIcon
-          icon={isRegister ? UserAdd01Icon : Mail01Icon}
+          icon={isRegister ? UserAdd01Icon : Login01Icon}
           strokeWidth={2}
           data-icon="inline-start"
         />
-        {isRegister ? "Register and Verify Account" : "Send Verification Code"}
+        {isRegister ? "Create Account" : "Log In"}
       </Button>
     </form>
   );

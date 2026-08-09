@@ -59,7 +59,11 @@ export default async function ScheduleSettingsPage({
   const filledTeams = Number(teamCountRow?.value ?? 0);
   const schedule = resolveScheduleSettings(season.settings.schedule);
   const nfl = await getNflState();
-  const editable = isScheduleEditable(season.seasonYear, nfl);
+  const editable = isScheduleEditable(
+    season.seasonYear,
+    nfl,
+    season.settings.schedule,
+  );
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-6">
@@ -86,6 +90,8 @@ export default async function ScheduleSettingsPage({
         teamCount={season.teamCount}
         regularSeasonEndWeek={season.regularSeasonEndWeek}
         initialPlayEachOtherTimes={schedule.playEachOtherTimes}
+        initialIncludePreseason={schedule.includePreseason ?? false}
+        initialPreseasonStartWeek={schedule.preseasonStartWeek ?? 1}
         isLeagueFull={filledTeams >= season.teamCount}
         matchupCount={Number(matchupCountRow?.value ?? 0)}
         editable={editable}

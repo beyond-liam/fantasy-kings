@@ -47,13 +47,16 @@ export async function getCommissionerSeason(slug: string) {
   return { season, league, user };
 }
 
-export async function assertScheduleStillEditable(seasonYear: number) {
+export async function assertScheduleStillEditable(
+  seasonYear: number,
+  schedule?: import("@/db/schema/league-seasons").ScheduleSettings | null,
+) {
   const nfl = await getNflState();
-  if (!isScheduleEditable(seasonYear, nfl)) {
+  if (!isScheduleEditable(seasonYear, nfl, schedule)) {
     return {
       success: false as const,
       error:
-        "Schedule and playoff settings lock once NFL Week 1 of the season begins.",
+        "Schedule and playoff settings lock once the fantasy season begins.",
     };
   }
   return { success: true as const, nfl };

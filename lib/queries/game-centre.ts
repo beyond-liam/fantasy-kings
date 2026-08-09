@@ -35,6 +35,10 @@ import {
 } from "@/lib/leagues/waivers/game-lock";
 import { getNflScoreboard, type ScheduleGame } from "@/lib/espn/scoreboard";
 import {
+  espnSeasonTypeForNfl,
+  fantasyWeekToNfl,
+} from "@/lib/leagues/schedule/fantasy-week-map";
+import {
   buildOpponentByTeam,
   normalizeNflTeamAbbrev,
   resolvePlayerOpponent,
@@ -133,6 +137,8 @@ export type GameCentreData = {
   matchupPublicId: string;
   week: number;
   seasonYear: number;
+  regularSeasonEndWeek: number;
+  scheduleSettings: import("@/db/schema/league-seasons").ScheduleSettings | null;
   leagueSlug: string;
   status: "scheduled" | "in_progress" | "final";
   finalizedAt: string | null;
@@ -335,6 +341,9 @@ export async function getGameCentreData(input: {
     scoringPreset,
     season.settings.scoringRules,
   );
+  const nflPoint = fantasyWeekToNfl(matchup.week, season.settings.schedule);
+  const scoringWeek = nflPoint?.week ?? matchup.week;
+  const scoringSeasonType = nflPoint?.seasonType ?? "regular";
 
   const [awayRoster, homeRoster, viewerTeam, ownership, scoreboard] =
     await Promise.all([
@@ -346,7 +355,8 @@ export async function getGameCentreData(input: {
       ),
       getNflScoreboard({
         season: season.seasonYear,
-        week: matchup.week,
+        week: scoringWeek,
+        seasonType: espnSeasonTypeForNfl(scoringSeasonType),
       }).catch(() => null),
     ]);
 
@@ -391,7 +401,8 @@ export async function getGameCentreData(input: {
       rosterIds.length
         ? getRankedPlayers({
             season: seasonYear,
-            week: matchup.week,
+            week: scoringWeek,
+            seasonType: scoringSeasonType,
             kind: "projection",
             scoringRules,
             playerIds: rosterIds,
@@ -401,7 +412,8 @@ export async function getGameCentreData(input: {
       rosterIds.length
         ? getRankedPlayers({
             season: seasonYear,
-            week: matchup.week,
+            week: scoringWeek,
+            seasonType: scoringSeasonType,
             kind: "stats",
             scoringRules,
             playerIds: rosterIds,
@@ -412,7 +424,8 @@ export async function getGameCentreData(input: {
       needsFaTips
         ? getRankedPlayers({
             season: seasonYear,
-            week: matchup.week,
+            week: scoringWeek,
+            seasonType: scoringSeasonType,
             kind: "projection",
             scoringRules,
             limit: 100,
@@ -676,6 +689,8 @@ export async function getGameCentreData(input: {
     matchupPublicId: matchup.publicId,
     week: matchup.week,
     seasonYear: matchup.seasonYear,
+    regularSeasonEndWeek: season.regularSeasonEndWeek,
+    scheduleSettings: season.settings.schedule ?? null,
     leagueSlug: input.leagueSlug,
     status: matchup.status,
     finalizedAt: matchup.finalizedAt?.toISOString() ?? null,

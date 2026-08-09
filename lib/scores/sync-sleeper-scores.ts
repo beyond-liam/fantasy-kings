@@ -41,13 +41,15 @@ function scoreValuesFromSleeperRows(input: {
   kind: SyncScoresKind;
   season: string;
   week: number | null;
+  seasonType?: string;
 }) {
   const weekValue = input.week ?? 0;
+  const seasonType = input.seasonType ?? "regular";
   const values: Array<{
     playerId: string;
     season: string;
     week: number;
-    seasonType: "regular";
+    seasonType: string;
     kind: SyncScoresKind;
     stats: Record<string, number | null>;
     ptsPpr: number | null;
@@ -66,7 +68,7 @@ function scoreValuesFromSleeperRows(input: {
       playerId,
       season: input.season,
       week: weekValue,
-      seasonType: "regular",
+      seasonType,
       kind: input.kind,
       stats,
       ptsPpr: typeof stats.pts_ppr === "number" ? stats.pts_ppr : null,
@@ -105,6 +107,7 @@ export async function upsertSleeperScoresBatch(
   kind: SyncScoresKind,
   season: string,
   week: number | null,
+  seasonType: string = "regular",
 ): Promise<UpsertSleeperScoresResult> {
   const rows = await fetchSleeperScores(kind, season, week);
   const values = scoreValuesFromSleeperRows({
@@ -113,6 +116,7 @@ export async function upsertSleeperScoresBatch(
     kind,
     season,
     week,
+    seasonType,
   });
 
   for (let i = 0; i < values.length; i += UPSERT_CHUNK_SIZE) {
@@ -148,6 +152,7 @@ async function maxUpdatedAtForWeek(input: {
   season: string;
   week: number;
   kinds: SyncScoresKind[];
+  seasonType?: string;
 }): Promise<Date | null> {
   const [row] = await db
     .select({ value: max(playerScores.updatedAt) })
@@ -156,7 +161,7 @@ async function maxUpdatedAtForWeek(input: {
       and(
         eq(playerScores.season, input.season),
         eq(playerScores.week, input.week),
-        eq(playerScores.seasonType, "regular"),
+        eq(playerScores.seasonType, input.seasonType ?? "regular"),
         inArray(playerScores.kind, input.kinds),
       ),
     );
@@ -190,6 +195,10 @@ export async function syncCurrentWeekScores(options?: {
   const week = hasWeekOverride
     ? options.week!
     : (state.display_week ?? state.week);
+  const seasonType =
+    state.season_type === "pre" || state.season_type === "post"
+      ? state.season_type
+      : "regular";
 
   const sleeperOffseason =
     !hasWeekOverride &&
@@ -240,6 +249,7 @@ export async function syncCurrentWeekScores(options?: {
       kind,
       season,
       week,
+      seasonType,
     );
     upserted += result.upserted;
     sleeperRows += result.sleeperRows;
@@ -247,7 +257,12 @@ export async function syncCurrentWeekScores(options?: {
 
   clearScoreRowsCache();
 
-  const maxUpdated = await maxUpdatedAtForWeek({ season, week, kinds });
+  const maxUpdated = await maxUpdatedAtForWeek({
+    season,
+    week,
+    kinds,
+    seasonType,
+  });
 
   return {
     ok: true,

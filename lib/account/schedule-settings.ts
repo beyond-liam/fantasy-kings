@@ -6,22 +6,22 @@ export const PRESEASON_START_WEEK_OPTIONS = [
   { value: "1", label: "Week 1" },
   { value: "2", label: "Week 2" },
   { value: "3", label: "Week 3" },
-  { value: "4", label: "Week 4" },
 ] as const;
 
 export type ScheduleSettingsValues = {
   includePreseason: boolean;
+  /** User Preseason Week 1–3 (maps to ESPN weeks 2–4; HOF is excluded). */
   preseasonStartWeek: number;
 };
 
 export const DEFAULT_SCHEDULE_SETTINGS: ScheduleSettingsValues = {
-  includePreseason: true,
+  includePreseason: false,
   preseasonStartWeek: 1,
 };
 
 export const scheduleSettingsSchema = z.object({
   includePreseason: z.boolean(),
-  preseasonStartWeek: z.number().int().min(1).max(4),
+  preseasonStartWeek: z.number().int().min(1).max(3),
 });
 
 export type ScheduleWeekEntry = {
@@ -36,7 +36,10 @@ export function calendarSeasonTypesForSchedule(
   return settings.includePreseason ? [1, 2] : [2];
 }
 
-/** Drop preseason weeks before the configured start week. */
+/**
+ * Drop Hall of Fame and any preseason weeks before the configured start.
+ * `preseasonStartWeek` is user Preseason Week 1–3 → ESPN week N+1.
+ */
 export function filterScheduleWeeks<T extends ScheduleWeekEntry>(
   weeks: T[],
   settings: ScheduleSettingsValues,
@@ -45,8 +48,9 @@ export function filterScheduleWeeks<T extends ScheduleWeekEntry>(
     return weeks.filter((week) => week.seasonType !== 1);
   }
 
+  const espnStartWeek = settings.preseasonStartWeek + 1;
+
   return weeks.filter(
-    (week) =>
-      week.seasonType !== 1 || week.number >= settings.preseasonStartWeek,
+    (week) => week.seasonType !== 1 || week.number >= espnStartWeek,
   );
 }

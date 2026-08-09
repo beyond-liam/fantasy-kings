@@ -21,7 +21,7 @@ A mobile-first fantasy football web app for a private friend group (4–16 users
 
 | Area | What’s live |
 |---|---|
-| Auth / leagues | Magic link OTP, create/join, multi-league, settings |
+| Auth / leagues | Email/password auth, create/join, multi-league, settings |
 | Scoring | Offense engine + commissioner scoring UI |
 | Roster | Lineup / IR / taxi (eligibility), FA add/cut, lineup-lock enforce |
 | Waivers / trades | FAAB + rolling, claims, vetoes, limits, crons, alerts |
@@ -124,7 +124,7 @@ Do not substitute without explicit approval.
 | Framework | Next.js (App Router) | Single codebase, responsive |
 | Hosting | Vercel (Hobby/free tier) | Private friend league — non-commercial terms OK |
 | Database | Supabase Postgres (free tier) | 500MB DB / 5GB bandwidth / 50k MAU |
-| Auth | Supabase Auth (magic link / OTP) | Passwordless only — no stored passwords |
+| Auth | Supabase Auth (email/password) | Free tier; OTP retired from primary login |
 | Realtime | Supabase Realtime | Live draft room (when built) |
 | ORM | Drizzle | Domain-split schema files — see Section 8 |
 | Historical stats | nflverse (nflreadr / player week CSVs) | Free, open source — **wired** post-week via `sync-scores` |
@@ -151,7 +151,7 @@ Do not substitute without explicit approval.
 | Commissioner | **One** per league |
 | Invites | **Shareable league link** (not email-invite flow for now) |
 | Multi-league users | Yes — post-login dashboard / leagues list |
-| Auth | Passwordless magic link / OTP via Supabase (**wired**) |
+| Auth | Email/password via Supabase (**wired**) |
 | UI reference | No mockup required — shadcn components |
 | Visual system | Dark-only shadcn + Figtree — **no separate branding track** |
 | Empty states | Always use shadcn **`Empty`** (`components/ui/empty`) wherever an empty/zero-data state is shown |
@@ -230,7 +230,9 @@ Two variants via the `Empty` **`size`** prop:
 
 ### Authentication
 
-- Passwordless only: email one-time code (OTP) — **no stored passwords**
+- Email/password register + login via Supabase Auth
+- Forgot password → email reset link → `/update-password`
+- Settings: change password (or set password for OAuth-only accounts if re-enabled later)
 - First login: required onboarding modal (first name, last name, favourite NFL team)
 - Open registration — anyone can create an account and create a league
 - Post-login: dashboard; invite destinations preserved via `next`
@@ -406,7 +408,7 @@ Explicitly out of Team Stats v1: radar/H2H vibe charts, OPF-vs-OPF as headline r
 - In-app bell dropdown shipped (trade + waiver + matchup-result / score-correction producers); **league name on each notification** planned (near-term)
 - Email via **Brevo** **(wired)** — `lib/email/*` adapters; scope **locked** to draft + trade only (no expansion)
 - **League Alert** fan-out (`lib/alerts/`): Trade + Draft + Matchup announce helpers resolve recipients once, then in-app + email adapters (`CONTEXT.md`)
-- Auth OTP remains Supabase (not Brevo)
+- Auth emails remain Supabase (not Brevo) — confirmation + password reset
 - Dedupe via `email_sends` table; email sends use `after()` except draft-reminder cron (sync)
 - Live draft reminders: `/api/cron/draft-reminders` (use cron-job.org every ~5 min; Vercel Hobby daily backup only)
 - **Email scope (locked — do not expand):**
@@ -642,7 +644,7 @@ lib/
 
 ### Phase 3 — Backend wiring
 
-- [x] Auth (email OTP + first-login onboarding)
+- [x] Auth (email/password + first-login onboarding)
 - [x] League create + shareable invite link/code
 - [x] Multi-league membership (list + join via code + Claim Team)
 - [x] Offense scoring engine + league scoring settings
@@ -864,5 +866,9 @@ lib/
 | 2026-08-06 | Power Rankings overview: trends, my ranks, season trajectory chart, then mode list |
 | 2026-08-06 | Activity feed filters condensed: Draft picks · Trades · Waivers · Roster · League |
 | 2026-08-07 | NFL Scores schedule settings: include preseason switch + start-week select on `/settings` |
+| 2026-08-08 | NFL schedule prefs moved to league Schedule settings (not user settings); `/scores` reads first league |
+| 2026-08-09 | Include preseason extends fantasy calendar (Week 1 can start in NFL pre); championship still on configured NFL week |
 | 2026-08-08 | League autopick: queue → need-aware ADP (BPA fallback) + same-position bye avoidance; shared with mock bot |
 | 2026-08-08 | Page titles: NFL game / fantasy matchup `Away @ Home`, league & team names, message subject; league routes use `Page | League Name` |
+| 2026-08-08 | Auth: email/password; forgot/reset + settings password; OTP removed; Google deferred |
+| 2026-08-08 | Settings: set/change password card above delete account |

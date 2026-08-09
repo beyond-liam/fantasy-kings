@@ -14,6 +14,16 @@ import { resolveTiebreakerSettings } from "@/lib/leagues/tiebreakers";
 import { getWeekMatchups } from "@/lib/queries/matchups";
 import { enrichWeekMatchupBoard } from "@/lib/queries/week-matchup-board";
 import { finalizeMaxWeek } from "./finalize-gates";
+import {
+  espnSeasonTypeForNfl,
+  fantasyChampionshipWeek,
+  fantasyRegularSeasonEndWeek,
+  fantasyWeekToNfl,
+  nflSeasonTypeFromSleeper,
+  nflToFantasyWeek,
+} from "@/lib/leagues/schedule/fantasy-week-map";
+import { resolveScheduleSettings } from "@/lib/leagues/schedule/settings";
+import { getNflState } from "@/lib/sleeper/api";
 
 export {
   getFinalMatchupsForSeason,
@@ -336,6 +346,8 @@ export async function finalizeSeasonWeekMatchups(input: {
   week: number;
   currentWeek: number;
   scoreboardGames: ScheduleGame[];
+  scoringWeek?: number;
+  scoringSeasonType?: string;
   allowOfficialCorrections?: boolean;
 }): Promise<{ finalized: number; inProgress: number; corrected: number }> {
   const rows = await getWeekMatchups(input.season.id, input.week);
@@ -402,6 +414,8 @@ export async function finalizeSeasonWeekMatchups(input: {
     week: input.week,
     currentWeek: input.currentWeek,
     seasonYear: String(input.season.seasonYear),
+    scoringWeek: input.scoringWeek ?? input.week,
+    scoringSeasonType: input.scoringSeasonType ?? "regular",
     scoringRules,
     rosterSlots: input.season.settings.rosterSlots,
     benchSlots: input.season.benchSlots,
@@ -466,21 +480,41 @@ export async function finalizeDueMatchupsAfterScoreSync(input: {
   const playoffAdvanceErrors: Array<{ leagueSeasonId: string; error: string }> =
     [];
 
-  const scoreboardCache = new Map<number, ScheduleGame[]>();
+  const scoreboardCache = new Map<string, ScheduleGame[]>();
 
-  async function gamesForWeek(week: number): Promise<ScheduleGame[]> {
-    const cached = scoreboardCache.get(week);
+  async function gamesForNflWeek(point: {
+    week: number;
+    seasonType: "pre" | "regular" | "post";
+  }): Promise<ScheduleGame[]> {
+    const key = `${point.seasonType}:${point.week}`;
+    const cached = scoreboardCache.get(key);
     if (cached) return cached;
     const board = await getNflScoreboard({
       season: year,
-      week,
+      week: point.week,
+      seasonType: espnSeasonTypeForNfl(point.seasonType),
     }).catch(() => null);
     const games = board?.games ?? [];
-    scoreboardCache.set(week, games);
+    scoreboardCache.set(key, games);
     return games;
   }
 
+  const nflState = await getNflState().catch(() => null);
+  const syncedSeasonType =
+    nflSeasonTypeFromSleeper(nflState?.season_type ?? "regular") ?? "regular";
+
   for (const season of seasons) {
+    const schedule = resolveScheduleSettings(
+      (season.settings as LeagueSeasonSettings | null)?.schedule,
+    );
+    const fantasySyncedWeek = nflToFantasyWeek(
+      { seasonType: syncedSeasonType, week: input.week },
+      schedule,
+    );
+    if (fantasySyncedWeek == null) {
+      continue;
+    }
+
     const tiebreakers = resolveTiebreakerSettings(
       (season.settings as LeagueSeasonSettings | null)?.tiebreakers,
     );
@@ -490,12 +524,15 @@ export async function finalizeDueMatchupsAfterScoreSync(input: {
       (season.settings as LeagueSeasonSettings | null)?.playoffs,
     );
     const playoffEndWeek = playoffs.enabled
-      ? season.championshipWeek
+      ? fantasyChampionshipWeek(season.championshipWeek, schedule)
       : undefined;
 
     const maxWeek = finalizeMaxWeek({
-      inputWeek: input.week,
-      regularSeasonEndWeek: season.regularSeasonEndWeek,
+      inputWeek: fantasySyncedWeek,
+      regularSeasonEndWeek: fantasyRegularSeasonEndWeek(
+        season.regularSeasonEndWeek,
+        schedule,
+      ),
       playoffEndWeek,
     });
 
@@ -529,14 +566,20 @@ export async function finalizeDueMatchupsAfterScoreSync(input: {
       }
 
       weeksChecked += 1;
+      const nfl = fantasyWeekToNfl(week, schedule) ?? {
+        seasonType: "regular" as const,
+        week,
+      };
       const scoreboardGames =
         week === maxWeek || allowOfficialCorrections
-          ? await gamesForWeek(week)
+          ? await gamesForNflWeek(nfl)
           : [];
       const result = await finalizeSeasonWeekMatchups({
         season: season as SeasonFinalizeRow,
         week,
-        currentWeek: input.week,
+        currentWeek: fantasySyncedWeek,
+        scoringWeek: nfl.week,
+        scoringSeasonType: nfl.seasonType,
         scoreboardGames,
         allowOfficialCorrections,
       });
@@ -549,6 +592,7 @@ export async function finalizeDueMatchupsAfterScoreSync(input: {
       await ensurePlayoffMatchupsAdvanced({
         leagueSeasonId: season.id,
         currentNflWeek: input.week,
+        currentFantasyWeek: fantasySyncedWeek,
       });
     } catch (error) {
       const message =

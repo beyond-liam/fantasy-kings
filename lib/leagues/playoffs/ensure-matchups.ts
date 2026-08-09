@@ -17,6 +17,13 @@ import { decideNextPlayoffRound } from "@/lib/leagues/playoffs/decide-next-round
 import { buildLeagueStandings } from "@/lib/leagues/standings-from-matchups";
 import type { LeagueStandingsMember } from "@/lib/leagues/standings";
 import { getPlayoffWeekRange } from "@/lib/leagues/season-calendar";
+import {
+  fantasyChampionshipWeek,
+  fantasyRegularSeasonEndWeek,
+  fantasyWeekToNfl,
+  preseasonFantasyWeekCount,
+} from "@/lib/leagues/schedule/fantasy-week-map";
+import { resolveScheduleSettings } from "@/lib/leagues/schedule/settings";
 import { resolveTiebreakerSettings } from "@/lib/leagues/tiebreakers";
 import { loadTeamWeekGameTieMetrics } from "@/lib/leagues/tiebreakers/load-game-metrics";
 
@@ -27,6 +34,8 @@ import { loadTeamWeekGameTieMetrics } from "@/lib/leagues/tiebreakers/load-game-
 export async function ensurePlayoffMatchupsAdvanced(input: {
   leagueSeasonId: string;
   currentNflWeek: number;
+  /** Fantasy week including preseason offset; preferred when provided. */
+  currentFantasyWeek?: number;
 }): Promise<{ inserted: number }> {
   const [season] = await db
     .select({
@@ -48,9 +57,19 @@ export async function ensurePlayoffMatchupsAdvanced(input: {
   const playoffs = resolvePlayoffSettings(season.settings.playoffs);
   if (!playoffs.enabled) return { inserted: 0 };
 
+  const schedule = resolveScheduleSettings(season.settings.schedule);
+  const preCount = preseasonFantasyWeekCount(schedule);
+  const fantasyRsEnd = fantasyRegularSeasonEndWeek(
+    season.regularSeasonEndWeek,
+    schedule,
+  );
+  const currentFantasyWeek =
+    input.currentFantasyWeek ??
+    preCount + input.currentNflWeek;
+
   const tiebreakers = resolveTiebreakerSettings(season.settings.tiebreakers);
 
-  const range = getPlayoffWeekRange(
+  const nflRange = getPlayoffWeekRange(
     season.championshipWeek,
     season.playoffTeamCount,
     {
@@ -58,9 +77,14 @@ export async function ensurePlayoffMatchupsAdvanced(input: {
       twoWeekChampionship: playoffs.twoWeekChampionship,
     },
   );
-  if (!range) return { inserted: 0 };
+  if (!nflRange) return { inserted: 0 };
 
-  if (input.currentNflWeek < season.regularSeasonEndWeek) {
+  const range = {
+    startWeek: preCount + nflRange.startWeek,
+    endWeek: fantasyChampionshipWeek(season.championshipWeek, schedule),
+  };
+
+  if (currentFantasyWeek < fantasyRsEnd) {
     return { inserted: 0 };
   }
 
@@ -115,7 +139,7 @@ export async function ensurePlayoffMatchupsAdvanced(input: {
     const standings = buildLeagueStandings(
       members,
       { teamCount: season.teamCount, faabBudget: null },
-      finals.filter((m) => m.week <= season.regularSeasonEndWeek),
+      finals.filter((m) => m.week <= fantasyRsEnd),
       tiebreakers,
     );
 
@@ -130,13 +154,13 @@ export async function ensurePlayoffMatchupsAdvanced(input: {
       }));
   }
 
-  if (firstWeekRows.length === 0 && input.currentNflWeek >= range.startWeek) {
+  if (firstWeekRows.length === 0 && currentFantasyWeek >= range.startWeek) {
     playoffSeeds = await loadPlayoffSeeds();
 
     const pairings = firstRoundPairings({
       seeds: playoffSeeds,
       playoffTeamCount: season.playoffTeamCount,
-      championshipWeek: season.championshipWeek,
+      championshipWeek: range.endWeek,
       twoWeekChampionship: playoffs.twoWeekChampionship,
     });
 
@@ -235,10 +259,11 @@ export async function ensurePlayoffMatchupsAdvanced(input: {
         )
       : undefined;
 
+    const nflForMetrics = fantasyWeekToNfl(week, schedule);
     const metricsByTeam = await loadTeamWeekGameTieMetrics({
       teamIds,
       seasonYear: season.seasonYear,
-      week,
+      week: nflForMetrics?.week ?? week,
       scoringPreset: season.scoringPreset,
       scoringRules: season.settings.scoringRules,
       frozenLineups,

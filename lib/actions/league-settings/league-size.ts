@@ -15,6 +15,7 @@ import { areDivisionsBalanced } from "@/lib/leagues/membership";
 import { nextBotTeamName } from "@/lib/leagues/league-size";
 import { clampPlayoffTeamCount, resolvePlayoffSettings } from "@/lib/leagues/playoff-settings";
 import { replaceSeasonMatchups } from "@/lib/leagues/schedule/persist";
+import { fantasyRegularSeasonEndWeek } from "@/lib/leagues/schedule/fantasy-week-map";
 import { clampPlayEachOtherTimes, resolveScheduleSettings } from "@/lib/leagues/schedule/settings";
 import { TEAM_COUNT_MAX, TEAM_COUNT_MIN } from "@/lib/leagues/season-calendar";
 import { allocateUniqueTeamSlug } from "@/lib/leagues/utils";
@@ -186,7 +187,10 @@ export async function fillEmptySlotsWithBotTeams(
       await replaceSeasonMatchups(tx, {
         leagueSeasonId: season.id,
         teamIds: allTeamIds,
-        weekCount: season.regularSeasonEndWeek,
+        weekCount: fantasyRegularSeasonEndWeek(
+          season.regularSeasonEndWeek,
+          schedule,
+        ),
         playEachOtherTimes: clampPlayEachOtherTimes(
           schedule.playEachOtherTimes,
           season.divisionCount,

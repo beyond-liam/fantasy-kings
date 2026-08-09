@@ -99,6 +99,13 @@ export type PlayEachOtherTimes = 1 | 2 | 3;
 
 export type ScheduleSettings = {
   playEachOtherTimes: PlayEachOtherTimes;
+  /**
+   * When true, fantasy Week 1 starts in NFL preseason (extend calendar).
+   * Championship still ends on the configured NFL championship week.
+   */
+  includePreseason?: boolean;
+  /** First user Preseason Week (1–3) that counts as fantasy Week 1. ESPN HOF is excluded. */
+  preseasonStartWeek?: number;
 };
 
 export type PlayoffSettings = {

@@ -1,14 +1,12 @@
+import { MAX_FANTASY_WEEK } from "@/lib/leagues/schedule/fantasy-week-map";
+
 /**
  * Determine the maximum week to finalize after a score sync.
  *
  * Caps at playoffEndWeek (or regularSeasonEndWeek if no playoffs) to include
  * playoff weeks through championship when input.week allows.
- * Also caps at week 18 (NFL max).
  *
- * @param inputWeek - Week just synced
- * @param regularSeasonEndWeek - Last regular season week for this league
- * @param playoffEndWeek - Last playoff week (championship week) if playoffs enabled
- * @returns Maximum week to finalize (1..18, ≤ seasonCap)
+ * All week arguments are **fantasy** weeks (may include leading preseason).
  */
 export function finalizeMaxWeek(input: {
   inputWeek: number;
@@ -16,7 +14,7 @@ export function finalizeMaxWeek(input: {
   playoffEndWeek?: number;
 }): number {
   const seasonCap = input.playoffEndWeek ?? input.regularSeasonEndWeek;
-  return Math.min(input.inputWeek, seasonCap, 18);
+  return Math.min(input.inputWeek, seasonCap, MAX_FANTASY_WEEK);
 }
 
 /**

@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
-import { ScheduleSettingsCard } from "@/components/account/schedule-settings-card";
 import { UserSettingsForm } from "@/components/account/user-settings-form";
-import { DEFAULT_SCHEDULE_SETTINGS } from "@/lib/account/schedule-settings";
+import { userHasEmailIdentity } from "@/lib/auth/email-identity";
 import { ensureProfile, getSessionUser } from "@/lib/auth/session";
 import { getProfileByUserId } from "@/lib/queries/profile";
 
@@ -42,6 +41,7 @@ export default async function SettingsPage() {
 
       <UserSettingsForm
         initialAvatarUrl={profile.avatarUrl ?? null}
+        hasEmailIdentity={userHasEmailIdentity(user)}
         initialValues={{
           email: user.email ?? "",
           username,
@@ -49,17 +49,6 @@ export default async function SettingsPage() {
           lastName: profile.lastName ?? "",
           avatarMode: "keep",
           avatarUrl: profile.avatarUrl ?? "",
-        }}
-      />
-
-      <ScheduleSettingsCard
-        initialValues={{
-          includePreseason:
-            profile.includePreseason ??
-            DEFAULT_SCHEDULE_SETTINGS.includePreseason,
-          preseasonStartWeek:
-            profile.preseasonStartWeek ??
-            DEFAULT_SCHEDULE_SETTINGS.preseasonStartWeek,
         }}
       />
     </div>
