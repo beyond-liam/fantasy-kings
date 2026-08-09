@@ -47,7 +47,7 @@ export async function updateLineupLockMode(
     leagueSeasonId: season.id,
     actorUserId: user.id,
     section: "lineup_lock",
-    label: "Lineup locking",
+    label: "lineup locking",
     changes: diffSettingsValues(
       { lineupLockMode: season.settings.lineupLockMode ?? null },
       { lineupLockMode: parsed.data },

@@ -102,7 +102,7 @@ export async function updateWaiverWireRules(
     leagueSeasonId: season.id,
     actorUserId: user.id,
     section: "waivers",
-    label: "Waiver wire",
+    label: "waiver wire",
     changes: diffSettingsValues(before, after, [
       { path: "waiversEnabled", label: "Waivers enabled" },
       { path: "waiverType", label: "Waiver type" },

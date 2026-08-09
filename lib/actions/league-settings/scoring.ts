@@ -104,7 +104,7 @@ export async function updateScoringSettings(
     leagueSeasonId: season.id,
     actorUserId: user.id,
     section: "scoring",
-    label: "Scoring rules",
+    label: "scoring rules",
     changes,
   });
 

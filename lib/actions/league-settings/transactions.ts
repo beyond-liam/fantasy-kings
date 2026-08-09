@@ -72,7 +72,7 @@ export async function updateTransactionRules(
     leagueSeasonId: season.id,
     actorUserId: user.id,
     section: "transactions",
-    label: "Transactions",
+    label: "transactions",
     changes: diffSettingsValues(before, after, [
       { path: "tradesEnabled", label: "Trades enabled" },
       { path: "tradeProcessing", label: "Trade processing" },

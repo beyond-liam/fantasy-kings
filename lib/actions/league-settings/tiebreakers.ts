@@ -45,7 +45,7 @@ export async function updateTiebreakerSettings(
   const before = resolveTiebreakerSettings(season.settings.tiebreakers);
   const after = parsed.data;
   const fields: SettingsFieldDef[] = [
-    { path: "breakRegularSeasonTies", label: "Break regular-season ties" },
+    { path: "breakRegularSeasonTies", label: "Break regular season ties" },
     { path: "applyOfficialStatChanges", label: "Allow official score corrections" },
     {
       path: "gameTiebreakers",
@@ -91,7 +91,7 @@ export async function updateTiebreakerSettings(
     leagueSeasonId: season.id,
     actorUserId: user.id,
     section: "tiebreakers",
-    label: "Tiebreakers",
+    label: "tiebreakers",
     changes: diffSettingsValues(before, after, fields),
   });
 

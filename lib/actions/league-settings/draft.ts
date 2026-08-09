@@ -108,7 +108,7 @@ export async function updateDraftConfig(
     leagueSeasonId: season.id,
     actorUserId: user.id,
     section: "draft",
-    label: "Draft settings",
+    label: "draft settings",
     changes: diffSettingsValues(before, after, [
       { path: "draftType", label: "Draft type" },
       { path: "draftStartAt", label: "Draft start" },

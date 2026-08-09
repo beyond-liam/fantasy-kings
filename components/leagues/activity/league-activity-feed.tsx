@@ -44,6 +44,7 @@ import {
 } from "@/components/ui/select";
 import { TABLE_SHELL_CLASSNAME } from "@/components/ui/table";
 import type { FeedActivityType } from "@/lib/leagues/activity-log";
+import { formatSettingsActivityLabel } from "@/lib/leagues/settings-activity-labels";
 import type { LeagueActivityRow } from "@/lib/queries/activity";
 import { cn } from "@/lib/utils";
 
@@ -58,7 +59,7 @@ const PAGE_SIZE = 20;
 const ACTIVITY_FILTER_GROUPS = [
   {
     value: "draft",
-    label: "Draft picks",
+    label: "Draft activity",
     types: ["draft_pick", "draft_pick_reverted"],
   },
   {
@@ -90,7 +91,7 @@ const ACTIVITY_FILTER_GROUPS = [
   },
   {
     value: "league",
-    label: "League",
+    label: "Settings changes",
     types: ["settings_updated", "score_corrected", "member_removed"],
   },
 ] as const satisfies ReadonlyArray<{
@@ -208,6 +209,13 @@ const ACTIVITY_TONE_CLASS: Record<"success" | "destructive" | "info", string> = 
 };
 
 function resolveActivitySummary(item: LeagueActivityRow): string {
+  if (item.type === "settings_updated") {
+    const label = formatSettingsActivityLabel(
+      item.metadata?.settingsLabel?.trim() || "league settings",
+    );
+    return `Commissioner updated ${label}.`;
+  }
+
   const liveName = item.teamName?.trim();
   if (!liveName) return item.summary;
 
@@ -287,7 +295,7 @@ export function LeagueActivityFeed({ items }: LeagueActivityFeedProps) {
   const filterItems = useMemo(() => {
     const present = new Set(items.map((item) => item.type));
     return [
-      { value: ALL_TYPES, label: "All types" },
+      { value: ALL_TYPES, label: "View all activity" },
       ...ACTIVITY_FILTER_GROUPS.filter((group) =>
         group.types.some((type) => present.has(type)),
       ).map((group) => ({
@@ -468,7 +476,9 @@ function SettingsChangesDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const label = item?.metadata?.settingsLabel?.trim() || "league settings";
+  const label = formatSettingsActivityLabel(
+    item?.metadata?.settingsLabel?.trim() || "league settings",
+  );
   // Preset switches are implied by the rule diffs — don't surface them.
   const changes = (item?.metadata?.settingsChanges ?? []).filter(
     (change) =>

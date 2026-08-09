@@ -87,7 +87,7 @@ export async function updateRosterRequirements(
     leagueSeasonId: season.id,
     actorUserId: user.id,
     section: "roster",
-    label: "Roster requirements",
+    label: "roster requirements",
     changes: diffSettingsValues(before, after, [
       { path: "rosterMode", label: "Roster mode" },
       { path: "benchSlots", label: "Bench slots" },

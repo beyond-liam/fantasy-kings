@@ -100,7 +100,7 @@ export async function updateRegularSeasonSchedule(
       leagueSeasonId: season.id,
       actorUserId: user.id,
       section: "schedule",
-      label: "Regular-season schedule",
+      label: "regular season schedule",
       changes: diffSettingsValues(
         {
           playEachOtherTimes: before.playEachOtherTimes,
@@ -113,7 +113,7 @@ export async function updateRegularSeasonSchedule(
           preseasonStartWeek: nextSchedule.preseasonStartWeek,
         },
         [
-          { path: "playEachOtherTimes", label: "Play each other times" },
+          { path: "playEachOtherTimes", label: "Play each other" },
           { path: "includePreseason", label: "Include preseason" },
           { path: "preseasonStartWeek", label: "Preseason start week" },
         ],
@@ -292,7 +292,7 @@ export async function updatePlayoffSettings(
       leagueSeasonId: season.id,
       actorUserId: user.id,
       section: "playoffs",
-      label: "Playoffs",
+      label: "playoffs",
       changes: diffSettingsValues(before, after, [
         { path: "enabled", label: "Playoffs enabled" },
         { path: "playoffTeamCount", label: "Playoff teams" },

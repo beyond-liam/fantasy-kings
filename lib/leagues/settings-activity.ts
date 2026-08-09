@@ -6,6 +6,9 @@ import {
 } from "@/lib/leagues/scoring/build-rule";
 import { SCORING_CATEGORY_LABELS } from "@/lib/leagues/scoring/types";
 import type { ScoringRuleDefinition } from "@/lib/leagues/scoring/types";
+import { formatSettingsActivityLabel } from "@/lib/leagues/settings-activity-labels";
+
+export { formatSettingsActivityLabel } from "@/lib/leagues/settings-activity-labels";
 
 export type SettingsChange = {
   path: string;
@@ -149,9 +152,11 @@ export async function logSettingsUpdated(input: {
 }) {
   if (input.changes.length === 0) return;
 
+  const label = formatSettingsActivityLabel(input.label);
+
   const metadata: LeagueActivityMetadata = {
     settingsSection: input.section,
-    settingsLabel: input.label,
+    settingsLabel: label,
     settingsChanges: input.changes,
   };
 
@@ -159,7 +164,7 @@ export async function logSettingsUpdated(input: {
     leagueSeasonId: input.leagueSeasonId,
     type: "settings_updated",
     actorUserId: input.actorUserId,
-    summary: `Commissioner updated ${input.label}.`,
+    summary: `Commissioner updated ${label}.`,
     metadata,
   });
 }
