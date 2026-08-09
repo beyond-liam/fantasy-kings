@@ -88,7 +88,7 @@ export function UpdatePasswordForm() {
 
       {error ? (
         <Alert variant="destructive">
-          <AlertTitle>Couldn't update password</AlertTitle>
+          <AlertTitle>Could not update password</AlertTitle>
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       ) : null}

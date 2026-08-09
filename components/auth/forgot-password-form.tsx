@@ -110,7 +110,7 @@ export function ForgotPasswordForm() {
 
       {error ? (
         <Alert variant="destructive">
-          <AlertTitle>Couldn't send reset link</AlertTitle>
+          <AlertTitle>Could not send reset link</AlertTitle>
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       ) : null}
