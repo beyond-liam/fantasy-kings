@@ -42,6 +42,31 @@ describe("nflverse player week stats", () => {
     assert.equal(bag.pass_cmp, 21);
   });
 
+  it("maps IDP defense box-score lines onto shared scoring keys", () => {
+    const bag = nflverseRowToSleeperStats({
+      def_tackles_solo: "6",
+      def_tackle_assists: "3",
+      def_tackles_for_loss: "1.5",
+      def_sacks: "1",
+      def_fumbles_forced: "1",
+      fumble_recovery_opp: "1",
+      def_interceptions: "1",
+      def_safeties: "0",
+      def_tds: "1",
+    });
+
+    assert.equal(bag.tkl_solo, 6);
+    assert.equal(bag.tkl_ast, 3);
+    assert.equal(bag.tkl, 9);
+    assert.equal(bag.tkl_loss, 1.5);
+    assert.equal(bag.sack, 1);
+    assert.equal(bag.ff, 1);
+    assert.equal(bag.fum_rec, 1);
+    assert.equal(bag.int, 1);
+    assert.equal(bag.safe, undefined);
+    assert.equal(bag.def_td, 1);
+  });
+
   it("parses quoted csv fields", () => {
     const rows = parseCsv(
       'player_id,player_display_name\n00-1,"A, B"\n00-2,CeeDee Lamb\n',

@@ -36,29 +36,19 @@ export function buildFantasyPositionRankById(
 }
 
 /**
- * Prefer provider position ranks when present; otherwise fantasy-pts ranks.
- * Pass `fantasyRankByPlayerId` from the full league pool when `rows` is a
- * filtered subset (e.g. one roster) so ranks stay league-wide.
+ * RANK always follows fantasy points for the loaded season/kind (league scoring),
+ * not Sleeper `pos_rank_*`. Pass `fantasyRankByPlayerId` when `rows` is a subset
+ * so ranks stay pool-wide (e.g. projection ranks for empty preseason stats).
  */
 export function attachPositionRanks<T extends PositionRankable>(
   rows: T[],
   fantasyRankByPlayerId?: Map<string, number>,
 ): T[] {
-  const fallbackRanks =
+  const ranks =
     fantasyRankByPlayerId ?? buildFantasyPositionRankById(rows);
 
-  return rows.map((row) => {
-    const sleeperRank =
-      row.stats.pos_rank_ppr ??
-      row.stats.pos_rank_std ??
-      row.stats.pos_adp_dd_ppr ??
-      row.stats.pos_rank_half_ppr;
-
-    const positionRank =
-      sleeperRank && sleeperRank > 0 && sleeperRank < 999
-        ? Math.round(sleeperRank)
-        : (fallbackRanks.get(row.id) ?? null);
-
-    return { ...row, positionRank };
-  });
+  return rows.map((row) => ({
+    ...row,
+    positionRank: ranks.get(row.id) ?? null,
+  }));
 }

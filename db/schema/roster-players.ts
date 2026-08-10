@@ -37,7 +37,7 @@ export const rosterPlayers = pgTable(
       .references(() => players.id, { onDelete: "cascade" }),
     status: rosterPlayerStatusEnum("status").notNull().default("rostered"),
     /**
-     * Lineup / bench assignment: QB, RB, WR, TE, FLEX, K, DEF, BN, IR, TAXI.
+     * Lineup / bench assignment: QB, RB, WR, TE, FLEX, K, DEF, CB, S, DT, DE, LB, BN, IR, TAXI.
      * Null = unassigned (auto-placed into an eligible empty shell).
      */
     slotPositionId: text("slot_position_id"),

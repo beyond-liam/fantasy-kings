@@ -24,6 +24,7 @@ import {
   getScoringRulesByCategory,
   categoryHasAvailableRule,
   type ScoringCategory,
+  type ScoringPosition,
   type ScoringPreset,
   type ScoringRule,
   type ScoringRuleDefinition,
@@ -35,12 +36,14 @@ type ScoringSettingsProps = {
   seasonStatus: string;
   initialPreset: ScoringPreset;
   initialRules: ScoringRuleDefinition[];
+  availablePositions: ScoringPosition[];
 };
 
 export function ScoringSettings({
   slug,
   initialPreset,
   initialRules,
+  availablePositions,
 }: ScoringSettingsProps) {
   const router = useRouter();
   const [preset, setPreset] = useState(initialPreset);
@@ -111,7 +114,12 @@ export function ScoringSettings({
 
   const openNewDialog = (category: ScoringCategory) => {
     setDialogMode("create");
-    setEditingRule(createEmptyScoringRuleDefinition(category, rules));
+    const empty = createEmptyScoringRuleDefinition(category, rules);
+    const allowed = new Set(availablePositions);
+    setEditingRule({
+      ...empty,
+      positions: empty.positions.filter((position) => allowed.has(position)),
+    });
     setDialogOpen(true);
   };
 
@@ -178,7 +186,10 @@ export function ScoringSettings({
               setRules(
                 nextPreset === initialPreset
                   ? initialRules
-                  : getDefaultScoringRuleDefinitions(nextPreset),
+                  : getDefaultScoringRuleDefinitions(
+                      nextPreset,
+                      availablePositions,
+                    ),
               );
             }}
           />
@@ -206,6 +217,7 @@ export function ScoringSettings({
         rule={editingRule}
         mode={dialogMode}
         existingRules={rules}
+        availablePositions={availablePositions}
         onSave={handleSaveRule}
       />
     </div>

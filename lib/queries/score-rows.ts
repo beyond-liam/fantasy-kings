@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, inArray, sql } from "drizzle-orm";
 
 import { playerExternalIds, playerScores, players } from "@/db/schema";
 import { db } from "@/lib/db";
@@ -28,8 +28,8 @@ const SCORE_CACHE_TTL_MS = {
   stats: 60 * 1000,
 } as const;
 const SCORE_CACHE_MAX_ENTRIES = 48;
-/** Hard cap for unbounded week loads (covers a full NFL scoring week). */
-export const SCORE_ROWS_HARD_CAP = 800;
+/** Hard cap for unbounded week loads (offense + IDP season pools). */
+export const SCORE_ROWS_HARD_CAP = 4000;
 const scoreRowsCache = new Map<
   string,
   { rows: ScoreRow[]; loadedAt: number }
@@ -53,6 +53,8 @@ export type LoadScoreRowsFilters = {
   position?: string;
   team?: string;
   rookiesOnly?: boolean;
+  /** Case-insensitive substring match on player full name. */
+  search?: string;
 };
 
 function scoreRowsCacheKey(filters: LoadScoreRowsFilters) {
@@ -67,11 +69,13 @@ function scoreRowsCacheKey(filters: LoadScoreRowsFilters) {
     position,
     team,
     rookiesOnly,
+    search,
   } = filters;
   let key = `${season}|${week}|${seasonType ?? "regular"}|${kind}|lim:${limit ?? "all"}|off:${offset ?? 0}`;
   if (position) key += `|pos:${position}`;
   if (team && team !== "ALL") key += `|team:${team}`;
   if (rookiesOnly) key += `|rookies`;
+  if (search?.trim()) key += `|q:${search.trim().toLowerCase()}`;
   if (playerIds != null) {
     const fingerprint = [...playerIds].sort().join(",");
     let hash = 0;
@@ -135,6 +139,10 @@ export async function loadScoreRows(
   }
   if (filters.rookiesOnly) {
     whereConditions.push(eq(players.yearsExp, 0));
+  }
+  const search = filters.search?.trim();
+  if (search) {
+    whereConditions.push(ilike(players.fullName, `%${search}%`));
   }
 
   let query = db

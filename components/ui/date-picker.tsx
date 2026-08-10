@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { format } from "date-fns";
+import { format, startOfDay } from "date-fns";
 import { Calendar01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
@@ -21,6 +21,8 @@ type DatePickerProps = {
   placeholder?: string;
   disabled?: boolean;
   className?: string;
+  /** Earliest selectable calendar day (local). Days before this are disabled. */
+  minDate?: Date;
 };
 
 function DatePicker({
@@ -30,8 +32,10 @@ function DatePicker({
   placeholder = "Pick a date",
   disabled,
   className,
+  minDate,
 }: DatePickerProps) {
   const [open, setOpen] = React.useState(false);
+  const earliest = minDate ? startOfDay(minDate) : undefined;
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -61,6 +65,8 @@ function DatePicker({
         <Calendar
           mode="single"
           selected={value}
+          disabled={earliest ? { before: earliest } : undefined}
+          startMonth={earliest}
           onSelect={(date) => {
             onChange?.(date);
             setOpen(false);

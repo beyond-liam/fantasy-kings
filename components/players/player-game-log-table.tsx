@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import type { PlayerProfile } from "@/lib/queries/player-profile";
 import {
+  compareNullableNumber,
   formatPositionRank,
   getPositionRankBadgeVariant,
 } from "@/lib/rankings/stat-helpers";
@@ -60,18 +61,6 @@ function sumNullable(values: Array<number | null | undefined>): number | null {
     any = true;
   }
   return any ? sum : null;
-}
-
-function compareNullableNumber(
-  a: number | null | undefined,
-  b: number | null | undefined,
-) {
-  const aMissing = a == null || !Number.isFinite(a);
-  const bMissing = b == null || !Number.isFinite(b);
-  if (aMissing && bMissing) return 0;
-  if (aMissing) return 1;
-  if (bMissing) return -1;
-  return a - b;
 }
 
 const RESULT_SORT_RANK: Record<"W" | "L" | "T", number> = {

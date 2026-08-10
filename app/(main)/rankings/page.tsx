@@ -23,6 +23,7 @@ type RankingsPageProps = {
     sort?: string;
     sortDir?: string;
     page?: string;
+    q?: string;
   }>;
 };
 
@@ -37,7 +38,12 @@ export default async function RankingsPage({ searchParams }: RankingsPageProps) 
   const previousSeason = state.previous_season;
   const kind =
     params.kind === "stats" ? ("stats" as const) : ("projection" as const);
-  const season = params.season ?? currentSeason;
+  // Prior-year projections are not seeded; keep projection views on the
+  // current NFL season so IDP/offense ranks are not empty after a stats browse.
+  const season =
+    kind === "projection"
+      ? currentSeason
+      : (params.season ?? currentSeason);
   const weekParam = params.week ?? "season";
   const week =
     weekParam === "season" || weekParam === "0" ? 0 : Number(weekParam);
@@ -49,6 +55,7 @@ export default async function RankingsPage({ searchParams }: RankingsPageProps) 
     params.sort === "pts_ppr" ? DEFAULT_SORT_COLUMN : (params.sort ?? DEFAULT_SORT_COLUMN);
   const sortDesc = params.sortDir ? params.sortDir !== "asc" : DEFAULT_SORT_DESC;
   const page = parsePlayersPage(params.page);
+  const search = params.q?.trim() || undefined;
   const seasons = Array.from(new Set([currentSeason, previousSeason]));
 
   return (
@@ -72,6 +79,7 @@ export default async function RankingsPage({ searchParams }: RankingsPageProps) 
           sort={sort}
           sortDesc={sortDesc}
           page={page}
+          search={search}
         />
       </Suspense>
     </div>

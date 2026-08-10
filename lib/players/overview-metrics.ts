@@ -1,4 +1,5 @@
 import { resolveLeagueSeasonMaxWeek } from "@/lib/leagues/season-calendar";
+import { isIdpPosition } from "@/lib/leagues/idp-positions";
 import {
   getProjectionHighlightStats,
   getProjectionStatAccentTone,
@@ -123,7 +124,13 @@ export type OverviewOutdoorIndoor = {
   delta: number | null;
 };
 
-export type OverviewShareKind = "target" | "carry" | "pass" | "fg" | "kick";
+export type OverviewShareKind =
+  | "target"
+  | "carry"
+  | "pass"
+  | "fg"
+  | "kick"
+  | "tackle";
 
 export type OverviewKickBreakdown = {
   fgMade: number;
@@ -590,6 +597,16 @@ function positionMedianBenchmark(position: string | null | undefined): {
       return { value: 8.0, label: "K median" };
     case "DEF":
       return { value: 8.0, label: "DEF median" };
+    case "LB":
+      return { value: 8.5, label: "LB median" };
+    case "DE":
+      return { value: 8.0, label: "DE median" };
+    case "DT":
+      return { value: 7.5, label: "DT median" };
+    case "CB":
+      return { value: 7.5, label: "CB median" };
+    case "S":
+      return { value: 8.0, label: "S median" };
     default:
       return { value: null, label: "Position median" };
   }
@@ -754,6 +771,19 @@ const DEF_SCORING_BUCKETS = [
   { id: "def_td", label: "Touchdowns", keys: ["def_td"] },
 ] as const;
 
+/** IDP fantasy DNA — volume + big plays under individual scoring. */
+const IDP_SCORING_BUCKETS = [
+  { id: "tkl_solo", label: "Solo tackles", keys: ["tkl_solo"] },
+  { id: "tkl_ast", label: "Assisted tackles", keys: ["tkl_ast"] },
+  { id: "tkl_loss", label: "Tackles for loss", keys: ["tkl_loss"] },
+  { id: "sack", label: "Sacks", keys: ["sack"] },
+  { id: "int", label: "Interceptions", keys: ["int"] },
+  { id: "ff", label: "Forced fumbles", keys: ["ff"] },
+  { id: "fum_rec", label: "Fumble recoveries", keys: ["fum_rec"] },
+  { id: "safe", label: "Safeties", keys: ["safe"] },
+  { id: "def_td", label: "Touchdowns", keys: ["def_td"] },
+] as const;
+
 type ScoringBucketDef = {
   id: string;
   label: string;
@@ -781,11 +811,16 @@ export function positionStartableThreshold(positionId: string): number {
   switch (positionId) {
     case "WR":
     case "RB":
+    case "LB":
+    case "CB":
+    case "S":
+    case "DE":
       return 24;
     case "TE":
     case "QB":
     case "K":
     case "DEF":
+    case "DT":
       return 12;
     default:
       return 12;
@@ -1073,6 +1108,41 @@ function buildDefScoringSegments(
     total,
     segments,
   };
+}
+
+/**
+ * Attribute IDP fantasy points into tackle / pass-rush / takeaway buckets.
+ * Solo and assist tackles stay visible when volume exists even at 0 pts.
+ */
+function buildIdpScoringSegments(
+  profile: PlayerOverviewInput,
+  rules: ScoringRuleDefinition[],
+): {
+  fptsPerGame: number | null;
+  total: number;
+  segments: OverviewScoringSegment[];
+} {
+  const base = buildBucketedScoringSegments(
+    profile,
+    rules,
+    IDP_SCORING_BUCKETS,
+  );
+  const bag =
+    profile.seasonStats?.stats ??
+    profile.seasonProjection?.stats ??
+    null;
+
+  const segments = [...base.segments];
+  const ensureVolumeBucket = (id: string, label: string, key: string) => {
+    const volume = numStat(bag ?? undefined, key) ?? 0;
+    if (volume <= 0 || segments.some((s) => s.id === id)) return;
+    segments.push({ id, label, points: 0, pct: 0 });
+  };
+
+  ensureVolumeBucket("tkl_solo", "Solo tackles", "tkl_solo");
+  ensureVolumeBucket("tkl_ast", "Assisted tackles", "tkl_ast");
+
+  return { ...base, segments };
 }
 
 function buildRbScoringSegments(
@@ -1776,6 +1846,50 @@ export function buildDefScoringSummary(input: {
   return null;
 }
 
+/** Short scoring-DNA blurb for IDP Overview footer. */
+export function buildIdpScoringSummary(input: {
+  positionId: string;
+  segments: OverviewScoringSegment[];
+}): string | null {
+  if (input.segments.length === 0) return null;
+
+  const sackPct = pctOfSegments(input.segments, ["sack", "tkl_loss"]);
+  const tacklePct = pctOfSegments(input.segments, ["tkl_solo", "tkl_ast"]);
+  const turnoverPct = pctOfSegments(input.segments, [
+    "int",
+    "ff",
+    "fum_rec",
+  ]);
+  const tdPct = pctOfSegments(input.segments, ["def_td", "safe"]);
+  const maxPct = maxSegmentPct(input.segments);
+  const pos = input.positionId;
+
+  if (sackPct >= 35) {
+    return pos === "DE" || pos === "DT"
+      ? `Pass-rush — ${Math.round(sackPct)}% from sacks and TFLs`
+      : `Disruption — ${Math.round(sackPct)}% from sacks and TFLs`;
+  }
+  if (turnoverPct >= 30) {
+    return pos === "CB" || pos === "S"
+      ? `Coverage playmaker — ${Math.round(turnoverPct)}% from takeaways`
+      : `Takeaway threat — ${Math.round(turnoverPct)}% from takeaways`;
+  }
+  if (tdPct >= 25) {
+    return `Score-driven — ${Math.round(tdPct)}% from defensive scores`;
+  }
+  if (tacklePct >= 45) {
+    return `Tackle-heavy — ${Math.round(tacklePct)}% from solo and assisted tackles`;
+  }
+  if (
+    maxPct < 40 &&
+    input.segments.filter((s) => s.id !== "other").length >= 3
+  ) {
+    return "Balanced profile — no single source dominates the scoring mix";
+  }
+
+  return null;
+}
+
 function buildScoringBreakdown(
   profile: PlayerOverviewInput,
   rules: ScoringRuleDefinition[],
@@ -1786,6 +1900,7 @@ function buildScoringBreakdown(
   const isQb = position === "QB";
   const isK = position === "K";
   const isDef = position === "DEF";
+  const isIdp = isIdpPosition(position);
   const base = isRb
     ? buildRbScoringSegments(profile, rules)
     : isReceiver
@@ -1796,7 +1911,9 @@ function buildScoringBreakdown(
           ? buildKickerScoringSegments(profile, rules)
           : isDef
             ? buildDefScoringSegments(profile, rules)
-            : buildRuleScoringSegments(profile, rules);
+            : isIdp
+              ? buildIdpScoringSegments(profile, rules)
+              : buildRuleScoringSegments(profile, rules);
 
   if (isReceiver) {
     const positionId = position as "WR" | "TE";
@@ -1846,6 +1963,17 @@ function buildScoringBreakdown(
       ...base,
       archetype: null,
       summary: buildDefScoringSummary({ segments: base.segments }),
+    };
+  }
+
+  if (isIdp) {
+    return {
+      ...base,
+      archetype: null,
+      summary: buildIdpScoringSummary({
+        positionId: position,
+        segments: base.segments,
+      }),
     };
   }
 
@@ -2264,6 +2392,30 @@ function buildEfficiency(
         const wAtt = numStat(bag, "pass_att");
         if (wCmp == null || wAtt == null || wAtt <= 0) return null;
         return (wCmp / wAtt) * 100;
+      }),
+    };
+  }
+
+  if (isIdpPosition(position)) {
+    const solo = numStat(stats, "tkl_solo") ?? 0;
+    const assist = numStat(stats, "tkl_ast") ?? 0;
+    const tackles = solo + assist;
+    if (tackles <= 0) return null;
+    return {
+      id: "solo_pct",
+      label: "Solo tackle %",
+      value: (solo / tackles) * 100,
+      format: "percent",
+      decimals: 0,
+      detail: `${Math.round(solo)} solo · ${Math.round(assist)} ast`,
+      positionAvg: 58,
+      positionAvgLabel: `${position} avg`,
+      weekly: weeklyFrom((bag) => {
+        const wSolo = numStat(bag, "tkl_solo") ?? 0;
+        const wAst = numStat(bag, "tkl_ast") ?? 0;
+        const wTotal = wSolo + wAst;
+        if (wTotal <= 0) return null;
+        return (wSolo / wTotal) * 100;
       }),
     };
   }

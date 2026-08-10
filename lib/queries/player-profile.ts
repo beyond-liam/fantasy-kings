@@ -54,7 +54,7 @@ import {
 } from "@/lib/queries/watchlist";
 import {
   getStatColumns,
-  type PositionFilter,
+  parsePositionFilter,
   type StatColumn,
 } from "@/lib/rankings/column-config";
 import { getPlayerRosterRatesMap } from "@/lib/queries/player-roster-rates";
@@ -180,20 +180,6 @@ export type PlayerProfile = {
     overview: PlayerOverviewMetrics;
   } | null;
 };
-
-function parsePositionFilter(value: string): PositionFilter {
-  if (
-    value === "QB" ||
-    value === "RB" ||
-    value === "WR" ||
-    value === "TE" ||
-    value === "K" ||
-    value === "DEF"
-  ) {
-    return value;
-  }
-  return "WR";
-}
 
 function scoreRow(
   stats: Record<string, number | null>,

@@ -62,9 +62,35 @@ describe("game centre preview helpers", () => {
     assert.equal(leaders[0]?.home.name, "Home QB");
     assert.equal(leaders[0]?.away.primaryPositionId, "QB");
     assert.equal(
-      leaders.some((row) => row.category === "Running Back"),
+      leaders.some((row) => row.category === "Running back"),
       true,
     );
+  });
+
+  it("includes IDP positions when either side has that player", () => {
+    const leaders = buildSeasonLeaders(
+      [
+        player({
+          fullName: "Away CB",
+          primaryPositionId: "CB",
+          seasonProjectedPts: 120,
+        }),
+      ],
+      [
+        player({
+          fullName: "Home LB",
+          primaryPositionId: "LB",
+          seasonProjectedPts: 140,
+        }),
+      ],
+    );
+
+    const cb = leaders.find((row) => row.category === "Cornerback");
+    const lb = leaders.find((row) => row.category === "Linebacker");
+    assert.equal(cb?.away.name, "Away CB");
+    assert.equal(cb?.home.name, "—");
+    assert.equal(lb?.home.name, "Home LB");
+    assert.equal(lb?.away.name, "—");
   });
 
   it("lists injured starters only", () => {

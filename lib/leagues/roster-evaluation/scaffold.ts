@@ -94,6 +94,11 @@ export function buildScaffoldRosterEvaluation(
       { position: "WR", startersRank: 1, benchRank: 2 },
       { position: "TE", startersRank: 3, benchRank: 4 },
       { position: "FLEX", startersRank: 2, benchRank: 3 },
+      { position: "CB", startersRank: 2, benchRank: 3 },
+      { position: "S", startersRank: 1, benchRank: 2 },
+      { position: "DT", startersRank: 3, benchRank: 4 },
+      { position: "DE", startersRank: 2, benchRank: 3 },
+      { position: "LB", startersRank: 1, benchRank: 2 },
       { position: "K", startersRank: 4, benchRank: 4 },
     ]),
     startingLineup: lineupFromSlots([

@@ -36,9 +36,14 @@ export async function seedPositions(testDb: TestDb) {
       { id: "FLEX", name: "Flex", side: "flex", sortOrder: 5, isStarterSlot: true },
       { id: "K", name: "Kicker", side: "special", sortOrder: 6, isStarterSlot: true },
       { id: "DEF", name: "Defense", side: "defense", sortOrder: 7, isStarterSlot: true },
-      { id: "BN", name: "Bench", side: "offense", sortOrder: 8, isStarterSlot: false },
-      { id: "IR", name: "Injured Reserve", side: "offense", sortOrder: 9, isStarterSlot: false },
-      { id: "TAXI", name: "Taxi", side: "offense", sortOrder: 10, isStarterSlot: false },
+      { id: "CB", name: "Cornerback", side: "defense", sortOrder: 8, isStarterSlot: true },
+      { id: "S", name: "Safety", side: "defense", sortOrder: 9, isStarterSlot: true },
+      { id: "DT", name: "Defensive Tackle", side: "defense", sortOrder: 10, isStarterSlot: true },
+      { id: "DE", name: "Defensive End", side: "defense", sortOrder: 11, isStarterSlot: true },
+      { id: "LB", name: "Linebacker", side: "defense", sortOrder: 12, isStarterSlot: true },
+      { id: "BN", name: "Bench", side: "offense", sortOrder: 13, isStarterSlot: false },
+      { id: "IR", name: "Injured Reserve", side: "offense", sortOrder: 14, isStarterSlot: false },
+      { id: "TAXI", name: "Taxi", side: "offense", sortOrder: 15, isStarterSlot: false },
     ])
     .onConflictDoNothing();
 }

@@ -88,6 +88,53 @@ const STAT_THRESHOLDS: Record<string, Partial<Record<string, Thresholds>>> = {
     ff: { elite: 16, solid: 12, borderline: 8 },
     tkl_solo: { elite: 70, solid: 55, borderline: 40 },
   },
+  // Individual defenders — season totals (~17 games). Shared bars; accents
+  // still read well across LB volume vs DE/DT sack pace.
+  LB: {
+    tkl: { elite: 145, solid: 105, borderline: 70 },
+    tkl_solo: { elite: 100, solid: 75, borderline: 50 },
+    tkl_ast: { elite: 45, solid: 30, borderline: 18 },
+    sack: { elite: 8, solid: 4, borderline: 2 },
+    tkl_loss: { elite: 12, solid: 8, borderline: 4 },
+    int: { elite: 3, solid: 2, borderline: 1 },
+    ff: { elite: 3, solid: 2, borderline: 1 },
+  },
+  CB: {
+    tkl: { elite: 90, solid: 62, borderline: 40 },
+    tkl_solo: { elite: 70, solid: 50, borderline: 35 },
+    tkl_ast: { elite: 20, solid: 12, borderline: 6 },
+    sack: { elite: 3, solid: 1, borderline: 0.5 },
+    tkl_loss: { elite: 4, solid: 2, borderline: 1 },
+    int: { elite: 4, solid: 2, borderline: 1 },
+    ff: { elite: 2, solid: 1, borderline: 0.5 },
+  },
+  S: {
+    tkl: { elite: 115, solid: 80, borderline: 50 },
+    tkl_solo: { elite: 85, solid: 60, borderline: 40 },
+    tkl_ast: { elite: 30, solid: 18, borderline: 10 },
+    sack: { elite: 3, solid: 1, borderline: 0.5 },
+    tkl_loss: { elite: 5, solid: 3, borderline: 1 },
+    int: { elite: 4, solid: 2, borderline: 1 },
+    ff: { elite: 2, solid: 1, borderline: 0.5 },
+  },
+  DE: {
+    tkl: { elite: 70, solid: 47, borderline: 28 },
+    tkl_solo: { elite: 50, solid: 35, borderline: 22 },
+    tkl_ast: { elite: 20, solid: 12, borderline: 6 },
+    sack: { elite: 12, solid: 8, borderline: 4 },
+    tkl_loss: { elite: 14, solid: 9, borderline: 5 },
+    int: { elite: 2, solid: 1, borderline: 0.5 },
+    ff: { elite: 3, solid: 2, borderline: 1 },
+  },
+  DT: {
+    tkl: { elite: 85, solid: 58, borderline: 35 },
+    tkl_solo: { elite: 55, solid: 40, borderline: 25 },
+    tkl_ast: { elite: 30, solid: 18, borderline: 10 },
+    sack: { elite: 8, solid: 5, borderline: 2 },
+    tkl_loss: { elite: 12, solid: 8, borderline: 4 },
+    int: { elite: 2, solid: 1, borderline: 0.5 },
+    ff: { elite: 2, solid: 1, borderline: 0.5 },
+  },
 };
 
 function num(stats: Record<string, number | null>, key: string): number | null {
@@ -100,6 +147,16 @@ function ypr(stats: Record<string, number | null>): number | null {
   const receptions = num(stats, "rec");
   if (yards == null || receptions == null || receptions <= 0) return null;
   return yards / receptions;
+}
+
+/** Solo + assisted tackles; prefers an explicit `tkl` total when present. */
+function totalTackles(stats: Record<string, number | null>): number | null {
+  const combined = num(stats, "tkl");
+  if (combined != null) return combined;
+  const solo = num(stats, "tkl_solo");
+  const assist = num(stats, "tkl_ast");
+  if (solo == null && assist == null) return null;
+  return (solo ?? 0) + (assist ?? 0);
 }
 
 function weeklyPts(seasonPts: number | null): number | null {
@@ -141,6 +198,12 @@ function weeklyPtsThresholds(position: string): Thresholds {
     case "K":
     case "DEF":
       return { elite: 9, solid: 7, borderline: 5 };
+    case "LB":
+    case "DE":
+    case "DT":
+    case "CB":
+    case "S":
+      return { elite: 12, solid: 8, borderline: 5 };
     default:
       return { elite: 15, solid: 11, borderline: 8 };
   }
@@ -328,6 +391,23 @@ export function getProjectionHighlightStats(
       tile("int", "INT", num(stats, "int"), position, counting),
       tile("ff", "FF", num(stats, "ff"), position, counting),
       tile("def_td", "TD", num(stats, "def_td"), position, counting),
+      fptsTile,
+    ];
+  }
+
+  if (
+    position === "LB" ||
+    position === "DE" ||
+    position === "DT" ||
+    position === "CB" ||
+    position === "S"
+  ) {
+    return [
+      tile("tkl", "TKL", totalTackles(stats), position, counting),
+      tile("tkl_loss", "TFL", num(stats, "tkl_loss"), position, counting),
+      tile("sack", "SACK", num(stats, "sack"), position, counting),
+      tile("int", "INT", num(stats, "int"), position, counting),
+      tile("ff", "FF", num(stats, "ff"), position, counting),
       fptsTile,
     ];
   }

@@ -1,7 +1,7 @@
 "use client";
 
 import type { Table } from "@tanstack/react-table";
-import { useMemo, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 
 import {
   PILL_CLASSNAME,
@@ -82,7 +82,6 @@ type RankingsTableToolbarProps<TData> = {
   /** Free agents only switch — league Players only. */
   showFreeAgentsFilter?: boolean;
   searchActions?: PlayerSearchActions;
-  searchColumnId?: string;
   searchPlaceholder?: string;
 };
 
@@ -208,7 +207,7 @@ function ToolbarSelect({
 }
 
 export function RankingsTableToolbar<TData>({
-  table,
+  table: _table,
   teams,
   seasons,
   currentSeason,
@@ -217,15 +216,39 @@ export function RankingsTableToolbar<TData>({
   showTeamFilter = true,
   showFreeAgentsFilter = false,
   searchActions,
-  searchColumnId = "player",
   searchPlaceholder = "Search players...",
 }: RankingsTableToolbarProps<TData>) {
+  void _table;
   const updateParams = useRankingsParams();
-  const searchColumn = table.getColumn(searchColumnId);
-  const searchValue = (searchColumn?.getFilterValue() as string) ?? "";
+  const [searchDraft, setSearchDraft] = useState(view.search ?? "");
+  const [prevViewSearch, setPrevViewSearch] = useState(view.search);
+
+  if (view.search !== prevViewSearch) {
+    setPrevViewSearch(view.search);
+    const server = (view.search ?? "").trim();
+    const local = searchDraft.trim();
+    if (local === server || !local.startsWith(server)) {
+      setSearchDraft(view.search ?? "");
+    }
+  }
+
+  useEffect(() => {
+    const trimmed = searchDraft.trim();
+    const current = (view.search ?? "").trim();
+    if (trimmed === current) return;
+
+    const handle = window.setTimeout(() => {
+      updateParams({ q: trimmed ? trimmed : null });
+    }, 250);
+    return () => window.clearTimeout(handle);
+  }, [searchDraft, updateParams, view.search]);
+
   const seasonItems = useMemo(
-    () => seasons.map((season) => ({ label: season, value: season })),
-    [seasons],
+    () =>
+      (view.kind === "projection" ? [currentSeason] : seasons).map(
+        (season) => ({ label: season, value: season }),
+      ),
+    [currentSeason, seasons, view.kind],
   );
 
   const teamItems = useMemo(
@@ -325,16 +348,19 @@ export function RankingsTableToolbar<TData>({
       </InputGroupAddon>
       <InputGroupInput
         placeholder={searchPlaceholder}
-        value={searchValue}
-        onChange={(event) => searchColumn?.setFilterValue(event.target.value)}
+        value={searchDraft}
+        onChange={(event) => setSearchDraft(event.target.value)}
       />
-      {searchValue ? (
+      {searchDraft ? (
         <InputGroupAddon align="inline-end">
           <InputGroupButton
             size="icon-xs"
             aria-label="Clear search"
             className="relative after:absolute after:top-1/2 after:left-1/2 after:size-10 after:-translate-x-1/2 after:-translate-y-1/2"
-            onClick={() => searchColumn?.setFilterValue("")}
+            onClick={() => {
+              setSearchDraft("");
+              updateParams({ q: null });
+            }}
           >
             <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} />
           </InputGroupButton>

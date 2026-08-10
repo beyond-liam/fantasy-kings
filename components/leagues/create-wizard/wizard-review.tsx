@@ -4,6 +4,10 @@ import { Edit02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
 import { Button } from "@/components/ui/button";
+import {
+  detectRosterUiMode,
+  ROSTER_PRESET_OPTIONS,
+} from "@/lib/leagues/roster";
 import type { CreateLeagueWizardValues } from "@/lib/leagues/wizard-schema";
 import { getRegularSeasonEndWeek } from "@/lib/leagues/season-calendar";
 import { secondsToPickTime } from "@/lib/leagues/defaults";
@@ -93,7 +97,20 @@ export function WizardReview({ values, onEdit }: WizardReviewProps) {
           <h3 className="font-medium">Rosters & scoring</h3>
           <EditButton onClick={() => onEdit("roster")} />
         </div>
-        <ReviewRow label="Roster mode" value={values.rosterMode} />
+        <ReviewRow
+          label="Roster format"
+          value={
+            ROSTER_PRESET_OPTIONS.find(
+              (option) =>
+                option.value ===
+                detectRosterUiMode({
+                  rosterMode: values.rosterMode,
+                  customRosterSlots: values.customRosterSlots,
+                }),
+            )?.label ?? values.rosterMode
+          }
+          raw
+        />
         <ReviewRow label="Bench" value={String(values.benchSlots)} />
         <ReviewRow
           label="IR"

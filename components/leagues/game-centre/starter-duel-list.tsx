@@ -46,8 +46,10 @@ function formatPtsCompact(value: number | null) {
 }
 
 function positionTextClass(positionId: string) {
-  const match = positionToneClass(positionId).match(/\btext-[^\s]+/);
-  return match?.[0] ?? "text-muted-foreground";
+  const classes = positionToneClass(positionId).match(
+    /\b(?:dark:)?text-[^\s]+/g,
+  );
+  return classes?.join(" ") ?? "text-muted-foreground";
 }
 
 function shortInjuryLabel(label: string) {

@@ -1,7 +1,12 @@
 import { buildScoringRules } from "@/lib/leagues/scoring/build-rule";
-import { getDefaultScoringRuleDefinitions } from "@/lib/leagues/scoring/defaults";
+import {
+  filterScoringRulesForPositions,
+  getDefaultScoringRuleDefinitions,
+  isTeamDefenseRule,
+} from "@/lib/leagues/scoring/defaults";
 import type {
   ScoringCategory,
+  ScoringPosition,
   ScoringPreset,
   ScoringRule,
   ScoringRuleDefinition,
@@ -17,15 +22,29 @@ const SCORING_CATEGORIES = [
   "misc",
 ] as const;
 
+/** Drop team-DEF defaults that were remapped off `DEF`. */
+function sanitizeScoringRuleDefinitions(
+  rules: ScoringRuleDefinition[],
+): ScoringRuleDefinition[] {
+  return rules.filter(
+    (rule) => !isTeamDefenseRule(rule) || rule.positions.includes("DEF"),
+  );
+}
+
 export function resolveScoringRuleDefinitions(
   preset: ScoringPreset,
   customRules?: ScoringRuleDefinition[] | null,
+  availablePositions?: ScoringPosition[],
 ): ScoringRuleDefinition[] {
-  if (customRules && customRules.length > 0) {
-    return customRules;
-  }
+  const rules = sanitizeScoringRuleDefinitions(
+    customRules && customRules.length > 0
+      ? customRules
+      : getDefaultScoringRuleDefinitions(preset),
+  );
 
-  return getDefaultScoringRuleDefinitions(preset);
+  return availablePositions
+    ? filterScoringRulesForPositions(rules, availablePositions)
+    : rules;
 }
 
 export function getScoringRulesForPreset(preset: ScoringPreset): ScoringRule[] {

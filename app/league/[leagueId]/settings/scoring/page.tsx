@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { getSessionUser } from "@/lib/auth/session";
 import {
   resolveScoringRuleDefinitions,
+  scoringPositionsFromRosterSlots,
   type ScoringPreset,
 } from "@/lib/leagues/scoring";
 import {
@@ -53,9 +54,13 @@ export default async function ScoringSettingsPage({
   }
 
   const scoringPreset = data.season.scoringPreset as ScoringPreset;
+  const availablePositions = scoringPositionsFromRosterSlots(
+    data.season.settings.rosterSlots,
+  );
   const initialRules = resolveScoringRuleDefinitions(
     scoringPreset,
     data.season.settings.scoringRules,
+    availablePositions,
   );
 
   return (
@@ -84,6 +89,7 @@ export default async function ScoringSettingsPage({
         seasonStatus={data.season.status}
         initialPreset={scoringPreset}
         initialRules={initialRules}
+        availablePositions={availablePositions}
       />
     </div>
   );

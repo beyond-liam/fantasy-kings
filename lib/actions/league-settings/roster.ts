@@ -10,6 +10,12 @@ import {
   type RosterRequirementsValues,
 } from "@/lib/leagues/roster";
 import {
+  filterScoringRulesForPositions,
+  resolveScoringRuleDefinitions,
+  scoringPositionsFromRosterSlots,
+  type ScoringPreset,
+} from "@/lib/leagues/scoring";
+import {
   diffSettingsValues,
   logSettingsUpdated,
 } from "@/lib/leagues/settings-activity";
@@ -40,6 +46,14 @@ export async function updateRosterRequirements(
   const { season, user } = result;
   const next = parsed.data;
   const rosterSlots = buildPersistedRosterSlots(next);
+  const availablePositions = scoringPositionsFromRosterSlots(rosterSlots);
+  const scoringRules = filterScoringRulesForPositions(
+    resolveScoringRuleDefinitions(
+      season.scoringPreset as ScoringPreset,
+      season.settings.scoringRules,
+    ),
+    availablePositions,
+  );
   const before = {
     rosterMode: season.rosterMode,
     benchSlots: season.benchSlots,
@@ -73,6 +87,7 @@ export async function updateRosterRequirements(
       settings: {
         ...season.settings,
         rosterSlots,
+        scoringRules,
         irEligibleStatuses: next.irEnabled
           ? next.irEligibleStatuses
           : season.settings.irEligibleStatuses,

@@ -1,3 +1,5 @@
+import { IDP_POSITION_IDS } from "@/lib/leagues/idp-positions";
+import { formatLeaderPositionFullLabel } from "@/lib/leagues/league-position-stats";
 import { formatPoints } from "@/lib/leagues/standings";
 import {
   buildTeamH2hSeries,
@@ -8,15 +10,13 @@ import {
 import { getInjuryIndicator } from "@/lib/players/injury";
 import type { TeamScheduleRow } from "@/lib/queries/matchups";
 
-const LEADER_POSITIONS = ["QB", "RB", "WR", "TE"] as const;
-
-const LEADER_CATEGORY_LABELS: Record<(typeof LEADER_POSITIONS)[number], string> =
-  {
-    QB: "Quarterback",
-    RB: "Running Back",
-    WR: "Wide Receiver",
-    TE: "Tight End",
-  };
+const LEADER_POSITIONS = [
+  "QB",
+  "RB",
+  "WR",
+  "TE",
+  ...IDP_POSITION_IDS,
+] as const;
 
 export type GameCentrePreviewLeaderSide = {
   name: string;
@@ -140,7 +140,7 @@ export function buildSeasonLeaders(
   homePlayers: PreviewPlayer[],
 ): GameCentrePreviewLeader[] {
   return LEADER_POSITIONS.map((positionId) => ({
-    category: LEADER_CATEGORY_LABELS[positionId],
+    category: formatLeaderPositionFullLabel(positionId),
     away: leaderSide(bestAtPosition(awayPlayers, positionId)),
     home: leaderSide(bestAtPosition(homePlayers, positionId)),
   })).filter(

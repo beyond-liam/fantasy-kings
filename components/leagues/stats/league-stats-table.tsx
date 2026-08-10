@@ -30,6 +30,7 @@ import {
 } from "@/lib/leagues/league-position-stats";
 import { formatPoints } from "@/lib/leagues/standings";
 import { leagueTeamPath, myTeamPath } from "@/lib/leagues/utils";
+import { compareNullableNumber } from "@/lib/rankings/stat-helpers";
 
 type LeagueStatsTableProps = {
   rows: LeaguePositionStatsRow[];
@@ -47,24 +48,6 @@ function formatNullablePoints(value: number | null | undefined) {
     return PLACEHOLDER;
   }
   return formatPoints(value);
-}
-
-function compareNullableNumber(
-  a: number | null | undefined,
-  b: number | null | undefined,
-) {
-  const aMissing = a == null;
-  const bMissing = b == null;
-  if (aMissing && bMissing) {
-    return 0;
-  }
-  if (aMissing) {
-    return 1;
-  }
-  if (bMissing) {
-    return -1;
-  }
-  return a - b;
 }
 
 function claimedFirst(

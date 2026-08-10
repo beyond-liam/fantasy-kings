@@ -19,10 +19,12 @@ import {
   type StatColumn,
 } from "@/lib/rankings/column-config";
 import {
+  compareNullableNumber,
   formatPositionRank,
   getAdp,
   getFantasyPts,
   getPositionRankColorClass,
+  sortableRankValue,
 } from "@/lib/rankings/stat-helpers";
 import type { RankedPlayerRow } from "@/lib/queries/players";
 import { cn } from "@/lib/utils";
@@ -42,24 +44,6 @@ function renderStatCell(row: RankedPlayerRow, column: StatColumn): string {
   }
 
   return formatStatValue(row.stats[column.key], column.decimals);
-}
-
-function compareNullableNumber(
-  a: number | null | undefined,
-  b: number | null | undefined,
-) {
-  const aMissing = a == null || !Number.isFinite(a);
-  const bMissing = b == null || !Number.isFinite(b);
-  if (aMissing && bMissing) {
-    return 0;
-  }
-  if (aMissing) {
-    return 1;
-  }
-  if (bMissing) {
-    return -1;
-  }
-  return a - b;
 }
 
 export function TeamStatsTable({
@@ -106,13 +90,8 @@ export function TeamStatsTable({
       },
       {
         id: "rank",
-        accessorFn: (row) => row.positionRank,
+        accessorFn: (row) => sortableRankValue(row.positionRank),
         enableSorting: true,
-        sortingFn: (a, b) =>
-          compareNullableNumber(
-            a.original.positionRank,
-            b.original.positionRank,
-          ),
         header: ({ column }) => (
           <DataTableColumnHeader
             column={column}

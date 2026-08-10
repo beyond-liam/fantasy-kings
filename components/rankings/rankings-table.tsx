@@ -23,6 +23,7 @@ type RankingsTableProps = {
   sort: string;
   sortDesc: boolean;
   page: number;
+  search?: string;
 };
 
 /** Fetches ranked players inside Suspense so the page shell can stream first. */
@@ -41,6 +42,7 @@ export async function RankingsTable({
   sort,
   sortDesc,
   page,
+  search,
 }: RankingsTableProps) {
   const offset = playersPageOffset(page);
   // Fetch one extra row to detect whether another page exists without a count query.
@@ -55,6 +57,9 @@ export async function RankingsTable({
       position,
       team: team !== "ALL" ? team : undefined,
       rookiesOnly: rookiesOnly || undefined,
+      search,
+      sort,
+      sortDesc,
       limit: fetchLimit,
       offset,
     }).then(
@@ -112,6 +117,7 @@ export async function RankingsTable({
         scoring,
         sort,
         sortDesc,
+        search: search ?? "",
       }}
     />
   );

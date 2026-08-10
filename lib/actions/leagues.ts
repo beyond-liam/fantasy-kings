@@ -21,6 +21,10 @@ import { DEFAULT_PLAYOFF_SETTINGS } from "@/lib/leagues/playoff-settings";
 import { buildPersistedRosterSlots } from "@/lib/leagues/roster";
 import { generateScheduleIfLeagueFull } from "@/lib/leagues/schedule/persist";
 import { DEFAULT_SCHEDULE_SETTINGS } from "@/lib/leagues/schedule/settings";
+import {
+  getDefaultScoringRuleDefinitions,
+  scoringPositionsFromRosterSlots,
+} from "@/lib/leagues/scoring";
 import { getRegularSeasonEndWeek } from "@/lib/leagues/season-calendar";
 import {
   createLeagueWizardSchema,
@@ -165,6 +169,10 @@ export async function createLeague(input: CreateLeagueWizardValues) {
         emailNotificationsEnabled: true,
         settings: {
           rosterSlots,
+          scoringRules: getDefaultScoringRuleDefinitions(
+            values.scoringPreset,
+            scoringPositionsFromRosterSlots(rosterSlots),
+          ),
           draft: toPersistedDraftSettings({
             draftType: resolveDraftType(values.draftType),
             draftStartAt: values.draftStartAt,

@@ -50,6 +50,7 @@ import {
 import type { LeaguePlayoffStandingsRow } from "@/lib/leagues/playoff-standings";
 import { formatSos } from "@/lib/leagues/sos";
 import { leagueTeamPath, myTeamPath } from "@/lib/leagues/utils";
+import { compareNullableNumber } from "@/lib/rankings/stat-helpers";
 import { cn } from "@/lib/utils";
 
 type StandingsTableRow = LeagueStandingsRow | LeaguePlayoffStandingsRow;
@@ -154,24 +155,6 @@ function FormGuideCell({ games }: { games: StandingsFormGame[] }) {
       </div>
     </TooltipProvider>
   );
-}
-
-function compareNullableNumber(
-  a: number | null | undefined,
-  b: number | null | undefined,
-) {
-  const aMissing = a == null;
-  const bMissing = b == null;
-  if (aMissing && bMissing) {
-    return 0;
-  }
-  if (aMissing) {
-    return 1;
-  }
-  if (bMissing) {
-    return -1;
-  }
-  return a - b;
 }
 
 function claimedFirst(

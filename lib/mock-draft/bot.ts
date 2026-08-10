@@ -22,9 +22,9 @@ export type PickBotPlayerInput = {
 };
 
 /**
- * Need-aware ADP bot: fills open starters by ADP, defers K/DEF until the
- * last two picks for the team, then BPA into bench. Prefers avoiding
- * same-position bye clashes when bye data is provided.
+ * Need-aware ADP bot: fills open starters by ADP, pads offense skill before
+ * IDP, defers K/DEF until the last two picks, then BPA into bench. Prefers
+ * avoiding same-position bye clashes when bye data is provided.
  */
 export function pickBotPlayer(
   input: PickBotPlayerInput,

@@ -139,6 +139,34 @@ describe("getProjectionHighlightStats with gamesPlayed", () => {
     const ypr = tiles.find((t) => t.key === "ypr");
     assert.equal(ypr?.perGame, undefined);
   });
+
+  it("builds IDP production tiles", () => {
+    const tiles = getProjectionHighlightStats(
+      {
+        primaryPositionId: "DE",
+        positionRank: 5,
+        seasonProjection: null,
+        seasonStats: {
+          fantasyPts: 110,
+          stats: {
+            tkl_solo: 40,
+            tkl_ast: 15,
+            sack: 11,
+            tkl_loss: 14,
+            int: 0,
+            ff: 3,
+          },
+        },
+      },
+      { gamesPlayed: 10, usePositionRankForFpts: false },
+    );
+    assert.deepEqual(
+      tiles.map((t) => t.key),
+      ["tkl", "tkl_loss", "sack", "int", "ff", "fpts_weekly"],
+    );
+    assert.equal(tiles.find((t) => t.key === "tkl")?.value, 55);
+    assert.equal(tiles.find((t) => t.key === "sack")?.perGame, 1.1);
+  });
 });
 
 describe("formatProjectionPerGame", () => {

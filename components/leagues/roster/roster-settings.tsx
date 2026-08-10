@@ -18,8 +18,9 @@ import {
 } from "@/components/ui/field";
 import { updateRosterRequirements } from "@/lib/actions/league-settings";
 import {
+  detectRosterUiMode,
   getDefaultCustomRosterSlots,
-  type RosterMode,
+  getDefaultIdpCustomRosterSlots,
   type RosterRequirementsValues,
   type RosterUiMode,
 } from "@/lib/leagues/roster";
@@ -44,7 +45,9 @@ export function RosterSettings({
 }: RosterSettingsProps) {
   const router = useRouter();
   const [values, setValues] = useState(initialValues);
-  const [uiMode, setUiMode] = useState<RosterUiMode>(initialValues.rosterMode);
+  const [uiMode, setUiMode] = useState<RosterUiMode>(() =>
+    detectRosterUiMode(initialValues),
+  );
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -55,15 +58,25 @@ export function RosterSettings({
   };
 
   const handleModeChange = (nextMode: RosterUiMode) => {
-    if (nextMode === "idp") {
+    setUiMode(nextMode);
+
+    if (nextMode === "standard") {
+      patchValues({ rosterMode: "standard" });
       return;
     }
 
-    setUiMode(nextMode);
+    if (nextMode === "idp") {
+      patchValues({
+        rosterMode: "custom",
+        customRosterSlots: getDefaultIdpCustomRosterSlots(),
+      });
+      return;
+    }
+
     patchValues({
-      rosterMode: nextMode,
+      rosterMode: "custom",
       customRosterSlots:
-        nextMode === "custom" && values.customRosterSlots.length === 0
+        values.customRosterSlots.length === 0
           ? getDefaultCustomRosterSlots()
           : values.customRosterSlots,
     });
@@ -71,7 +84,7 @@ export function RosterSettings({
 
   const handleReset = () => {
     setValues(initialValues);
-    setUiMode(initialValues.rosterMode);
+    setUiMode(detectRosterUiMode(initialValues));
     setError(null);
   };
 
@@ -84,7 +97,7 @@ export function RosterSettings({
         return;
       }
       setValues(values);
-      setUiMode(values.rosterMode);
+      setUiMode(detectRosterUiMode(values));
       router.refresh();
     });
   };
@@ -138,9 +151,10 @@ export function RosterSettings({
         </FieldGroup>
 
         <RosterBreakdown
+          rosterUiMode={uiMode}
           values={{
             ...values,
-            rosterMode: uiMode === "idp" ? "standard" : (uiMode as RosterMode),
+            rosterMode: uiMode === "standard" ? "standard" : "custom",
           }}
           onChange={patchValues}
         />

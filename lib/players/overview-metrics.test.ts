@@ -9,6 +9,7 @@ import {
   buildReceiverScoringSummary,
   buildKickerScoringSummary,
   buildDefScoringSummary,
+  buildIdpScoringSummary,
   buildScoringConsistency,
   classifyQbScoringArchetype,
   classifyRbScoringArchetype,
@@ -1038,6 +1039,128 @@ describe("buildDefScoringSummary", () => {
         { id: "ff", label: "Forced fumbles", points: 14, pct: 13 },
         { id: "def_td", label: "Touchdowns", points: 12, pct: 11 },
         { id: "tkl_solo", label: "Tackles", points: 0, pct: 0 },
+      ],
+    });
+    assert.ok(summary?.startsWith("Pass-rush"));
+  });
+});
+
+describe("IDP player overview", () => {
+  it("builds production tiles, tackle DNA, share efficiency, and benchmarks", () => {
+    const overview = buildPlayerOverviewMetrics(
+      {
+        primaryPositionId: "LB",
+        positionRank: 6,
+        nflTeam: "SF",
+        fullName: "Fred Warner",
+        season: "2026",
+        byeWeek: 9,
+        seasonProjection: null,
+        seasonStats: {
+          fantasyPts: 140,
+          stats: {
+            gp: 10,
+            tkl_solo: 70,
+            tkl_ast: 30,
+            sack: 2,
+            tkl_loss: 6,
+            int: 1,
+            ff: 2,
+            fum_rec: 1,
+          },
+        },
+        gameLog: [
+          {
+            week: 1,
+            opponent: "@ SEA",
+            fantasyPts: 14,
+            stats: { tkl_solo: 8, tkl_ast: 3, sack: 1, tkl_loss: 1 },
+          },
+          {
+            week: 2,
+            opponent: "vs BAL",
+            fantasyPts: 11,
+            stats: { tkl_solo: 6, tkl_ast: 4, int: 1 },
+          },
+          {
+            week: 3,
+            opponent: "@ BUF",
+            fantasyPts: 16,
+            stats: { tkl_solo: 9, tkl_ast: 2, ff: 1, tkl_loss: 2 },
+          },
+          {
+            week: 4,
+            opponent: "vs DEN",
+            fantasyPts: 12,
+            stats: { tkl_solo: 7, tkl_ast: 3 },
+          },
+        ],
+        overviewExtras: {
+          share: {
+            kind: "tackle",
+            label: "Team tackles (solo + assist)",
+            playerPct: 18.5,
+            playerTotal: 100,
+            teamTotal: 540,
+          },
+          weeklyFinishesByWeek: { 1: 4, 2: 9, 3: 2, 4: 7 },
+          matchupDifficultyByWeek: {},
+          matchupRanksByWeek: {},
+          ptsAllowedByWeek: {},
+          playoffWeeks: [16, 17],
+          multiYear: [],
+        },
+      },
+      rules,
+    );
+
+    const tileKeys = overview.production.map((t) => t.key);
+    assert.ok(tileKeys.includes("tkl"));
+    assert.ok(!tileKeys.includes("tkl_solo"));
+    assert.ok(!tileKeys.includes("tkl_ast"));
+    assert.ok(tileKeys.includes("sack"));
+    assert.ok(tileKeys.includes("fpts_weekly"));
+    assert.equal(overview.production.find((t) => t.key === "tkl")?.value, 100);
+
+    const segmentIds = overview.scoringBreakdown.segments.map((s) => s.id);
+    assert.ok(segmentIds.includes("tkl_solo"));
+    assert.ok(overview.scoringBreakdown.summary);
+
+    assert.equal(overview.share?.kind, "tackle");
+    assert.equal(overview.efficiency?.id, "solo_pct");
+    assert.ok(
+      overview.efficiency != null &&
+        overview.efficiency.value > 65 &&
+        overview.efficiency.value < 75,
+    );
+    assert.equal(overview.floorCeiling?.positionMedianLabel, "LB median");
+    assert.equal(overview.weeklyFinish?.startableThreshold, 24);
+    assert.equal(overview.ptsAllowRadar, null);
+  });
+});
+
+describe("buildIdpScoringSummary", () => {
+  it("labels tackle-heavy LB profiles", () => {
+    const summary = buildIdpScoringSummary({
+      positionId: "LB",
+      segments: [
+        { id: "tkl_solo", label: "Solo", points: 70, pct: 50 },
+        { id: "tkl_ast", label: "Ast", points: 20, pct: 14 },
+        { id: "sack", label: "Sacks", points: 10, pct: 7 },
+        { id: "int", label: "INT", points: 8, pct: 6 },
+      ],
+    });
+    assert.ok(summary?.startsWith("Tackle-heavy"));
+  });
+
+  it("labels pass-rush DE profiles", () => {
+    const summary = buildIdpScoringSummary({
+      positionId: "DE",
+      segments: [
+        { id: "sack", label: "Sacks", points: 40, pct: 40 },
+        { id: "tkl_loss", label: "TFL", points: 15, pct: 15 },
+        { id: "tkl_solo", label: "Solo", points: 20, pct: 20 },
+        { id: "ff", label: "FF", points: 10, pct: 10 },
       ],
     });
     assert.ok(summary?.startsWith("Pass-rush"));

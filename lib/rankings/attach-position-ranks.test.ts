@@ -17,7 +17,7 @@ function row(partial: {
 }
 
 describe("attachPositionRanks", () => {
-  it("falls back to fantasy ranks within the provided rows", () => {
+  it("ranks by fantasy points within the provided rows", () => {
     const ranked = attachPositionRanks([
       row({ id: "a", primaryPositionId: "QB", fantasyPts: 300 }),
       row({ id: "b", primaryPositionId: "QB", fantasyPts: 200 }),
@@ -45,19 +45,39 @@ describe("attachPositionRanks", () => {
     assert.equal(ranked.find((p) => p.id === "backup")?.positionRank, 40);
   });
 
-  it("prefers valid Sleeper position ranks over fantasy fallback", () => {
+  it("ignores Sleeper pos_rank in favor of fantasy points", () => {
+    const ranked = attachPositionRanks([
+      row({
+        id: "jackson",
+        primaryPositionId: "CB",
+        fantasyPts: 77,
+        stats: { pos_rank_ppr: 2 },
+      }),
+      row({
+        id: "lassiter",
+        primaryPositionId: "CB",
+        fantasyPts: 84.5,
+        stats: { pos_rank_ppr: 3 },
+      }),
+    ]);
+
+    assert.equal(ranked.find((p) => p.id === "lassiter")?.positionRank, 1);
+    assert.equal(ranked.find((p) => p.id === "jackson")?.positionRank, 2);
+  });
+
+  it("uses an external map for empty preseason stats rows", () => {
     const ranked = attachPositionRanks(
       [
         row({
-          id: "stafford",
-          primaryPositionId: "QB",
-          fantasyPts: 280,
-          stats: { pos_rank_ppr: 16 },
+          id: "hamilton",
+          primaryPositionId: "S",
+          fantasyPts: 0,
+          stats: { pos_rank_ppr: 457 },
         }),
       ],
-      new Map([["stafford", 2]]),
+      new Map([["hamilton", 3]]),
     );
 
-    assert.equal(ranked[0]?.positionRank, 16);
+    assert.equal(ranked[0]?.positionRank, 3);
   });
 });

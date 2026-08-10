@@ -1,7 +1,7 @@
 # Fantasy Kings — Project Specification
 
 > Living document. Update this file as requirements, decisions, and scope change.
-> Last updated: 2026-08-06
+> Last updated: 2026-08-09
 
 ---
 
@@ -9,7 +9,7 @@
 
 A mobile-first fantasy football web app for a private friend group (4–16 users per league). Built to fix frustrations with existing platforms (Sleeper, ESPN, Fantrax): not data-rich enough, gimmicky, not easy to use, and — ultimately — no granular IDP position support.
 
-**Long-term differentiator:** True positional flexibility (EDGE/DT/LB/CB/S as distinct positions), not bucketed categories like DL/LB/DB. IDP remains deferred; offense scoring and league rule customization are in progress.
+**Long-term differentiator:** True positional flexibility (**CB / S / DT / DE / LB** as distinct positions, plus optional team **DEF**), not bucketed categories like DL/LB/DB. IDP v1 plumbing + minimal scoring shipped; polish gaps tracked in [`docs/IDP.md`](IDP.md).
 
 **This is not a prototype.** Build for correctness and maintainability within scope, but do not gold-plate beyond it.
 
@@ -22,7 +22,7 @@ A mobile-first fantasy football web app for a private friend group (4–16 users
 | Area | What’s live |
 |---|---|
 | Auth / leagues | Email/password auth, create/join, multi-league, settings |
-| Scoring | Offense engine + commissioner scoring UI |
+| Scoring | Offense engine + commissioner scoring UI; **minimal IDP defaults** (CB/S/DT/DE/LB) |
 | Roster | Lineup / IR / taxi (eligibility), FA add/cut, lineup-lock enforce |
 | Waivers / trades | FAAB + rolling, claims, vetoes, limits, crons, alerts |
 | Draft | Live + email/slow same room; Brevo turn emails; mock draft |
@@ -48,14 +48,13 @@ A mobile-first fantasy football web app for a private friend group (4–16 users
 
 | Item | Notes |
 |---|---|
-| Advanced player filtering | Richer filters beyond current position / team / rookies / FA toggles |
+| IDP production hardening | See [`docs/IDP.md`](IDP.md) — Overview/leaders, filter density; nflverse IDP keys shipped |
 
 ### Near-term bugs / fixes (tackle one by one)
 
 | # | Item | Notes |
 |---|---|---|
 | ~~1~~ | ~~Login email existence UX~~ | **Done (2026-08-02)** — Log In maps Supabase “Signups not allowed for otp” to a clear “no account / switch to Register” message |
-| 2 | Responsive control sizes | Use `useIsMobile` / breakpoints so dense mobile screens can use smaller shadcn sizes (`sm` buttons, triggers, inputs) without shrinking desktop |
 | ~~3~~ | ~~Reschedule started draft~~ | **Done (2026-08-02)** — Saving a future `draftStartAt` unwinds `live`/`paused` → `scheduled` (keeps picks); clears underway UI and pickability; no-pick seasons return to `recruiting` |
 | ~~4~~ | ~~Draft time picker timezone~~ | **Done (2026-08-02)** — `TimePicker` is native `Input type="time"` (minutes only); draft forms edit local `HH:mm` via `formatLocalTime` / `applyLocalTime`, persist ISO only |
 | ~~5~~ | ~~Draft email delivery audit~~ | **Done (2026-08-02)** — Dedupe claims release on Brevo fail/skip; cron draft-start + trade-complete use `sync`; commissioner accept uses a separate dedupe key; `emailNotificationsEnabled` no longer forced `false` (column unused for gating). Ops: confirm `BREVO_*` on Vercel + cron-job.org every ~5m for `draft-reminders` / `start-drafts` |
@@ -64,16 +63,19 @@ A mobile-first fantasy football web app for a private friend group (4–16 users
 
 | Item | Notes |
 |---|---|
-| Matchup insights | Positional edges, median/luck, bench/optimal delta, would-have-won alternate outcomes |
-| Team Stats chart 6 | Win margins chart (optional; KPI strip covers averages) |
-| Season rewind | End-of-year team/league recap |
+| Matchup insights | **Deferred** — positional edges, median/luck, bench/optimal delta, would-have-won |
+| Team Stats chart 6 | **Deferred** — win margins chart (optional; KPI strip covers averages) |
+| Season rewind | **Deferred** — end-of-year team/league recap |
 
 ### Explicitly deferred (do not schedule soon)
 
 | Item | Priority | Notes |
 |---|---|---|
 | Dynasty picks + pick trades | Deferred | Come back later with dynasty format |
-| IDP positions + scoring | Deferred | Long-term differentiator; not current phase |
+| Advanced player filtering | Deferred | Richer filters beyond position / team / rookies / FA — not current phase |
+| Responsive control sizes | Deferred | Dense mobile `sm` controls — polish, not blocking |
+| Matchup insights / win-margins / season rewind | Deferred | Engagement extras after IDP hardens |
+| IDP FLEX | Deferred | Revisit with offense FLEX redesign — see `docs/IDP.md` |
 | Player trend / snap / target share charts | Deferred | Paid/chart-heavy; Recharts installed but unused for this |
 | Player strength of schedule | Shipped | Overview SOS wheel from positional fantasy pts allowed; distinct from team SOS on standings/playoffs |
 | Win% σ re-fit from `player_scores` residuals | **Lowest** | Chance already shipped with literature priors; re-fit only after enough completed weeks — polish, not blocking |
@@ -146,7 +148,7 @@ Do not substitute without explicit approval.
 
 | Topic | Decision |
 |---|---|
-| Default league format | **Offense-only** (IDP later) |
+| Default league format | **Standard offense + team DEF**; commissioners can enable **Offense + IDP** (CB/S/DT/DE/LB) |
 | First format to build | **Redraft** (dynasty later) |
 | Commissioner | **One** per league |
 | Invites | **Shareable league link** (not email-invite flow for now) |
@@ -156,7 +158,7 @@ Do not substitute without explicit approval.
 | Visual system | Dark-only shadcn + Figtree — **no separate branding track** |
 | Empty states | Always use shadcn **`Empty`** (`components/ui/empty`) wherever an empty/zero-data state is shown |
 | Manager presence | Profile-level last seen; show only on current manager identities — never unclaimed teams, historical records, or public invite previews |
-| Scoring | **Offense engine + league rules UI shipped**; IDP scoring deferred |
+| Scoring | **Offense + team DEF + minimal IDP defaults**; polish gaps in [`docs/IDP.md`](IDP.md) |
 | Mock draft | Solo vs need-aware ADP bots only — **no friends lobby** |
 | Trade Analyzer | **Removed permanently** (not deferred) |
 | Email scope | Brevo **locked** to draft + trade alerts — no broader email expansion |
@@ -253,19 +255,21 @@ Two variants via the `Empty` **`size`** prop:
 ### Scoring
 
 - **Shipped / in progress:** offense presets (standard / half PPR / full PPR), custom rule definitions, league scoring settings UI, rankings + league players scored via `lib/leagues/scoring`
-- **Deferred:** IDP presets and granular IDP stat categories (solo/assist, sacks, TFLs, etc.)
+- **IDP v1:** default rules for CB/S/DT/DE/LB (tackles, sack, INT, FF, FR, safety, TD); team DEF rules remain `DEF`-only; existing leagues add IDP rules manually when enabling IDP — see [`docs/IDP.md`](IDP.md)
 - Scoring rules scoped per league-season (`league_seasons.settings`)
 
 ### Data pipeline
 
-- **Sleeper `/v1/players/nfl`** for active player pool (QB, RB, WR, TE, K, **DEF**)
+- **Sleeper `/v1/players/nfl`** for active player pool (QB, RB, WR, TE, K, **DEF**, **CB, S, DT, DE, LB**)
   - Import only `active === true` players with an NFL `team` (rostered)
   - **DEF** = 32 active NFL team defenses (`fantasy_positions` includes `DEF`, `team` set)
+  - IDP primary IDs from NFL `position` (not fantasy DL/DB buckets) — see `lib/players/resolve-sleeper-position.ts`
   - Inactive/unrostered players are purged on each `pnpm db:seed:players` run
   - Stored in `players` + `player_external_ids` (providers: `sleeper`, `espn`)
   - Bio fields: age, height, weight, college, jersey number (from Sleeper players payload)
   - Rankings/Players: fantasy points from league (or preset) scoring rules; filters (position/team/rookies) applied in SQL
   - Refresh players: `pnpm db:seed:players` · bulk scores: `pnpm db:seed:scores`
+  - Score fetch positions include IDP + Sleeper `DL`/`DB` buckets (`lib/sleeper/api.ts`)
   - **Near-live week stats:** `/api/cron/sync-scores` (secured) upserts current-week Sleeper `stats` into `player_scores`; Vercel daily (Hobby) + cron-job.org every 2–5 min on game days
 - nflverse for historical/weekly stats — post-week official import via `/api/cron/sync-scores` (auto when slate has no live games; `nflverse=0` to skip)
 - ESPN unofficial API for live in-game **player** stats — scoreboard/clock for win% progress; athlete boxscores merge into `player_scores` via `/api/cron/sync-scores` (pass `espn=0` to skip)
@@ -287,10 +291,10 @@ Two variants via the `Empty` **`size`** prop:
 
 ### Roster construction
 
-- Three modes per league: offense-only, offense+IDP, full-custom **(offense-only first)**
+- Three modes per league: **Standard offense**, **Offense + IDP** (standard + CB/S/DT/DE/LB), **Custom**
 - Configurable bench, IR, and taxi slots (create wizard)
 - Taxi eligibility by years of experience (rookies → 5+) **(shipped)**
-- Positions as granular lookup table — IDP positions deferred
+- Positions lookup includes offense, team DEF, and IDP (CB/S/DT/DE/LB display order); IDP FLEX deferred
 - Roster mutations shipped (lineup, IR/taxi, free agency add/cut, waiver claims)
 
 ### In-season management
@@ -502,7 +506,7 @@ Auth → league create/join → season settings → roster mutations → remaini
 
 | Item | Priority |
 |---|---|
-| IDP scoring + positions | Deferred |
+| IDP scoring + positions | **v1 shipped** — harden per `docs/IDP.md` |
 | Dynasty picks + pick trades | Deferred |
 | Player trend / snap / target share charts | Deferred |
 | Win% σ re-fit from residuals | **Lowest** |
@@ -539,7 +543,7 @@ lib/
 | Priority | Domain | Build now? |
 |---|---|---|
 | 1 | users, leagues, league_members, invite codes | Yes |
-| 2 | positions (QB, RB, WR, TE, K, **DEF**, FLEX, BN, IR…) | Yes — offense + team DEF |
+| 2 | positions (QB, RB, WR, TE, K, **DEF**, **CB/S/DT/DE/LB**, FLEX, BN, IR…) | Yes — offense + team DEF + IDP |
 | 3 | players, player_external_ids, player_scores | Yes |
 | 4 | league_seasons, teams, roster slots in settings | Yes |
 | 5 | roster_players (ownership map) | Yes — mutations shipped |
@@ -558,7 +562,6 @@ lib/
 - Franchise continuity pages / owner-change timelines
 - Activity-feed milestones (league anniversaries, Nth win toasts, etc.)
 - Contracts / salary-cap system
-- **IDP** scoring and positions (current phase)
 - Dynasty roster construction / draft-pick inventory (come back later)
 - Mock draft **friends lobby**
 - **Trade Analyzer** (removed permanently)
@@ -694,7 +697,7 @@ lib/
 
 **Deferred format / analytics**
 - [ ] **Player strength of schedule** — remaining/season SOS for players (NFL opponent difficulty); revisit later; team SOS already shipped
-- [ ] IDP positions + scoring
+- [x] **IDP positions + minimal scoring** — CB/S/DT/DE/LB import, roster preset, default rules, score fetch; harden gaps in [`docs/IDP.md`](IDP.md)
 - [ ] Dynasty picks — deferred (come back later)
 - [ ] **Dynasty draft-pick trades** — deferred with dynasty picks
 - [ ] Player trend charts / snap / target share (DEFERRED)
@@ -726,6 +729,7 @@ lib/
 
 | Date | Change |
 |---|---|
+| 2026-08-09 | IDP v1: CB/S/DT/DE/LB positions + import, Individual defense roster preset, minimal scoring, projection fetch; gaps in `docs/IDP.md`. Deferred advanced filters / responsive sizes / matchup insights / win-margins / season rewind |
 | 2026-07-08 | Initial spec created from project brief |
 | 2026-07-08 | Updated IA: app-level vs league-level page structure |
 | 2026-07-08 | Default format: offense-only redraft; scoring deferred |

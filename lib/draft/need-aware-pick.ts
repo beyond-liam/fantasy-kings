@@ -1,4 +1,5 @@
 import type { RosterSlotConfig } from "@/db/schema/league-seasons";
+import { isIdpPosition } from "@/lib/leagues/idp-positions";
 import type { ScoringPreset } from "@/lib/leagues/scoring/types";
 
 export type NeedAwarePlayer = {
@@ -17,18 +18,34 @@ export type DraftedRosterPlayer = {
 };
 
 const FLEX_ELIGIBLE = new Set(["RB", "WR", "TE"]);
-const DEFERRED_POSITIONS = new Set(["K", "DEF"]);
+/** Always wait until the team's last two picks. */
+const HARD_DEFERRED_POSITIONS = new Set(["K", "DEF"]);
+/** Pad these starter needs before treating IDP as a draft need. */
+const OFFENSE_CORE_NEEDS = ["QB", "RB", "WR", "TE", "FLEX"] as const;
 
 export function getAdpForScoring(
   stats: Record<string, number | null>,
   scoring: ScoringPreset,
 ): number | null {
+  const idpFallback = stats.adp_idp ?? stats.adp_idp_1qb;
   const raw =
     scoring === "full_ppr"
-      ? (stats.adp_ppr ?? stats.adp_dd_ppr ?? stats.adp_half_ppr ?? stats.adp_std)
+      ? (stats.adp_ppr ??
+        stats.adp_dd_ppr ??
+        stats.adp_half_ppr ??
+        stats.adp_std ??
+        idpFallback)
       : scoring === "half_ppr"
-        ? (stats.adp_half_ppr ?? stats.adp_ppr ?? stats.adp_dd_ppr ?? stats.adp_std)
-        : (stats.adp_std ?? stats.adp_half_ppr ?? stats.adp_ppr ?? stats.adp_dd_ppr);
+        ? (stats.adp_half_ppr ??
+          stats.adp_ppr ??
+          stats.adp_dd_ppr ??
+          stats.adp_std ??
+          idpFallback)
+        : (stats.adp_std ??
+          stats.adp_half_ppr ??
+          stats.adp_ppr ??
+          stats.adp_dd_ppr ??
+          idpFallback);
 
   if (raw == null || raw >= 999) return null;
   return Number.isFinite(raw) ? raw : null;
@@ -90,6 +107,24 @@ export function starterNeeds(
   return needs;
 }
 
+export function hasOffenseCoreNeed(needs: Record<string, number>): boolean {
+  return OFFENSE_CORE_NEEDS.some((positionId) => (needs[positionId] ?? 0) > 0);
+}
+
+/** Drop IDP starter needs while offense skill slots are still open. */
+export function needsForAutopick(
+  needs: Record<string, number>,
+  deferIdp: boolean,
+): Record<string, number> {
+  if (!deferIdp) return needs;
+  const filtered: Record<string, number> = {};
+  for (const [positionId, count] of Object.entries(needs)) {
+    if (isIdpPosition(positionId)) continue;
+    filtered[positionId] = count;
+  }
+  return filtered;
+}
+
 export function playerFillsNeed(
   positionId: string,
   needs: Record<string, number>,
@@ -131,9 +166,11 @@ export type PickNeedAwarePlayerInput = {
  * Need-aware ADP bot with BPA fallback and same-position bye avoidance.
  *
  * 1. Prefer players who fill open starter needs (else BPA into full pool)
- * 2. Defer K/DEF until the team's last two picks
- * 3. Rank by ADP, then season projection points (BPA)
- * 4. Prefer candidates whose bye does not clash with same-position teammates
+ * 2. Pad offense skill (QB/RB/WR/TE/FLEX) before IDP needs; elite IDP can
+ *    still appear via BPA once those skill starters are filled
+ * 3. Defer K/DEF until the team's last two picks
+ * 4. Rank by ADP, then season projection points (BPA)
+ * 5. Prefer candidates whose bye does not clash with same-position teammates
  */
 export function pickNeedAwarePlayer(
   input: PickNeedAwarePlayerInput,
@@ -144,16 +181,26 @@ export function pickNeedAwarePlayer(
     (row) => row.primaryPositionId,
   );
   const lateRound = input.picksRemainingForTeam <= 2;
-  const needs = starterNeeds(input.rosterSlots, draftedPositions);
+  const rawNeeds = starterNeeds(input.rosterSlots, draftedPositions);
+  const deferIdp = hasOffenseCoreNeed(rawNeeds);
+  const needs = needsForAutopick(rawNeeds, deferIdp);
   const random = input.random ?? Math.random;
 
   let pool = input.available;
   if (!lateRound) {
-    const withoutDeferred = pool.filter(
-      (player) => !DEFERRED_POSITIONS.has(player.primaryPositionId),
+    const withoutHardDeferred = pool.filter(
+      (player) => !HARD_DEFERRED_POSITIONS.has(player.primaryPositionId),
     );
-    if (withoutDeferred.length > 0) {
-      pool = withoutDeferred;
+    if (withoutHardDeferred.length > 0) {
+      pool = withoutHardDeferred;
+    }
+  }
+  if (deferIdp) {
+    const withoutIdp = pool.filter(
+      (player) => !isIdpPosition(player.primaryPositionId),
+    );
+    if (withoutIdp.length > 0) {
+      pool = withoutIdp;
     }
   }
 

@@ -4,7 +4,9 @@ export {
   SCORING_POSITIONS,
   SCORING_PRESET_OPTIONS,
   SCORING_RULE_KIND_OPTIONS,
+  IDP_SCORING_POSITIONS,
   OFFENSE_SCORING_POSITIONS,
+  scoringPositionsFromRosterSlots,
 } from "@/lib/leagues/scoring/types";
 export type {
   ScoringCategory,
@@ -21,7 +23,9 @@ export {
 } from "@/lib/leagues/scoring/build-rule";
 export {
   createEmptyScoringRuleDefinition,
+  filterScoringRulesForPositions,
   getDefaultScoringRuleDefinitions,
+  isTeamDefenseRule,
 } from "@/lib/leagues/scoring/defaults";
 export {
   getDefaultRuleForCategory,

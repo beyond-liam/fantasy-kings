@@ -31,6 +31,7 @@ import {
 import type { WatchlistPlayer } from "@/lib/queries/watchlist";
 import { formatRosterRatePct } from "@/lib/leagues/format-roster-rate";
 import { PLAYER_STAT_COLUMNS } from "@/lib/rankings/player-stat-columns";
+import { compareNullableNumber } from "@/lib/rankings/stat-helpers";
 
 type TeamWatchlistSectionProps = {
   players: WatchlistPlayer[];
@@ -41,24 +42,6 @@ type TeamWatchlistSectionProps = {
 };
 
 const PLACEHOLDER = "—";
-
-function compareNullableNumber(
-  a: number | null | undefined,
-  b: number | null | undefined,
-) {
-  const aMissing = a == null || !Number.isFinite(a);
-  const bMissing = b == null || !Number.isFinite(b);
-  if (aMissing && bMissing) {
-    return 0;
-  }
-  if (aMissing) {
-    return 1;
-  }
-  if (bMissing) {
-    return -1;
-  }
-  return a - b;
-}
 
 export function TeamWatchlistSection({
   players,

@@ -9,7 +9,18 @@ export type ScoringCategory =
   | "defense"
   | "misc";
 
-export type ScoringPosition = "QB" | "RB" | "WR" | "TE" | "K" | "DEF";
+export type ScoringPosition =
+  | "QB"
+  | "RB"
+  | "WR"
+  | "TE"
+  | "K"
+  | "DEF"
+  | "CB"
+  | "S"
+  | "DT"
+  | "DE"
+  | "LB";
 
 export type ScoringRuleKind =
   | "simple"
@@ -63,10 +74,34 @@ export const OFFENSE_SCORING_POSITIONS: ScoringPosition[] = [
   "K",
 ];
 
+export const IDP_SCORING_POSITIONS: ScoringPosition[] = [
+  "CB",
+  "S",
+  "DT",
+  "DE",
+  "LB",
+];
+
 export const SCORING_POSITIONS: ScoringPosition[] = [
   ...OFFENSE_SCORING_POSITIONS,
   "DEF",
+  ...IDP_SCORING_POSITIONS,
 ];
+
+const SCORING_POSITION_SET = new Set<string>(SCORING_POSITIONS);
+
+/** Scoring-eligible positions present on the league roster (preserves display order). */
+export function scoringPositionsFromRosterSlots(
+  rosterSlots: Array<{ positionId: string }>,
+): ScoringPosition[] {
+  const present = new Set<ScoringPosition>();
+  for (const slot of rosterSlots) {
+    if (SCORING_POSITION_SET.has(slot.positionId)) {
+      present.add(slot.positionId as ScoringPosition);
+    }
+  }
+  return SCORING_POSITIONS.filter((position) => present.has(position));
+}
 
 export const SCORING_RULE_KIND_OPTIONS: {
   value: ScoringRuleKind;

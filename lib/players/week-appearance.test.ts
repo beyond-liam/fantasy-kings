@@ -37,4 +37,21 @@ describe("playerWeekHasFantasyAppearance", () => {
       true,
     );
   });
+
+  it("returns true for IDP tackle-only weeks", () => {
+    assert.equal(
+      playerWeekHasFantasyAppearance({
+        idp_tkl_solo: 4,
+        idp_tkl_ast: 2,
+      }),
+      true,
+    );
+    assert.equal(
+      playerWeekHasFantasyAppearance({
+        tkl_solo: 4,
+        tkl_ast: 0,
+      }),
+      true,
+    );
+  });
 });

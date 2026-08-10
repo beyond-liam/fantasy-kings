@@ -16,6 +16,8 @@ export type RankingsViewState = {
   scoring: ScoringPreset;
   sort: string;
   sortDesc: boolean;
+  /** Server-driven name search (URL `q`). */
+  search?: string;
 };
 
 type RankingsToolbarProps = {

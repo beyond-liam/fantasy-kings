@@ -26,6 +26,7 @@ import {
   PLAYERS_PAGE_SIZE,
   playersPageOffset,
 } from "@/lib/rankings/players-page";
+import { sortRankedPlayers } from "@/lib/rankings/sort-ranked-players";
 import { getDraftBySeasonId, getDraftRoomData } from "@/lib/queries/draft";
 import { isDraftUnderway } from "@/lib/queries/leagues";
 import {
@@ -64,6 +65,7 @@ type LeaguePlayersTableProps = {
   sort: string;
   sortDesc: boolean;
   page: number;
+  search?: string;
   currentSeason: string;
   previousSeason: string;
   waiversEnabled: boolean;
@@ -94,6 +96,7 @@ export async function LeaguePlayersTable({
   sort,
   sortDesc,
   page,
+  search,
   currentSeason,
   previousSeason,
   waiversEnabled,
@@ -277,9 +280,21 @@ export async function LeaguePlayersTable({
   const seasons = Array.from(new Set([currentSeason, previousSeason]));
 
   // Ownership / FA filters must run after the score load; then hydrate one page only.
-  const filteredPlayers = freeAgentsOnly
-    ? players.filter((row) => !row.fantasyTeamId)
-    : players;
+  const searchNeedle = search?.trim().toLowerCase() ?? "";
+  const filteredPlayers = sortRankedPlayers(
+    players.filter((row) => {
+      if (freeAgentsOnly && row.fantasyTeamId) return false;
+      if (
+        searchNeedle &&
+        !row.fullName.toLowerCase().includes(searchNeedle)
+      ) {
+        return false;
+      }
+      return true;
+    }),
+    sort,
+    sortDesc,
+  );
   const totalCount = filteredPlayers.length;
   const offset = playersPageOffset(page);
   const pageRows = filteredPlayers.slice(offset, offset + PLAYERS_PAGE_SIZE);
@@ -330,6 +345,7 @@ export async function LeaguePlayersTable({
           scoring: scoringPreset,
           sort,
           sortDesc,
+          search: search ?? "",
         }}
         showScoringSelect={false}
       />

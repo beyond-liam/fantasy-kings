@@ -8,9 +8,9 @@ import {
 } from "../schema";
 import { createSeedClient } from "./client";
 import { generatePublicId } from "../../lib/leagues/public-id";
+import { resolveSleeperPrimaryPosition } from "../../lib/players/resolve-sleeper-position";
 
 const SLEEPER_PLAYERS_URL = "https://api.sleeper.app/v1/players/nfl";
-const OFFENSE_POSITIONS = ["QB", "RB", "WR", "TE", "K"] as const;
 
 type SleeperPlayer = {
   player_id: string;
@@ -33,6 +33,7 @@ type SleeperPlayer = {
   /** ESPN athlete id when Sleeper has a crosswalk. */
   espn_id: number | string | null;
   depth_chart_order: number | null;
+  depth_chart_position: string | null;
   metadata: { rookie_year?: string | null } | null;
 };
 
@@ -80,44 +81,14 @@ function resolveDisplayName(player: SleeperPlayer): string | null {
 }
 
 function resolvePosition(player: SleeperPlayer): string | null {
-  if (!player.active) {
-    return null;
-  }
-
-  const displayName = resolveDisplayName(player);
-  if (!displayName) {
-    return null;
-  }
-
-  const fantasyPositions = player.fantasy_positions ?? [];
-
-  if (fantasyPositions.includes("DEF")) {
-    return player.team ? "DEF" : null;
-  }
-
-  let positionId: string | null = null;
-
-  if (
-    player.position &&
-    OFFENSE_POSITIONS.includes(
-      player.position as (typeof OFFENSE_POSITIONS)[number],
-    )
-  ) {
-    positionId = player.position;
-  } else {
-    for (const position of OFFENSE_POSITIONS) {
-      if (fantasyPositions.includes(position)) {
-        positionId = position;
-        break;
-      }
-    }
-  }
-
-  if (!positionId || !player.team) {
-    return null;
-  }
-
-  return positionId;
+  return resolveSleeperPrimaryPosition({
+    active: player.active,
+    position: player.position,
+    fantasy_positions: player.fantasy_positions,
+    team: player.team,
+    hasDisplayName: Boolean(resolveDisplayName(player)),
+    depth_chart_position: player.depth_chart_position,
+  });
 }
 
 async function seedSleeperPlayers() {
@@ -225,6 +196,11 @@ async function seedSleeperPlayers() {
     TE: 0,
     K: 0,
     DEF: 0,
+    CB: 0,
+    S: 0,
+    DT: 0,
+    DE: 0,
+    LB: 0,
   };
 
   let inserted = 0;

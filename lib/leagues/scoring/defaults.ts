@@ -12,6 +12,7 @@ import type {
   ScoringRuleKind,
 } from "@/lib/leagues/scoring/types";
 import {
+  IDP_SCORING_POSITIONS,
   OFFENSE_SCORING_POSITIONS,
 } from "@/lib/leagues/scoring/types";
 
@@ -41,6 +42,13 @@ function defense(input: RuleInput): ScoringRuleDefinition {
   return {
     ...input,
     positions: input.positions ?? ["DEF"],
+  };
+}
+
+function idp(input: RuleInput): ScoringRuleDefinition {
+  return {
+    ...input,
+    positions: input.positions ?? [...IDP_SCORING_POSITIONS],
   };
 }
 
@@ -279,15 +287,67 @@ const RETURNING: ScoringRuleDefinition[] = [
   }),
 ];
 
-const DEFENSE: ScoringRuleDefinition[] = [
-  offense({
-    id: "defense-solo-tackle",
+/** Minimal IDP defaults — team DEF rules stay on `DEF` only. */
+const IDP_DEFENSE: ScoringRuleDefinition[] = [
+  idp({
+    id: "idp-solo-tackle",
     category: "defense",
     kind: "simple",
     points: 1,
-    stat: "Solo Tackle",
-    positions: [],
+    stat: "Solo Tackles",
   }),
+  idp({
+    id: "idp-assisted-tackle",
+    category: "defense",
+    kind: "simple",
+    points: 0.5,
+    stat: "Assisted Tackles",
+  }),
+  idp({
+    id: "idp-sack",
+    category: "defense",
+    kind: "simple",
+    points: 2,
+    stat: "Sack",
+  }),
+  idp({
+    id: "idp-int",
+    category: "defense",
+    kind: "simple",
+    points: 2,
+    stat: "Interception",
+  }),
+  idp({
+    id: "idp-fumble-forced",
+    category: "defense",
+    kind: "simple",
+    points: 2,
+    stat: "Fumble Forced",
+  }),
+  idp({
+    id: "idp-fumble-recovered",
+    category: "defense",
+    kind: "simple",
+    points: 1,
+    stat: "Fumble Recovered",
+  }),
+  idp({
+    id: "idp-safety",
+    category: "defense",
+    kind: "simple",
+    points: 4,
+    stat: "Safety",
+  }),
+  idp({
+    id: "idp-td",
+    category: "defense",
+    kind: "simple",
+    points: 6,
+    stat: "Defensive TD",
+  }),
+];
+
+const TEAM_DEFENSE: ScoringRuleDefinition[] = [
   defense({
     id: "defense-int",
     category: "defense",
@@ -364,6 +424,8 @@ const DEFENSE: ScoringRuleDefinition[] = [
   }),
 ];
 
+const DEFENSE: ScoringRuleDefinition[] = [...IDP_DEFENSE, ...TEAM_DEFENSE];
+
 const MISC: ScoringRuleDefinition[] = [
   offense({
     id: "misc-fumble",
@@ -419,15 +481,42 @@ function getPprRule(preset: ScoringPreset): ScoringRuleDefinition | null {
   });
 }
 
+/** Default team-DEF rule ids (`defense-*`); never apply these without roster DEF. */
+export function isTeamDefenseRule(rule: Pick<ScoringRuleDefinition, "id">): boolean {
+  return rule.id.startsWith("defense-");
+}
+
+/** Drop rules (or positions) that do not apply to the league roster. */
+export function filterScoringRulesForPositions(
+  rules: ScoringRuleDefinition[],
+  availablePositions: ScoringPosition[],
+): ScoringRuleDefinition[] {
+  if (availablePositions.length === 0) {
+    return rules;
+  }
+
+  const allowed = new Set(availablePositions);
+  const hasTeamDef = allowed.has("DEF");
+
+  return rules
+    .filter((rule) => hasTeamDef || !isTeamDefenseRule(rule))
+    .map((rule) => ({
+      ...rule,
+      positions: rule.positions.filter((position) => allowed.has(position)),
+    }))
+    .filter((rule) => rule.positions.length > 0);
+}
+
 export function getDefaultScoringRuleDefinitions(
   preset: ScoringPreset,
+  availablePositions?: ScoringPosition[],
 ): ScoringRuleDefinition[] {
   const pprRule = getPprRule(preset);
   const receiving = pprRule
     ? [pprRule, ...RECEIVING_BASE]
     : RECEIVING_BASE;
 
-  return [
+  const rules = [
     ...PASSING,
     ...RUSHING,
     ...receiving,
@@ -436,6 +525,10 @@ export function getDefaultScoringRuleDefinitions(
     ...DEFENSE,
     ...MISC,
   ];
+
+  return availablePositions
+    ? filterScoringRulesForPositions(rules, availablePositions)
+    : rules;
 }
 
 export function createEmptyScoringRuleDefinition(

@@ -5,6 +5,9 @@ export type TeamStatsSectionId =
   | "quarterbacks"
   | "skill"
   | "kickers"
+  | "defensive-backs"
+  | "defensive-linemen"
+  | "linebackers"
   | "defense";
 
 export type TeamStatsSection = {
@@ -16,13 +19,41 @@ export type TeamStatsSection = {
 };
 
 const SKILL_POSITIONS = new Set(["RB", "WR", "TE", "FLEX"]);
+const DEFENSIVE_BACK_POSITIONS = new Set(["CB", "S"]);
+const DEFENSIVE_LINE_POSITIONS = new Set(["DT", "DE"]);
 
+function byFantasyPts(a: RankedPlayerRow, b: RankedPlayerRow) {
+  return (b.fantasyPts ?? 0) - (a.fantasyPts ?? 0);
+}
+
+function section(
+  id: TeamStatsSectionId,
+  title: string,
+  columnPosition: PositionFilter,
+  players: RankedPlayerRow[],
+): TeamStatsSection {
+  return {
+    id,
+    title,
+    columnPosition,
+    players: players.sort(byFantasyPts),
+  };
+}
+
+/**
+ * Group roster players into Player Stats tables.
+ * Team DEF and IDP buckets are omitted when empty so offense-only rosters
+ * stay clean.
+ */
 export function groupRosterPlayersForStats(
   players: RankedPlayerRow[],
 ): TeamStatsSection[] {
   const quarterbacks: RankedPlayerRow[] = [];
   const skill: RankedPlayerRow[] = [];
   const kickers: RankedPlayerRow[] = [];
+  const defensiveBacks: RankedPlayerRow[] = [];
+  const defensiveLinemen: RankedPlayerRow[] = [];
+  const linebackers: RankedPlayerRow[] = [];
   const defense: RankedPlayerRow[] = [];
 
   for (const player of players) {
@@ -43,38 +74,48 @@ export function groupRosterPlayersForStats(
       continue;
     }
 
+    if (DEFENSIVE_BACK_POSITIONS.has(position)) {
+      defensiveBacks.push(player);
+      continue;
+    }
+
+    if (DEFENSIVE_LINE_POSITIONS.has(position)) {
+      defensiveLinemen.push(player);
+      continue;
+    }
+
+    if (position === "LB") {
+      linebackers.push(player);
+      continue;
+    }
+
     if (position === "DEF") {
       defense.push(player);
     }
   }
 
-  const byFantasyPts = (a: RankedPlayerRow, b: RankedPlayerRow) =>
-    (b.fantasyPts ?? 0) - (a.fantasyPts ?? 0);
-
-  return [
-    {
-      id: "quarterbacks",
-      title: "Quarterbacks",
-      columnPosition: "QB",
-      players: quarterbacks.sort(byFantasyPts),
-    },
-    {
-      id: "skill",
-      title: "Running Backs & Receivers",
-      columnPosition: "RB",
-      players: skill.sort(byFantasyPts),
-    },
-    {
-      id: "kickers",
-      title: "Kickers",
-      columnPosition: "K",
-      players: kickers.sort(byFantasyPts),
-    },
-    {
-      id: "defense",
-      title: "Team Defense",
-      columnPosition: "DEF",
-      players: defense.sort(byFantasyPts),
-    },
+  const sections: TeamStatsSection[] = [
+    section("quarterbacks", "Quarterbacks", "QB", quarterbacks),
+    section("skill", "Running Backs & Receivers", "RB", skill),
+    section("kickers", "Kickers", "K", kickers),
   ];
+
+  if (defensiveBacks.length > 0) {
+    sections.push(
+      section("defensive-backs", "Defensive Backs", "CB", defensiveBacks),
+    );
+  }
+  if (defensiveLinemen.length > 0) {
+    sections.push(
+      section("defensive-linemen", "Defensive Linemen", "DE", defensiveLinemen),
+    );
+  }
+  if (linebackers.length > 0) {
+    sections.push(section("linebackers", "Linebackers", "LB", linebackers));
+  }
+  if (defense.length > 0) {
+    sections.push(section("defense", "Team Defense", "DEF", defense));
+  }
+
+  return sections;
 }

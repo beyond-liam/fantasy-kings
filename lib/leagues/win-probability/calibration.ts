@@ -19,6 +19,11 @@ export const POSITION_SIGMA: Record<string, number> = {
   FLEX: 7,
   K: 3.5,
   DEF: 5,
+  CB: 5,
+  S: 5,
+  DT: 4.5,
+  DE: 5.5,
+  LB: 5.5,
 };
 
 export const DEFAULT_SIGMA = 6.5;

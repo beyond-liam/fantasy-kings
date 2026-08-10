@@ -34,6 +34,7 @@ type LeaguePlayersPageProps = {
     sort?: string;
     sortDir?: string;
     page?: string;
+    q?: string;
   }>;
 };
 
@@ -95,6 +96,7 @@ export default async function LeaguePlayersPage({
       : (query.sort ?? DEFAULT_SORT_COLUMN);
   const sortDesc = query.sortDir ? query.sortDir !== "asc" : DEFAULT_SORT_DESC;
   const page = parsePlayersPage(query.page);
+  const search = query.q?.trim() || undefined;
 
   const scoringPreset = season.scoringPreset as ScoringPreset;
   const scoringRules = resolveScoringRuleDefinitions(
@@ -128,6 +130,7 @@ export default async function LeaguePlayersPage({
           sort={sort}
           sortDesc={sortDesc}
           page={page}
+          search={search}
           currentSeason={currentSeason}
           previousSeason={previousSeason}
           waiversEnabled={season.waiversEnabled}

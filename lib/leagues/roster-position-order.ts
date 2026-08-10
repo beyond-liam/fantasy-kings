@@ -1,4 +1,4 @@
-/** Display order for roster / trade tables (offense-first). */
+/** Display order for roster / trade tables (offense-first, then team DEF, then IDP). */
 export const ROSTER_POSITION_ORDER = [
   "QB",
   "RB",
@@ -6,6 +6,11 @@ export const ROSTER_POSITION_ORDER = [
   "TE",
   "K",
   "DEF",
+  "CB",
+  "S",
+  "DT",
+  "DE",
+  "LB",
 ] as const;
 
 export function rosterPositionSortIndex(positionId: string) {

@@ -41,6 +41,24 @@ describe("buildTeamOpportunityShare", () => {
     );
   });
 
+  it("builds IDP tackle share from solo + assist", () => {
+    const share = buildTeamOpportunityShare({
+      positionId: "LB",
+      playerStats: { tkl_solo: 80, tkl_ast: 20 },
+      teamStatsBags: [
+        { tkl_solo: 80, tkl_ast: 20 },
+        { tkl_solo: 40, tkl_ast: 10 },
+        { tkl_solo: 30, tkl_ast: 20 },
+      ],
+    });
+
+    assert.ok(share);
+    assert.equal(share?.kind, "tackle");
+    assert.equal(share?.playerTotal, 100);
+    assert.equal(share?.teamTotal, 200);
+    assert.equal(share?.playerPct, 50);
+  });
+
   it("returns null when team total is zero", () => {
     assert.equal(
       buildTeamOpportunityShare({

@@ -7,6 +7,7 @@ import { db } from "@/lib/db";
 import {
   getDefaultScoringRuleDefinitions,
   resolveScoringRuleDefinitions,
+  scoringPositionsFromRosterSlots,
   type ScoringPreset,
   type ScoringRuleDefinition,
 } from "@/lib/leagues/scoring";
@@ -77,14 +78,18 @@ export async function updateScoringSettings(
 
   const { season, user } = result;
   const nextPreset = input.scoringPreset ?? (season.scoringPreset as ScoringPreset);
+  const availablePositions = scoringPositionsFromRosterSlots(
+    season.settings.rosterSlots,
+  );
   const beforeRules = resolveScoringRuleDefinitions(
     season.scoringPreset as ScoringPreset,
     season.settings.scoringRules,
+    availablePositions,
   );
   const afterRules =
     nextRules ??
     (input.scoringPreset != null
-      ? getDefaultScoringRuleDefinitions(nextPreset)
+      ? getDefaultScoringRuleDefinitions(nextPreset, availablePositions)
       : beforeRules);
 
   await db

@@ -25,6 +25,11 @@ describe("formatLeaderPositionFullLabel", () => {
     assert.equal(formatLeaderPositionFullLabel("WR"), "Wide receiver");
     assert.equal(formatLeaderPositionFullLabel("TE"), "Tight end");
     assert.equal(formatLeaderPositionFullLabel("FLEX"), "Flex");
+    assert.equal(formatLeaderPositionFullLabel("CB"), "Cornerback");
+    assert.equal(formatLeaderPositionFullLabel("S"), "Safety");
+    assert.equal(formatLeaderPositionFullLabel("DT"), "Defensive tackle");
+    assert.equal(formatLeaderPositionFullLabel("DE"), "Defensive end");
+    assert.equal(formatLeaderPositionFullLabel("LB"), "Linebacker");
     assert.equal(formatLeaderPositionFullLabel("K"), "Kicker");
     assert.equal(formatLeaderPositionFullLabel("DEF"), "Defense");
   });
@@ -45,6 +50,23 @@ describe("getLeaderPositionColumns", () => {
       "RB",
       "FLEX",
       "DEF",
+    ]);
+  });
+
+  it("places IDP starter slots in canonical order", () => {
+    const slots: RosterSlotConfig[] = [
+      { positionId: "QB", slotCount: 1, minSlots: 1, maxSlots: 4, isStarter: true },
+      { positionId: "LB", slotCount: 2, minSlots: 2, maxSlots: 4, isStarter: true },
+      { positionId: "CB", slotCount: 2, minSlots: 2, maxSlots: 4, isStarter: true },
+      { positionId: "DE", slotCount: 2, minSlots: 2, maxSlots: 4, isStarter: true },
+      { positionId: "BN", slotCount: 6, minSlots: 0, maxSlots: 6, isStarter: false },
+    ];
+
+    assert.deepEqual(getLeaderPositionColumns(slots), [
+      "QB",
+      "CB",
+      "DE",
+      "LB",
     ]);
   });
 });

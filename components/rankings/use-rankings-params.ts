@@ -14,6 +14,7 @@ export const SERVER_RANKINGS_PARAMS = new Set([
   "rookies",
   "page",
   "fa",
+  "q",
 ]);
 
 export function useRankingsParams() {

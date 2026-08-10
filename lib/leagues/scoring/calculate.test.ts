@@ -512,6 +512,39 @@ describe("calculatePlayerPoints", () => {
     });
   });
 
+  describe("IDP vs team DEF scoping", () => {
+    it("scores IDP tackle rules for LB but not team DEF", () => {
+      const rules: ScoringRuleDefinition[] = [
+        {
+          id: "idp-solo",
+          category: "defense",
+          kind: "simple",
+          points: 1,
+          stat: "Solo Tackles",
+          positions: ["LB" as ScoringPosition],
+        },
+        {
+          id: "team-shutout",
+          category: "defense",
+          kind: "exact",
+          points: 10,
+          stat: "Points Allowed",
+          exactValue: 0,
+          positions: ["DEF" as ScoringPosition],
+        },
+      ];
+
+      assert.equal(
+        calculatePlayerPoints({ tkl_solo: 5 }, "LB", rules),
+        5,
+      );
+      assert.equal(
+        calculatePlayerPoints({ tkl_solo: 5, pts_allow_0: 1 }, "DEF", rules),
+        10,
+      );
+    });
+  });
+
   describe("rounding", () => {
     it("rounds to 2 decimal places", () => {
       const rules: ScoringRuleDefinition[] = [

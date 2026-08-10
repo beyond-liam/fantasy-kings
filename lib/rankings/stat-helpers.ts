@@ -4,6 +4,36 @@ export function getFantasyPts(row: {
   return row.fantasyPts;
 }
 
+/**
+ * Numeric sort key for table cells. Missing values (shown as —) sort as 0
+ * so they don't float to the top on descending sorts.
+ */
+export function sortableStatValue(value: number | null | undefined): number {
+  if (value == null || !Number.isFinite(value)) {
+    return 0;
+  }
+  return value;
+}
+
+/**
+ * Sort key for position ranks. Lower is better (S1 first); missing (—) sorts
+ * last as the worst rank.
+ */
+export function sortableRankValue(value: number | null | undefined): number {
+  if (value == null || !Number.isFinite(value) || value <= 0) {
+    return Number.POSITIVE_INFINITY;
+  }
+  return value;
+}
+
+/** Ascending compare; null/NaN treated as 0. */
+export function compareNullableNumber(
+  a: number | null | undefined,
+  b: number | null | undefined,
+): number {
+  return sortableStatValue(a) - sortableStatValue(b);
+}
+
 export function getPtsPpr(row: {
   stats: Record<string, number | null>;
   ptsPpr: number | null;
@@ -22,7 +52,9 @@ export function getAdp(stats: Record<string, number | null>): number | null {
     stats.adp_ppr ??
     stats.adp_dd_ppr ??
     stats.adp_half_ppr ??
-    stats.adp_std;
+    stats.adp_std ??
+    stats.adp_idp ??
+    stats.adp_idp_1qb;
 
   if (value === null || value === undefined || value >= 999) {
     return null;

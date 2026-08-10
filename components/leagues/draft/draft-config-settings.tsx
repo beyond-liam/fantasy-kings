@@ -203,6 +203,7 @@ export function DraftConfigSettings({
                 updateDraftStartAt(date, draftTime || "19:00");
               }}
               placeholder="Select date"
+              minDate={new Date()}
             />
           </Field>
           <Field>

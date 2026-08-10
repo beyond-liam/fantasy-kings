@@ -1,7 +1,15 @@
+import { IDP_POSITION_IDS } from "@/lib/leagues/idp-positions";
+import { formatLeaderPositionFullLabel } from "@/lib/leagues/league-position-stats";
 import type { LeagueStandingsRow } from "@/lib/leagues/standings";
 import { expandFinalMatchupRowsWithOpponent } from "@/lib/leagues/matchups/expand-finals";
 
-const OVERVIEW_POSITIONS = ["QB", "RB", "WR", "TE"] as const;
+const OVERVIEW_POSITIONS = [
+  "QB",
+  "RB",
+  "WR",
+  "TE",
+  ...IDP_POSITION_IDS,
+] as const;
 
 export type OverviewPositionId = (typeof OVERVIEW_POSITIONS)[number];
 
@@ -187,14 +195,7 @@ export function buildSeasonPositionLeaders(
     if (!best) continue;
     leaders.push({
       positionId,
-      label:
-        positionId === "QB"
-          ? "Quarterback"
-          : positionId === "RB"
-            ? "Running back"
-            : positionId === "WR"
-              ? "Wide receiver"
-              : "Tight end",
+      label: formatLeaderPositionFullLabel(positionId),
       teamId: best.teamId,
       teamPublicId: best.teamPublicId,
       teamName: best.teamName,

@@ -29,10 +29,12 @@ import { IR_ELIGIBILITY_OPTIONS } from "@/lib/leagues/ir-eligibility";
 import { TAXI_MAX_YEARS_OPTIONS } from "@/lib/leagues/taxi-eligibility";
 import {
   ROSTER_POSITION_OPTIONS,
+  formatIdpStarterSummary,
   formatStandardStarterSummary,
   isFlexPosition,
   type RosterRequirementsValues,
   type RosterSlotInput,
+  type RosterUiMode,
 } from "@/lib/leagues/roster";
 
 const POSITION_ITEMS = ROSTER_POSITION_OPTIONS.map((position) => ({
@@ -49,6 +51,8 @@ type RosterBreakdownProps = {
   onChange: (values: Partial<RosterRequirementsValues>) => void;
   /** When false, hide IR / taxi controls (e.g. mock drafts). Default true. */
   showReserveSlots?: boolean;
+  /** UI preset; hides the editable positions table for standard / IDP. */
+  rosterUiMode?: RosterUiMode;
 };
 
 export function RosterBreakdown({
@@ -56,6 +60,7 @@ export function RosterBreakdown({
   errors = {},
   onChange,
   showReserveSlots = true,
+  rosterUiMode,
 }: RosterBreakdownProps) {
   const updateCustomSlot = (
     index: number,
@@ -67,11 +72,19 @@ export function RosterBreakdown({
     onChange({ customRosterSlots: next });
   };
 
+  const presetMode =
+    rosterUiMode ??
+    (values.rosterMode === "standard" ? "standard" : "custom");
+  const showPositionTable = presetMode === "custom";
+
   return (
     <FieldGroup>
-      {values.rosterMode === "standard" ? (
+      {!showPositionTable ? (
         <div className="rounded-lg bg-muted/50 p-3 text-sm text-muted-foreground">
-          Starters: {formatStandardStarterSummary()}
+          Starters:{" "}
+          {presetMode === "idp"
+            ? formatIdpStarterSummary()
+            : formatStandardStarterSummary()}
         </div>
       ) : (
         <div className="flex flex-col gap-3">

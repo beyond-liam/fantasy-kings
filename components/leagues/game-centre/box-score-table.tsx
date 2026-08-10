@@ -230,14 +230,14 @@ const DEFENSE_COLUMNS: StatColumn[] = [
     },
   },
   {
-    header: "SACK",
-    tooltip: "Sacks",
-    value: (p) => num(p.stats, "sack"),
-  },
-  {
     header: "TFL",
     tooltip: "Tackles for a loss",
     value: (p) => num(p.stats, "tkl_loss"),
+  },
+  {
+    header: "SACK",
+    tooltip: "Sacks",
+    value: (p) => num(p.stats, "sack"),
   },
   {
     header: "INT",
@@ -298,8 +298,16 @@ function partitionStarters(starters: GameCentrePlayer[]) {
   for (const player of starters) {
     const pos = player.slotPositionId || player.primaryPositionId;
     if (pos === "K") kickers.push(player);
-    else if (pos === "DEF") defense.push(player);
-    else offense.push(player);
+    else if (
+      pos === "DEF" ||
+      pos === "CB" ||
+      pos === "S" ||
+      pos === "DT" ||
+      pos === "DE" ||
+      pos === "LB"
+    ) {
+      defense.push(player);
+    } else offense.push(player);
   }
 
   return { offense, kickers, defense };

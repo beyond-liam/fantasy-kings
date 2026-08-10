@@ -117,7 +117,7 @@ describe("overview rankings", () => {
         teamName: "A",
         logoUrl: null,
         claimed: true,
-        byPosition: { QB: 200, RB: 100 },
+        byPosition: { QB: 200, RB: 100, CB: 80 },
       },
       {
         teamId: "b",
@@ -125,12 +125,17 @@ describe("overview rankings", () => {
         teamName: "B",
         logoUrl: null,
         claimed: true,
-        byPosition: { QB: 180, RB: 150, WR: 120 },
+        byPosition: { QB: 180, RB: 150, WR: 120, CB: 90 },
       },
     ]);
     assert.equal(leaders.find((l) => l.positionId === "QB")?.teamId, "a");
     assert.equal(leaders.find((l) => l.positionId === "RB")?.teamId, "b");
     assert.equal(leaders.find((l) => l.positionId === "WR")?.teamId, "b");
+    assert.equal(leaders.find((l) => l.positionId === "CB")?.teamId, "b");
+    assert.equal(
+      leaders.find((l) => l.positionId === "CB")?.label,
+      "Cornerback",
+    );
   });
 });
 

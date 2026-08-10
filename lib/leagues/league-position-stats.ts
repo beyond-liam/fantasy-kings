@@ -1,4 +1,5 @@
 import type { RosterSlotConfig } from "@/db/schema/league-seasons";
+import { IDP_POSITION_IDS } from "@/lib/leagues/idp-positions";
 
 /** Display order for league leaders / position stats columns. */
 export const LEADER_POSITION_ORDER = [
@@ -7,6 +8,7 @@ export const LEADER_POSITION_ORDER = [
   "WR",
   "TE",
   "FLEX",
+  ...IDP_POSITION_IDS,
   "K",
   "DEF",
 ] as const;
@@ -58,6 +60,16 @@ export function formatLeaderPositionFullLabel(positionId: string): string {
       return "Tight end";
     case "FLEX":
       return "Flex";
+    case "CB":
+      return "Cornerback";
+    case "S":
+      return "Safety";
+    case "DT":
+      return "Defensive tackle";
+    case "DE":
+      return "Defensive end";
+    case "LB":
+      return "Linebacker";
     case "K":
       return "Kicker";
     case "DEF":

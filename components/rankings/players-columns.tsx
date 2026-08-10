@@ -20,6 +20,8 @@ import {
   getAdp,
   getFantasyPts,
   getPositionRankColorClass,
+  sortableRankValue,
+  sortableStatValue,
 } from "@/lib/rankings/stat-helpers";
 import { PLAYER_STAT_COLUMNS } from "@/lib/rankings/player-stat-columns";
 import type { RankedPlayerRow } from "@/lib/queries/players";
@@ -34,15 +36,6 @@ function renderStatCell(row: RankedPlayerRow, key: string, decimals?: number) {
   }
 
   return formatStatValue(row.stats[key], decimals);
-}
-
-function sortableValue(value: number | null | undefined): number | undefined {
-  if (value == null) {
-    return undefined;
-  }
-
-  const number = Number(value);
-  return Number.isFinite(number) ? number : undefined;
 }
 
 const STAT_CELL_CLASS = "tabular-nums";
@@ -233,7 +226,7 @@ export function getPlayersColumns(
     },
     {
       id: "positionRank",
-      accessorFn: (row) => sortableValue(row.positionRank),
+      accessorFn: (row) => sortableRankValue(row.positionRank),
       sortUndefined: "last",
       meta: {
         cellClassName: STAT_CELL_CLASS,
@@ -264,10 +257,10 @@ export function getPlayersColumns(
         },
         accessorFn: (row) =>
           column.key === "adp"
-            ? sortableValue(getAdp(row.stats))
+            ? sortableStatValue(getAdp(row.stats))
             : column.key === "fantasy_pts"
-              ? sortableValue(getFantasyPts(row))
-              : sortableValue(row.stats[column.key]),
+              ? sortableStatValue(getFantasyPts(row))
+              : sortableStatValue(row.stats[column.key]),
         sortUndefined: "last",
         header: ({ column: tableColumn }) => (
           <DataTableColumnHeader

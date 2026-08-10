@@ -1,11 +1,13 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import type { RosterSlotConfig } from "@/db/schema/league-seasons";
 import {
   pickNeedAwarePlayer,
   type NeedAwarePlayer,
 } from "@/lib/draft/need-aware-pick";
 import { buildStandardRosterSlots } from "@/lib/leagues/defaults";
+import { getDefaultIdpCustomRosterSlots } from "@/lib/leagues/roster";
 
 function player(
   id: string,
@@ -22,6 +24,22 @@ function player(
     byeWeek,
     stats: { adp_ppr: adp, adp_half_ppr: adp, adp_std: adp },
   };
+}
+
+function idpRosterSlots(): RosterSlotConfig[] {
+  return [
+    ...getDefaultIdpCustomRosterSlots().map((slot) => ({
+      ...slot,
+      maxSlots: Math.max(slot.maxSlots, slot.slotCount + 4),
+    })),
+    {
+      positionId: "BN",
+      slotCount: 4,
+      minSlots: 0,
+      maxSlots: 4,
+      isStarter: false,
+    },
+  ];
 }
 
 describe("pickNeedAwarePlayer", () => {
@@ -93,6 +111,40 @@ describe("pickNeedAwarePlayer", () => {
       random: () => 0,
     });
     assert.ok(late?.id === "k1" || late?.id === "def1");
+  });
+
+  it("defers IDP while offense skill starters are still open", () => {
+    const slots = idpRosterSlots();
+    const early = pickNeedAwarePlayer({
+      available: [player("edge", "DE", 8), player("wr1", "WR", 25)],
+      draftedRoster: [],
+      rosterSlots: slots,
+      scoring: "full_ppr",
+      picksRemainingForTeam: 20,
+      random: () => 0,
+    });
+    assert.equal(early?.id, "wr1");
+  });
+
+  it("takes IDP after offense skill starters are filled", () => {
+    const slots = idpRosterSlots();
+    const pick = pickNeedAwarePlayer({
+      available: [player("edge", "DE", 30), player("rb-depth", "RB", 55)],
+      draftedRoster: [
+        { primaryPositionId: "QB" },
+        { primaryPositionId: "RB" },
+        { primaryPositionId: "RB" },
+        { primaryPositionId: "WR" },
+        { primaryPositionId: "WR" },
+        { primaryPositionId: "TE" },
+        { primaryPositionId: "RB" },
+      ],
+      rosterSlots: slots,
+      scoring: "full_ppr",
+      picksRemainingForTeam: 12,
+      random: () => 0,
+    });
+    assert.equal(pick?.id, "edge");
   });
 
   it("fills open QB need when skill positions are already stacked", () => {

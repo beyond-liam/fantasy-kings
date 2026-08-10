@@ -82,6 +82,11 @@ export function getRosterEvaluationByModeMock(): Record<
     { position: "WR", startersRank: 2, benchRank: 2 },
     { position: "TE", startersRank: 4, benchRank: 4 },
     { position: "FLEX", startersRank: 2, benchRank: 3 },
+    { position: "CB", startersRank: 2, benchRank: 3 },
+    { position: "S", startersRank: 1, benchRank: 4 },
+    { position: "DT", startersRank: 3, benchRank: 3 },
+    { position: "DE", startersRank: 2, benchRank: 2 },
+    { position: "LB", startersRank: 1, benchRank: 2 },
     { position: "K", startersRank: 2, benchRank: 4 },
   ]);
 

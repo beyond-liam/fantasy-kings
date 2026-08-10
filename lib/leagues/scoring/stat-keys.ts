@@ -49,6 +49,7 @@ const STAT_KEYS_BY_CATEGORY: Record<ScoringCategory, Record<string, string>> = {
   defense: {
     "Solo Tackle": "tkl_solo",
     "Solo Tackles": "tkl_solo",
+    "Assisted Tackles": "tkl_ast",
     Interception: "int",
     Interceptions: "int",
     Sack: "sack",

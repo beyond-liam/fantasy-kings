@@ -33,11 +33,31 @@ describe("getFantasyPositionRankMap", () => {
       week: 1,
       kind: "projection",
       scores: [
-        { playerId: players[0]!.id, ptsPpr: 25.0, stats: {} },
-        { playerId: players[1]!.id, ptsPpr: 20.0, stats: {} },
-        { playerId: players[2]!.id, ptsPpr: 15.0, stats: {} },
-        { playerId: players[3]!.id, ptsPpr: 10.0, stats: {} },
-        { playerId: players[4]!.id, ptsPpr: 5.0, stats: {} },
+        {
+          playerId: players[0]!.id,
+          ptsPpr: 25.0,
+          stats: { pass_yd: 250, pass_att: 30 },
+        },
+        {
+          playerId: players[1]!.id,
+          ptsPpr: 20.0,
+          stats: { pass_yd: 200, pass_att: 25 },
+        },
+        {
+          playerId: players[2]!.id,
+          ptsPpr: 15.0,
+          stats: { pass_yd: 150, pass_att: 20 },
+        },
+        {
+          playerId: players[3]!.id,
+          ptsPpr: 10.0,
+          stats: { pass_yd: 100, pass_att: 15 },
+        },
+        {
+          playerId: players[4]!.id,
+          ptsPpr: 5.0,
+          stats: { pass_yd: 50, pass_att: 10 },
+        },
       ],
     });
 
@@ -86,9 +106,21 @@ describe("getFantasyPositionRankMap", () => {
       week: 2,
       kind: "stats",
       scores: [
-        { playerId: players[0]!.id, ptsPpr: 30.0, stats: {} },
-        { playerId: players[1]!.id, ptsPpr: 20.0, stats: {} },
-        { playerId: players[2]!.id, ptsPpr: 10.0, stats: {} },
+        {
+          playerId: players[0]!.id,
+          ptsPpr: 30.0,
+          stats: { rush_yd: 300, rush_att: 20 },
+        },
+        {
+          playerId: players[1]!.id,
+          ptsPpr: 20.0,
+          stats: { rush_yd: 200, rush_att: 15 },
+        },
+        {
+          playerId: players[2]!.id,
+          ptsPpr: 10.0,
+          stats: { rush_yd: 100, rush_att: 10 },
+        },
       ],
     });
 

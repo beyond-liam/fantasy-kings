@@ -1,9 +1,15 @@
 "use client";
 
 import { RosterBreakdown } from "@/components/leagues/roster/roster-breakdown";
+import { RosterPresetPicker } from "@/components/leagues/roster/roster-preset-picker";
 import { ScoringPresetPicker } from "@/components/leagues/scoring/scoring-preset-picker";
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import {
+  detectRosterUiMode,
+  getDefaultCustomRosterSlots,
+  getDefaultIdpCustomRosterSlots,
+  type RosterUiMode,
+} from "@/lib/leagues/roster";
 import type { RosterStepValues } from "@/lib/leagues/wizard-schema";
 
 type RosterStepProps = {
@@ -13,34 +19,43 @@ type RosterStepProps = {
 };
 
 export function RosterStep({ values, errors, onChange }: RosterStepProps) {
+  const uiMode = detectRosterUiMode({
+    rosterMode: values.rosterMode,
+    customRosterSlots: values.customRosterSlots,
+  });
+
+  const handleModeChange = (nextMode: RosterUiMode) => {
+    if (nextMode === "standard") {
+      onChange({ rosterMode: "standard" });
+      return;
+    }
+
+    if (nextMode === "idp") {
+      onChange({
+        rosterMode: "custom",
+        customRosterSlots: getDefaultIdpCustomRosterSlots(),
+      });
+      return;
+    }
+
+    onChange({
+      rosterMode: "custom",
+      customRosterSlots:
+        values.customRosterSlots.length === 0 || uiMode === "idp"
+          ? getDefaultCustomRosterSlots()
+          : values.customRosterSlots,
+    });
+  };
+
   return (
     <FieldGroup>
       <Field>
         <FieldLabel>Roster format</FieldLabel>
-        <RadioGroup
-          variant="card"
-          value={values.rosterMode}
-          onValueChange={(value) =>
-            onChange({ rosterMode: value as RosterStepValues["rosterMode"] })
-          }
-          className="sm:grid-cols-2"
-        >
-          <RadioGroupItem value="standard">
-            <span className="block text-sm font-medium">Standard</span>
-            <span className="block text-sm text-muted-foreground">
-              QB, RB×2, WR×2, TE, FLEX, K, DEF + bench.
-            </span>
-          </RadioGroupItem>
-          <RadioGroupItem value="custom">
-            <span className="block text-sm font-medium">Custom</span>
-            <span className="block text-sm text-muted-foreground">
-              Build your own position limits.
-            </span>
-          </RadioGroupItem>
-        </RadioGroup>
+        <RosterPresetPicker value={uiMode} onValueChange={handleModeChange} />
       </Field>
 
       <RosterBreakdown
+        rosterUiMode={uiMode}
         values={{
           rosterMode: values.rosterMode,
           benchSlots: values.benchSlots,

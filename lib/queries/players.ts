@@ -7,6 +7,7 @@ import type {
 } from "@/lib/leagues/scoring/types";
 import { NFL_TEAMS } from "@/lib/nfl/teams";
 import type { PlayerOpponent } from "@/lib/nfl/matchups";
+import { playerWeekHasFantasyAppearance } from "@/lib/players/week-appearance";
 import { getLeagueBySlug, getLeagueSeason } from "@/lib/queries/leagues";
 import {
   clearScoreRowsCache,
@@ -18,6 +19,11 @@ import {
 } from "@/lib/rankings/pick-client-stats";
 import { attachPositionRanks } from "@/lib/rankings/attach-position-ranks";
 import { getFantasyPositionRankMap } from "@/lib/rankings/position-rank-map";
+import {
+  DEFAULT_SORT_COLUMN,
+  DEFAULT_SORT_DESC,
+} from "@/lib/rankings/sort-params";
+import { sortRankedPlayers } from "@/lib/rankings/sort-ranked-players";
 
 export { clearScoreRowsCache };
 
@@ -30,11 +36,19 @@ export type RankingsFilters = {
   position?: string;
   team?: string;
   rookiesOnly?: boolean;
+  /** Case-insensitive full-name search (trimmed). */
+  search?: string;
   /** When set, only these player IDs are loaded (empty → no query). */
   playerIds?: string[];
-  /** Cap rows from player_scores (ordered by fantasy pts). */
+  /**
+   * Applied in memory after scoring/ranks so page slices match the UI sort.
+   * Defaults to fantasy points descending.
+   */
+  sort?: string;
+  sortDesc?: boolean;
+  /** Cap rows after sort (page size). */
   limit?: number;
-  /** Skip this many rows after filters (SQL offset). */
+  /** Skip this many rows after sort. */
   offset?: number;
   /**
    * When scoping via `playerIds`, also load league-wide fantasy position ranks.
@@ -85,8 +99,8 @@ export async function getRankedPlayers(
     return [];
   }
 
-  // When scoping to playerIds, ranks must stay league-wide — load the subset
-  // only. Otherwise push position/team/rookies into SQL.
+  // Load the full filtered set, then sort + paginate in memory so RANK (and
+  // other columns) page correctly. SQL limit/offset would slice before sort.
   const baseRows = await loadScoreRows(
     filters.playerIds != null
       ? {
@@ -95,19 +109,17 @@ export async function getRankedPlayers(
           kind: filters.kind,
           seasonType: filters.seasonType,
           playerIds: filters.playerIds,
-          limit: filters.limit,
-          offset: filters.offset,
+          search: filters.search,
         }
       : {
           season: filters.season,
           week: filters.week,
           kind: filters.kind,
           seasonType: filters.seasonType,
-          limit: filters.limit,
-          offset: filters.offset,
           position: filters.position,
           team: filters.team,
           rookiesOnly: filters.rookiesOnly,
+          search: filters.search,
         },
   );
 
@@ -119,13 +131,29 @@ export async function getRankedPlayers(
 
   const scored = applyScoring(mapped, filters);
 
-  // Roster/FA subset loads must still use league-wide fantasy position ranks
-  // unless the caller only needs points (board / win%).
+  const rules =
+    filters.scoringRules ??
+    getDefaultScoringRuleDefinitions(filters.scoringPreset ?? "full_ppr");
+
+  // Empty preseason stats: use projection fantasy ranks so RANK stays meaningful.
+  // Historical/current stats with production: RANK follows this season's scored PTS.
+  const lacksProduction =
+    filters.kind === "stats" &&
+    scored.length > 0 &&
+    scored.every((row) => !playerWeekHasFantasyAppearance(row.stats));
+
   let fantasyRankByPlayerId: Map<string, number> | undefined;
-  if (filters.playerIds != null && filters.includePositionRanks !== false) {
-    const rules =
-      filters.scoringRules ??
-      getDefaultScoringRuleDefinitions(filters.scoringPreset ?? "full_ppr");
+  if (lacksProduction) {
+    fantasyRankByPlayerId = await getFantasyPositionRankMap({
+      season: filters.season,
+      week: filters.week,
+      kind: "projection",
+      scoringRules: rules,
+    });
+  } else if (
+    filters.playerIds != null &&
+    filters.includePositionRanks !== false
+  ) {
     fantasyRankByPlayerId = await getFantasyPositionRankMap({
       season: filters.season,
       week: filters.week,
@@ -135,11 +163,25 @@ export async function getRankedPlayers(
   }
 
   const ranked = attachPositionRanks(scored, fantasyRankByPlayerId);
+  const sorted = sortRankedPlayers(
+    ranked,
+    filters.sort ?? DEFAULT_SORT_COLUMN,
+    filters.sortDesc ?? DEFAULT_SORT_DESC,
+  );
+
+  const offset = Math.max(0, filters.offset ?? 0);
+  const paged =
+    filters.limit != null && filters.limit > 0
+      ? sorted.slice(offset, offset + filters.limit)
+      : offset > 0
+        ? sorted.slice(offset)
+        : sorted;
+
   if (filters.preserveStats) {
-    return ranked;
+    return paged;
   }
   const allowlist = clientStatAllowlist();
-  return ranked.map((row) => ({
+  return paged.map((row) => ({
     ...row,
     stats: pickClientStats(row.stats, allowlist),
   }));
@@ -153,7 +195,7 @@ function applyScoring(
     filters.scoringRules ??
     getDefaultScoringRuleDefinitions(filters.scoringPreset ?? "full_ppr");
 
-  const scored = rows.map((row) => ({
+  return rows.map((row) => ({
     ...row,
     fantasyPts: calculatePlayerPoints(
       row.stats,
@@ -161,15 +203,6 @@ function applyScoring(
       rules,
     ),
   }));
-
-  return scored.sort((a, b) => {
-    const diff = (b.fantasyPts ?? 0) - (a.fantasyPts ?? 0);
-    if (diff !== 0) {
-      return diff;
-    }
-
-    return a.fullName.localeCompare(b.fullName);
-  });
 }
 
 export async function getLeagueScoredPlayers(

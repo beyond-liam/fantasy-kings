@@ -3,7 +3,23 @@ import { cache } from "react";
 const SLEEPER_APP_BASE = "https://api.sleeper.app/v1";
 const SLEEPER_COM_BASE = "https://api.sleeper.com";
 
-export const SCORE_POSITIONS = ["QB", "RB", "WR", "TE", "K", "DEF"] as const;
+export const SCORE_POSITIONS = [
+  "QB",
+  "RB",
+  "WR",
+  "TE",
+  "K",
+  "DEF",
+  // Granular NFL positions (when Sleeper accepts them)
+  "CB",
+  "S",
+  "DT",
+  "DE",
+  "LB",
+  // Sleeper fantasy IDP buckets — required to pull most IDP projections/stats
+  "DL",
+  "DB",
+] as const;
 
 export type SleeperNflState = {
   season: string;

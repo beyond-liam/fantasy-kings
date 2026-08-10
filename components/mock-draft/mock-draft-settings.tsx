@@ -39,6 +39,7 @@ import {
 } from "@/components/ui/tabs";
 import {
   getDefaultCustomRosterSlots,
+  getDefaultIdpCustomRosterSlots,
   type RosterRequirementsValues,
   type RosterUiMode,
 } from "@/lib/leagues/roster";
@@ -92,12 +93,25 @@ export function MockDraftSettings() {
   };
 
   const handleModeChange = (nextMode: RosterUiMode) => {
-    if (nextMode === "idp") return;
     setUiMode(nextMode);
+
+    if (nextMode === "standard") {
+      patchRoster({ rosterMode: "standard" });
+      return;
+    }
+
+    if (nextMode === "idp") {
+      patchRoster({
+        rosterMode: "custom",
+        customRosterSlots: getDefaultIdpCustomRosterSlots(),
+      });
+      return;
+    }
+
     patchRoster({
-      rosterMode: nextMode,
+      rosterMode: "custom",
       customRosterSlots:
-        nextMode === "custom" && config.roster.customRosterSlots.length === 0
+        config.roster.customRosterSlots.length === 0
           ? getDefaultCustomRosterSlots()
           : config.roster.customRosterSlots,
     });
@@ -309,6 +323,7 @@ export function MockDraftSettings() {
                 </Field>
               </FieldGroup>
               <RosterBreakdown
+                rosterUiMode={uiMode}
                 values={config.roster}
                 onChange={patchRoster}
                 showReserveSlots={false}

@@ -101,6 +101,7 @@ export function DraftStep({ values, errors, onChange }: DraftStepProps) {
             value={draftStartAt}
             onChange={updateDraftDate}
             placeholder="Select date"
+            minDate={new Date()}
           />
           {values.draftType === "email" ? (
             <FieldDescription>

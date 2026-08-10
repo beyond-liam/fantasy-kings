@@ -102,12 +102,19 @@ const SCORING_SEGMENT_HELP: Record<string, string> = {
   xp: "Fantasy points from extra points under your league scoring.",
   sack: "Fantasy points from sacks under your league scoring.",
   tkl_solo:
-    "Fantasy points from solo tackles under your league scoring (often 0 for team DEF).",
+    "Fantasy points from solo tackles under your league scoring.",
+  tkl_ast:
+    "Fantasy points from assisted tackles under your league scoring.",
+  tkl_loss:
+    "Fantasy points from tackles for loss under your league scoring.",
   int: "Fantasy points from interceptions under your league scoring.",
   ff: "Fantasy points from forced fumbles under your league scoring.",
+  fum_rec:
+    "Fantasy points from fumble recoveries under your league scoring.",
+  safe: "Fantasy points from safeties under your league scoring.",
   def_td: "Fantasy points from defensive touchdowns under your league scoring.",
   other:
-    "Remaining fantasy points from misses, return TDs, and other rules.",
+    "Remaining fantasy points from other defensive scoring rules.",
 };
 
 function scoringSegmentHelp(segmentId: string, label: string): string {
@@ -131,9 +138,13 @@ const SEGMENT_SHORT_LABELS: Record<string, string> = {
   fg: "FG",
   xp: "XP",
   sack: "Sacks",
-  tkl_solo: "Tackles",
+  tkl_solo: "Solo",
+  tkl_ast: "Ast",
+  tkl_loss: "TFL",
   int: "INTs",
   ff: "FF",
+  fum_rec: "FR",
+  safe: "Safety",
   def_td: "TDs",
   other: "Other",
 };
@@ -1680,7 +1691,7 @@ function EfficiencyCard({
                         type="button"
                         className="absolute top-1/2 size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-background shadow-xs ring-2 ring-foreground outline-none"
                         style={{ left: `${avgPct}%` }}
-                        aria-label={`Vs league average ${avg.toFixed(efficiency.decimals)}${efficiency.format === "percent" ? "%" : " yards per carry"}`}
+                        aria-label={`Vs league average ${avg.toFixed(efficiency.decimals)}${efficiency.format === "percent" ? "%" : ""}`}
                       />
                     }
                   />

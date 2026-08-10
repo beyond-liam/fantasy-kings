@@ -1,4 +1,15 @@
-export type PositionFilter = "QB" | "RB" | "WR" | "TE" | "K" | "DEF";
+export type PositionFilter =
+  | "QB"
+  | "RB"
+  | "WR"
+  | "TE"
+  | "K"
+  | "DEF"
+  | "CB"
+  | "S"
+  | "DT"
+  | "DE"
+  | "LB";
 
 export const POSITION_FILTERS: PositionFilter[] = [
   "QB",
@@ -7,6 +18,11 @@ export const POSITION_FILTERS: PositionFilter[] = [
   "TE",
   "K",
   "DEF",
+  "CB",
+  "S",
+  "DT",
+  "DE",
+  "LB",
 ];
 
 export const DEFAULT_POSITION_FILTER: PositionFilter = "QB";
@@ -214,13 +230,6 @@ const DEFENSE_COLUMNS: StatColumn[] = [
     decimals: 1,
   },
   {
-    key: "sack",
-    header: "SACK",
-    tooltip: "Sacks",
-    group: "Defense",
-    decimals: 1,
-  },
-  {
     key: "tkl_loss",
     header: "TKL",
     tooltip: "Tackles for loss",
@@ -228,9 +237,83 @@ const DEFENSE_COLUMNS: StatColumn[] = [
     decimals: 1,
   },
   {
+    key: "sack",
+    header: "SACK",
+    tooltip: "Sacks",
+    group: "Defense",
+    decimals: 1,
+  },
+  {
     key: "fum_rec",
     header: "FUM REC",
     tooltip: "Fumble recoveries",
+    group: "Defense",
+    decimals: 1,
+  },
+];
+
+const IDP_COLUMNS: StatColumn[] = [
+  ...FANTASY_COLUMNS,
+  {
+    key: "tkl",
+    header: "TKL",
+    tooltip: "Total tackles (solo + assisted)",
+    group: "Defense",
+    decimals: 1,
+  },
+  {
+    key: "tkl_solo",
+    header: "SOLO",
+    tooltip: "Solo tackles",
+    group: "Defense",
+    decimals: 1,
+  },
+  {
+    key: "tkl_ast",
+    header: "AST",
+    tooltip: "Assisted tackles",
+    group: "Defense",
+    decimals: 1,
+  },
+  {
+    key: "tkl_loss",
+    header: "TFL",
+    tooltip: "Tackles for loss",
+    group: "Defense",
+    decimals: 1,
+  },
+  {
+    key: "sack",
+    header: "SACK",
+    tooltip: "Sacks",
+    group: "Defense",
+    decimals: 1,
+  },
+  {
+    key: "int",
+    header: "INT",
+    tooltip: "Interceptions",
+    group: "Defense",
+    decimals: 1,
+  },
+  {
+    key: "ff",
+    header: "FF",
+    tooltip: "Forced fumbles",
+    group: "Defense",
+    decimals: 1,
+  },
+  {
+    key: "fum_rec",
+    header: "FR",
+    tooltip: "Fumble recoveries",
+    group: "Defense",
+    decimals: 1,
+  },
+  {
+    key: "def_td",
+    header: "TD",
+    tooltip: "Defensive touchdowns",
     group: "Defense",
     decimals: 1,
   },
@@ -249,6 +332,12 @@ export function getStatColumns(position: PositionFilter): StatColumn[] {
       return [...FANTASY_COLUMNS, ...KICKING_COLUMNS];
     case "DEF":
       return DEFENSE_COLUMNS;
+    case "CB":
+    case "S":
+    case "DT":
+    case "DE":
+    case "LB":
+      return IDP_COLUMNS;
     default:
       return [...FANTASY_COLUMNS, ...RUSHING_COLUMNS, ...PASSING_COLUMNS];
   }
@@ -258,7 +347,7 @@ export function formatStatValue(
   value: number | null | undefined,
   decimals = 1,
 ): string {
-  if (value === null || value === undefined) {
+  if (value === null || value === undefined || !Number.isFinite(value)) {
     return "—";
   }
 

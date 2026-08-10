@@ -17,6 +17,8 @@ const HELPER_STAT_KEYS = [
   "adp_dd_ppr",
   "adp_half_ppr",
   "adp_std",
+  "adp_idp",
+  "adp_idp_1qb",
   "pts_ppr",
   "pts_std",
   "pts_half_ppr",
@@ -66,6 +68,18 @@ const HELPER_STAT_KEYS = [
   "def_pr_yd",
   "kr_yd",
   "pr_yd",
+  // Sleeper IDP-prefixed keys (also aliased in normalizePlayerStats)
+  "idp_tkl_solo",
+  "idp_tkl_ast",
+  "idp_tkl_loss",
+  "idp_sack",
+  "idp_ff",
+  "idp_fum_rec",
+  "idp_int",
+  "idp_safe",
+  "idp_def_td",
+  "idp_td",
+  "idp_tkl",
 ] as const;
 
 /** Stat keys needed for table columns across all positions + position ranks. */

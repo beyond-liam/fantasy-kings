@@ -77,7 +77,16 @@ export function nflverseRowToSleeperStats(
   setIfPositive(bag, "xpmiss", num(row, "pat_missed"));
   setIfPositive(bag, "xpa", num(row, "pat_att"));
 
+  // Individual defenders (and any player credited with defense box-score lines).
+  // Column names from nflverse stats_player_week; keys match Sleeper/scoring.
   setIfPositive(bag, "tkl_solo", num(row, "def_tackles_solo"));
+  setIfPositive(bag, "tkl_ast", num(row, "def_tackle_assists"));
+  setIfPositive(
+    bag,
+    "tkl",
+    num(row, "def_tackles_solo") + num(row, "def_tackle_assists"),
+  );
+  setIfPositive(bag, "tkl_loss", num(row, "def_tackles_for_loss"));
   setIfPositive(bag, "sack", num(row, "def_sacks"));
   setIfPositive(bag, "ff", num(row, "def_fumbles_forced"));
   setIfPositive(bag, "fum_rec", num(row, "fumble_recovery_opp"));

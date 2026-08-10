@@ -62,6 +62,8 @@ type ScoringRuleDialogProps = {
   rule: ScoringRuleDefinition | null;
   mode: "edit" | "create";
   existingRules: ScoringRuleDefinition[];
+  /** Positions available on this league's roster. Defaults to all scoring positions. */
+  availablePositions?: ScoringPosition[];
   onSave: (rule: ScoringRuleDefinition) => void;
 };
 
@@ -144,17 +146,26 @@ export function ScoringRuleDialog({
   rule,
   mode,
   existingRules,
+  availablePositions = SCORING_POSITIONS,
   onSave,
 }: ScoringRuleDialogProps) {
   const [draft, setDraft] = useState<ScoringRuleDefinition | null>(rule);
   const [wasOpen, setWasOpen] = useState(open);
+  const positionChoices =
+    availablePositions.length > 0 ? availablePositions : SCORING_POSITIONS;
+  const positionChoiceSet = useMemo(
+    () => new Set(positionChoices),
+    [positionChoices],
+  );
 
   if (open !== wasOpen) {
     setWasOpen(open);
     if (open && rule) {
       setDraft({
         ...rule,
-        positions: [...rule.positions],
+        positions: rule.positions.filter((position) =>
+          positionChoiceSet.has(position),
+        ),
         // Align picker value with catalog options (handles legacy preset labels).
         stat: normalizeRuleToCatalogStat(rule),
       });
@@ -430,7 +441,7 @@ export function ScoringRuleDialog({
                 multiple
                 className="flex flex-wrap"
               >
-                {SCORING_POSITIONS.map((position) => (
+                {positionChoices.map((position) => (
                   <ToggleGroupItem
                     key={position}
                     value={position}

@@ -10,6 +10,7 @@ import {
   useDataTable,
 } from "@/components/ui/data-table";
 import type { OverviewRosterCompareRow } from "@/lib/players/overview-metrics";
+import { compareNullableNumber } from "@/lib/rankings/stat-helpers";
 import { cn } from "@/lib/utils";
 
 type RosterCompareTableProps = {
@@ -25,18 +26,6 @@ const PLACEHOLDER = "—";
 /** Info accent via ::before (sticky already positions abs children — do not add `relative`). */
 const VIEWED_ROW_CELLS =
   "[&>td]:bg-[color-mix(in_oklab,var(--primary)_12%,var(--background))] [&>td]:group-hover/tr:bg-[color-mix(in_oklab,var(--primary)_12%,var(--background))] [&>td:first-child]:before:pointer-events-none [&>td:first-child]:before:absolute [&>td:first-child]:before:inset-y-0 [&>td:first-child]:before:left-0 [&>td:first-child]:before:z-10 [&>td:first-child]:before:w-[3px] [&>td:first-child]:before:bg-info [&>td:first-child]:before:content-['']";
-
-function compareNullableNumber(
-  a: number | null | undefined,
-  b: number | null | undefined,
-) {
-  const aMissing = a == null || !Number.isFinite(a);
-  const bMissing = b == null || !Number.isFinite(b);
-  if (aMissing && bMissing) return 0;
-  if (aMissing) return 1;
-  if (bMissing) return -1;
-  return a - b;
-}
 
 function formatPts(value: number | null | undefined, digits = 1) {
   if (value == null || !Number.isFinite(value)) return PLACEHOLDER;

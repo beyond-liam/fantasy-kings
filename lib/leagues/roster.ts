@@ -6,6 +6,10 @@ import {
   buildStandardRosterSlots,
 } from "@/lib/leagues/defaults";
 import {
+  IDP_POSITION_IDS,
+  IDP_STARTER_SLOT_COUNTS,
+} from "@/lib/leagues/idp-positions";
+import {
   DEFAULT_IR_ELIGIBLE_STATUSES,
   IR_ELIGIBILITY_OPTIONS,
   type IrEligibleStatusId,
@@ -18,7 +22,7 @@ import {
 
 export type RosterMode = "standard" | "custom";
 
-/** UI-only mode; `idp` is not persisted. */
+/** UI-only mode; `idp` persists as `custom` with IDP starter slots. */
 export type RosterUiMode = "standard" | "idp" | "custom";
 
 export type RosterSlotInput = {
@@ -117,25 +121,11 @@ export { DEFAULT_IR_ELIGIBLE_STATUSES, DEFAULT_TAXI_MAX_YEARS_EXP };
 export const ROSTER_PRESET_OPTIONS: Array<{
   value: RosterUiMode;
   label: string;
-  description: string;
   disabled?: boolean;
 }> = [
-  {
-    value: "standard",
-    label: "Standard",
-    description: "QB, RB×2, WR×2, TE, FLEX, K, DEF + bench.",
-  },
-  {
-    value: "idp",
-    label: "Individual defense",
-    description: "Granular IDP slots (EDGE, DT, LB, CB, S).",
-    disabled: true,
-  },
-  {
-    value: "custom",
-    label: "Custom",
-    description: "Build your own position limits.",
-  },
+  { value: "standard", label: "Standard offense" },
+  { value: "idp", label: "Offense + IDP" },
+  { value: "custom", label: "Custom" },
 ];
 
 export const ROSTER_POSITION_OPTIONS = [
@@ -146,6 +136,11 @@ export const ROSTER_POSITION_OPTIONS = [
   { id: "FLEX", name: "FLEX" },
   { id: "K", name: "K" },
   { id: "DEF", name: "DEF" },
+  { id: "CB", name: "CB" },
+  { id: "S", name: "S" },
+  { id: "DT", name: "DT" },
+  { id: "DE", name: "DE" },
+  { id: "LB", name: "LB" },
 ] as const;
 
 export function formatStandardStarterSummary(): string {
@@ -154,12 +149,81 @@ export function formatStandardStarterSummary(): string {
   ).join(", ");
 }
 
+export function formatIdpStarterSummary(): string {
+  const idp = IDP_POSITION_IDS.map(
+    (positionId) => `${positionId}×${IDP_STARTER_SLOT_COUNTS[positionId]}`,
+  ).join(", ");
+  return `${formatStandardStarterSummary()}, ${idp}`;
+}
+
 export function getDefaultCustomRosterSlots(): RosterSlotInput[] {
   return STANDARD_STARTER_SLOTS.map((slot) => ({
     ...slot,
     minSlots: slot.slotCount,
     maxSlots: slot.slotCount,
   }));
+}
+
+/** Standard starters (incl. team DEF) plus 2 CB, 2 S, 1 DT, 2 DE, 2 LB. */
+export function getDefaultIdpCustomRosterSlots(): RosterSlotInput[] {
+  return [
+    ...getDefaultCustomRosterSlots(),
+    ...IDP_POSITION_IDS.map((positionId) => {
+      const slotCount = IDP_STARTER_SLOT_COUNTS[positionId];
+      return {
+        positionId,
+        slotCount,
+        minSlots: slotCount,
+        maxSlots: slotCount,
+        isStarter: true,
+      };
+    }),
+  ];
+}
+
+/** Exact match for the Individual defense preset starter set. */
+export function isIdpRosterPreset(slots: RosterSlotInput[]): boolean {
+  const starterCounts = new Map<string, number>();
+  for (const slot of slots) {
+    if (!slot.isStarter) continue;
+    starterCounts.set(
+      slot.positionId,
+      (starterCounts.get(slot.positionId) ?? 0) + slot.slotCount,
+    );
+  }
+
+  for (const slot of STANDARD_STARTER_SLOTS) {
+    if ((starterCounts.get(slot.positionId) ?? 0) !== slot.slotCount) {
+      return false;
+    }
+  }
+
+  for (const positionId of IDP_POSITION_IDS) {
+    if (
+      (starterCounts.get(positionId) ?? 0) !==
+      IDP_STARTER_SLOT_COUNTS[positionId]
+    ) {
+      return false;
+    }
+  }
+
+  const allowed = new Set<string>([
+    ...STANDARD_STARTER_SLOTS.map((slot) => slot.positionId),
+    ...IDP_POSITION_IDS,
+  ]);
+  if (starterCounts.size !== allowed.size) return false;
+  for (const positionId of starterCounts.keys()) {
+    if (!allowed.has(positionId)) return false;
+  }
+  return true;
+}
+
+export function detectRosterUiMode(
+  values: Pick<RosterRequirementsValues, "rosterMode" | "customRosterSlots">,
+): RosterUiMode {
+  if (values.rosterMode === "standard") return "standard";
+  if (isIdpRosterPreset(values.customRosterSlots)) return "idp";
+  return "custom";
 }
 
 export function starterSlotsFromSettings(
