@@ -3,6 +3,7 @@
 import {
   Card,
   CardContent,
+  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -19,6 +20,7 @@ import { cn } from "@/lib/utils";
 
 type EvaluationRankingsTableProps = {
   title: string;
+  description?: string;
   rows: EvaluationRankRow[];
 };
 
@@ -56,12 +58,16 @@ function RankMeter({
 
 export function EvaluationRankingsTable({
   title,
+  description,
   rows,
 }: EvaluationRankingsTableProps) {
   return (
     <Card size="sm" className="h-full gap-0 py-0">
       <CardHeader variant="panel">
         <CardTitle className="text-base text-balance">{title}</CardTitle>
+        {description ? (
+          <CardDescription className="text-pretty">{description}</CardDescription>
+        ) : null}
       </CardHeader>
       <CardContent className="px-0 py-0">
         <Table>

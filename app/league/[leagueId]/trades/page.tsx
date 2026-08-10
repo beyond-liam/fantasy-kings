@@ -69,7 +69,7 @@ export default async function TradesPage({ params }: TradesPageProps) {
   const isCommissioner = data.members.some(
     (member) => member.userId === user.id && member.role === "commissioner",
   );
-  const proposeGate = canProposeTrades(season, data.draftStatus);
+  const proposeGate = canProposeTrades(season);
   const openTradeCount = trades.filter((trade) =>
     isOpenTradeStatus(trade.status),
   ).length;

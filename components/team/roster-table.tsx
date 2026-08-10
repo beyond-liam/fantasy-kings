@@ -50,6 +50,7 @@ type TeamRosterTableProps = {
   leagueSlug: string;
   actionsEnabled?: boolean;
   rowActionsEnabled?: boolean;
+  cutActionsEnabled?: boolean;
   actionsVariant?: "mine" | "opponent";
   partnerTeamSlug?: string;
   tradesEnabled?: boolean;
@@ -182,6 +183,7 @@ export function TeamRosterTable({
   leagueSlug,
   actionsEnabled = false,
   rowActionsEnabled,
+  cutActionsEnabled,
   actionsVariant = "mine",
   partnerTeamSlug,
   tradesEnabled = true,
@@ -198,6 +200,7 @@ export function TeamRosterTable({
   }
 
   const showRowActions = rowActionsEnabled ?? actionsEnabled;
+  const canCut = cutActionsEnabled ?? actionsEnabled;
   const columns = showRowActions
     ? COLUMNS
     : COLUMNS.filter((column) => column.id !== "action");
@@ -325,7 +328,7 @@ export function TeamRosterTable({
                       <RosterRowActions
                         player={slot.player}
                         leagueSlug={leagueSlug}
-                        disabled={!slot.player || !actionsEnabled}
+                        disabled={!slot.player || !canCut}
                         variant={actionsVariant}
                         partnerTeamSlug={partnerTeamSlug}
                         tradesEnabled={tradesEnabled}

@@ -25,6 +25,7 @@ import {
   hasNflTeamStarted,
 } from "@/lib/leagues/waivers/game-lock";
 import { processSeasonWaivers } from "@/lib/leagues/waivers/process";
+import { isFantasyLeaguePreseason } from "@/lib/leagues/season-calendar";
 import {
   assertReserveAcquisitionsAllowed,
   ensureTeamFaabRemaining,
@@ -131,7 +132,10 @@ export async function getClaimContext(
     }))
     .sort((a, b) => a.fullName.localeCompare(b.fullName));
 
-  const wire = resolveWaiverWireSettings(season.settings.waiverWire);
+  const wire = resolveWaiverWireSettings(
+    season.settings.waiverWire,
+    season.settings.transactionRules?.preseasonFreeAgents,
+  );
   const faabRemaining = await ensureTeamFaabRemaining({
     teamId: team.id,
     faabRemaining: team.faabRemaining,
@@ -209,7 +213,10 @@ export async function fileWaiverClaim(
   }
 
   const now = Date.now();
-  const wire = resolveWaiverWireSettings(season.settings.waiverWire);
+  const wire = resolveWaiverWireSettings(
+    season.settings.waiverWire,
+    season.settings.transactionRules?.preseasonFreeAgents,
+  );
   const seasonRows = await findSeasonRosterRows(season.id, validated.playerId);
   const rostered = seasonRows.find((row) => row.status === "rostered");
   if (rostered) {
@@ -225,14 +232,20 @@ export async function fileWaiverClaim(
   const onWaivers = seasonRows.some(
     (row) =>
       row.status === "waived" &&
-      row.waiverClearsAt !== null &&
-      row.waiverClearsAt.getTime() > now,
+      (row.waiverClearsAt === null ||
+        row.waiverClearsAt.getTime() > now),
   );
 
   let gameStartedThisWeek = false;
-  if (wire.waiverPool === "drops_and_free_agents" && player.nflTeam) {
-    try {
-      const nflState = await getNflState();
+  let isFantasyPreseason = false;
+  try {
+    const nflState = await getNflState();
+    isFantasyPreseason = isFantasyLeaguePreseason(
+      season.seasonYear,
+      nflState,
+      season.settings.schedule,
+    );
+    if (wire.waiverPool === "drops_and_free_agents" && player.nflTeam) {
       const board = await getNflScoreboard({
         season: Number(nflState.season) || new Date().getUTCFullYear(),
         week: Math.max(1, Number(nflState.week) || 1),
@@ -241,15 +254,16 @@ export async function fileWaiverClaim(
         player.nflTeam,
         getStartedNflTeamAbbreviations(board.games),
       );
-    } catch {
-      gameStartedThisWeek = false;
     }
+  } catch {
+    gameStartedThisWeek = false;
   }
 
   const kind = getAcquisitionKind({
     waiversEnabled: season.waiversEnabled,
     waiverWire: wire,
     rosterTransactionsEnabled: true,
+    isFantasyPreseason,
     ownership: { fantasyTeamId: null, onWaivers },
     gameStartedThisWeek,
   });
@@ -504,7 +518,10 @@ export async function updateWaiverClaimBid(
     return { success: false, error: "This league does not use FAAB." };
   }
 
-  const wire = resolveWaiverWireSettings(season.settings.waiverWire);
+  const wire = resolveWaiverWireSettings(
+    season.settings.waiverWire,
+    season.settings.transactionRules?.preseasonFreeAgents,
+  );
 
   if (!Number.isFinite(bidInput)) {
     return { success: false, error: "Enter a FAAB bid." };

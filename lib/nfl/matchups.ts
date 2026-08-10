@@ -116,6 +116,8 @@ export function resolvePlayerOpponent(input: {
   week: number;
   opponentsByTeam: Map<string, TeamMatchup>;
   seasonYear?: number;
+  /** Bye only applies in the regular season. */
+  seasonType?: "pre" | "regular" | "post";
 }): PlayerOpponent | null {
   const team = normalizeNflTeamAbbrev(input.nflTeam);
   if (!team) {
@@ -128,7 +130,11 @@ export function resolvePlayerOpponent(input: {
     seasonYear: input.seasonYear,
   });
 
-  if (byeWeek != null && byeWeek === input.week) {
+  if (
+    input.seasonType !== "pre" &&
+    byeWeek != null &&
+    byeWeek === input.week
+  ) {
     return { label: "BYE", kickoffLabel: null, gameStatus: null };
   }
 

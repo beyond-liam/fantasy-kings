@@ -1,6 +1,9 @@
 "use client";
 
-import { POSITION_FILTERS, type PositionFilter } from "@/lib/rankings/column-config";
+import {
+  POSITION_FILTERS,
+  type PositionFilter,
+} from "@/lib/rankings/column-config";
 import { cn } from "@/lib/utils";
 
 export const PILL_CLASSNAME =
@@ -13,13 +16,18 @@ export const PILL_ACTIVE_CLASSNAME = "bg-primary text-primary-foreground";
 export function PositionPills({
   value,
   onSelect,
+  positions = POSITION_FILTERS,
 }: {
   value: PositionFilter;
   onSelect: (position: PositionFilter) => void;
+  /** League roster positions; defaults to the full filter list. */
+  positions?: readonly PositionFilter[];
 }) {
+  const options = positions.length > 0 ? positions : POSITION_FILTERS;
+
   return (
     <div className="flex gap-1.5" role="group" aria-label="Position filter">
-      {POSITION_FILTERS.map((position) => {
+      {options.map((position) => {
         const active = position === value;
 
         return (

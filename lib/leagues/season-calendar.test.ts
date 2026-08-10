@@ -5,6 +5,7 @@ import {
   getFirstRoundByes,
   getPlayoffWeekCount,
   getPlayoffWeekRange,
+  isFantasyLeaguePreseason,
   isNflSeasonUnderway,
   isScheduleEditable,
   listPlayoffWeeksFromCalendar,
@@ -91,12 +92,43 @@ describe("playoff calendar helpers", () => {
       true,
     );
     assert.equal(
+      isFantasyLeaguePreseason(2026, {
+        season: "2026",
+        season_type: "regular",
+        week: 1,
+      }),
+      false,
+    );
+    assert.equal(
       isScheduleEditable(2026, {
         season: "2026",
         season_type: "off",
         week: 0,
       }),
       true,
+    );
+  });
+
+  it("treats NFL pre as fantasy preseason unless the league includes those weeks", () => {
+    assert.equal(
+      isFantasyLeaguePreseason(2026, {
+        season: "2026",
+        season_type: "pre",
+        week: 2,
+      }),
+      true,
+    );
+    assert.equal(
+      isFantasyLeaguePreseason(
+        2026,
+        { season: "2026", season_type: "pre", week: 2 },
+        {
+          playEachOtherTimes: 1,
+          includePreseason: true,
+          preseasonStartWeek: 1,
+        },
+      ),
+      false,
     );
   });
 });

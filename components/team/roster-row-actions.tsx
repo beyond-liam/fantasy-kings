@@ -45,7 +45,7 @@ export function RosterRowActions({
   const router = useRouter();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
-  const isDisabled = disabled || !player || isPending || !leagueSlug;
+  const cutDisabled = disabled || !player || isPending || !leagueSlug;
 
   const tradeHref =
     player && tradesEnabled
@@ -57,8 +57,13 @@ export function RosterRowActions({
         : tradeComposerPath(leagueSlug, { offer: player.id })
       : null;
 
+  const menuDisabled =
+    variant === "mine"
+      ? !player || isPending || !leagueSlug || (cutDisabled && !tradeHref)
+      : !player;
+
   const handleConfirmCut = () => {
-    if (!player || isDisabled) return;
+    if (!player || cutDisabled) return;
 
     startTransition(async () => {
       const result = await cutPlayerFromRoster(leagueSlug, player.id);
@@ -78,14 +83,14 @@ export function RosterRowActions({
     <>
       <DropdownMenu>
         <DropdownMenuTrigger
-          disabled={isDisabled && variant === "mine"}
+          disabled={menuDisabled}
           render={
             <Button
               type="button"
               variant="ghost"
               size="icon-sm"
               aria-label="Player actions"
-              disabled={variant === "mine" ? isDisabled : !player}
+              disabled={menuDisabled}
             />
           }
         >
@@ -94,7 +99,7 @@ export function RosterRowActions({
         <DropdownMenuContent align="end">
           {variant === "mine" ? (
             <DropdownMenuItem
-              disabled={isDisabled}
+              disabled={cutDisabled}
               onClick={() => setConfirmOpen(true)}
             >
               <HugeiconsIcon icon={UserMinus01Icon} strokeWidth={2} />

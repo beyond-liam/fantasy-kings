@@ -163,6 +163,15 @@ export function WizardReview({ values, onEdit }: WizardReviewProps) {
           raw
         />
         <ReviewRow label="Pick clock" value={pickClockLabel} />
+        {values.draftType === "email" &&
+        values.pickTimeLimitEnabled &&
+        values.pauseWindowEnabled ? (
+          <ReviewRow
+            label="Daily pause"
+            value={`${values.pauseWindowStart}–${values.pauseWindowEnd} UTC`}
+            raw
+          />
+        ) : null}
       </section>
     </div>
   );

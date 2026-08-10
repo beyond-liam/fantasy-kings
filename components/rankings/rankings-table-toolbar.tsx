@@ -40,6 +40,7 @@ import {
 import {
   DEFAULT_POSITION_FILTER,
   POSITION_FILTERS,
+  type PositionFilter,
 } from "@/lib/rankings/column-config";
 import { getNflTeamLabel } from "@/lib/nfl/teams";
 import { RANKINGS_SCORING_OPTIONS } from "@/lib/rankings/scoring-preset";
@@ -81,6 +82,8 @@ type RankingsTableToolbarProps<TData> = {
   showTeamFilter?: boolean;
   /** Free agents only switch — league Players only. */
   showFreeAgentsFilter?: boolean;
+  /** Position options (league roster). Defaults to all positions. */
+  positions?: readonly PositionFilter[];
   searchActions?: PlayerSearchActions;
   searchPlaceholder?: string;
 };
@@ -215,6 +218,7 @@ export function RankingsTableToolbar<TData>({
   showScoringSelect = true,
   showTeamFilter = true,
   showFreeAgentsFilter = false,
+  positions = POSITION_FILTERS,
   searchActions,
   searchPlaceholder = "Search players...",
 }: RankingsTableToolbarProps<TData>) {
@@ -222,6 +226,9 @@ export function RankingsTableToolbar<TData>({
   const updateParams = useRankingsParams();
   const [searchDraft, setSearchDraft] = useState(view.search ?? "");
   const [prevViewSearch, setPrevViewSearch] = useState(view.search);
+  const positionOptions =
+    positions.length > 0 ? positions : POSITION_FILTERS;
+  const defaultPosition = positionOptions[0] ?? DEFAULT_POSITION_FILTER;
 
   if (view.search !== prevViewSearch) {
     setPrevViewSearch(view.search);
@@ -264,11 +271,11 @@ export function RankingsTableToolbar<TData>({
 
   const positionItems = useMemo(
     () =>
-      POSITION_FILTERS.map((position) => ({
+      positionOptions.map((position) => ({
         label: position,
         value: position,
       })),
-    [],
+    [positionOptions],
   );
 
   const scoringItems = useMemo(
@@ -282,7 +289,7 @@ export function RankingsTableToolbar<TData>({
 
   const handlePositionChange = (value: string) => {
     updateParams({
-      position: value === DEFAULT_POSITION_FILTER ? null : value,
+      position: value === defaultPosition ? null : value,
     });
   };
 
@@ -450,7 +457,11 @@ export function RankingsTableToolbar<TData>({
           </DrawerContent>
         </Drawer>
 
-        <PositionPills value={view.position} onSelect={handlePositionChange} />
+        <PositionPills
+          value={view.position}
+          onSelect={handlePositionChange}
+          positions={positionOptions}
+        />
       </div>
 
       <div className="flex flex-wrap items-center gap-3 max-md:hidden">

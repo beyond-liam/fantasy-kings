@@ -57,6 +57,8 @@ type LeaguePlayersTableProps = {
   weekParam: string;
   kind: "projection" | "stats";
   position: PositionFilter;
+  /** League roster positions for the filter UI. */
+  positions: PositionFilter[];
   team: string;
   rookiesOnly: boolean;
   freeAgentsOnly: boolean;
@@ -88,6 +90,7 @@ export async function LeaguePlayersTable({
   weekParam,
   kind,
   position,
+  positions,
   team,
   rookiesOnly,
   freeAgentsOnly,
@@ -219,7 +222,10 @@ export async function LeaguePlayersTable({
     }
   }
 
-  const wire = resolveWaiverWireSettings(seasonSettings.waiverWire);
+  const wire = resolveWaiverWireSettings(
+    seasonSettings.waiverWire,
+    seasonSettings.transactionRules?.preseasonFreeAgents,
+  );
   let startedNflTeams = new Set<string>();
   if (
     waiversEnabled &&
@@ -249,6 +255,9 @@ export async function LeaguePlayersTable({
         onWaivers: ownership.onWaivers,
         nflTeam: row.nflTeam,
         startedNflTeams,
+        seasonYear: Number(seasonYear) || new Date().getUTCFullYear(),
+        nfl: nflState,
+        schedule: seasonSettings.schedule,
       });
       return {
         ...row,
@@ -327,7 +336,7 @@ export async function LeaguePlayersTable({
         seasons={seasons}
         teams={teams}
         actionsEnabled={actionsEnabled}
-        tradesEnabled={tradesEnabled && actionsEnabled}
+        tradesEnabled={tradesEnabled}
         acquisitionsLocked={acquisitionsLocked}
         acquisitionLockReason={acquisitionLockReason}
         draftActions={draftActions}
@@ -348,6 +357,7 @@ export async function LeaguePlayersTable({
           search: search ?? "",
         }}
         showScoringSelect={false}
+        positions={positions}
       />
     </>
   );

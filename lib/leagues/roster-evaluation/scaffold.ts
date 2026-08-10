@@ -73,6 +73,8 @@ function radarFromRanks(
     benchRank: entry.benchRank,
     starters: rankPowerScore(entry.startersRank, teamCount),
     bench: rankPowerScore(entry.benchRank, teamCount),
+    hasStarters: true,
+    hasBench: true,
   }));
 }
 
@@ -93,7 +95,6 @@ export function buildScaffoldRosterEvaluation(
       { position: "RB", startersRank: 2, benchRank: 2 },
       { position: "WR", startersRank: 1, benchRank: 2 },
       { position: "TE", startersRank: 3, benchRank: 4 },
-      { position: "FLEX", startersRank: 2, benchRank: 3 },
       { position: "CB", startersRank: 2, benchRank: 3 },
       { position: "S", startersRank: 1, benchRank: 2 },
       { position: "DT", startersRank: 3, benchRank: 4 },
@@ -117,10 +118,12 @@ export function buildScaffoldRosterEvaluation(
         { label: "RB", rank: 2 },
         { label: "WR", rank: 1 },
         { label: "TE", rank: 4 },
-        { label: "FLEX", rank: 2 },
+        { label: "CB", rank: 2 },
+        { label: "S", rank: 1 },
+        { label: "DT", rank: 3 },
+        { label: "DE", rank: 2 },
+        { label: "LB", rank: 1 },
         { label: "K", rank: 3 },
-        { label: "STARTERS", rank: 2 },
-        { label: "BENCH", rank: 3 },
       ],
       4,
     ),

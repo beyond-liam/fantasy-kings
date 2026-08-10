@@ -192,49 +192,15 @@ function mean(values: number[]): number | null {
 }
 
 /**
- * Players that contribute to a positional average on one team.
+ * All rostered players at a primary position (depth, not lineup shells).
  */
 export function playersForPositionalAverage(
-  label: string,
-  team: Pick<TeamRosterForEvaluation, "players" | "lineup" | "bench">,
+  positionId: string,
+  team: Pick<TeamRosterForEvaluation, "players">,
 ): RankablePlayer[] {
-  if (label === "STARTERS") {
-    return team.lineup.flatMap((slot) => {
-      if (!slot.player) return [];
-      return [
-        {
-          id: slot.player.id,
-          fullName: slot.player.fullName,
-          primaryPositionId: slot.player.primaryPositionId,
-          sleeperId: slot.player.sleeperId,
-          fantasyPts: 0,
-        },
-      ];
-    });
-  }
-
-  if (label === "BENCH") {
-    return team.bench.flatMap((slot) => {
-      if (!slot.player) return [];
-      return [
-        {
-          id: slot.player.id,
-          fullName: slot.player.fullName,
-          primaryPositionId: slot.player.primaryPositionId,
-          sleeperId: slot.player.sleeperId,
-          fantasyPts: 0,
-        },
-      ];
-    });
-  }
-
-  if (label === "FLEX") {
-    return team.players.filter((player) =>
-      isFlexEligible(player.primaryPositionId),
-    );
-  }
-
-  return team.players.filter((player) => player.primaryPositionId === label);
+  return team.players.filter(
+    (player) => player.primaryPositionId === positionId,
+  );
 }
 
 /** Starters currently in shells for a position (FLEX = FLEX slots only). */
@@ -281,19 +247,11 @@ export function playersForRadarBench(
 }
 
 function overallRankForPositionalPlayer(
-  label: string,
+  positionId: string,
   player: RankablePlayer,
   poolRanksByKey: Map<string, Map<string, number>>,
 ): number | null {
-  if (label === "STARTERS" || label === "BENCH") {
-    return (
-      poolRanksByKey.get(player.primaryPositionId)?.get(player.id) ?? null
-    );
-  }
-  if (label === "FLEX") {
-    return poolRanksByKey.get("FLEX")?.get(player.id) ?? null;
-  }
-  return poolRanksByKey.get(label)?.get(player.id) ?? null;
+  return poolRanksByKey.get(positionId)?.get(player.id) ?? null;
 }
 
 function teamRankFromAverages(
@@ -371,27 +329,38 @@ export function buildPositionStrength(input: {
       );
     }
 
+    const focusTeam = teams.find((team) => team.teamId === focusTeamId);
+    const hasStarters = focusTeam
+      ? playersForRadarStarters(position, focusTeam).length > 0
+      : false;
+    const hasBench = focusTeam
+      ? playersForRadarBench(position, focusTeam).length > 0
+      : false;
+
     const startersRank = teamRankFromAverages(focusTeamId, starterAvgs, n);
     const benchRank = teamRankFromAverages(focusTeamId, benchAvgs, n);
 
     return {
-      position: position === "FLEX" ? "FLEX" : position,
-      starters: rankPowerScore(startersRank, n),
-      bench: rankPowerScore(benchRank, n),
+      position,
+      starters: hasStarters ? rankPowerScore(startersRank, n) : 0,
+      bench: hasBench ? rankPowerScore(benchRank, n) : 0,
       startersRank,
       benchRank,
+      hasStarters,
+      hasBench,
     };
   });
 }
 
 /**
  * Rank teams by mean overall player rank at a position (lower average = better).
+ * Uses all rostered players at that primary position (starters + bench).
  * Example: QB1 + QB8 → avg 4.5, then ordered vs other teams' QB averages.
  */
 export function buildPositionalRankings(input: {
   teamCount: number;
   focusTeamId: string;
-  /** Row labels: QB, RB, WR, TE, FLEX, K, DEF, STARTERS, BENCH */
+  /** Primary positions only: QB, RB, WR, TE, K, DEF, IDP… (no FLEX / STARTERS / BENCH). */
   positionLabels: string[];
   teams: TeamRosterForEvaluation[];
   leaguePlayers: RankablePlayer[];
@@ -400,32 +369,23 @@ export function buildPositionalRankings(input: {
     input;
   const n = Math.max(1, teamCount);
 
-  const poolKeys = new Set<string>();
-  for (const label of positionLabels) {
-    if (label === "STARTERS" || label === "BENCH") {
-      for (const player of leaguePlayers) {
-        poolKeys.add(player.primaryPositionId);
-      }
-    } else {
-      poolKeys.add(label);
-    }
-  }
-
   const poolRanksByKey = new Map<string, Map<string, number>>();
-  for (const key of poolKeys) {
+  for (const positionId of positionLabels) {
     poolRanksByKey.set(
-      key,
-      overallRanksByPlayerId(poolPlayersForPosition(key, leaguePlayers)),
+      positionId,
+      overallRanksByPlayerId(
+        poolPlayersForPosition(positionId, leaguePlayers),
+      ),
     );
   }
 
-  return positionLabels.map((label) => {
+  return positionLabels.map((positionId) => {
     const averages = new Map<string, number>();
     for (const team of teams) {
-      const members = playersForPositionalAverage(label, team);
+      const members = playersForPositionalAverage(positionId, team);
       const ranks = members
         .map((player) =>
-          overallRankForPositionalPlayer(label, player, poolRanksByKey),
+          overallRankForPositionalPlayer(positionId, player, poolRanksByKey),
         )
         .filter((rank): rank is number => rank != null);
       const avg = mean(ranks);
@@ -447,7 +407,7 @@ export function buildPositionalRankings(input: {
     }
 
     return {
-      label,
+      label: positionId,
       rank,
       rankLabel: formatOrdinalRank(rank),
       powerScore: rankPowerScore(rank, n),
@@ -456,17 +416,17 @@ export function buildPositionalRankings(input: {
   });
 }
 
-/** Positional table rows from starter settings + STARTERS/BENCH. */
+/** Unique primary positions from starter settings (excludes FLEX). */
 export function buildPositionalLabels(
   slotSpecs: StarterSlotSpec[],
 ): string[] {
   const seen = new Set<string>();
   const labels: string[] = [];
   for (const spec of slotSpecs) {
+    if (spec.positionId === "FLEX") continue;
     if (seen.has(spec.positionId)) continue;
     seen.add(spec.positionId);
     labels.push(spec.positionId);
   }
-  labels.push("STARTERS", "BENCH");
   return labels;
 }

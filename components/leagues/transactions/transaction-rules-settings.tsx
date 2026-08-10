@@ -47,11 +47,6 @@ const YES_NO_ITEMS = [
   { value: "no", label: "No" },
 ] as const;
 
-const PRESEASON_FA_ITEMS = [
-  { value: "always_on_waivers", label: "Always-on waivers" },
-  { value: "unlocked", label: "Unlocked" },
-] as const;
-
 const TRANSACTION_LIMIT_ITEMS = [
   { value: "unlimited", label: "Unlimited" },
   { value: "weekly", label: "Weekly limit only" },
@@ -244,7 +239,9 @@ export function TransactionRulesSettings({
               <Field>
                 <FieldLabel htmlFor="tradeDeadlineWeek">Trade deadline</FieldLabel>
                 <FieldDescription>
-                  No trades can be proposed after this week ends.
+                  No new trades after this week ends, until the season&apos;s
+                  last game week finishes. Trades are allowed during the draft
+                  and before the deadline.
                 </FieldDescription>
                 <Select
                   items={deadlineItems}
@@ -347,34 +344,6 @@ export function TransactionRulesSettings({
               patch({ enforceRosterMinimums })
             }
           />
-
-          <Field>
-            <FieldLabel htmlFor="preseasonFreeAgents">
-              Free agents during preseason (after draft)
-            </FieldLabel>
-            <Select
-              items={[...PRESEASON_FA_ITEMS]}
-              value={values.preseasonFreeAgents}
-              onValueChange={(value) => {
-                if (value === "always_on_waivers" || value === "unlocked") {
-                  patch({ preseasonFreeAgents: value });
-                }
-              }}
-            >
-              <SelectTrigger id="preseasonFreeAgents" className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
-                  {PRESEASON_FA_ITEMS.map((item) => (
-                    <SelectItem key={item.value} value={item.value}>
-                      {item.label}
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
-              </SelectContent>
-            </Select>
-          </Field>
 
           <YesNoField
             id="preventCutsAfterGameStart"

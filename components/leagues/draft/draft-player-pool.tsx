@@ -90,6 +90,8 @@ type DraftPlayerPoolProps = {
   showQueue?: boolean;
   /** Local draft handler — skips league server actions when set. */
   onDraftPlayer?: (playerId: string) => void;
+  /** League roster positions for filters. Defaults to all. */
+  positions?: readonly PositionFilter[];
 };
 
 const DEFAULT_SORTING: SortingState = [{ id: "fantasy_pts", desc: true }];
@@ -100,11 +102,6 @@ const ACTION_COLUMN_WIDTH_MOBILE = 48;
 const PLAYER_COLUMN_WIDTH = 220;
 /** Narrower so the pinned action + player columns leave room to scroll. */
 const PLAYER_COLUMN_WIDTH_MOBILE = 168;
-
-const POSITION_ITEMS = POSITION_FILTERS.map((value) => ({
-  label: value,
-  value,
-}));
 
 function renderStatCell(row: RankedPlayerRow, key: string, decimals?: number) {
   if (key === "adp") {
@@ -311,13 +308,26 @@ export function DraftPlayerPool({
   isCommissioner,
   showQueue = true,
   onDraftPlayer,
+  positions = POSITION_FILTERS,
 }: DraftPlayerPoolProps) {
   const isMobile = useIsMobile();
+  const positionOptions =
+    positions.length > 0 ? positions : POSITION_FILTERS;
+  const positionItems = useMemo(
+    () =>
+      positionOptions.map((value) => ({
+        label: value,
+        value,
+      })),
+    [positionOptions],
+  );
   const drafted = useMemo(
     () => new Set(draftedPlayerIds),
     [draftedPlayerIds],
   );
-  const [position, setPosition] = useState<PositionFilter>("QB");
+  const [position, setPosition] = useState<PositionFilter>(
+    () => positionOptions[0] ?? "QB",
+  );
   const [team, setTeam] = useState("ALL");
   const [rookiesOnly, setRookiesOnly] = useState(false);
   const [hideDrafted, setHideDrafted] = useState(true);
@@ -562,11 +572,11 @@ export function DraftPlayerPool({
     className = "w-32",
   ) => (
     <Select
-      items={POSITION_ITEMS}
+      items={positionItems}
       value={position}
       onValueChange={(value) => {
         if (value) {
-          setPosition(parsePositionFilter(value));
+          setPosition(parsePositionFilter(value, positionOptions));
           setSorting(DEFAULT_SORTING);
         }
       }}
@@ -576,7 +586,7 @@ export function DraftPlayerPool({
       </SelectTrigger>
       <SelectContent>
         <SelectGroup>
-          {POSITION_FILTERS.map((value) => (
+          {positionOptions.map((value) => (
             <SelectItem key={value} value={value}>
               {value}
             </SelectItem>
@@ -702,6 +712,7 @@ export function DraftPlayerPool({
 
         <PositionPills
           value={position}
+          positions={positionOptions}
           onSelect={(next) => {
             setPosition(next);
             setSorting(DEFAULT_SORTING);

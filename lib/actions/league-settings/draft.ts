@@ -57,6 +57,9 @@ export async function updateDraftConfig(
     draftStyle: beforeDraft.style,
     pickTimeLimitEnabled: beforeDraft.pickTimeLimitEnabled ?? true,
     autoPickEnabled: beforeDraft.autoPickEnabled,
+    pauseWindowEnabled: beforeDraft.pauseWindowEnabled ?? false,
+    pauseWindowStart: beforeDraft.pauseWindowStart ?? null,
+    pauseWindowEnd: beforeDraft.pauseWindowEnd ?? null,
   };
   const afterSettings = toPersistedDraftSettings(next);
   const after = {
@@ -66,6 +69,13 @@ export async function updateDraftConfig(
     draftStyle: afterSettings.style,
     pickTimeLimitEnabled: afterSettings.pickTimeLimitEnabled ?? true,
     autoPickEnabled: afterSettings.autoPickEnabled,
+    pauseWindowEnabled: afterSettings.pauseWindowEnabled ?? false,
+    pauseWindowStart: afterSettings.pauseWindowEnabled
+      ? (afterSettings.pauseWindowStart ?? null)
+      : null,
+    pauseWindowEnd: afterSettings.pauseWindowEnabled
+      ? (afterSettings.pauseWindowEnd ?? null)
+      : null,
   };
 
   await db
@@ -116,6 +126,9 @@ export async function updateDraftConfig(
       { path: "pickTimeLimitEnabled", label: "Pick time limit enabled" },
       { path: "pickTimeLimitSeconds", label: "Pick time (seconds)" },
       { path: "autoPickEnabled", label: "Auto-pick default" },
+      { path: "pauseWindowEnabled", label: "Pause window enabled" },
+      { path: "pauseWindowStart", label: "Pause window start (UTC)" },
+      { path: "pauseWindowEnd", label: "Pause window end (UTC)" },
     ]),
   });
 

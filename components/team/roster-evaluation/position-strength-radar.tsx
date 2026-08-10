@@ -11,16 +11,17 @@ import {
 import {
   Card,
   CardContent,
+  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
 import {
   ChartContainer,
   ChartTooltip,
-  ChartTooltipContent,
   chartAxisTick,
   type ChartConfig,
 } from "@/components/ui/chart";
+import { buildPositionStrengthTooltipParts } from "@/lib/leagues/roster-evaluation/position-strength-tooltip";
 import type { PositionStrengthPoint } from "@/lib/leagues/roster-evaluation/types";
 
 const chartConfig = {
@@ -38,11 +39,44 @@ type PositionStrengthRadarProps = {
   data: PositionStrengthPoint[];
 };
 
+function PositionStrengthTooltip({
+  active,
+  payload,
+}: {
+  active?: boolean;
+  payload?: Array<{ payload?: PositionStrengthPoint }>;
+}) {
+  if (!active || !payload?.length) return null;
+  const row = payload[0]?.payload;
+  if (!row) return null;
+
+  const parts = buildPositionStrengthTooltipParts(row);
+
+  return (
+    <div className="grid min-w-48 max-w-64 gap-1.5 rounded-lg border border-border/50 bg-background px-2.5 py-1.5 text-xs text-background shadow-xl dark:bg-foreground">
+      <p className="text-pretty leading-snug text-background/90">
+        {parts.map((part, index) =>
+          part.kind === "rank" ? (
+            <span key={index} className="font-semibold text-background">
+              {part.value}
+            </span>
+          ) : (
+            <span key={index}>{part.value}</span>
+          ),
+        )}
+      </p>
+    </div>
+  );
+}
+
 export function PositionStrengthRadar({ data }: PositionStrengthRadarProps) {
   return (
     <Card size="sm" className="h-full gap-0 py-0">
       <CardHeader variant="panel">
         <CardTitle className="text-base text-balance">Position Strength</CardTitle>
+        <CardDescription className="text-pretty">
+          Starters vs bench
+        </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-3 py-4">
         <ChartContainer
@@ -50,42 +84,7 @@ export function PositionStrengthRadar({ data }: PositionStrengthRadarProps) {
           className="mx-auto aspect-square w-full max-h-72"
         >
           <RadarChart data={data} margin={{ top: 8, right: 16, bottom: 8, left: 16 }}>
-            <ChartTooltip
-              cursor={false}
-              content={
-                <ChartTooltipContent
-                  indicator="dot"
-                  labelClassName="font-semibold"
-                  labelFormatter={(_, payload) => {
-                    const row = payload?.[0]?.payload as
-                      | PositionStrengthPoint
-                      | undefined;
-                    return row?.position ?? "";
-                  }}
-                  formatter={(_value, name, item) => {
-                    const row = item.payload as PositionStrengthPoint;
-                    const isBench = name === "bench";
-                    const rank = isBench ? row.benchRank : row.startersRank;
-                    const color = isBench
-                      ? "var(--color-bench)"
-                      : "var(--color-starters)";
-                    return (
-                      <>
-                        <div
-                          className="size-2.5 shrink-0 rounded-[2px]"
-                          style={{ backgroundColor: color }}
-                        />
-                        <div className="flex min-w-0 flex-1 items-center leading-none">
-                          <span className="truncate text-background/70">
-                            {isBench ? "Bench" : "Starter"} #{rank}
-                          </span>
-                        </div>
-                      </>
-                    );
-                  }}
-                />
-              }
-            />
+            <ChartTooltip cursor={false} content={<PositionStrengthTooltip />} />
             <PolarAngleAxis dataKey="position" tick={chartAxisTick} />
             <PolarGrid radialLines={false} />
             <PolarRadiusAxis

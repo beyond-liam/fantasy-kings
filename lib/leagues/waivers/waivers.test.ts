@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import {
+  formatWaiverInstantUtc,
   getClaimDeadlineForProcess,
   getFantasyWeekStartUtc,
   getFcfsOpensAtUtc,
@@ -120,6 +121,17 @@ describe("waiver calendar", () => {
       "2026-07-16T10:00:00.000Z",
     );
   });
+
+  it("formats process instants in natural UTC language", () => {
+    assert.equal(
+      formatWaiverInstantUtc(new Date(Date.UTC(2026, 7, 12, 10, 0, 0))),
+      "Wed, 12 Aug at 10:00 UTC",
+    );
+    assert.equal(
+      formatWaiverInstantUtc(new Date(Date.UTC(2026, 7, 12, 9, 0, 0))),
+      "Wed, 12 Aug at 09:00 UTC",
+    );
+  });
 });
 
 describe("getAcquisitionKind", () => {
@@ -157,6 +169,44 @@ describe("getAcquisitionKind", () => {
         ownership: { fantasyTeamId: null, onWaivers: false },
       }),
       "add",
+    );
+  });
+
+  it("unlocks free agents in fantasy preseason when preseason waivers are off", () => {
+    assert.equal(
+      getAcquisitionKind({
+        ...base,
+        isFantasyPreseason: true,
+        waiverWire: { ...DEFAULT_WAIVER_WIRE_SETTINGS, preseasonWaivers: false },
+        now: new Date(Date.UTC(2026, 6, 15, 8, 0, 0)), // before FCFS
+        ownership: { fantasyTeamId: null, onWaivers: false },
+      }),
+      "add",
+    );
+  });
+
+  it("keeps claim rules in fantasy preseason when preseason waivers are on", () => {
+    assert.equal(
+      getAcquisitionKind({
+        ...base,
+        isFantasyPreseason: true,
+        waiverWire: { ...DEFAULT_WAIVER_WIRE_SETTINGS, preseasonWaivers: true },
+        now: new Date(Date.UTC(2026, 6, 15, 14, 0, 0)), // inside FCFS window
+        ownership: { fantasyTeamId: null, onWaivers: false },
+      }),
+      "claim",
+    );
+  });
+
+  it("still requires claim for drop waivers in unlocked fantasy preseason", () => {
+    assert.equal(
+      getAcquisitionKind({
+        ...base,
+        isFantasyPreseason: true,
+        waiverWire: { ...DEFAULT_WAIVER_WIRE_SETTINGS, preseasonWaivers: false },
+        ownership: { fantasyTeamId: null, onWaivers: true },
+      }),
+      "claim",
     );
   });
 

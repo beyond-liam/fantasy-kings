@@ -10,6 +10,7 @@ import {
 import { buildStarterSlotSpecs } from "@/lib/leagues/roster-evaluation/slot-specs";
 import {
   buildPositionStrength,
+  buildPositionalLabels,
   buildPositionalRankings,
   buildStartingLineupRanks,
   overallRanksByPlayerId,
@@ -196,6 +197,20 @@ describe("buildStartingLineupRanks", () => {
   });
 });
 
+describe("buildPositionalLabels", () => {
+  it("lists unique primary positions and excludes FLEX", () => {
+    const specs = buildStarterSlotSpecs([
+      { positionId: "QB", slotCount: 1, minSlots: 1, maxSlots: 4, isStarter: true },
+      { positionId: "RB", slotCount: 2, minSlots: 2, maxSlots: 8, isStarter: true },
+      { positionId: "FLEX", slotCount: 1, minSlots: 1, maxSlots: 1, isStarter: true },
+      { positionId: "K", slotCount: 1, minSlots: 1, maxSlots: 1, isStarter: true },
+      { positionId: "BN", slotCount: 5, minSlots: 0, maxSlots: 5, isStarter: false },
+    ]);
+
+    assert.deepEqual(buildPositionalLabels(specs), ["QB", "RB", "K"]);
+  });
+});
+
 describe("buildPositionalRankings", () => {
   it("ranks teams by average overall rank at the position", () => {
     // League QBs ranked 1..8 by fantasyPts
@@ -315,8 +330,74 @@ describe("buildPositionStrength", () => {
     // Focus starters avg overall (1+2)/2 = 1.5 beats other (3+4)/2 = 3.5 → rank 1
     assert.equal(points[0]?.startersRank, 1);
     assert.equal(points[0]?.starters, 100);
+    assert.equal(points[0]?.hasStarters, true);
     // Focus bench overall #8 worse than other #5 → rank 2
     assert.equal(points[0]?.benchRank, 2);
     assert.equal(points[0]?.bench, 50);
+    assert.equal(points[0]?.hasBench, true);
+  });
+
+  it("zeros empty bench and flags hasBench false", () => {
+    const leaguePlayers: RankablePlayer[] = [
+      {
+        id: "k1",
+        fullName: "K 1",
+        primaryPositionId: "K",
+        sleeperId: "1",
+        fantasyPts: 10,
+      },
+      {
+        id: "k2",
+        fullName: "K 2",
+        primaryPositionId: "K",
+        sleeperId: "2",
+        fantasyPts: 8,
+      },
+    ];
+
+    function starter(playerId: string): FilledRosterSlot {
+      const row = leaguePlayers.find((player) => player.id === playerId)!;
+      return {
+        key: "k",
+        slotPositionId: "K",
+        player: {
+          id: row.id,
+          fullName: row.fullName,
+          nflTeam: "BAL",
+          primaryPositionId: "K",
+          byeWeek: 7,
+          injuryStatus: null,
+          sleeperId: row.sleeperId,
+          slotPositionId: "K",
+        },
+      };
+    }
+
+    const points = buildPositionStrength({
+      teamCount: 2,
+      focusTeamId: "focus",
+      positions: ["K"],
+      teams: [
+        {
+          teamId: "focus",
+          players: [leaguePlayers[0]!],
+          lineup: [starter("k1")],
+          bench: [],
+          rosterPlayers: [],
+        },
+        {
+          teamId: "other",
+          players: [leaguePlayers[1]!],
+          lineup: [starter("k2")],
+          bench: [],
+          rosterPlayers: [],
+        },
+      ],
+      leaguePlayers,
+    });
+
+    assert.equal(points[0]?.hasStarters, true);
+    assert.equal(points[0]?.hasBench, false);
+    assert.equal(points[0]?.bench, 0);
   });
 });

@@ -46,6 +46,8 @@ type TeamRosterSectionsProps = {
   actionsEnabled?: boolean;
   /** When false, slot editing stays on but cut/trade row actions are hidden. */
   rowActionsEnabled?: boolean;
+  /** When false, Cut is disabled (trades may still show). Defaults to actionsEnabled. */
+  cutActionsEnabled?: boolean;
   actionsVariant?: "mine" | "opponent";
   partnerTeamSlug?: string;
   tradesEnabled?: boolean;
@@ -84,6 +86,7 @@ export function TeamRosterSections({
   leagueSlug,
   actionsEnabled = false,
   rowActionsEnabled,
+  cutActionsEnabled,
   actionsVariant = "mine",
   partnerTeamSlug,
   tradesEnabled = true,
@@ -97,6 +100,7 @@ export function TeamRosterSections({
   const serverKey = slotsFingerprint(players);
   const resolvedIrEligible = resolveIrEligibleStatuses(irEligibleStatuses);
   const showRowActions = rowActionsEnabled ?? actionsEnabled;
+  const canCut = cutActionsEnabled ?? actionsEnabled;
   const startedTeams = useMemo(
     () => new Set(startedNflTeams),
     [startedNflTeams],
@@ -259,6 +263,7 @@ export function TeamRosterSections({
     leagueSlug,
     actionsEnabled,
     rowActionsEnabled: showRowActions,
+    cutActionsEnabled: canCut,
     actionsVariant,
     partnerTeamSlug,
     tradesEnabled,

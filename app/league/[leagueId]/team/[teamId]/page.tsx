@@ -25,7 +25,6 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { getSessionUser } from "@/lib/auth/session";
-import { getNflScoreboard } from "@/lib/espn/scoreboard";
 import {
   resolveScoringRuleDefinitions,
   type ScoringPreset,
@@ -42,10 +41,9 @@ import {
 import { buildTeamH2hSeries } from "@/lib/leagues/team-h2h";
 import { myTeamPath } from "@/lib/leagues/utils";
 import {
-  buildOpponentByTeam,
-  resolvePlayerOpponent,
-  type TeamMatchup,
-} from "@/lib/nfl/matchups";
+  loadMyTeamNflContext,
+  withPlayerOpponent,
+} from "@/components/team/panels/load-my-team-nfl-context";
 import { getDraftedRosterForTeam } from "@/lib/queries/draft";
 import { getLeagueHomeData } from "@/lib/queries/leagues";
 import { getTeamSchedule } from "@/lib/queries/matchups";
@@ -65,8 +63,6 @@ import {
   resolveTeamSummaryMatchups,
   type TeamSummaryScheduleRow,
 } from "@/lib/leagues/team-summary";
-import { getDefaultScheduleWeek } from "@/lib/nfl/schedule-week";
-import { getNflState } from "@/lib/sleeper/api";
 
 type LeagueTeamPageProps = {
   params: Promise<{ leagueId: string; teamId: string }>;
@@ -154,21 +150,17 @@ export default async function LeagueTeamPage({
   const needsH2hPanel = activeTab === "head-to-head";
   const needsDraftPicksPanel = activeTab === "draft-picks";
 
-  const needsNflState =
+  const needsNflContext =
     needsRosterPanel || needsStatsPanel || needsSchedulePanel;
-  const needsScoreboard = needsRosterPanel || needsSchedulePanel;
   const needsOtherTeamSchedule = needsRosterPanel || needsSchedulePanel;
   const needsViewerSchedule = needsH2hPanel && Boolean(myTeam);
-
-  const nflStatePromise = needsNflState ? getNflState() : null;
 
   const [
     rosterPlayers,
     scheduleRows,
     viewerScheduleRows,
     draftPicks,
-    nflState,
-    scoreboard,
+    nflContext,
     finals,
   ] = await Promise.all([
     needsRosterPanel || needsStatsPanel
@@ -183,16 +175,11 @@ export default async function LeagueTeamPage({
     needsDraftPicksPanel
       ? getDraftedRosterForTeam(team.id)
       : Promise.resolve([]),
-    nflStatePromise ?? Promise.resolve(null),
-    needsScoreboard && nflStatePromise
-      ? nflStatePromise
-          .then((state) => {
-            const week = Math.max(1, Number(state.week) || 1);
-            const seasonYear =
-              Number(state.season) || new Date().getUTCFullYear();
-            return getNflScoreboard({ season: seasonYear, week });
-          })
-          .catch(() => null)
+    needsNflContext
+      ? loadMyTeamNflContext({
+          seasonYear: season.seasonYear,
+          schedule: season.settings.schedule,
+        })
       : Promise.resolve(null),
     needsSchedulePanel
       ? getFinalMatchupsForSeason(season.id).catch(() => [])
@@ -200,28 +187,23 @@ export default async function LeagueTeamPage({
   ]);
 
   const rosterPlayerIds = rosterPlayers.map((player) => player.id);
-  const nflWeek = Math.max(1, Number(nflState?.week) || 1);
+  const fantasyWeek = nflContext?.fantasyWeek ?? 1;
+  const nflWeek = nflContext?.nflWeek ?? 1;
+  const nflSeasonType = nflContext?.nflSeasonType ?? "regular";
   const nflSeason =
-    nflState?.season ?? String(new Date().getUTCFullYear());
-
-  let opponentsByTeam = new Map<string, TeamMatchup>();
-  if (scoreboard) {
-    opponentsByTeam = buildOpponentByTeam(scoreboard.games);
-  }
+    nflContext?.nflSeason ?? String(season.seasonYear);
+  const scoreboard = nflContext?.scoreboard ?? null;
+  const opponentsByTeam = nflContext?.opponentsByTeam ?? new Map();
 
   const withOpponent = <
     T extends { nflTeam: string | null; byeWeek: number | null },
   >(
     player: T,
-  ): T & { opponent: ReturnType<typeof resolvePlayerOpponent> } => ({
-    ...player,
-    opponent: resolvePlayerOpponent({
-      nflTeam: player.nflTeam,
-      byeWeek: player.byeWeek,
-      week: nflWeek,
-      opponentsByTeam,
-    }),
-  });
+  ) =>
+    withPlayerOpponent(player, nflWeek, opponentsByTeam, {
+      seasonYear: season.seasonYear,
+      seasonType: nflSeasonType,
+    });
 
   let rosterPanel: ReactNode = null;
   let statsPanel: ReactNode = null;
@@ -236,6 +218,7 @@ export default async function LeagueTeamPage({
         ? getRankedPlayers({
             season: nflSeason,
             week: nflWeek,
+            seasonType: nflSeasonType,
             kind: "projection",
             scoringRules,
             playerIds: rosterPlayerIds,
@@ -245,6 +228,7 @@ export default async function LeagueTeamPage({
         ? getRankedPlayers({
             season: nflSeason,
             week: nflWeek,
+            seasonType: nflSeasonType,
             kind: "stats",
             scoringRules,
             playerIds: rosterPlayerIds,
@@ -284,7 +268,7 @@ export default async function LeagueTeamPage({
     );
     const { previous, current } = resolveTeamSummaryMatchups(
       summarySchedule,
-      nflWeek,
+      fantasyWeek,
     );
 
     rosterPanel = (
@@ -337,7 +321,7 @@ export default async function LeagueTeamPage({
           : getRosterEvaluationByMode({
               leagueSlug: slug,
               teamId: team.id,
-              upcomingWeek: nflWeek,
+              upcomingWeek: fantasyWeek,
             }).catch(() => null),
       ]);
     const scoredPlayers = seasonProjections.map((player) =>
@@ -348,7 +332,7 @@ export default async function LeagueTeamPage({
         players={scoredPlayers}
         leagueSlug={slug}
         charts={charts}
-        upcomingWeek={nflWeek}
+        upcomingWeek={fantasyWeek}
         rosterEvaluationByMode={rosterEvaluationByMode}
       />
     );
@@ -358,11 +342,8 @@ export default async function LeagueTeamPage({
     const weekRangeByNumber = new Map(
       (scoreboard?.weeks ?? []).map((week) => [week.number, week.rangeLabel]),
     );
-    const currentMatchupWeek = scoreboard
-      ? getDefaultScheduleWeek(scoreboard.weeks)
-      : nflWeek;
     const winChances =
-      scheduleRows.length > 0 && nflState
+      scheduleRows.length > 0 && nflContext
         ? await enrichScheduleWinChances({
             focusTeamId: team.id,
             schedule: scheduleRows,
@@ -373,8 +354,8 @@ export default async function LeagueTeamPage({
             irEligibleStatuses: season.settings.irEligibleStatuses,
             taxiEnabled: season.taxiEnabled,
             taxiSlots: season.taxiSlots,
-            seasonYear: nflState.season,
-            currentWeek: currentMatchupWeek,
+            seasonYear: nflSeason,
+            currentWeek: nflWeek,
             scoringRules,
             scoreboardGames: scoreboard?.games ?? [],
           }).catch(() => new Map<string, number | null>())

@@ -7,13 +7,17 @@ export type RankTone = "success" | "neutral" | "warning" | "destructive";
 
 export type PositionStrengthPoint = {
   position: string;
-  /** Radar value 0–100 (rank 1 = 100). */
+  /** Radar value 0–100 (rank 1 = 100). Empty cohort → 0. */
   starters: number;
   bench: number;
   /** League rank of starter cohort at this position (1 = best). */
   startersRank: number;
   /** League rank of bench cohort at this position (1 = best). */
   benchRank: number;
+  /** False when no players fill starter shells at this position. */
+  hasStarters: boolean;
+  /** False when no bench players at this position. */
+  hasBench: boolean;
 };
 
 export type StartingLineupSlot = {

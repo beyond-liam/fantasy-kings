@@ -81,9 +81,10 @@ function toProjectedMap(
 
 /**
  * Roster evaluation for all ranking modes.
- * - Starting Lineup: current starters vs league
- * - Starter Rankings: optimal starters vs league
- * - Positional Rankings: mean overall rank at position vs other teams
+ * - Starting Lineup: current starters vs league (by slot)
+ * - Starter Rankings: optimal starters vs league (by slot)
+ * - Positional Rankings: all rostered players at each primary position vs league
+ * - Position Strength: starter vs bench cohorts per position
  */
 export async function getRosterEvaluationByMode(input: {
   leagueSlug: string;
@@ -107,9 +108,7 @@ export async function getRosterEvaluationByMode(input: {
   const rosterSlots = season.settings.rosterSlots;
   const slotSpecs = buildStarterSlotSpecs(rosterSlots);
   const positionalLabels = buildPositionalLabels(slotSpecs);
-  const radarPositions = positionalLabels.filter(
-    (label) => label !== "STARTERS" && label !== "BENCH",
-  );
+  const radarPositions = positionalLabels;
   const scoringRules = resolveScoringRuleDefinitions(
     season.scoringPreset as ScoringPreset,
     season.settings.scoringRules,

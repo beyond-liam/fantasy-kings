@@ -87,6 +87,9 @@ export function TeamStatsTable({
           <TeamTableColumnHeader title="Opp" tooltip="Opponent" />
         ),
         cell: ({ row }) => <OpponentCell opponent={row.original.opponent} />,
+        // Fixed so Opp/Rank line up across QB/RB/WR, K, DEF tables (different
+        // stat column counts would otherwise stretch these unequally).
+        meta: { width: 88 },
       },
       {
         id: "rank",
@@ -112,6 +115,7 @@ export function TeamStatsTable({
             )}
           </span>
         ),
+        meta: { width: 64 },
       },
     ];
 

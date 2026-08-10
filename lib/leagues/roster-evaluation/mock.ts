@@ -65,6 +65,8 @@ function radarFromRanks(
     benchRank: entry.benchRank,
     starters: rankPowerScore(entry.startersRank, TEAM_COUNT),
     bench: rankPowerScore(entry.benchRank, TEAM_COUNT),
+    hasStarters: true,
+    hasBench: true,
   }));
 }
 
@@ -81,7 +83,6 @@ export function getRosterEvaluationByModeMock(): Record<
     { position: "RB", startersRank: 1, benchRank: 2 },
     { position: "WR", startersRank: 2, benchRank: 2 },
     { position: "TE", startersRank: 4, benchRank: 4 },
-    { position: "FLEX", startersRank: 2, benchRank: 3 },
     { position: "CB", startersRank: 2, benchRank: 3 },
     { position: "S", startersRank: 1, benchRank: 4 },
     { position: "DT", startersRank: 3, benchRank: 3 },
@@ -154,10 +155,7 @@ export function getRosterEvaluationByModeMock(): Record<
     { label: "RB", rank: 1 },
     { label: "WR", rank: 3 },
     { label: "TE", rank: 4 },
-    { label: "FLEX", rank: 2 },
     { label: "K", rank: 2 },
-    { label: "STARTERS", rank: 2 },
-    { label: "BENCH", rank: 3 },
   ]);
 
   const base: RosterEvaluationData = {
@@ -176,7 +174,6 @@ export function getRosterEvaluationByModeMock(): Record<
       { position: "RB", startersRank: 1, benchRank: 1 },
       { position: "WR", startersRank: 1, benchRank: 2 },
       { position: "TE", startersRank: 3, benchRank: 3 },
-      { position: "FLEX", startersRank: 1, benchRank: 2 },
       { position: "K", startersRank: 1, benchRank: 3 },
     ]),
     startingLineup: lineupFromSlots(
@@ -202,10 +199,7 @@ export function getRosterEvaluationByModeMock(): Record<
       { label: "RB", rank: 1 },
       { label: "WR", rank: 2 },
       { label: "TE", rank: 3 },
-      { label: "FLEX", rank: 1 },
       { label: "K", rank: 1 },
-      { label: "STARTERS", rank: 1 },
-      { label: "BENCH", rank: 4 },
     ]),
   };
 
@@ -216,10 +210,7 @@ export function getRosterEvaluationByModeMock(): Record<
       { label: "RB", rank: 2 },
       { label: "WR", rank: 2 },
       { label: "TE", rank: 3 },
-      { label: "FLEX", rank: 3 },
       { label: "K", rank: 3 },
-      { label: "STARTERS", rank: 2 },
-      { label: "BENCH", rank: 2 },
     ]),
   };
 

@@ -1,4 +1,5 @@
 import {
+  boolean,
   index,
   integer,
   pgEnum,
@@ -45,6 +46,11 @@ export const drafts = pgTable(
     turnExpiresAt: timestamp("turn_expires_at", { withTimezone: true }),
     /** Remaining pick-clock seconds frozen while status is paused. */
     pausedSecondsRemaining: integer("paused_seconds_remaining"),
+    /**
+     * True when the current pause was applied by the daily pause window.
+     * Commissioner manual pauses set this false so cron will not auto-resume.
+     */
+    pausedByWindow: boolean("paused_by_window").notNull().default(false),
     completedAt: timestamp("completed_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()

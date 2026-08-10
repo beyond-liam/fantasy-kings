@@ -46,6 +46,9 @@ export function getInitialWizardValues(): CreateLeagueWizardValues {
     pickTimeLimitEnabled: WIZARD_DEFAULTS.pickTimeLimitEnabled,
     pickTimeLimit: WIZARD_DEFAULTS.pickTimeLimit,
     pickTimeUnit: WIZARD_DEFAULTS.pickTimeUnit,
+    pauseWindowEnabled: WIZARD_DEFAULTS.pauseWindowEnabled,
+    pauseWindowStart: WIZARD_DEFAULTS.pauseWindowStart,
+    pauseWindowEnd: WIZARD_DEFAULTS.pauseWindowEnd,
   };
 }
 

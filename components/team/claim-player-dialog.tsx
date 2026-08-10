@@ -228,7 +228,7 @@ export function ClaimPlayerDialog({
               strokeWidth={2}
               data-icon="inline-start"
             />
-            File claim
+            Claim Player
           </Button>
         </DialogFooter>
       </DialogContent>

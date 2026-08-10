@@ -116,14 +116,22 @@ export async function insertOrRestoreRosteredPlayer(input: {
   await dbc.transaction(async (tx) => {
     for (const row of input.seasonRows) {
       if (row.status !== "waived") continue;
+      // Null clearsAt = still on waivers (incomplete row); do not treat as expired.
       const expired =
-        row.waiverClearsAt === null || row.waiverClearsAt.getTime() <= input.now;
+        row.waiverClearsAt !== null &&
+        row.waiverClearsAt.getTime() <= input.now;
       if (!expired) continue;
       if (ownWaived && row.id === ownWaived.id) continue;
       await tx.delete(rosterPlayers).where(eq(rosterPlayers.id, row.id));
     }
 
     if (ownWaived) {
+      const stillOnWaivers =
+        ownWaived.waiverClearsAt === null ||
+        ownWaived.waiverClearsAt.getTime() > input.now;
+      if (stillOnWaivers) {
+        throw new Error("Player is still on waivers and must be claimed.");
+      }
       await tx
         .update(rosterPlayers)
         .set({

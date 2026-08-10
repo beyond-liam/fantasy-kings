@@ -148,14 +148,15 @@ export function PlayerActionButton({
       action.kind === "claim" ||
       action.kind === "trade");
 
+  // Free-agency / draft locks block add/cut/claim only — trades stay available.
   const isDisabled =
-    disabled ||
-    acquisitionBlocked ||
-    claimAlreadyFiled ||
     isPending ||
     !action.actionable ||
     !leagueSlug ||
-    (action.kind === "trade" && !tradesEnabled);
+    claimAlreadyFiled ||
+    (action.kind === "trade"
+      ? !tradesEnabled || acquisitionBlocked
+      : disabled || acquisitionBlocked);
 
   const tradeHref =
     action.kind === "trade" &&
@@ -172,17 +173,17 @@ export function PlayerActionButton({
 
   const tooltip = claimAlreadyFiled
     ? "Claim already made for this player"
-    : acquisitionBlocked
-      ? acquisitionLockReason
-      : disabled
-        ? disabledReason
+    : action.kind === "trade" && !tradesEnabled
+      ? "Trades are disabled"
+      : acquisitionBlocked
+        ? acquisitionLockReason
+        : action.kind !== "trade" && disabled
+          ? disabledReason
           : !action.actionable
-          ? action.kind === "trade" && !tradesEnabled
-            ? "Trades are disabled"
-            : action.kind === "trade" && !player.fantasyTeamSlug
+            ? action.kind === "trade" && !player.fantasyTeamSlug
               ? "Trades are not available yet"
               : action.label
-          : action.label;
+            : action.label;
 
   const handleAdd = () => {
     startTransition(async () => {

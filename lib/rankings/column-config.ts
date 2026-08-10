@@ -27,14 +27,35 @@ export const POSITION_FILTERS: PositionFilter[] = [
 
 export const DEFAULT_POSITION_FILTER: PositionFilter = "QB";
 
+const POSITION_FILTER_SET = new Set<string>(POSITION_FILTERS);
+
+/**
+ * Position filter options present on the league roster (display order).
+ * Falls back to the full list when roster slots are empty/unset.
+ */
+export function positionFiltersFromRosterSlots(
+  rosterSlots: Array<{ positionId: string }>,
+): PositionFilter[] {
+  const present = new Set<PositionFilter>();
+  for (const slot of rosterSlots) {
+    if (POSITION_FILTER_SET.has(slot.positionId)) {
+      present.add(slot.positionId as PositionFilter);
+    }
+  }
+  const filtered = POSITION_FILTERS.filter((position) => present.has(position));
+  return filtered.length > 0 ? filtered : POSITION_FILTERS;
+}
+
 export function parsePositionFilter(
   value: string | null | undefined,
+  allowed: readonly PositionFilter[] = POSITION_FILTERS,
 ): PositionFilter {
-  if (value && POSITION_FILTERS.includes(value as PositionFilter)) {
+  const options = allowed.length > 0 ? allowed : POSITION_FILTERS;
+  if (value && options.includes(value as PositionFilter)) {
     return value as PositionFilter;
   }
 
-  return DEFAULT_POSITION_FILTER;
+  return options[0] ?? DEFAULT_POSITION_FILTER;
 }
 
 export type StatColumn = {

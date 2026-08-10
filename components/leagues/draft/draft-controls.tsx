@@ -73,7 +73,7 @@ type DraftRevertControlProps = {
   onStatusOptimistic?: (status: DraftStatus) => void;
 };
 
-/** Commissioner revert — shown under the page title. */
+/** Commissioner revert — icon-only; pair with play/pause on the clock card. */
 export function DraftRevertControl({
   slug,
   isCommissioner,
@@ -95,24 +95,30 @@ export function DraftRevertControl({
     return null;
   }
 
-  return (
+  const button = (
     <Button
       type="button"
       variant="outline"
+      size="icon-sm"
       disabled={isPending}
+      aria-label="Revert last pick"
       onClick={() =>
         run(() => revertLastDraftPick(slug), {
           successMessage: "Pick reverted.",
         })
       }
     >
-      <HugeiconsIcon
-        icon={ArrowTurnBackwardIcon}
-        strokeWidth={2}
-        data-icon="inline-start"
-      />
-      Revert pick
+      <HugeiconsIcon icon={ArrowTurnBackwardIcon} strokeWidth={2} />
     </Button>
+  );
+
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger render={button} />
+        <TooltipContent>Revert last pick</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }
 

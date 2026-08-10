@@ -36,7 +36,7 @@ const FREE_AGENT: PlayerLeagueOwnership = {
  *
  * Precedence:
  * 1. Any `rostered` row for a player wins (waived rows for that player are ignored).
- * 2. Else any `waived` row with `waiverClearsAt > now` → on waivers.
+ * 2. Else any `waived` row still on waivers (`waiverClearsAt` null or `> now`).
  * 3. Else free agent (omitted from the map).
  * 4. If multiple `rostered` rows exist (data corruption), pick the lowest `teamId`.
  */
@@ -58,7 +58,8 @@ export function buildOwnershipMap(
     }
 
     const stillOnWaivers =
-      row.waiverClearsAt !== null && row.waiverClearsAt.getTime() > nowMs;
+      row.waiverClearsAt === null ||
+      row.waiverClearsAt.getTime() > nowMs;
     if (!stillOnWaivers) {
       continue;
     }

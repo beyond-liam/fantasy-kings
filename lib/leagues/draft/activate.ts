@@ -115,6 +115,7 @@ export async function activateDraftLive(input: {
         status: "live",
         pausedAt: null,
         pausedSecondsRemaining: null,
+        pausedByWindow: false,
         turnExpiresAt:
           remaining != null && remaining > 0
             ? computeTurnExpiresAt(now, remaining)
@@ -129,6 +130,7 @@ export async function activateDraftLive(input: {
         startedAt: existing.startedAt ?? now,
         pausedAt: null,
         pausedSecondsRemaining: null,
+        pausedByWindow: false,
         turnExpiresAt: computeTurnExpiresAt(now, pickTimeLimitSeconds),
       })
       .where(eq(drafts.id, existing.id));
@@ -139,6 +141,7 @@ export async function activateDraftLive(input: {
       currentPickIndex: 0,
       startedAt: now,
       turnExpiresAt: computeTurnExpiresAt(now, pickTimeLimitSeconds),
+      pausedByWindow: false,
     });
   }
 

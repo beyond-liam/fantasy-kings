@@ -88,6 +88,29 @@ describe("buildOwnershipMap", () => {
     assert.equal(map.has("p1"), false);
   });
 
+  it("treats waived players with null clearsAt as on waivers", () => {
+    const map = buildOwnershipMap(
+      [
+        row({
+          playerId: "p1",
+          status: "waived",
+          teamId: "team-a",
+          waiverClearsAt: null,
+        }),
+      ],
+      USER_A,
+      NOW,
+    );
+
+    assert.deepEqual(map.get("p1"), {
+      fantasyTeamId: null,
+      fantasyTeamName: null,
+      fantasyTeamSlug: null,
+      isOwnedByCurrentUser: false,
+      onWaivers: true,
+    });
+  });
+
   it("lets rostered win over waived for the same player", () => {
     const map = buildOwnershipMap(
       [

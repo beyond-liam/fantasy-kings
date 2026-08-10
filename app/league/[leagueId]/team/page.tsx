@@ -20,7 +20,11 @@ import { TeamTabs } from "@/components/team/team-tabs";
 import { WaiverResultsDialog } from "@/components/team/waiver-results-dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { getSessionUser } from "@/lib/auth/session";
-import { isRosterTransactionsEnabled } from "@/lib/leagues/free-agency";
+import {
+  isLineupEditingEnabled,
+  isRosterTransactionsEnabled,
+} from "@/lib/leagues/free-agency";
+import { canProposeTrades } from "@/lib/leagues/trades/guards";
 import {
   formatIrLockMessage,
   getIrLockViolations,
@@ -110,6 +114,8 @@ export default async function MyTeamPage({
     season,
     data.draftStatus,
   );
+  const lineupEnabled = isLineupEditingEnabled(season, data.draftStatus);
+  const tradesEnabled = canProposeTrades(season).ok;
   const wire = resolveWaiverWireSettings(season.settings.waiverWire);
   const isCommissioner = data.members.some(
     (member) =>
@@ -173,6 +179,7 @@ export default async function MyTeamPage({
         }}
         season={{
           id: season.id,
+          seasonYear: season.seasonYear,
           benchSlots: season.benchSlots,
           irEnabled: season.irEnabled,
           irSlots: season.irSlots,
@@ -184,10 +191,13 @@ export default async function MyTeamPage({
             rosterSlots: season.settings.rosterSlots,
             irEligibleStatuses: season.settings.irEligibleStatuses,
             taxiMaxYearsExp: season.settings.taxiMaxYearsExp,
+            schedule: season.settings.schedule,
           },
         }}
         scoringRules={scoringRules}
         actionsEnabled={actionsEnabled}
+        lineupEnabled={lineupEnabled}
+        tradesEnabled={tradesEnabled}
         wire={wire}
       />,
     );
@@ -196,6 +206,8 @@ export default async function MyTeamPage({
       <MyTeamStatsPanel
         slug={slug}
         teamId={team.id}
+        seasonYear={season.seasonYear}
+        schedule={season.settings.schedule}
         scoringRules={scoringRules}
         useChartsMock={useChartsMock}
       />,
@@ -207,6 +219,8 @@ export default async function MyTeamPage({
         userId={user.id}
         teamId={team?.id ?? null}
         seasonId={season.id}
+        seasonYear={season.seasonYear}
+        schedule={season.settings.schedule}
         waiversEnabled={season.waiversEnabled}
         scoringRules={scoringRules}
         actionsEnabled={actionsEnabled}
@@ -222,6 +236,7 @@ export default async function MyTeamPage({
         team={{ id: team.id, slug: team.slug }}
         season={{
           id: season.id,
+          seasonYear: season.seasonYear,
           benchSlots: season.benchSlots,
           irEnabled: season.irEnabled,
           irSlots: season.irSlots,
@@ -230,6 +245,7 @@ export default async function MyTeamPage({
           settings: {
             rosterSlots: season.settings.rosterSlots,
             irEligibleStatuses: season.settings.irEligibleStatuses,
+            schedule: season.settings.schedule,
           },
         }}
         scoringRules={scoringRules}

@@ -175,6 +175,7 @@ export async function pauseDraft(slug: string): Promise<ActionResult> {
       pausedAt: now,
       turnExpiresAt: null,
       pausedSecondsRemaining,
+      pausedByWindow: false,
     })
     .where(eq(drafts.id, draft.id));
 

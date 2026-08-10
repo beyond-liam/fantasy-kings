@@ -54,6 +54,9 @@ export const WIZARD_DEFAULTS = {
   pickTimeLimitEnabled: true,
   pickTimeLimit: 2,
   pickTimeUnit: "minutes" as const,
+  pauseWindowEnabled: false,
+  pauseWindowStart: "22:00",
+  pauseWindowEnd: "08:00",
 };
 
 export function buildStandardRosterSlots(

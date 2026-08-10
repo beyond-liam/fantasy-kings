@@ -211,3 +211,17 @@ export function isScheduleEditable(
 ): boolean {
   return !isNflSeasonUnderway(seasonYear, nfl, schedule);
 }
+
+/**
+ * Fantasy-league preseason: after the draft / FA opens, until this league's
+ * first counting fantasy week starts (`isNflSeasonUnderway`).
+ * Not the same as NFL `season_type === "pre"` — if the league includes NFL
+ * preseason weeks, fantasy preseason ends when those weeks begin.
+ */
+export function isFantasyLeaguePreseason(
+  seasonYear: number,
+  nfl: { season: string; season_type: string; week: number },
+  schedule?: ScheduleSettings | null,
+): boolean {
+  return !isNflSeasonUnderway(seasonYear, nfl, schedule);
+}

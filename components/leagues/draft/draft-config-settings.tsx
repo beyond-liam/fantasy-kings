@@ -33,6 +33,8 @@ import { applyLocalTime, formatLocalTime } from "@/lib/datetime/local-time";
 import { jsonEqual } from "@/lib/json-equal";
 import {
   normalizeDraftConfigFormValues,
+  DEFAULT_PAUSE_WINDOW_END,
+  DEFAULT_PAUSE_WINDOW_START,
   type DraftConfigFormValues,
 } from "@/lib/leagues/draft-settings";
 
@@ -164,6 +166,7 @@ export function DraftConfigSettings({
                   pickTimeLimitEnabled: true,
                   pickTimeLimit: 2,
                   pickTimeUnit: "minutes",
+                  pauseWindowEnabled: false,
                 });
                 return;
               }
@@ -266,7 +269,10 @@ export function DraftConfigSettings({
                     pickTimeLimitEnabled,
                     ...(pickTimeLimitEnabled
                       ? {}
-                      : { autoPickEnabled: false }),
+                      : {
+                          autoPickEnabled: false,
+                          pauseWindowEnabled: false,
+                        }),
                   })
                 }
               />
@@ -342,6 +348,75 @@ export function DraftConfigSettings({
               />
             </div>
           </Field>
+        ) : null}
+
+        {values.draftType === "email" && values.pickTimeLimitEnabled ? (
+          <>
+            <Field>
+              <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
+                <div className="min-w-0">
+                  <FieldLabel htmlFor="pauseWindowEnabled">
+                    Pause during a time window
+                  </FieldLabel>
+                  <FieldDescription>
+                    Automatically pause the draft clock each day between these
+                    UTC times (e.g. overnight).
+                  </FieldDescription>
+                </div>
+                <Switch
+                  id="pauseWindowEnabled"
+                  checked={values.pauseWindowEnabled}
+                  onCheckedChange={(pauseWindowEnabled) =>
+                    patch({
+                      pauseWindowEnabled,
+                      ...(pauseWindowEnabled
+                        ? {
+                            pauseWindowStart:
+                              values.pauseWindowStart ||
+                              DEFAULT_PAUSE_WINDOW_START,
+                            pauseWindowEnd:
+                              values.pauseWindowEnd || DEFAULT_PAUSE_WINDOW_END,
+                          }
+                        : {}),
+                    })
+                  }
+                />
+              </div>
+            </Field>
+            {values.pauseWindowEnabled ? (
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field>
+                  <FieldLabel htmlFor="pauseWindowStart">
+                    Pause starts (UTC)
+                  </FieldLabel>
+                  <TimePicker
+                    id="pauseWindowStart"
+                    value={values.pauseWindowStart}
+                    onChange={(pauseWindowStart) =>
+                      patch({ pauseWindowStart })
+                    }
+                  />
+                  <FieldDescription>
+                    Clock freezes from this UTC time.
+                  </FieldDescription>
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="pauseWindowEnd">
+                    Pause ends (UTC)
+                  </FieldLabel>
+                  <TimePicker
+                    id="pauseWindowEnd"
+                    value={values.pauseWindowEnd}
+                    onChange={(pauseWindowEnd) => patch({ pauseWindowEnd })}
+                  />
+                  <FieldDescription>
+                    Draft resumes at this UTC time. Overnight windows are
+                    allowed.
+                  </FieldDescription>
+                </Field>
+              </div>
+            ) : null}
+          </>
         ) : null}
         </FieldGroup>
       </SettingsFormCard>

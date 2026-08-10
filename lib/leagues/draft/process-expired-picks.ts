@@ -13,6 +13,9 @@ import { commitDraftPick } from "@/lib/leagues/draft/pick";
 import { selectAutopickPlayerId } from "@/lib/leagues/draft/select-autopick-player";
 import { resolveDraftSettings } from "@/lib/leagues/draft-settings";
 import {
+  applyDraftPauseWindows,
+} from "@/lib/leagues/draft/pause-window";
+import {
   getDraftBySeasonId,
   getSeasonDraftTeams,
 } from "@/lib/queries/draft";
@@ -222,6 +225,12 @@ export type ProcessExpiredDraftPicksResult = {
   picked: number;
   skipped: number;
   errors: Array<{ seasonId: string; error: string }>;
+  pauseWindows?: {
+    checked: number;
+    paused: number;
+    resumed: number;
+    errors: Array<{ seasonId: string; error: string }>;
+  };
 };
 
 const MAX_PICKS_PER_DRAFT = 32;
@@ -233,6 +242,8 @@ const MAX_PICKS_PER_DRAFT = 32;
 export async function processExpiredDraftPicks(
   now = new Date(),
 ): Promise<ProcessExpiredDraftPicksResult> {
+  const pauseWindows = await applyDraftPauseWindows(now);
+
   const live = await db
     .select({
       seasonId: leagueSeasons.id,
@@ -250,7 +261,13 @@ export async function processExpiredDraftPicks(
     checked: live.length,
     picked: 0,
     skipped: 0,
-    errors: [],
+    errors: [...pauseWindows.errors],
+    pauseWindows: {
+      checked: pauseWindows.checked,
+      paused: pauseWindows.paused,
+      resumed: pauseWindows.resumed,
+      errors: pauseWindows.errors,
+    },
   };
 
   for (const row of live) {

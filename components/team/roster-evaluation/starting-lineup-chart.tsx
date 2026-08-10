@@ -7,6 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Card,
   CardContent,
+  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -22,8 +23,6 @@ import { getSleeperPlayerAvatarThumbUrl } from "@/lib/sleeper/avatars";
 
 const AVATAR_SIZE = 24;
 const RANK_LABEL_GAP = 14;
-/** Fixed px per rank step so 4- and 12-team leagues share equal spacing. */
-const Y_STEP_PX = 36;
 
 const chartConfig = {
   barValue: {
@@ -145,19 +144,19 @@ export function StartingLineupChart({
       })),
     [slots, n],
   );
-  const chartHeight =
-    n * Y_STEP_PX + RANK_LABEL_GAP + AVATAR_SIZE + 28;
 
   return (
     <Card size="sm" className="h-full gap-0 py-0">
       <CardHeader variant="panel">
         <CardTitle className="text-base text-balance">Starting Lineup</CardTitle>
+        <CardDescription className="text-pretty">
+          Current starters
+        </CardDescription>
       </CardHeader>
-      <CardContent className="py-4">
+      <CardContent className="flex min-h-0 flex-1 flex-col py-4">
         <ChartContainer
           config={chartConfig}
-          className="aspect-auto w-full"
-          style={{ height: chartHeight }}
+          className="aspect-auto! min-h-72 w-full flex-1"
         >
           <BarChart
             accessibilityLayer
@@ -205,7 +204,7 @@ export function StartingLineupChart({
                     return (
                       <>
                         <div
-                          className="size-2.5 shrink-0 rounded-[2px]"
+                          className="size-2.5 shrink-0 rounded-xs"
                           style={{ backgroundColor: color }}
                         />
                         <div className="flex min-w-0 flex-1 items-center leading-none">

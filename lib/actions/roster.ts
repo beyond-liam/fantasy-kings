@@ -43,6 +43,7 @@ import { parseLineupLockMode } from "@/lib/leagues/lineup-lock";
 import { loadStartedNflTeamsForLineupLock } from "@/lib/leagues/lineup-lock-started";
 import { getAcquisitionKind } from "@/lib/leagues/waivers/acquisition";
 import { resolveChurnCut } from "@/lib/leagues/waivers/churn";
+import { isFantasyLeaguePreseason } from "@/lib/leagues/season-calendar";
 import {
   getStartedNflTeamAbbreviations,
   hasNflTeamStarted,
@@ -95,6 +96,11 @@ async function getRosterActionContext(slug: string) {
   return loadLeagueMemberTeamContext(slug, {
     requireFreeAgencyOpen: true,
   });
+}
+
+/** Lineup slot moves — allowed during draft; does not require free agency. */
+async function getLineupActionContext(slug: string) {
+  return loadLeagueMemberTeamContext(slug);
 }
 
 function revalidateRosterPaths(slug: string) {
@@ -184,18 +190,27 @@ async function prepareAdd(
   const onWaivers = seasonRows.some(
     (row) =>
       row.status === "waived" &&
-      row.waiverClearsAt !== null &&
-      row.waiverClearsAt.getTime() > now,
+      (row.waiverClearsAt === null ||
+        row.waiverClearsAt.getTime() > now),
   );
-  const wire = resolveWaiverWireSettings(season.settings.waiverWire);
+  const wire = resolveWaiverWireSettings(
+    season.settings.waiverWire,
+    season.settings.transactionRules?.preseasonFreeAgents,
+  );
   let gameStartedThisWeek = false;
-  if (
-    season.waiversEnabled &&
-    wire.waiverPool === "drops_and_free_agents" &&
-    player.nflTeam
-  ) {
-    try {
-      const nflState = await getNflState();
+  let isFantasyPreseason = false;
+  try {
+    const nflState = await getNflState();
+    isFantasyPreseason = isFantasyLeaguePreseason(
+      season.seasonYear,
+      nflState,
+      season.settings.schedule,
+    );
+    if (
+      season.waiversEnabled &&
+      wire.waiverPool === "drops_and_free_agents" &&
+      player.nflTeam
+    ) {
       const board = await getNflScoreboard({
         season: Number(nflState.season) || new Date().getUTCFullYear(),
         week: Math.max(1, Number(nflState.week) || 1),
@@ -204,14 +219,15 @@ async function prepareAdd(
         player.nflTeam,
         getStartedNflTeamAbbreviations(board.games),
       );
-    } catch {
-      gameStartedThisWeek = false;
     }
+  } catch {
+    gameStartedThisWeek = false;
   }
   const acquisitionKind = getAcquisitionKind({
     waiversEnabled: season.waiversEnabled,
     waiverWire: wire,
     rosterTransactionsEnabled: true,
+    isFantasyPreseason,
     ownership: { fantasyTeamId: null, onWaivers },
     gameStartedThisWeek,
   });
@@ -399,7 +415,10 @@ async function prepareCut(
     return { error: "Player is not on your roster." };
   }
 
-  const wire = resolveWaiverWireSettings(season.settings.waiverWire);
+  const wire = resolveWaiverWireSettings(
+    season.settings.waiverWire,
+    season.settings.transactionRules?.preseasonFreeAgents,
+  );
   const churn = resolveChurnCut({
     churnPrevention: wire.churnPrevention,
     processDays: wire.processDays,
@@ -569,7 +588,7 @@ export async function assignPlayerSlot(
 
   const { playerId: pid, slotPositionId: sid } = parsed.data;
 
-  const context = await getRosterActionContext(slug);
+  const context = await getLineupActionContext(slug);
   if ("error" in context) {
     return { success: false, error: context.error };
   }
@@ -636,7 +655,7 @@ export async function updateRosterSlots(
     return { success: false, error: "No roster changes to save." };
   }
 
-  const context = await getRosterActionContext(slug);
+  const context = await getLineupActionContext(slug);
   if ("error" in context) {
     return { success: false, error: context.error };
   }

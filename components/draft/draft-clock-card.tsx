@@ -35,9 +35,9 @@ export function DraftClockCard({
   return (
     <Card size="sm" className={cn("min-w-[16rem] gap-0 py-0", className)}>
       <CardHeader variant="panel">
-        <div className="flex flex-col gap-0">
-          <div className="flex items-center justify-between gap-2">
-            <CardTitle className="flex min-w-0 items-center gap-2 text-base leading-none text-balance">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex min-w-0 flex-col gap-0">
+            <div className="flex min-w-0 items-center gap-2">
               {showStopwatch ? (
                 <HugeiconsIcon
                   icon={StopWatchIcon}
@@ -45,19 +45,23 @@ export function DraftClockCard({
                   className="size-4 shrink-0"
                 />
               ) : null}
-              {title}
-            </CardTitle>
-            {headerAction}
+              <CardTitle className="min-w-0 text-base leading-none text-balance">
+                {title}
+              </CardTitle>
+            </div>
+            {subtitle ? (
+              <p
+                className={cn(
+                  "text-xs leading-tight text-muted-foreground text-pretty",
+                  showStopwatch && "pl-6",
+                )}
+              >
+                {subtitle}
+              </p>
+            ) : null}
           </div>
-          {subtitle ? (
-            <p
-              className={cn(
-                "text-xs leading-tight text-muted-foreground text-pretty",
-                showStopwatch && "pl-6",
-              )}
-            >
-              {subtitle}
-            </p>
+          {headerAction ? (
+            <div className="shrink-0">{headerAction}</div>
           ) : null}
         </div>
       </CardHeader>

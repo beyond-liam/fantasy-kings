@@ -90,7 +90,7 @@ export const transactionRulesFormSchema = z
   );
 
 export function resolveTransactionRules(
-  stored?: TransactionRulesSettings | null,
+  stored?: Partial<TransactionRulesSettings> | null,
 ): TransactionRulesSettings {
   if (!stored) {
     return { ...DEFAULT_TRANSACTION_RULES };

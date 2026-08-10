@@ -21,6 +21,10 @@ import {
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Switch } from "@/components/ui/switch";
 import { applyLocalTime, formatLocalTime } from "@/lib/datetime/local-time";
+import {
+  DEFAULT_PAUSE_WINDOW_END,
+  DEFAULT_PAUSE_WINDOW_START,
+} from "@/lib/leagues/draft-settings";
 import type { DraftStepValues } from "@/lib/leagues/wizard-schema";
 
 const PICK_TIME_UNIT_ITEMS = [
@@ -74,6 +78,7 @@ export function DraftStep({ values, errors, onChange }: DraftStepProps) {
               pickTimeLimitEnabled: true,
               pickTimeLimit: 2,
               pickTimeUnit: "minutes",
+              pauseWindowEnabled: false,
             });
           }}
           className="sm:grid-cols-2"
@@ -134,7 +139,12 @@ export function DraftStep({ values, errors, onChange }: DraftStepProps) {
               id="pickTimeLimitEnabled"
               checked={values.pickTimeLimitEnabled}
               onCheckedChange={(pickTimeLimitEnabled) =>
-                onChange({ pickTimeLimitEnabled })
+                onChange({
+                  pickTimeLimitEnabled,
+                  ...(pickTimeLimitEnabled
+                    ? {}
+                    : { pauseWindowEnabled: false }),
+                })
               }
             />
           </div>
@@ -186,6 +196,76 @@ export function DraftStep({ values, errors, onChange }: DraftStepProps) {
             </Select>
           </Field>
         </div>
+      ) : null}
+
+      {values.draftType === "email" && values.pickTimeLimitEnabled ? (
+        <>
+          <Field>
+            <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
+              <div className="min-w-0">
+                <FieldLabel htmlFor="pauseWindowEnabled">
+                  Pause during a time window
+                </FieldLabel>
+                <FieldDescription>
+                  Automatically pause the draft clock each day between these UTC
+                  times (e.g. overnight).
+                </FieldDescription>
+              </div>
+              <Switch
+                id="pauseWindowEnabled"
+                checked={values.pauseWindowEnabled}
+                onCheckedChange={(pauseWindowEnabled) =>
+                  onChange({
+                    pauseWindowEnabled,
+                    ...(pauseWindowEnabled
+                      ? {
+                          pauseWindowStart:
+                            values.pauseWindowStart ||
+                            DEFAULT_PAUSE_WINDOW_START,
+                          pauseWindowEnd:
+                            values.pauseWindowEnd || DEFAULT_PAUSE_WINDOW_END,
+                        }
+                      : {}),
+                  })
+                }
+              />
+            </div>
+          </Field>
+          {values.pauseWindowEnabled ? (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field>
+                <FieldLabel htmlFor="pauseWindowStart">
+                  Pause starts (UTC)
+                </FieldLabel>
+                <TimePicker
+                  id="pauseWindowStart"
+                  value={values.pauseWindowStart}
+                  onChange={(pauseWindowStart) => onChange({ pauseWindowStart })}
+                />
+                {errors.pauseWindowStart ? (
+                  <FieldError>{errors.pauseWindowStart}</FieldError>
+                ) : null}
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="pauseWindowEnd">
+                  Pause ends (UTC)
+                </FieldLabel>
+                <TimePicker
+                  id="pauseWindowEnd"
+                  value={values.pauseWindowEnd}
+                  onChange={(pauseWindowEnd) => onChange({ pauseWindowEnd })}
+                />
+                {errors.pauseWindowEnd ? (
+                  <FieldError>{errors.pauseWindowEnd}</FieldError>
+                ) : (
+                  <FieldDescription>
+                    Overnight windows are allowed.
+                  </FieldDescription>
+                )}
+              </Field>
+            </div>
+          ) : null}
+        </>
       ) : null}
     </FieldGroup>
   );

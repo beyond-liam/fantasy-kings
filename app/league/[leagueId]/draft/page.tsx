@@ -23,6 +23,7 @@ import {
   getLeagueSeason,
 } from "@/lib/queries/leagues";
 import { getNflTeams, getRankedPlayers } from "@/lib/queries/players";
+import { positionFiltersFromRosterSlots } from "@/lib/rankings/column-config";
 import { getNflState } from "@/lib/sleeper/api";
 
 const DraftRoom = dynamic(
@@ -163,6 +164,7 @@ export default async function LeagueDraftRoomPage({
         draftStartAt={toIso(season.draftStartAt)}
         turnExpiresAt={toIso(room.draft?.turnExpiresAt)}
         pausedSecondsRemaining={room.draft?.pausedSecondsRemaining ?? null}
+        positions={positionFiltersFromRosterSlots(season.settings.rosterSlots)}
       />
     </div>
   );

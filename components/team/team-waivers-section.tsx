@@ -292,9 +292,9 @@ export function TeamWaiversSection({
               </h2>
               <p className="text-sm text-muted-foreground">
                 {nextProcessLabel
-                  ? `Next process ${nextProcessLabel} UTC${
+                  ? `Next process ${nextProcessLabel}${
                       claimDeadlineLabel
-                        ? ` · submit claims by ${claimDeadlineLabel} UTC`
+                        ? ` · submit claims by ${claimDeadlineLabel}`
                         : ""
                     }`
                   : "No upcoming waiver process scheduled"}

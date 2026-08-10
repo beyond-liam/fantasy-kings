@@ -205,7 +205,10 @@ export async function searchLeaguePlayersPage(input: {
     },
     draft?.status,
   );
-  const wire = resolveWaiverWireSettings(season.settings.waiverWire);
+  const wire = resolveWaiverWireSettings(
+    season.settings.waiverWire,
+    season.settings.transactionRules?.preseasonFreeAgents,
+  );
 
   const players = page.players.map((row) => {
     const ownership = resolvePlayerOwnership(ownershipMap, row.id);
@@ -223,6 +226,9 @@ export async function searchLeaguePlayersPage(input: {
         fantasyTeamId: ownership.fantasyTeamId,
         onWaivers: ownership.onWaivers,
         nflTeam: row.nflTeam,
+        seasonYear: season.seasonYear,
+        nfl,
+        schedule: season.settings.schedule,
       }),
       hasPendingClaim: pendingClaimIds.has(row.id),
     };
@@ -237,6 +243,6 @@ export async function searchLeaguePlayersPage(input: {
     hasMore: page.hasMore,
     kind: page.kind,
     actionsEnabled,
-    tradesEnabled: season.tradesEnabled && actionsEnabled,
+    tradesEnabled: season.tradesEnabled,
   };
 }

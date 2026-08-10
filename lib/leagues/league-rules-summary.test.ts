@@ -37,6 +37,7 @@ describe("buildLeagueRulesSummary", () => {
             fcfsMode: "after_process",
             processDays: ["wed"],
             resetOrderWeekly: true,
+            preseasonWaivers: false,
           },
           transactionRules: {
             permitTradesAfterSeason: false,
@@ -169,6 +170,48 @@ describe("buildLeagueRulesSummary", () => {
     assert.equal(
       draft?.rows.find((row) => row.label === "Time Per Pick")?.value,
       "Unlimited",
+    );
+  });
+
+  it("shows daily pause window for timed email drafts", () => {
+    const sections = buildLeagueRulesSummary({
+      season: {
+        playoffTeamCount: 4,
+        championshipWeek: 17,
+        regularSeasonEndWeek: 15,
+        rosterMode: "standard",
+        benchSlots: 6,
+        irEnabled: false,
+        irSlots: 0,
+        taxiEnabled: false,
+        taxiSlots: 0,
+        waiversEnabled: false,
+        waiverType: "priority",
+        faabBudget: null,
+        tradesEnabled: false,
+        tradeProcessing: "instant",
+        tradeDeadlineWeek: null,
+        draftType: "email",
+        draftStartAt: new Date("2026-08-01T12:00:00.000Z"),
+        pickTimeLimitSeconds: 28800,
+        settings: {
+          rosterSlots: buildStandardRosterSlots(6, 0, 0),
+          draft: {
+            style: "snake",
+            autoPickEnabled: true,
+            pickTimeLimitEnabled: true,
+            pauseWindowEnabled: true,
+            pauseWindowStart: "22:00",
+            pauseWindowEnd: "08:00",
+          },
+        },
+      },
+    });
+
+    const draft = sections.find((section) => section.title === "Draft");
+    assert.equal(
+      draft?.rows.find((row) => row.label === "Daily Pause Window")?.value,
+      "22:00–08:00 UTC",
     );
   });
 });

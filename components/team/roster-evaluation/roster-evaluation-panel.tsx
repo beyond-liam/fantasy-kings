@@ -83,10 +83,12 @@ export function RosterEvaluationPanel({
         />
         <EvaluationRankingsTable
           title="Positional Rankings"
+          description="All rostered players by position"
           rows={data.positionalRankings}
         />
         <EvaluationRankingsTable
           title="Starter Rankings"
+          description="Optimal starters"
           rows={data.starterRankings}
         />
       </div>

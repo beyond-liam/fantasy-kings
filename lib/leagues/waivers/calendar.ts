@@ -255,3 +255,23 @@ function nextWeekdayAtHourUtc(
 export const WAIVER_PROCESS_HOUR_UTC = PROCESS_HOUR_UTC;
 export const WAIVER_CLAIM_DEADLINE_OFFSET_HOURS = CLAIM_DEADLINE_OFFSET_HOURS;
 export const WAIVER_FCFS_OFFSET_HOURS = FCFS_OFFSET_HOURS;
+
+/** e.g. `Wed, 12 Aug at 10:00 UTC` */
+export function formatWaiverInstantUtc(date: Date): string {
+  const weekday = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "UTC",
+    weekday: "short",
+  }).format(date);
+  const dayMonth = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "UTC",
+    day: "numeric",
+    month: "short",
+  }).format(date);
+  const time = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "UTC",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(date);
+  return `${weekday}, ${dayMonth} at ${time} UTC`;
+}

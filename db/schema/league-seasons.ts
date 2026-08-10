@@ -46,6 +46,13 @@ export type WaiverWireSettings = {
   fcfsMode: "after_process" | "never";
   processDays: WaiverProcessDay[];
   resetOrderWeekly: boolean;
+  /**
+   * When true during fantasy-league preseason (after the draft, until the
+   * league's first counting fantasy week), free agents always require a waiver
+   * claim (FCFS is paused). When false, free agents are unlocked.
+   * Drop waivers still apply either way unless churn prevention skips them.
+   */
+  preseasonWaivers: boolean;
 };
 
 export type GameTiebreakerId =
@@ -71,6 +78,10 @@ export type TransactionRulesSettings = {
   addDropDeadlineWeek: number | null;
   permitAddDropsAfterSeason: boolean;
   enforceRosterMinimums: boolean;
+  /**
+   * @deprecated Prefer `waiverWire.preseasonWaivers`. Kept for migration.
+   * `always_on_waivers` ≈ preseasonWaivers true; `unlocked` ≈ false.
+   */
   preseasonFreeAgents: "always_on_waivers" | "unlocked";
   preventCutsAfterGameStart: boolean;
   allowVetoes: boolean;
@@ -92,6 +103,13 @@ export type DraftSettings = {
    * Live drafts always use the pick timer.
    */
   pickTimeLimitEnabled?: boolean;
+  /**
+   * Timed email drafts only: daily UTC window when the draft auto-pauses.
+   * Times are `HH:mm` in UTC; overnight wrap (e.g. 22:00→08:00) is allowed.
+   */
+  pauseWindowEnabled?: boolean;
+  pauseWindowStart?: string;
+  pauseWindowEnd?: string;
 };
 
 /** How many times each pair should ideally face off over the regular season. */

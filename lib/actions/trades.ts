@@ -15,7 +15,7 @@ import type { LeagueMemberTeamContext } from "@/lib/leagues/action-context";
 import { resolveTransactionRules } from "@/lib/leagues/transaction-rules";
 import {
   canProposeTrades,
-  isTradeDeadlinePassed,
+  isTradeDeadlineLockout,
   tradeDeadlineError,
 } from "@/lib/leagues/trades/guards";
 import {
@@ -40,13 +40,17 @@ import {
   validateTradeProposal,
 } from "@/lib/leagues/trades/validate";
 import { resolveWaiverWireSettings } from "@/lib/leagues/waiver-wire";
+import { isNflSeasonUnderway } from "@/lib/leagues/season-calendar";
+import {
+  fantasyChampionshipWeek,
+  fantasyWeekFromNflState,
+} from "@/lib/leagues/schedule/fantasy-week-map";
 import {
   getExpiredReviewTrades,
   getTradeById,
   listRosterPlayerRows,
   toTradeRosterPlayers,
 } from "@/lib/queries/trades";
-import { getDraftBySeasonId } from "@/lib/queries/draft";
 import { getTeamRosterPlayers } from "@/lib/queries/team-roster";
 import { getNflState, type SleeperNflState } from "@/lib/sleeper/api";
 
@@ -80,10 +84,13 @@ function revalidateTradePaths(slug: string) {
 }
 
 async function assertCanPropose(season: LeagueMemberTeamContext["season"]) {
-  const draft = await getDraftBySeasonId(season.id);
-  const gate = canProposeTrades(season, draft?.status);
+  const gate = canProposeTrades(season);
   if (!gate.ok) {
     return gate.error;
+  }
+
+  if (season.tradeDeadlineWeek == null) {
+    return null;
   }
 
   let nflState: SleeperNflState;
@@ -93,13 +100,37 @@ async function assertCanPropose(season: LeagueMemberTeamContext["season"]) {
     return "Could not verify the NFL week for the trade deadline. Try again shortly.";
   }
 
-  const currentWeek = Math.max(1, Number(nflState.week) || 0);
+  // Deadline only applies once the fantasy season is underway.
+  if (
+    !isNflSeasonUnderway(
+      season.seasonYear,
+      nflState,
+      season.settings.schedule,
+    )
+  ) {
+    return null;
+  }
+
+  const currentWeek =
+    fantasyWeekFromNflState(nflState, season.settings.schedule) ??
+    Math.max(1, Number(nflState.week) || 0);
   if (!Number.isFinite(currentWeek) || currentWeek < 1) {
     return "Could not verify the NFL week for the trade deadline. Try again shortly.";
   }
 
-  if (isTradeDeadlinePassed(currentWeek, season.tradeDeadlineWeek)) {
-    return tradeDeadlineError(season.tradeDeadlineWeek!);
+  const lastGameWeek = fantasyChampionshipWeek(
+    season.championshipWeek,
+    season.settings.schedule,
+  );
+
+  if (
+    isTradeDeadlineLockout({
+      currentWeek,
+      deadlineWeek: season.tradeDeadlineWeek,
+      lastGameWeek,
+    })
+  ) {
+    return tradeDeadlineError(season.tradeDeadlineWeek);
   }
 
   return null;

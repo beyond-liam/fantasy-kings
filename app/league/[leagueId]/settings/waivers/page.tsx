@@ -8,7 +8,9 @@ import { settingsHref } from "@/lib/leagues/settings-tabs";
 import { WaiverWireSettings } from "@/components/leagues/waiver-wire/waiver-wire-settings";
 import { Button } from "@/components/ui/button";
 import { getSessionUser } from "@/lib/auth/session";
+import { resolveTransactionRules } from "@/lib/leagues/transaction-rules";
 import { toWaiverWireFormValues } from "@/lib/leagues/waiver-wire";
+import { getDraftBySeasonId } from "@/lib/queries/draft";
 import {
   getLeagueHomeData,
   isLeagueCommissioner,
@@ -50,12 +52,21 @@ export default async function WaiverWireSettingsPage({
   }
 
   const season = data.season;
+  const draft = await getDraftBySeasonId(season.id);
+  const draftComplete = draft?.status === "complete";
+  const transactionRules = resolveTransactionRules(
+    season.settings.transactionRules,
+  );
   const initialValues = toWaiverWireFormValues({
     waiversEnabled: season.waiversEnabled,
     waiverType: season.waiverType,
     faabBudget: season.faabBudget,
     waiverWire: season.settings.waiverWire,
+    legacyPreseasonFreeAgents: transactionRules.preseasonFreeAgents,
   });
+  if (!draftComplete) {
+    initialValues.preseasonWaivers = false;
+  }
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-6">
@@ -80,6 +91,7 @@ export default async function WaiverWireSettingsPage({
         slug={slug}
         leagueName={data.league.name}
         seasonStatus={season.status}
+        draftComplete={draftComplete}
         initialValues={initialValues}
       />
     </div>

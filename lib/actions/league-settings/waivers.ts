@@ -8,12 +8,14 @@ import {
   diffSettingsValues,
   logSettingsUpdated,
 } from "@/lib/leagues/settings-activity";
+import { resolveTransactionRules } from "@/lib/leagues/transaction-rules";
 import {
   resolveWaiverWireSettings,
   toPersistedWaiverWire,
   waiverWireFormSchema,
   type WaiverWireFormValues,
 } from "@/lib/leagues/waiver-wire";
+import { getDraftBySeasonId } from "@/lib/queries/draft";
 
 import {
   getCommissionerSeason,
@@ -45,7 +47,19 @@ export async function updateWaiverWireRules(
 
   const { season, user } = result;
   const next = parsed.data;
-  const beforeWire = resolveWaiverWireSettings(season.settings.waiverWire);
+  const draft = await getDraftBySeasonId(season.id);
+  const draftComplete = draft?.status === "complete";
+  if (next.preseasonWaivers && !draftComplete) {
+    return {
+      success: false,
+      error: "Preseason waivers can only be enabled after the draft is complete.",
+      fieldError: "Preseason waivers can only be enabled after the draft is complete.",
+    };
+  }
+  const beforeWire = resolveWaiverWireSettings(
+    season.settings.waiverWire,
+    season.settings.transactionRules?.preseasonFreeAgents,
+  );
   const before = {
     waiversEnabled: season.waiversEnabled,
     waiverType: season.waiverType,
@@ -54,6 +68,7 @@ export async function updateWaiverWireRules(
     waiverPool: beforeWire.waiverPool,
     dropWaiverHours: beforeWire.dropWaiverHours,
     resetOrderWeekly: beforeWire.resetOrderWeekly,
+    preseasonWaivers: beforeWire.preseasonWaivers,
   };
   const afterWire = toPersistedWaiverWire(next);
   const after = {
@@ -65,6 +80,15 @@ export async function updateWaiverWireRules(
     waiverPool: afterWire.waiverPool,
     dropWaiverHours: afterWire.dropWaiverHours,
     resetOrderWeekly: afterWire.resetOrderWeekly,
+    preseasonWaivers: afterWire.preseasonWaivers,
+  };
+
+  // Keep legacy transaction-rules field in sync for older readers.
+  const nextTransactionRules = {
+    ...resolveTransactionRules(season.settings.transactionRules),
+    preseasonFreeAgents: afterWire.preseasonWaivers
+      ? ("always_on_waivers" as const)
+      : ("unlocked" as const),
   };
 
   await db
@@ -79,6 +103,7 @@ export async function updateWaiverWireRules(
       settings: {
         ...season.settings,
         waiverWire: afterWire,
+        transactionRules: nextTransactionRules,
       },
     })
     .where(eq(leagueSeasons.id, season.id));
@@ -111,6 +136,7 @@ export async function updateWaiverWireRules(
       { path: "waiverPool", label: "Waiver pool" },
       { path: "dropWaiverHours", label: "Drop waiver hours" },
       { path: "resetOrderWeekly", label: "Reset order weekly" },
+      { path: "preseasonWaivers", label: "Preseason waivers" },
     ]),
   });
 

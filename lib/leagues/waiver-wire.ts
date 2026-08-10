@@ -16,6 +16,7 @@ export type WaiverWireFormValues = {
   fcfsMode: WaiverWireSettings["fcfsMode"];
   processDays: WaiverProcessDay[];
   resetOrderWeekly: boolean;
+  preseasonWaivers: boolean;
 };
 
 export const WAIVER_PROCESS_DAY_OPTIONS: Array<{
@@ -34,11 +35,12 @@ export const DEFAULT_WAIVER_WIRE_SETTINGS: WaiverWireSettings = {
   allowZeroBids: true,
   waiverPool: "drops_and_free_agents",
   dropWaiverHours: 24,
-  churnPrevention: "return_to_fa",
+  churnPrevention: "none",
   fcfsMode: "after_process",
   /** Single weekly process day (default Wednesday). */
   processDays: ["wed"],
   resetOrderWeekly: true,
+  preseasonWaivers: false,
 };
 
 export const DEFAULT_WAIVER_WIRE_FORM: WaiverWireFormValues = {
@@ -62,6 +64,7 @@ export const waiverWireFormSchema = z
     fcfsMode: z.enum(["after_process", "never"]),
     processDays: z.array(processDaySchema),
     resetOrderWeekly: z.boolean(),
+    preseasonWaivers: z.boolean(),
   })
   .refine(
     (data) =>
@@ -83,10 +86,20 @@ export const waiverWireFormSchema = z
 
 export function resolveWaiverWireSettings(
   stored?: WaiverWireSettings | null,
+  legacyPreseasonFreeAgents?: "always_on_waivers" | "unlocked" | null,
 ): WaiverWireSettings {
   if (!stored) {
-    return { ...DEFAULT_WAIVER_WIRE_SETTINGS };
+    return {
+      ...DEFAULT_WAIVER_WIRE_SETTINGS,
+      preseasonWaivers: legacyPreseasonFreeAgents === "always_on_waivers",
+    };
   }
+
+  const preseasonWaivers =
+    stored.preseasonWaivers ??
+    (legacyPreseasonFreeAgents != null
+      ? legacyPreseasonFreeAgents === "always_on_waivers"
+      : DEFAULT_WAIVER_WIRE_SETTINGS.preseasonWaivers);
 
   return {
     allowZeroBids: stored.allowZeroBids ?? DEFAULT_WAIVER_WIRE_SETTINGS.allowZeroBids,
@@ -104,6 +117,7 @@ export function resolveWaiverWireSettings(
           : DEFAULT_WAIVER_WIRE_SETTINGS.processDays,
     resetOrderWeekly:
       stored.resetOrderWeekly ?? DEFAULT_WAIVER_WIRE_SETTINGS.resetOrderWeekly,
+    preseasonWaivers: Boolean(preseasonWaivers),
   };
 }
 
@@ -112,8 +126,13 @@ export function toWaiverWireFormValues(input: {
   waiverType: "priority" | "faab";
   faabBudget: number | null;
   waiverWire?: WaiverWireSettings | null;
+  /** Legacy transaction-rules value used only when waiverWire.preseasonWaivers is unset. */
+  legacyPreseasonFreeAgents?: "always_on_waivers" | "unlocked" | null;
 }): WaiverWireFormValues {
-  const wire = resolveWaiverWireSettings(input.waiverWire);
+  const wire = resolveWaiverWireSettings(
+    input.waiverWire,
+    input.legacyPreseasonFreeAgents,
+  );
 
   return {
     waiversEnabled: input.waiversEnabled,
@@ -134,5 +153,6 @@ export function toPersistedWaiverWire(
     fcfsMode: values.fcfsMode,
     processDays: values.processDays,
     resetOrderWeekly: values.resetOrderWeekly,
+    preseasonWaivers: values.preseasonWaivers,
   };
 }

@@ -8,7 +8,10 @@ import {
   resolveScoringRuleDefinitions,
 } from "@/lib/leagues/scoring";
 import type { ScoringPreset } from "@/lib/leagues/scoring";
-import { parsePositionFilter } from "@/lib/rankings/column-config";
+import {
+  parsePositionFilter,
+  positionFiltersFromRosterSlots,
+} from "@/lib/rankings/column-config";
 import { parsePlayersPage } from "@/lib/rankings/players-page";
 import {
   DEFAULT_SORT_COLUMN,
@@ -86,7 +89,10 @@ export default async function LeaguePlayersPage({
   const weekParam = query.week ?? "season";
   const week =
     weekParam === "season" || weekParam === "0" ? 0 : Number(weekParam);
-  const position = parsePositionFilter(query.position);
+  const positionOptions = positionFiltersFromRosterSlots(
+    season.settings.rosterSlots,
+  );
+  const position = parsePositionFilter(query.position, positionOptions);
   const team = query.team ?? "ALL";
   const rookiesOnly = query.rookies === "1";
   const freeAgentsOnly = query.fa !== "0";
@@ -122,6 +128,7 @@ export default async function LeaguePlayersPage({
           weekParam={weekParam}
           kind={kind}
           position={position}
+          positions={positionOptions}
           team={team}
           rookiesOnly={rookiesOnly}
           freeAgentsOnly={freeAgentsOnly}

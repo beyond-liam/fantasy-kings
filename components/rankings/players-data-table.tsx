@@ -15,7 +15,7 @@ import { useRankingsParams } from "@/components/rankings/use-rankings-params";
 import { DataTable, useDataTable } from "@/components/ui/data-table";
 import { useIsMobile } from "@/hooks/use-mobile";
 import type { RankedPlayerRow } from "@/lib/queries/players";
-import { parsePositionFilter } from "@/lib/rankings/column-config";
+import { parsePositionFilter, POSITION_FILTERS, type PositionFilter } from "@/lib/rankings/column-config";
 import {
   DEFAULT_SORT_COLUMN,
   DEFAULT_SORT_DESC,
@@ -44,6 +44,8 @@ type PlayersDataTableProps = {
   page?: number;
   pageSize?: number;
   totalCount?: number;
+  /** League roster positions for the filter. Defaults to all. */
+  positions?: readonly PositionFilter[];
 };
 
 type ClientView = Pick<
@@ -51,10 +53,12 @@ type ClientView = Pick<
   "position" | "team" | "rookiesOnly" | "freeAgentsOnly" | "sort" | "sortDesc"
 >;
 
-function clientViewFromUrl(): ClientView {
+function clientViewFromUrl(
+  allowedPositions: readonly PositionFilter[] = POSITION_FILTERS,
+): ClientView {
   if (typeof window === "undefined") {
     return {
-      position: "QB",
+      position: allowedPositions[0] ?? "QB",
       team: "ALL",
       rookiesOnly: false,
       freeAgentsOnly: true,
@@ -70,7 +74,7 @@ function clientViewFromUrl(): ClientView {
   return {
     // Absent param = default. Do not fall back to previous client state —
     // clearing rookies/team/position deletes the query key on purpose.
-    position: parsePositionFilter(params.get("position")),
+    position: parsePositionFilter(params.get("position"), allowedPositions),
     team: params.get("team") || "ALL",
     rookiesOnly: params.get("rookies") === "1",
     freeAgentsOnly: params.get("fa") !== "0",
@@ -100,12 +104,15 @@ export function PlayersDataTable({
   page = 1,
   pageSize,
   totalCount,
+  positions = POSITION_FILTERS,
 }: PlayersDataTableProps) {
   const updateParams = useRankingsParams();
   const isMobile = useIsMobile();
   const showWatchlist = Boolean(leagueSlug);
   const isLeagueView = Boolean(leagueSlug);
   const serverPaginated = totalCount != null && pageSize != null;
+  const positionOptions =
+    positions.length > 0 ? positions : POSITION_FILTERS;
 
   const [clientView, setClientView] = useState<ClientView>(() => ({
     position: serverView.position,
@@ -145,7 +152,7 @@ export function PlayersDataTable({
 
   useEffect(() => {
     const syncFromUrl = () => {
-      setClientView(clientViewFromUrl());
+      setClientView(clientViewFromUrl(positionOptions));
     };
 
     window.addEventListener("rankingsparams", syncFromUrl);
@@ -154,7 +161,7 @@ export function PlayersDataTable({
       window.removeEventListener("rankingsparams", syncFromUrl);
       window.removeEventListener("popstate", syncFromUrl);
     };
-  }, []);
+  }, [positionOptions]);
 
   const view: RankingsViewState = {
     ...serverView,
@@ -277,6 +284,7 @@ export function PlayersDataTable({
         showScoringSelect={showScoringSelect}
         showTeamFilter={!isLeagueView}
         showFreeAgentsFilter={isLeagueView}
+        positions={positionOptions}
         searchActions={
           leagueSlug
             ? {

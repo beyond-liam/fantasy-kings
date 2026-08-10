@@ -131,13 +131,35 @@ export const transactionsStepSchema = z
     path: ["faabBudget"],
   });
 
-export const draftStepSchema = z.object({
-  draftType: z.enum(["live", "email"]),
-  draftStartAt: z.string().datetime(),
-  pickTimeLimitEnabled: z.boolean(),
-  pickTimeLimit: z.number().int().min(1).max(48),
-  pickTimeUnit: z.enum(["minutes", "hours"]),
-});
+const utcTimeOfDaySchema = z
+  .string()
+  .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Use HH:mm (UTC).");
+
+export const draftStepSchema = z
+  .object({
+    draftType: z.enum(["live", "email"]),
+    draftStartAt: z.string().datetime(),
+    pickTimeLimitEnabled: z.boolean(),
+    pickTimeLimit: z.number().int().min(1).max(48),
+    pickTimeUnit: z.enum(["minutes", "hours"]),
+    pauseWindowEnabled: z.boolean(),
+    pauseWindowStart: utcTimeOfDaySchema,
+    pauseWindowEnd: utcTimeOfDaySchema,
+  })
+  .superRefine((data, ctx) => {
+    if (
+      data.draftType === "email" &&
+      data.pickTimeLimitEnabled &&
+      data.pauseWindowEnabled &&
+      data.pauseWindowStart === data.pauseWindowEnd
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Pause window start and end must differ.",
+        path: ["pauseWindowEnd"],
+      });
+    }
+  });
 
 export const createLeagueWizardSchema = setupStepSchema
   .and(rosterStepSchema)

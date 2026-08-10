@@ -5,7 +5,7 @@ import {
 } from "@/components/team/panels/load-my-team-nfl-context";
 import { formatPersonName } from "@/lib/account/person-name";
 import { ensureProfile } from "@/lib/auth/session";
-import type { RosterSlotConfig, WaiverWireSettings } from "@/db/schema/league-seasons";
+import type { RosterSlotConfig, ScheduleSettings, WaiverWireSettings } from "@/db/schema/league-seasons";
 import type { ScoringRuleDefinition } from "@/lib/leagues/scoring";
 import {
   formatWaiverPriority,
@@ -34,6 +34,7 @@ export type MyTeamRosterPanelProps = {
   };
   season: {
     id: string;
+    seasonYear: number;
     benchSlots: number;
     irEnabled: boolean;
     irSlots: number;
@@ -45,10 +46,13 @@ export type MyTeamRosterPanelProps = {
       rosterSlots: RosterSlotConfig[];
       irEligibleStatuses?: string[];
       taxiMaxYearsExp?: 0 | 1 | 2 | 3 | 4 | 5 | null;
+      schedule?: ScheduleSettings | null;
     };
   };
   scoringRules: ScoringRuleDefinition[];
   actionsEnabled: boolean;
+  lineupEnabled: boolean;
+  tradesEnabled: boolean;
   wire: WaiverWireSettings;
 };
 
@@ -59,15 +63,20 @@ export async function MyTeamRosterPanel({
   season,
   scoringRules,
   actionsEnabled,
+  lineupEnabled,
+  tradesEnabled,
   wire,
 }: MyTeamRosterPanelProps) {
   const [
-    { nflWeek, nflSeason, scoreboard, opponentsByTeam },
+    { fantasyWeek, nflWeek, nflSeason, nflSeasonType, scoreboard, opponentsByTeam },
     rosterPlayers,
     teamScheduleRows,
     profile,
   ] = await Promise.all([
-    loadMyTeamNflContext(),
+    loadMyTeamNflContext({
+      seasonYear: season.seasonYear,
+      schedule: season.settings.schedule,
+    }),
     getTeamRosterPlayers(team.id),
     getTeamSchedule(season.id, team.id),
     ensureProfile(user),
@@ -89,6 +98,7 @@ export async function MyTeamRosterPanel({
     getRankedPlayers({
       season: nflSeason,
       week: nflWeek,
+      seasonType: nflSeasonType,
       kind: "projection",
       scoringRules,
       playerIds: ratePlayerIds,
@@ -96,6 +106,7 @@ export async function MyTeamRosterPanel({
     getRankedPlayers({
       season: nflSeason,
       week: nflWeek,
+      seasonType: nflSeasonType,
       kind: "stats",
       scoringRules,
       playerIds: ratePlayerIds,
@@ -120,6 +131,7 @@ export async function MyTeamRosterPanel({
       },
       nflWeek,
       opponentsByTeam,
+      { seasonYear: season.seasonYear, seasonType: nflSeasonType },
     );
   });
 
@@ -137,7 +149,7 @@ export async function MyTeamRosterPanel({
   );
   const { previous, current } = resolveTeamSummaryMatchups(
     summarySchedule,
-    nflWeek,
+    fantasyWeek,
   );
 
   return (
@@ -152,8 +164,10 @@ export async function MyTeamRosterPanel({
       taxiMaxYearsExp={season.settings.taxiMaxYearsExp}
       players={rosterPlayersWithRates}
       leagueSlug={slug}
-      actionsEnabled={actionsEnabled}
-      tradesEnabled={season.tradesEnabled && actionsEnabled}
+      actionsEnabled={lineupEnabled}
+      rowActionsEnabled={actionsEnabled || tradesEnabled}
+      cutActionsEnabled={actionsEnabled}
+      tradesEnabled={tradesEnabled}
       startedNflTeams={[...startedNflTeams]}
       summary={{
         waiverPriorityLabel: season.waiversEnabled

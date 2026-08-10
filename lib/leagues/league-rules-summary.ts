@@ -121,11 +121,11 @@ function churnPreventionLabel(
 ): string {
   switch (value) {
     case "return_to_fa":
-      return "Return recently added players to free agency";
+      return "Skip waivers for players acquired since the last process";
     case "block_late_drops":
       return "Prevent drops if there isn't enough time for other owners to claim them";
     default:
-      return "None";
+      return "None (drops always go on waivers)";
   }
 }
 
@@ -174,7 +174,10 @@ export function buildLeagueRulesSummary(input: {
 }): LeagueRulesSection[] {
   const { season } = input;
   const settings = season.settings;
-  const waiverWire = resolveWaiverWireSettings(settings.waiverWire);
+  const waiverWire = resolveWaiverWireSettings(
+    settings.waiverWire,
+    settings.transactionRules?.preseasonFreeAgents,
+  );
   const transactions = resolveTransactionRules(settings.transactionRules);
   const draft = resolveDraftSettings(settings.draft);
   const schedule = resolveScheduleSettings(settings.schedule);
@@ -331,12 +334,22 @@ export function buildLeagueRulesSummary(input: {
               ? `After process (+${WAIVER_FCFS_OFFSET_HOURS} hours)`
               : "Never (always use waivers)",
         },
+        {
+          label: "Preseason Waivers",
+          value: yesNo(waiverWire.preseasonWaivers),
+        },
       ],
     });
   } else {
     sections.push({
       title: "Waiver Claims",
-      rows: [{ label: "Waivers", value: "Off" }],
+      rows: [
+        { label: "Waivers", value: "Off" },
+        {
+          label: "Preseason Waivers",
+          value: yesNo(waiverWire.preseasonWaivers),
+        },
+      ],
     });
   }
 
@@ -380,13 +393,6 @@ export function buildLeagueRulesSummary(input: {
         value: yesNo(transactions.enforceRosterMinimums),
       },
       {
-        label: "Free Agents During Preseason (After Draft)",
-        value:
-          transactions.preseasonFreeAgents === "always_on_waivers"
-            ? "Always-on waivers"
-            : "Unlocked",
-      },
-      {
         label: "Prevent Cuts After Game Start",
         value: yesNo(transactions.preventCutsAfterGameStart),
       },
@@ -420,6 +426,19 @@ export function buildLeagueRulesSummary(input: {
           pickTimeLimitEnabled: draft.pickTimeLimitEnabled ?? true,
         }),
       },
+      ...(draft.pauseWindowEnabled &&
+      draft.pauseWindowStart &&
+      draft.pauseWindowEnd &&
+      season.draftType === "email" &&
+      (draft.pickTimeLimitEnabled ?? true) &&
+      season.pickTimeLimitSeconds > 0
+        ? [
+            {
+              label: "Daily Pause Window",
+              value: `${draft.pauseWindowStart}–${draft.pauseWindowEnd} UTC`,
+            },
+          ]
+        : []),
       {
         label: "Autopick Default",
         value: draft.autoPickEnabled ? "On" : "Off",

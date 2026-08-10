@@ -133,6 +133,20 @@ export function getPlayersColumns(
         const isDrafted =
           draftedIds!.has(player.id) || Boolean(player.fantasyTeamId);
 
+        // Rostered players: allow trade (FA add/cut stay locked while drafting).
+        if (isDrafted && player.fantasyTeamId) {
+          return (
+            <PlayerActionButton
+              player={player}
+              leagueSlug={leagueSlug}
+              disabled={!actionsEnabled}
+              tradesEnabled={tradesEnabled}
+              acquisitionsLocked={acquisitionsLocked}
+              acquisitionLockReason={acquisitionLockReason}
+            />
+          );
+        }
+
         return (
           <DraftPlayerAction
             slug={leagueSlug}

@@ -41,6 +41,7 @@ import { formatDraftStartsAt } from "@/lib/leagues/draft-status";
 import type { DraftScheduleSlot } from "@/lib/leagues/draft/board";
 import type { DraftPickRow, DraftQueueRow } from "@/lib/queries/draft";
 import type { RankedPlayerRow } from "@/lib/queries/players";
+import type { PositionFilter } from "@/lib/rankings/column-config";
 
 type DraftRoomProps = {
   slug: string;
@@ -78,6 +79,8 @@ type DraftRoomProps = {
   turnExpiresAt: string | null;
   /** Frozen remaining seconds while paused. */
   pausedSecondsRemaining: number | null;
+  /** League roster positions for the player pool filter. */
+  positions?: readonly PositionFilter[];
 };
 
 const DRAFT_TABS: readonly MobileTabDrawerItem[] = [
@@ -145,6 +148,7 @@ export function DraftRoom({
   draftStartAt,
   turnExpiresAt,
   pausedSecondsRemaining,
+  positions,
 }: DraftRoomProps) {
   const router = useRouter();
   const [tab, setTab] = useState("board");
@@ -439,13 +443,6 @@ export function DraftRoom({
             <h1 className="text-2xl font-semibold tracking-tight text-balance">
               League Draft
             </h1>
-            <DraftRevertControl
-              slug={slug}
-              isCommissioner={isCommissioner}
-              status={effectiveStatus}
-              canRevert={currentPickIndex > 0}
-              onStatusOptimistic={setOptimisticStatus}
-            />
           </div>
 
           {!draftComplete ? (
@@ -455,13 +452,22 @@ export function DraftRoom({
               className="max-md:w-full max-md:min-w-0"
               showStopwatch
               headerAction={
-                <DraftClockToggle
-                  slug={slug}
-                  isCommissioner={isCommissioner}
-                  status={effectiveStatus}
-                  startHint={startHint}
-                  onStatusOptimistic={setOptimisticStatus}
-                />
+                <div className="flex items-center gap-1.5">
+                  <DraftRevertControl
+                    slug={slug}
+                    isCommissioner={isCommissioner}
+                    status={effectiveStatus}
+                    canRevert={currentPickIndex > 0}
+                    onStatusOptimistic={setOptimisticStatus}
+                  />
+                  <DraftClockToggle
+                    slug={slug}
+                    isCommissioner={isCommissioner}
+                    status={effectiveStatus}
+                    startHint={startHint}
+                    onStatusOptimistic={setOptimisticStatus}
+                  />
+                </div>
               }
             >
               {waitingToStart ? (
@@ -506,11 +512,6 @@ export function DraftRoom({
                   <p className="text-sm text-muted-foreground">
                     Round {onTheClock.round} · Pick #{onTheClock.overall}
                   </p>
-                  {onClockIsOpenSlot || onClockTeam?.autoPickEnabled ? (
-                    <p className="text-xs text-muted-foreground">
-                      Autopick on — drafting from queue / ADP
-                    </p>
-                  ) : null}
                   {secondsLeft != null ? (
                     <>
                       <p className="text-xs text-muted-foreground">
@@ -575,6 +576,7 @@ export function DraftRoom({
                 draftComplete={draftComplete}
                 isMyTurn={isMyTurn}
                 isCommissioner={isCommissioner}
+                positions={positions}
               />
             ) : null}
           </TabsContent>

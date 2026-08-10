@@ -795,6 +795,7 @@ export const getPlayerProfile = cache(
             const owned = resolvePlayerOwnership(ownershipMap, player.id);
             const wire = resolveWaiverWireSettings(
               seasonRow.settings.waiverWire,
+              seasonRow.settings.transactionRules?.preseasonFreeAgents,
             );
             const actionsEnabled = isRosterTransactionsEnabled(
               seasonRow,
@@ -807,6 +808,9 @@ export const getPlayerProfile = cache(
               fantasyTeamId: owned.fantasyTeamId,
               onWaivers: owned.onWaivers,
               nflTeam: player.nflTeam,
+              seasonYear: seasonRow.seasonYear,
+              nfl: nflState,
+              schedule: seasonRow.settings.schedule,
             });
 
             userTeamId = userTeam?.id ?? null;
@@ -838,7 +842,7 @@ export const getPlayerProfile = cache(
               acquisitionKind,
               hasPendingClaim,
               actionsEnabled,
-              tradesEnabled: Boolean(seasonRow.tradesEnabled) && actionsEnabled,
+              tradesEnabled: Boolean(seasonRow.tradesEnabled),
               actionsLockReason: actionsEnabled
                 ? null
                 : isDraftBlockingRosterActions(draft?.status)

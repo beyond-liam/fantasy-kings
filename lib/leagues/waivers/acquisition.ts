@@ -6,10 +6,10 @@ export type AcquisitionKind = "owned" | "add" | "claim" | "unavailable";
 export type AcquisitionInput = {
   waiversEnabled: boolean;
   waiverWire: WaiverWireSettings;
-  /** preseason unlocked vs always_on_waivers */
-  preseasonFreeAgents?: "always_on_waivers" | "unlocked";
   /** True after draft completed / free agency open for the season. */
   rosterTransactionsEnabled: boolean;
+  /** Fantasy-league preseason (before first counting fantasy week). */
+  isFantasyPreseason?: boolean;
   now?: Date;
   ownership: {
     fantasyTeamId: string | null;
@@ -47,6 +47,11 @@ export function getAcquisitionKind(input: AcquisitionInput): AcquisitionKind {
   // Active drop waiver period always requires a claim.
   if (input.ownership.onWaivers) {
     return "claim";
+  }
+
+  // Fantasy preseason: unlocked free agents, or always-on claims (FCFS paused).
+  if (input.isFantasyPreseason) {
+    return wire.preseasonWaivers ? "claim" : "add";
   }
 
   if (wire.fcfsMode === "never") {

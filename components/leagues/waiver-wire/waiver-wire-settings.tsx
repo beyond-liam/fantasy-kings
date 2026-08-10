@@ -30,11 +30,14 @@ import {
   WAIVER_PROCESS_DAY_OPTIONS,
   type WaiverWireFormValues,
 } from "@/lib/leagues/waiver-wire";
+import { Switch } from "@/components/ui/switch";
 
 type WaiverWireSettingsProps = {
   slug: string;
   leagueName: string;
   seasonStatus: string;
+  /** Draft finished — preseason waivers switch becomes editable. */
+  draftComplete: boolean;
   initialValues: WaiverWireFormValues;
 };
 
@@ -83,17 +86,18 @@ const DROP_WAIVER_HOURS_ITEMS = [
 
 const CHURN_PREVENTION_ITEMS = [
   {
+    value: "none",
+    label: "None, dropped players always go on waivers",
+  },
+  {
     value: "return_to_fa",
-    label: "Return recently added players to free agency",
+    label:
+      "Skip waivers for players acquired since the last process (straight to free agency)",
   },
   {
     value: "block_late_drops",
     label:
       "Prevent drops if there's not enough time for other owners to claim them",
-  },
-  {
-    value: "none",
-    label: "None, cycled players are subject to waivers like all others",
   },
 ] as const;
 
@@ -114,6 +118,7 @@ function valuesEqual(a: WaiverWireFormValues, b: WaiverWireFormValues) {
 
 export function WaiverWireSettings({
   slug,
+  draftComplete,
   initialValues,
 }: WaiverWireSettingsProps) {
   const router = useRouter();
@@ -440,6 +445,27 @@ export function WaiverWireSettings({
                     </SelectGroup>
                   </SelectContent>
                 </Select>
+              </Field>
+
+              <Field orientation="horizontal">
+                <div className="flex flex-1 flex-col gap-1">
+                  <FieldLabel htmlFor="preseasonWaivers">
+                    Preseason waivers
+                  </FieldLabel>
+                  <FieldDescription>
+                    {draftComplete
+                      ? "When on, free agents require waiver claims until your first fantasy week starts (FCFS is paused). When off, free agents are unlocked after the draft."
+                      : "Available after the draft is complete."}
+                  </FieldDescription>
+                </div>
+                <Switch
+                  id="preseasonWaivers"
+                  checked={values.preseasonWaivers}
+                  disabled={!draftComplete}
+                  onCheckedChange={(checked) =>
+                    patch({ preseasonWaivers: checked })
+                  }
+                />
               </Field>
 
               <Field>

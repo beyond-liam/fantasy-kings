@@ -3,6 +3,7 @@ import type { WaiverWireSettings } from "@/db/schema/league-seasons";
 import { resolveTransactionRules } from "@/lib/leagues/transaction-rules";
 import { resolveFaabRemaining } from "@/lib/leagues/waivers/faab";
 import {
+  formatWaiverInstantUtc,
   getClaimDeadlineForProcess,
   getLastProcessInstantUtc,
   getNextEligibleProcessInstantUtc,
@@ -67,17 +68,17 @@ export async function MyTeamTransactionsPanel({
   );
   const nextProcess = getNextEligibleProcessInstantUtc(wire.processDays);
   const nextProcessLabel = nextProcess
-    ? nextProcess.toISOString().replace("T", " ").replace(/\.\d{3}Z$/, "")
+    ? formatWaiverInstantUtc(nextProcess)
     : null;
   const claimDeadline = nextProcess
     ? getClaimDeadlineForProcess(nextProcess)
     : null;
   const claimDeadlineLabel = claimDeadline
-    ? claimDeadline.toISOString().replace("T", " ").replace(/\.\d{3}Z$/, "")
+    ? formatWaiverInstantUtc(claimDeadline)
     : null;
   const lastProcess = getLastProcessInstantUtc(wire.processDays);
   const lastProcessLabel = lastProcess
-    ? lastProcess.toISOString().replace("T", " ").replace(/\.\d{3}Z$/, "")
+    ? formatWaiverInstantUtc(lastProcess)
     : null;
 
   return (

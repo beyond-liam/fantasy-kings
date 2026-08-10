@@ -1,10 +1,10 @@
+import type { ScheduleSettings, WaiverWireSettings } from "@/db/schema/league-seasons";
 import { WatchlistProvider } from "@/components/rankings/watchlist-provider";
 import { TeamWatchlistSection } from "@/components/team/watchlist-section";
 import {
   loadMyTeamNflContext,
   withPlayerOpponent,
 } from "@/components/team/panels/load-my-team-nfl-context";
-import type { WaiverWireSettings } from "@/db/schema/league-seasons";
 import type { ScoringRuleDefinition } from "@/lib/leagues/scoring";
 import { getStartedNflTeamAbbreviations } from "@/lib/leagues/waivers/game-lock";
 import { resolvePlayerAcquisitionKind } from "@/lib/leagues/waivers/resolve-kind";
@@ -26,6 +26,8 @@ export type MyTeamWatchlistPanelProps = {
   userId: string;
   teamId: string | null;
   seasonId: string;
+  seasonYear: number;
+  schedule?: ScheduleSettings | null;
   waiversEnabled: boolean;
   scoringRules: ScoringRuleDefinition[];
   actionsEnabled: boolean;
@@ -39,6 +41,8 @@ export async function MyTeamWatchlistPanel({
   userId,
   teamId,
   seasonId,
+  seasonYear,
+  schedule,
   waiversEnabled,
   scoringRules,
   actionsEnabled,
@@ -47,14 +51,14 @@ export async function MyTeamWatchlistPanel({
   acquisitionLockReason,
 }: MyTeamWatchlistPanelProps) {
   const [
-    { nflWeek, nflSeason, scoreboard, opponentsByTeam },
+    { nflWeek, nflSeason, nflSeasonType, nflState, scoreboard, opponentsByTeam },
     watchlistPlayers,
     watchlistIds,
     ownershipMap,
     pendingClaimPlayerIds,
     rosterPlayerIds,
   ] = await Promise.all([
-    loadMyTeamNflContext(),
+    loadMyTeamNflContext({ seasonYear, schedule }),
     teamId ? getTeamWatchlist(teamId) : Promise.resolve([]),
     getLeagueWatchlistPlayerIds(slug, userId),
     getLeaguePlayerOwnershipMap(seasonId, userId).catch(() => new Map()),
@@ -84,6 +88,7 @@ export async function MyTeamWatchlistPanel({
     getRankedPlayers({
       season: nflSeason,
       week: nflWeek,
+      seasonType: nflSeasonType,
       kind: "projection",
       scoringRules,
       playerIds: ratePlayerIds,
@@ -91,6 +96,7 @@ export async function MyTeamWatchlistPanel({
     getRankedPlayers({
       season: nflSeason,
       week: nflWeek,
+      seasonType: nflSeasonType,
       kind: "stats",
       scoringRules,
       playerIds: ratePlayerIds,
@@ -114,6 +120,9 @@ export async function MyTeamWatchlistPanel({
       onWaivers: ownership.onWaivers,
       nflTeam: player.nflTeam,
       startedNflTeams,
+      seasonYear,
+      nfl: nflState,
+      schedule,
     });
     return withPlayerOpponent(
       {
@@ -131,6 +140,7 @@ export async function MyTeamWatchlistPanel({
       },
       nflWeek,
       opponentsByTeam,
+      { seasonYear, seasonType: nflSeasonType },
     );
   });
 
