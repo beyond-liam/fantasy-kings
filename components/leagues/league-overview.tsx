@@ -410,14 +410,14 @@ export function LeagueOverview({
             </Empty>
           ) : (
             <>
-              <ul className="flex flex-col md:hidden">
+              <ul className="flex flex-col overflow-hidden rounded-lg border md:hidden">
                 {standingsRows.map((row) => {
                   const isMine = Boolean(myTeamId && row.teamId === myTeamId);
                   return (
                     <li
                       key={row.id}
                       className={cn(
-                        "flex items-center gap-2 border-b border-border py-2 last:border-b-0",
+                        "flex items-center gap-2 border-b border-border px-2 py-2 last:border-b-0",
                         isMine && "bg-muted/50",
                       )}
                     >
@@ -446,7 +446,7 @@ export function LeagueOverview({
                 })}
               </ul>
 
-              <TableShell className="rounded-lg border-0 max-md:hidden">
+              <TableShell className="max-md:hidden">
                 <Table>
                   <TableHeader>
                     <TableRow className="hover:bg-transparent">

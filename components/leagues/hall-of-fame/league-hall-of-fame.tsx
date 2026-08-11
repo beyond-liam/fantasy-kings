@@ -152,7 +152,7 @@ export function LeagueHallOfFame({ leagueSlug, data }: LeagueHallOfFameProps) {
             </EmptyHeader>
           </Empty>
         ) : (
-          <TableShell className="rounded-lg border-0">
+          <TableShell>
             <Table>
               <TableHeader>
                 <TableRow className="hover:bg-transparent">

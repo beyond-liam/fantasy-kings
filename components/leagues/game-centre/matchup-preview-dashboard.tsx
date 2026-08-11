@@ -558,7 +558,7 @@ export function MatchupPreviewDashboard({
               </EmptyHeader>
             </Empty>
           ) : (
-            <TableShell className="rounded-lg border-0">
+            <TableShell>
               <Table>
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
