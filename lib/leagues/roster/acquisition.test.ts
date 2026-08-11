@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import type { RosterSlotConfig } from "@/db/schema/league-seasons";
-import { pickOpenReserveAcquisitionSlot } from "@/lib/leagues/roster/acquisition";
+import { pickOpenReserveAcquisitionSlot } from "@/lib/leagues/roster/reserve-acquisition";
 
 const slots: RosterSlotConfig[] = [
   {
