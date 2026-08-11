@@ -96,7 +96,7 @@ export function groupRosterPlayersForStats(
 
   const sections: TeamStatsSection[] = [
     section("quarterbacks", "Quarterbacks", "QB", quarterbacks),
-    section("skill", "Running Backs & Receivers", "RB", skill),
+    section("skill", "Running Backs and Receivers", "RB", skill),
     section("kickers", "Kickers", "K", kickers),
   ];
 

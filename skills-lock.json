@@ -25,6 +25,12 @@
       "skillPath": "skills/better-ui/SKILL.md",
       "computedHash": "29b01443929899051488504c971d78b89e02bffc7371d4ba0a8df81ced1e68ff"
     },
+    "better-writing": {
+      "source": "jakubkrehel/skills",
+      "sourceType": "github",
+      "skillPath": "skills/better-writing/SKILL.md",
+      "computedHash": "ea8e80fe5c72ff3b8c04956dc6c92fa86723f83c9d90674db9edba1cc621d344"
+    },
     "find-animation-opportunities": {
       "source": "emilkowalski/skills",
       "sourceType": "github",
