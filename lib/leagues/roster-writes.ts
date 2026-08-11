@@ -3,6 +3,7 @@ import "server-only";
 import { and, eq } from "drizzle-orm";
 
 import { players, rosterPlayers, teams } from "@/db/schema";
+import type { RosterSlotConfig } from "@/db/schema/league-seasons";
 import { db } from "@/lib/db";
 import {
   formatIrLockMessage,
@@ -12,6 +13,10 @@ import {
   formatTaxiLockMessage,
   getTaxiLockViolations,
 } from "@/lib/leagues/taxi-lock";
+import {
+  occupiedBySlot,
+  pickDefaultSlotPosition,
+} from "@/lib/leagues/roster-slots";
 import { seasonUsesFaab } from "@/lib/leagues/waivers/faab";
 
 /** Query surface shared by the root db and a transaction client. */
@@ -31,6 +36,7 @@ export async function listRosteredPlayers(teamId: string) {
       yearsExp: players.yearsExp,
       rosterRowId: rosterPlayers.id,
       slotPositionId: rosterPlayers.slotPositionId,
+      taxiActivated: rosterPlayers.taxiActivated,
     })
     .from(rosterPlayers)
     .innerJoin(players, eq(rosterPlayers.playerId, players.id))
@@ -40,6 +46,50 @@ export async function listRosteredPlayers(teamId: string) {
         eq(rosterPlayers.status, "rostered"),
       ),
     );
+}
+
+/**
+ * Persist default slots for rostered players left with `slotPositionId: null`
+ * (e.g. older trade executes). Keeps START% and lock checks aligned with the
+ * lineup UI, which already auto-fills null into empty starters.
+ */
+export async function assignDefaultSlotsToUnassignedPlayers(input: {
+  teamId: string;
+  rosterSlots: RosterSlotConfig[];
+  benchSlots: number;
+  irEnabled?: boolean;
+  taxiEnabled?: boolean;
+}): Promise<number> {
+  const rostered = await listRosteredPlayers(input.teamId);
+  const unassigned = rostered.filter((player) => player.slotPositionId == null);
+  if (unassigned.length === 0) {
+    return 0;
+  }
+
+  const occupied = occupiedBySlot(
+    rostered.filter((player) => player.slotPositionId != null),
+  );
+  let assigned = 0;
+
+  for (const player of unassigned) {
+    const slotPositionId = pickDefaultSlotPosition({
+      playerPositionId: player.primaryPositionId,
+      injuryStatus: player.injuryStatus,
+      rosterSlots: input.rosterSlots,
+      benchSlots: input.benchSlots,
+      irEnabled: input.irEnabled ?? false,
+      taxiEnabled: input.taxiEnabled ?? false,
+      occupiedBySlot: occupied,
+    });
+    await db
+      .update(rosterPlayers)
+      .set({ slotPositionId, updatedAt: new Date() })
+      .where(eq(rosterPlayers.id, player.rosterRowId));
+    occupied.set(slotPositionId, (occupied.get(slotPositionId) ?? 0) + 1);
+    assigned += 1;
+  }
+
+  return assigned;
 }
 
 export async function assertIrAcquisitionsAllowed(

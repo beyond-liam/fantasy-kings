@@ -10,9 +10,58 @@ import {
 import type { RosterSlotConfig } from "@/db/schema/league-seasons";
 import { db } from "@/lib/db";
 import { listRosteredPlayers } from "@/lib/leagues/roster-writes";
+import {
+  occupiedBySlot,
+  pickDefaultSlotPosition,
+} from "@/lib/leagues/roster-slots";
 import { isOpenTradeStatus, OPEN_TRADE_STATUSES } from "@/lib/leagues/trades/guards";
 import { validateTeamPostTrade } from "@/lib/leagues/trades/validate";
 import { resolveWaiverWireSettings } from "@/lib/leagues/waiver-wire";
+
+/**
+ * Assign starter/bench slots for players arriving via trade.
+ * Mirrors draft/waiver acquisition so START% and lineup locks stay accurate
+ * (null slots auto-fill in the UI but are excluded from start rates).
+ */
+function planIncomingTradeSlots(input: {
+  destinationRoster: Array<{
+    id: string;
+    slotPositionId: string | null;
+    primaryPositionId: string;
+  }>;
+  leavingPlayerIds: Set<string>;
+  incoming: Array<{
+    playerId: string;
+    primaryPositionId: string;
+    injuryStatus: string | null;
+  }>;
+  rosterSlots: RosterSlotConfig[];
+  benchSlots: number;
+}): Map<string, string> {
+  const remaining = input.destinationRoster.filter(
+    (player) => !input.leavingPlayerIds.has(player.id),
+  );
+  const occupied = occupiedBySlot(
+    remaining.filter((player) => player.slotPositionId != null),
+  );
+  const slots = new Map<string, string>();
+
+  for (const player of input.incoming) {
+    const slotPositionId = pickDefaultSlotPosition({
+      playerPositionId: player.primaryPositionId,
+      injuryStatus: player.injuryStatus,
+      rosterSlots: input.rosterSlots,
+      benchSlots: input.benchSlots,
+      irEnabled: false,
+      taxiEnabled: false,
+      occupiedBySlot: occupied,
+    });
+    slots.set(player.playerId, slotPositionId);
+    occupied.set(slotPositionId, (occupied.get(slotPositionId) ?? 0) + 1);
+  }
+
+  return slots;
+}
 
 /** Thrown when another executor already claimed the trade; caught by executeTrade. */
 class TradeClaimConflict extends Error {}
@@ -179,6 +228,7 @@ export async function executeTrade(input: {
       playerId: rosterPlayers.playerId,
       slotPositionId: rosterPlayers.slotPositionId,
       primaryPositionId: players.primaryPositionId,
+      injuryStatus: players.injuryStatus,
     })
     .from(rosterPlayers)
     .innerJoin(players, eq(rosterPlayers.playerId, players.id))
@@ -238,6 +288,50 @@ export async function executeTrade(input: {
       invalidated: true as const,
     };
   }
+
+  const rosterSlots = input.rosterSlots ?? [];
+  const [proposingTeamRoster, receivingTeamRoster] = await Promise.all([
+    listRosteredPlayers(proposingTeamId),
+    listRosteredPlayers(receivingTeamId),
+  ]);
+
+  const proposingLeavingIds = new Set([
+    ...proposingOffers.map((offer) => offer.playerId),
+    ...proposingDrops.map((drop) => drop.playerId),
+  ]);
+  const receivingLeavingIds = new Set([
+    ...receivingOffers.map((offer) => offer.playerId),
+    ...receivingDrops.map((drop) => drop.playerId),
+  ]);
+
+  const slotsForProposing = planIncomingTradeSlots({
+    destinationRoster: proposingTeamRoster,
+    leavingPlayerIds: proposingLeavingIds,
+    incoming: receivingOffers.map((offer) => {
+      const row = rosterByPlayer.get(offer.playerId)!;
+      return {
+        playerId: offer.playerId,
+        primaryPositionId: row.primaryPositionId,
+        injuryStatus: row.injuryStatus,
+      };
+    }),
+    rosterSlots,
+    benchSlots: input.benchSlots,
+  });
+  const slotsForReceiving = planIncomingTradeSlots({
+    destinationRoster: receivingTeamRoster,
+    leavingPlayerIds: receivingLeavingIds,
+    incoming: proposingOffers.map((offer) => {
+      const row = rosterByPlayer.get(offer.playerId)!;
+      return {
+        playerId: offer.playerId,
+        primaryPositionId: row.primaryPositionId,
+        injuryStatus: row.injuryStatus,
+      };
+    }),
+    rosterSlots,
+    benchSlots: input.benchSlots,
+  });
 
   const capacityError = await checkPostTradeCapacity({
     proposingTeamId,
@@ -308,7 +402,7 @@ export async function executeTrade(input: {
           .update(rosterPlayers)
           .set({
             teamId: receivingTeamId,
-            slotPositionId: null,
+            slotPositionId: slotsForReceiving.get(offer.playerId) ?? "BN",
             acquiredAt,
             updatedAt: new Date(),
           })
@@ -321,7 +415,7 @@ export async function executeTrade(input: {
           .update(rosterPlayers)
           .set({
             teamId: proposingTeamId,
-            slotPositionId: null,
+            slotPositionId: slotsForProposing.get(offer.playerId) ?? "BN",
             acquiredAt,
             updatedAt: new Date(),
           })

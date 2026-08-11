@@ -43,6 +43,7 @@ export const WIZARD_DEFAULTS = {
   taxiEnabled: false,
   taxiSlots: 2,
   taxiMaxYearsExp: 0 as const,
+  taxiPreventReaddAfterActivation: false,
   scoringPreset: "full_ppr" as const,
   waiversEnabled: true,
   waiverType: "priority" as const,

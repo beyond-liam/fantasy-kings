@@ -91,6 +91,7 @@ export const rosterStepSchema = z
       z.literal(4),
       z.literal(5),
     ]),
+    taxiPreventReaddAfterActivation: z.boolean(),
     scoringPreset: z.enum(["standard", "half_ppr", "full_ppr"]),
     customRosterSlots: z.array(rosterSlotSchema),
   })

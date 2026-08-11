@@ -26,6 +26,8 @@ export type TeamSummaryPositionRow = {
   count: number;
   min: number;
   max: number;
+  /** Below the configured position minimum (minSlots). */
+  illegal: boolean;
 };
 
 export type TeamSummaryReserveRow = {
@@ -165,12 +167,15 @@ export function buildTeamSummaryRosterBreakdown(input: {
 
   const positions = starterPositionIds(rosterSlots).map((positionId) => {
     const max = getPositionRosterMax(rosterSlots, positionId);
+    const min = getPositionMin(rosterSlots, positionId);
+    const count = countActivePositionPlayers(players, positionId);
     return {
       positionId,
       label: formatLeaderPositionLabel(positionId),
-      count: countActivePositionPlayers(players, positionId),
-      min: getPositionMin(rosterSlots, positionId),
-      max: Number.isFinite(max) ? max : getPositionMin(rosterSlots, positionId),
+      count,
+      min,
+      max: Number.isFinite(max) ? max : min,
+      illegal: min > 0 && count < min,
     };
   });
 

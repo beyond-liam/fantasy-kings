@@ -2,8 +2,10 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import {
+  canMovePlayerToTaxi,
   isPlayerTaxiEligible,
   resolveTaxiMaxYearsExp,
+  resolveTaxiPreventReaddAfterActivation,
 } from "@/lib/leagues/taxi-eligibility";
 import { getTaxiLockViolations } from "@/lib/leagues/taxi-lock";
 
@@ -27,6 +29,56 @@ describe("resolveTaxiMaxYearsExp", () => {
   it("falls back to rookies only", () => {
     assert.equal(resolveTaxiMaxYearsExp(undefined), 0);
     assert.equal(resolveTaxiMaxYearsExp(9), 0);
+  });
+});
+
+describe("canMovePlayerToTaxi", () => {
+  it("allows re-add when the setting is off", () => {
+    assert.equal(
+      canMovePlayerToTaxi({
+        preventReaddAfterActivation: false,
+        taxiActivated: true,
+      }),
+      true,
+    );
+  });
+
+  it("blocks activated players when the setting is on", () => {
+    assert.equal(
+      canMovePlayerToTaxi({
+        preventReaddAfterActivation: true,
+        taxiActivated: true,
+      }),
+      false,
+    );
+  });
+
+  it("allows players still on Taxi to stay", () => {
+    assert.equal(
+      canMovePlayerToTaxi({
+        preventReaddAfterActivation: true,
+        taxiActivated: true,
+        currentSlotPositionId: "TAXI",
+      }),
+      true,
+    );
+  });
+
+  it("allows first Taxi add when not yet activated", () => {
+    assert.equal(
+      canMovePlayerToTaxi({
+        preventReaddAfterActivation: true,
+        taxiActivated: false,
+      }),
+      true,
+    );
+  });
+});
+
+describe("resolveTaxiPreventReaddAfterActivation", () => {
+  it("defaults to false", () => {
+    assert.equal(resolveTaxiPreventReaddAfterActivation(undefined), false);
+    assert.equal(resolveTaxiPreventReaddAfterActivation(true), true);
   });
 });
 

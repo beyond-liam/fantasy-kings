@@ -59,6 +59,7 @@ type TeamRosterTableProps = {
   benchSlots: number;
   rosterPlayers: TeamRosterPlayer[];
   taxiMaxYearsExp?: 0 | 1 | 2 | 3 | 4 | 5 | null;
+  taxiPreventReaddAfterActivation?: boolean;
   onSlotChange?: (playerId: string, slotPositionId: string) => void;
   onSwap?: (playerId: string, otherPlayerId: string) => void;
 };
@@ -103,6 +104,8 @@ function RosterSlotSelect({
   assignmentOptions,
   disabled,
   irEligibleStatuses,
+  taxiMaxYearsExp,
+  taxiPreventReaddAfterActivation,
   rosterSlots,
   benchSlots,
   rosterPlayers,
@@ -112,6 +115,8 @@ function RosterSlotSelect({
   assignmentOptions: RosterAssignmentOption[];
   disabled: boolean;
   irEligibleStatuses?: readonly string[];
+  taxiMaxYearsExp?: 0 | 1 | 2 | 3 | 4 | 5 | null;
+  taxiPreventReaddAfterActivation?: boolean;
   rosterSlots: RosterSlotConfig[];
   benchSlots: number;
   rosterPlayers: TeamRosterPlayer[];
@@ -125,6 +130,10 @@ function RosterSlotSelect({
         {
           injuryStatus: player.injuryStatus,
           irEligibleStatuses,
+          yearsExp: player.yearsExp,
+          taxiMaxYearsExp,
+          taxiActivated: player.taxiActivated,
+          taxiPreventReaddAfterActivation,
           currentSlotPositionId: player.slotPositionId,
           rosterSlots,
           benchSlots,
@@ -192,6 +201,7 @@ export function TeamRosterTable({
   benchSlots,
   rosterPlayers,
   taxiMaxYearsExp,
+  taxiPreventReaddAfterActivation,
   onSlotChange,
   onSwap,
 }: TeamRosterTableProps) {
@@ -251,6 +261,9 @@ export function TeamRosterTable({
                         rosterSlots={rosterSlots}
                         irEligibleStatuses={irEligibleStatuses}
                         taxiMaxYearsExp={taxiMaxYearsExp}
+                        taxiPreventReaddAfterActivation={
+                          taxiPreventReaddAfterActivation
+                        }
                         onSlotChange={onSlotChange}
                         onSwap={onSwap}
                         disabled={!actionsEnabled}
@@ -317,6 +330,10 @@ export function TeamRosterTable({
                       assignmentOptions={assignmentOptions}
                       disabled={!actionsEnabled || !slot.player}
                       irEligibleStatuses={irEligibleStatuses}
+                      taxiMaxYearsExp={taxiMaxYearsExp}
+                      taxiPreventReaddAfterActivation={
+                        taxiPreventReaddAfterActivation
+                      }
                       rosterSlots={rosterSlots}
                       benchSlots={benchSlots}
                       rosterPlayers={rosterPlayers}

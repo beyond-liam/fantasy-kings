@@ -14,7 +14,10 @@ import {
   type RosterRequirementsValues,
 } from "@/lib/leagues/roster";
 import { resolveIrEligibleStatuses } from "@/lib/leagues/ir-eligibility";
-import { resolveTaxiMaxYearsExp } from "@/lib/leagues/taxi-eligibility";
+import {
+  resolveTaxiMaxYearsExp,
+  resolveTaxiPreventReaddAfterActivation,
+} from "@/lib/leagues/taxi-eligibility";
 import {
   getLeagueHomeData,
   isLeagueCommissioner,
@@ -68,6 +71,9 @@ export default async function RosterSettingsPage({
     taxiEnabled: season.taxiEnabled,
     taxiSlots: Math.max(season.taxiSlots, 1),
     taxiMaxYearsExp: resolveTaxiMaxYearsExp(season.settings.taxiMaxYearsExp),
+    taxiPreventReaddAfterActivation: resolveTaxiPreventReaddAfterActivation(
+      season.settings.taxiPreventReaddAfterActivation,
+    ),
     customRosterSlots: starterSlotsFromSettings(season.settings.rosterSlots),
   };
 

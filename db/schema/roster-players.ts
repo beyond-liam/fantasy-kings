@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  boolean,
   index,
   pgEnum,
   pgTable,
@@ -41,6 +42,11 @@ export const rosterPlayers = pgTable(
      * Null = unassigned (auto-placed into an eligible empty shell).
      */
     slotPositionId: text("slot_position_id"),
+    /**
+     * True after the player has left Taxi for the active roster (or IR/bench).
+     * Used with `settings.taxiPreventReaddAfterActivation`.
+     */
+    taxiActivated: boolean("taxi_activated").notNull().default(false),
     /** When status is waived, player becomes a free agent after this time. */
     waiverClearsAt: timestamp("waiver_clears_at", { withTimezone: true }),
     /** When the player most recently became rostered on this team. */

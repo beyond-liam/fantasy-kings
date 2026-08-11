@@ -65,6 +65,8 @@ export function RosterStep({ values, errors, onChange }: RosterStepProps) {
           taxiEnabled: values.taxiEnabled,
           taxiSlots: values.taxiSlots,
           taxiMaxYearsExp: values.taxiMaxYearsExp,
+          taxiPreventReaddAfterActivation:
+            values.taxiPreventReaddAfterActivation,
           customRosterSlots: values.customRosterSlots,
         }}
         errors={{

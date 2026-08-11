@@ -54,7 +54,10 @@ import { getRosterEvaluationByModeMock } from "@/lib/leagues/roster-evaluation/m
 import { getTeamStatsChartsMock } from "@/lib/leagues/team-stats-charts-mock";
 import { getPlayerRosterRatesMap } from "@/lib/queries/player-roster-rates";
 import { enrichScheduleWinChances } from "@/lib/queries/schedule-win-chance";
-import { getTeamRosterPlayers } from "@/lib/queries/team-roster";
+import {
+  ensureTeamRosterSlotsAssigned,
+  getTeamRosterPlayers,
+} from "@/lib/queries/team-roster";
 import { getLeagueTeamByPublicId } from "@/lib/queries/team";
 import { getUserTeamForLeague } from "@/lib/queries/watchlist";
 import { teamInitials } from "@/lib/leagues/standings";
@@ -154,6 +157,16 @@ export default async function LeagueTeamPage({
     needsRosterPanel || needsStatsPanel || needsSchedulePanel;
   const needsOtherTeamSchedule = needsRosterPanel || needsSchedulePanel;
   const needsViewerSchedule = needsH2hPanel && Boolean(myTeam);
+
+  if (needsRosterPanel || needsStatsPanel) {
+    await ensureTeamRosterSlotsAssigned({
+      teamId: team.id,
+      rosterSlots: season.settings.rosterSlots,
+      benchSlots: season.benchSlots,
+      irEnabled: season.irEnabled,
+      taxiEnabled: season.taxiEnabled,
+    });
+  }
 
   const [
     rosterPlayers,
@@ -281,6 +294,9 @@ export default async function LeagueTeamPage({
         taxiEnabled={season.taxiEnabled}
         taxiSlots={season.taxiSlots}
         taxiMaxYearsExp={season.settings.taxiMaxYearsExp}
+        taxiPreventReaddAfterActivation={
+          season.settings.taxiPreventReaddAfterActivation === true
+        }
         players={rosterPlayersWithRates}
         leagueSlug={slug}
         actionsEnabled={false}

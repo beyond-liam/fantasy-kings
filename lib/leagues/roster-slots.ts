@@ -5,7 +5,11 @@ import {
   validateActiveRosterCaps,
 } from "@/lib/leagues/roster-capacity";
 import type { RosterAssignmentOption } from "@/lib/leagues/roster-display";
-import { isPlayerTaxiEligible } from "@/lib/leagues/taxi-eligibility";
+import {
+  TAXI_ACTIVATED_BLOCK_MESSAGE,
+  canMovePlayerToTaxi,
+  isPlayerTaxiEligible,
+} from "@/lib/leagues/taxi-eligibility";
 
 /** Count rostered players by effective slot (explicit slot or primary position). */
 export function occupiedBySlot(
@@ -170,6 +174,8 @@ export function filterAssignmentOptionsForPlayer(
     irEligibleStatuses?: readonly string[];
     yearsExp?: number | null;
     taxiMaxYearsExp?: 0 | 1 | 2 | 3 | 4 | 5 | null;
+    taxiActivated?: boolean;
+    taxiPreventReaddAfterActivation?: boolean;
     /** Keep IR selectable when the player is already assigned there. */
     currentSlotPositionId?: string | null;
     rosterSlots?: RosterSlotConfig[];
@@ -192,6 +198,17 @@ export function filterAssignmentOptionsForPlayer(
       eligibility?.currentSlotPositionId === "IR"
     ) {
       return true;
+    }
+    if (
+      option.value === "TAXI" &&
+      !canMovePlayerToTaxi({
+        preventReaddAfterActivation:
+          eligibility?.taxiPreventReaddAfterActivation === true,
+        taxiActivated: eligibility?.taxiActivated === true,
+        currentSlotPositionId: eligibility?.currentSlotPositionId,
+      })
+    ) {
+      return false;
     }
     if (!slotAcceptsPlayer(option.value, playerPositionId, eligibility)) {
       return false;
@@ -229,6 +246,7 @@ export type SlotAssignmentPlayer = {
   slotPositionId: string | null;
   injuryStatus?: string | null;
   yearsExp?: number | null;
+  taxiActivated?: boolean;
 };
 
 /** Apply a slot change in memory, bumping an occupant to BN when the target is full. */
@@ -240,10 +258,22 @@ export function applyLocalSlotAssignment<T extends SlotAssignmentPlayer>(
   benchSlots: number,
   irEligibleStatuses: readonly string[] = [],
   taxiMaxYearsExp: 0 | 1 | 2 | 3 | 4 | 5 = 0,
+  taxiPreventReaddAfterActivation = false,
 ): { players: T[] } | { error: string } {
   const player = players.find((row) => row.id === playerId);
   if (!player) {
     return { error: "Player is not on your roster." };
+  }
+
+  if (
+    slotPositionId === "TAXI" &&
+    !canMovePlayerToTaxi({
+      preventReaddAfterActivation: taxiPreventReaddAfterActivation,
+      taxiActivated: player.taxiActivated === true,
+      currentSlotPositionId: player.slotPositionId,
+    })
+  ) {
+    return { error: TAXI_ACTIVATED_BLOCK_MESSAGE };
   }
 
   if (
@@ -299,6 +329,9 @@ export function applyLocalSlotAssignment<T extends SlotAssignmentPlayer>(
   const target = next.find((row) => row.id === playerId);
   if (target) {
     target.slotPositionId = slotPositionId;
+    if (currentSlot === "TAXI" && slotPositionId !== "TAXI") {
+      target.taxiActivated = true;
+    }
   }
 
   const caps = validateActiveRosterCaps(next, rosterSlots, benchSlots);
@@ -312,6 +345,7 @@ export function applyLocalSlotAssignment<T extends SlotAssignmentPlayer>(
 type SlotEligibility = {
   irEligibleStatuses?: readonly string[];
   taxiMaxYearsExp?: 0 | 1 | 2 | 3 | 4 | 5 | null;
+  taxiPreventReaddAfterActivation?: boolean;
 };
 
 function acceptsPlayer(
@@ -319,6 +353,17 @@ function acceptsPlayer(
   player: SlotAssignmentPlayer,
   eligibility: SlotEligibility,
 ) {
+  if (
+    slotPositionId === "TAXI" &&
+    !canMovePlayerToTaxi({
+      preventReaddAfterActivation:
+        eligibility.taxiPreventReaddAfterActivation === true,
+      taxiActivated: player.taxiActivated === true,
+      currentSlotPositionId: player.slotPositionId,
+    })
+  ) {
+    return false;
+  }
   return slotAcceptsPlayer(slotPositionId, player.primaryPositionId, {
     injuryStatus: player.injuryStatus,
     irEligibleStatuses: eligibility.irEligibleStatuses ?? [],
@@ -357,6 +402,7 @@ export function applyLocalSlotSwap<T extends SlotAssignmentPlayer>(
   benchSlots: number,
   irEligibleStatuses: readonly string[] = [],
   taxiMaxYearsExp: 0 | 1 | 2 | 3 | 4 | 5 = 0,
+  taxiPreventReaddAfterActivation = false,
 ): { players: T[] } | { error: string } {
   const player = players.find((row) => row.id === playerId);
   const other = players.find((row) => row.id === otherPlayerId);
@@ -364,20 +410,48 @@ export function applyLocalSlotSwap<T extends SlotAssignmentPlayer>(
     return { error: "Player is not on your roster." };
   }
 
-  const eligibility = { irEligibleStatuses, taxiMaxYearsExp };
+  const eligibility = {
+    irEligibleStatuses,
+    taxiMaxYearsExp,
+    taxiPreventReaddAfterActivation,
+  };
   const playerSlot = effectiveSlotPositionId(player);
   const otherSlot = effectiveSlotPositionId(other);
 
   if (!acceptsPlayer(playerSlot, other, eligibility)) {
+    if (playerSlot === "TAXI" && other.taxiActivated) {
+      return { error: TAXI_ACTIVATED_BLOCK_MESSAGE };
+    }
     return { error: `${other.primaryPositionId} cannot play ${playerSlot}.` };
   }
   if (!acceptsPlayer(otherSlot, player, eligibility)) {
+    if (otherSlot === "TAXI" && player.taxiActivated) {
+      return { error: TAXI_ACTIVATED_BLOCK_MESSAGE };
+    }
     return { error: `${player.primaryPositionId} cannot play ${otherSlot}.` };
   }
 
   const next = players.map((row) => {
-    if (row.id === playerId) return { ...row, slotPositionId: otherSlot };
-    if (row.id === otherPlayerId) return { ...row, slotPositionId: playerSlot };
+    if (row.id === playerId) {
+      return {
+        ...row,
+        slotPositionId: otherSlot,
+        taxiActivated:
+          playerSlot === "TAXI" && otherSlot !== "TAXI"
+            ? true
+            : row.taxiActivated,
+      };
+    }
+    if (row.id === otherPlayerId) {
+      return {
+        ...row,
+        slotPositionId: playerSlot,
+        taxiActivated:
+          otherSlot === "TAXI" && playerSlot !== "TAXI"
+            ? true
+            : row.taxiActivated,
+      };
+    }
     return { ...row };
   });
 

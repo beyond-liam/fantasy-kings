@@ -233,6 +233,12 @@ export function buildLeagueRulesSummary(input: {
                   resolveTaxiMaxYearsExp(settings.taxiMaxYearsExp),
                 ),
               },
+              {
+                label: "Prevent Taxi Re-add After Activation",
+                value: yesNo(
+                  settings.taxiPreventReaddAfterActivation === true,
+                ),
+              },
             ]
           : []),
       ],

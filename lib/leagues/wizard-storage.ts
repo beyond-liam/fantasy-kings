@@ -29,6 +29,8 @@ export function getInitialWizardValues(): CreateLeagueWizardValues {
     taxiEnabled: WIZARD_DEFAULTS.taxiEnabled,
     taxiSlots: WIZARD_DEFAULTS.taxiSlots,
     taxiMaxYearsExp: WIZARD_DEFAULTS.taxiMaxYearsExp,
+    taxiPreventReaddAfterActivation:
+      WIZARD_DEFAULTS.taxiPreventReaddAfterActivation,
     scoringPreset: WIZARD_DEFAULTS.scoringPreset,
     customRosterSlots: buildStandardRosterSlots(
       WIZARD_DEFAULTS.benchSlots,

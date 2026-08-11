@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 
 import {
   buildOpponentByTeam,
+  formatMatchupKickoff,
   resolvePlayerOpponent,
   type TeamMatchup,
 } from "@/lib/nfl/matchups";
@@ -90,5 +91,12 @@ describe("resolvePlayerOpponent", () => {
       seasonYear: 2026,
     });
     assert.equal(result?.label, "@ LV");
+  });
+});
+
+describe("formatMatchupKickoff", () => {
+  it("formats kickoff in UK time", () => {
+    // 1:00pm EDT = 17:00 UTC = 6:00pm BST
+    assert.equal(formatMatchupKickoff("2026-08-13T17:00:00Z"), "Thu 6pm");
   });
 });

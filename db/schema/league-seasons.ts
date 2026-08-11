@@ -154,6 +154,12 @@ export type LeagueSeasonSettings = {
    * (`0` rookies … `5` = 5+ years).
    */
   taxiMaxYearsExp?: 0 | 1 | 2 | 3 | 4 | 5;
+  /**
+   * When true, a player who has left Taxi for the active roster cannot return
+   * to Taxi. When false (default), Taxi ↔ active moves are unrestricted
+   * (aside from years-exp eligibility).
+   */
+  taxiPreventReaddAfterActivation?: boolean;
 };
 
 export const leagueSeasons = pgTable(

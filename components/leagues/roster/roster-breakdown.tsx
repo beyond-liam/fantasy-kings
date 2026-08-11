@@ -404,6 +404,24 @@ export function RosterBreakdown({
                   <FieldError>{errors.taxiMaxYearsExp}</FieldError>
                 ) : null}
               </Field>
+              <Field orientation="horizontal">
+                <div className="flex flex-1 flex-col gap-1">
+                  <FieldLabel htmlFor="taxiPreventReaddAfterActivation">
+                    Prevent re-add after activation
+                  </FieldLabel>
+                  <p className="text-sm text-muted-foreground">
+                    Once a player leaves Taxi for the active roster, they cannot
+                    return to Taxi.
+                  </p>
+                </div>
+                <Switch
+                  id="taxiPreventReaddAfterActivation"
+                  checked={values.taxiPreventReaddAfterActivation}
+                  onCheckedChange={(checked) =>
+                    onChange({ taxiPreventReaddAfterActivation: checked })
+                  }
+                />
+              </Field>
             </>
           ) : null}
         </>

@@ -1,12 +1,11 @@
 import type { ScheduleGame } from "@/lib/espn/scoreboard";
+import { UK_TIME_ZONE } from "@/lib/datetime/uk-time";
 import { resolvePlayerByeWeek } from "@/lib/nfl/bye-weeks";
 
 /** ESPN uses WSH; players/Sleeper often use WAS. */
 const TEAM_ALIASES: Record<string, string> = {
   WSH: "WAS",
 };
-
-const NFL_TZ = "America/New_York";
 
 export function normalizeNflTeamAbbrev(
   abbreviation: string | null | undefined,
@@ -38,21 +37,21 @@ export type PlayerOpponent = {
   gameStatus: ScheduleGame["status"] | null;
 };
 
-/** Compact kickoff for roster Opp cells: "Sun 1pm" (ET). */
+/** Compact kickoff for roster Opp cells: "Sun 1pm" (UK). */
 export function formatMatchupKickoff(kickoffIso: string): string {
   const date = new Date(kickoffIso);
-  const weekday = new Intl.DateTimeFormat("en-US", {
-    timeZone: NFL_TZ,
+  const weekday = new Intl.DateTimeFormat("en-GB", {
+    timeZone: UK_TIME_ZONE,
     weekday: "short",
   }).format(date);
-  const time = new Intl.DateTimeFormat("en-US", {
-    timeZone: NFL_TZ,
+  const time = new Intl.DateTimeFormat("en-GB", {
+    timeZone: UK_TIME_ZONE,
     hour: "numeric",
     minute: "2-digit",
     hour12: true,
   }).format(date);
 
-  // "1:00 PM" → "1pm"; keep minutes when not :00
+  // "1:00 pm" → "1pm"; keep minutes when not :00
   const compact = time
     .replace(/\s/g, "")
     .replace(/:00/i, "")

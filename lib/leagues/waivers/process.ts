@@ -14,6 +14,7 @@ import { db } from "@/lib/db";
 import {
   assertActiveRosterCapacity,
   assertCutAllowedUnderLineupLock,
+  pickOpenReserveAcquisitionSlot,
   resolveAcquisitionSlotPosition,
 } from "@/lib/leagues/roster/acquisition";
 import {
@@ -505,6 +506,7 @@ async function applyAwardedClaim(input: {
       primaryPositionId: players.primaryPositionId,
       injuryStatus: players.injuryStatus,
       nflTeam: players.nflTeam,
+      yearsExp: players.yearsExp,
     })
     .from(players)
     .where(eq(players.id, claim.playerId))
@@ -527,13 +529,33 @@ async function applyAwardedClaim(input: {
     );
   }
 
+  const reserveArgs = {
+    player: {
+      primaryPositionId: player.primaryPositionId,
+      injuryStatus: player.injuryStatus,
+      yearsExp: player.yearsExp,
+    },
+    rosteredOnTeam,
+    rosterSlots: season.settings.rosterSlots,
+    benchSlots: season.benchSlots,
+    irEnabled: season.irEnabled,
+    taxiEnabled: season.taxiEnabled,
+    irEligibleStatuses: season.settings.irEligibleStatuses,
+    taxiMaxYearsExp: season.settings.taxiMaxYearsExp,
+    taxiPreventReaddAfterActivation:
+      season.settings.taxiPreventReaddAfterActivation,
+  };
+
   const capacityError = assertActiveRosterCapacity({
     rosteredOnTeam,
     rosterSlots: season.settings.rosterSlots,
     benchSlots: season.benchSlots,
     playerPrimaryPositionId: player.primaryPositionId,
   });
-  if (capacityError) {
+  const forceReserveSlot = capacityError
+    ? pickOpenReserveAcquisitionSlot(reserveArgs)
+    : null;
+  if (capacityError && !forceReserveSlot) {
     return capacityError;
   }
 
@@ -558,6 +580,10 @@ async function applyAwardedClaim(input: {
     taxiEnabled: season.taxiEnabled,
     irEligibleStatuses: season.settings.irEligibleStatuses,
     lineupLockMode: season.settings.lineupLockMode,
+    taxiMaxYearsExp: season.settings.taxiMaxYearsExp,
+    taxiPreventReaddAfterActivation:
+      season.settings.taxiPreventReaddAfterActivation,
+    forceReserveSlot: forceReserveSlot ?? undefined,
   });
   if (!slotResolved.ok) {
     return slotResolved.error;

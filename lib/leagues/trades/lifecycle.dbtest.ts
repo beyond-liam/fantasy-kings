@@ -168,7 +168,7 @@ describe("trade lifecycle", () => {
     assert.equal(receiverRoster?.teamId, receiver!.id);
   });
 
-  it("executeTrade on a review trade swaps rosters, clears slots, and completes the trade", async () => {
+  it("executeTrade on a review trade swaps rosters, assigns slots, and completes the trade", async () => {
     const { leagueId, season } = await seedLeagueSeason(testDb, { teamCount: 2 });
     const [proposer, receiver] = await seedTeams(testDb, {
       leagueSeasonId: season.id,
@@ -234,14 +234,14 @@ describe("trade lifecycle", () => {
       .from(rosterPlayers)
       .where(eq(rosterPlayers.playerId, proposerPlayer!.id));
     assert.equal(proposerRoster?.teamId, receiver!.id);
-    assert.equal(proposerRoster?.slotPositionId, null);
+    assert.equal(proposerRoster?.slotPositionId, "WR");
 
     const [receiverRoster] = await testDb
       .select()
       .from(rosterPlayers)
       .where(eq(rosterPlayers.playerId, receiverPlayer!.id));
     assert.equal(receiverRoster?.teamId, proposer!.id);
-    assert.equal(receiverRoster?.slotPositionId, null);
+    assert.equal(receiverRoster?.slotPositionId, "RB");
 
     const [tradeRow] = await testDb
       .select()

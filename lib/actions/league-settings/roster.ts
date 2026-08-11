@@ -62,6 +62,8 @@ export async function updateRosterRequirements(
     taxiEnabled: season.taxiEnabled,
     taxiSlots: season.taxiSlots,
     taxiMaxYearsExp: season.settings.taxiMaxYearsExp ?? null,
+    taxiPreventReaddAfterActivation:
+      season.settings.taxiPreventReaddAfterActivation === true,
     irEligibleStatuses: season.settings.irEligibleStatuses ?? [],
   };
   const after = {
@@ -72,6 +74,9 @@ export async function updateRosterRequirements(
     taxiEnabled: next.taxiEnabled,
     taxiSlots: next.taxiEnabled ? next.taxiSlots : 0,
     taxiMaxYearsExp: next.taxiEnabled ? next.taxiMaxYearsExp : null,
+    taxiPreventReaddAfterActivation: next.taxiEnabled
+      ? next.taxiPreventReaddAfterActivation
+      : false,
     irEligibleStatuses: next.irEnabled ? next.irEligibleStatuses : [],
   };
 
@@ -94,6 +99,9 @@ export async function updateRosterRequirements(
         taxiMaxYearsExp: next.taxiEnabled
           ? next.taxiMaxYearsExp
           : season.settings.taxiMaxYearsExp,
+        taxiPreventReaddAfterActivation: next.taxiEnabled
+          ? next.taxiPreventReaddAfterActivation
+          : season.settings.taxiPreventReaddAfterActivation,
       },
     })
     .where(eq(leagueSeasons.id, season.id));
@@ -111,6 +119,10 @@ export async function updateRosterRequirements(
       { path: "taxiEnabled", label: "Taxi enabled" },
       { path: "taxiSlots", label: "Taxi slots" },
       { path: "taxiMaxYearsExp", label: "Taxi eligibility" },
+      {
+        path: "taxiPreventReaddAfterActivation",
+        label: "Prevent taxi re-add after activation",
+      },
       { path: "irEligibleStatuses", label: "IR eligible statuses" },
     ]),
   });

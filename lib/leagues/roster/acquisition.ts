@@ -12,7 +12,17 @@ import {
   getMaxRosterSize,
   getPositionRosterMax,
 } from "@/lib/leagues/roster-capacity";
-import { occupiedBySlot, pickDefaultSlotPosition } from "@/lib/leagues/roster-slots";
+import {
+  getSlotCapacity,
+  occupiedBySlot,
+  pickDefaultSlotPosition,
+  slotAcceptsPlayer,
+} from "@/lib/leagues/roster-slots";
+import {
+  canMovePlayerToTaxi,
+  resolveTaxiMaxYearsExp,
+  resolveTaxiPreventReaddAfterActivation,
+} from "@/lib/leagues/taxi-eligibility";
 import type { RosterSlotConfig } from "@/db/schema/league-seasons";
 
 export function assertActiveRosterCapacity(input: {
@@ -56,6 +66,72 @@ export function assertActiveRosterCapacity(input: {
   return null;
 }
 
+/**
+ * When the active roster is full, place an eligible player on open IR (preferred)
+ * or Taxi instead of requiring a drop/cut.
+ */
+export function pickOpenReserveAcquisitionSlot(input: {
+  player: {
+    primaryPositionId: string;
+    injuryStatus: string | null;
+    yearsExp?: number | null;
+    taxiActivated?: boolean;
+  };
+  rosteredOnTeam: Array<{
+    primaryPositionId: string;
+    slotPositionId: string | null;
+  }>;
+  rosterSlots: RosterSlotConfig[];
+  benchSlots: number;
+  irEnabled: boolean;
+  taxiEnabled: boolean;
+  irEligibleStatuses: readonly string[] | null | undefined;
+  taxiMaxYearsExp?: 0 | 1 | 2 | 3 | 4 | 5 | null;
+  taxiPreventReaddAfterActivation?: boolean;
+}): "IR" | "TAXI" | null {
+  const occupied = occupiedBySlot(input.rosteredOnTeam);
+  const irEligibleStatuses = resolveIrEligibleStatuses(input.irEligibleStatuses);
+  const taxiMaxYearsExp = resolveTaxiMaxYearsExp(input.taxiMaxYearsExp);
+  const preventReadd = resolveTaxiPreventReaddAfterActivation(
+    input.taxiPreventReaddAfterActivation,
+  );
+
+  const trySlot = (slotPositionId: "IR" | "TAXI") => {
+    if (slotPositionId === "IR" && !input.irEnabled) return false;
+    if (slotPositionId === "TAXI" && !input.taxiEnabled) return false;
+    if (
+      slotPositionId === "TAXI" &&
+      !canMovePlayerToTaxi({
+        preventReaddAfterActivation: preventReadd,
+        taxiActivated: input.player.taxiActivated === true,
+      })
+    ) {
+      return false;
+    }
+    if (
+      !slotAcceptsPlayer(slotPositionId, input.player.primaryPositionId, {
+        injuryStatus: input.player.injuryStatus,
+        irEligibleStatuses,
+        yearsExp: input.player.yearsExp,
+        taxiMaxYearsExp,
+      })
+    ) {
+      return false;
+    }
+    const capacity = getSlotCapacity(
+      input.rosterSlots,
+      slotPositionId,
+      input.benchSlots,
+    );
+    const used = occupied.get(slotPositionId) ?? 0;
+    return capacity > 0 && used < capacity;
+  };
+
+  if (trySlot("IR")) return "IR";
+  if (trySlot("TAXI")) return "TAXI";
+  return null;
+}
+
 export async function assertCutAllowedUnderLineupLock(input: {
   lineupLockMode: string | null | undefined;
   fullName: string;
@@ -88,6 +164,8 @@ export async function resolveAcquisitionSlotPosition(input: {
     primaryPositionId: string;
     injuryStatus: string | null;
     nflTeam: string | null;
+    yearsExp?: number | null;
+    taxiActivated?: boolean;
   };
   rosteredOnTeam: Array<{
     primaryPositionId: string;
@@ -99,6 +177,10 @@ export async function resolveAcquisitionSlotPosition(input: {
   taxiEnabled: boolean;
   irEligibleStatuses: readonly string[] | null | undefined;
   lineupLockMode: string | null | undefined;
+  taxiMaxYearsExp?: 0 | 1 | 2 | 3 | 4 | 5 | null;
+  taxiPreventReaddAfterActivation?: boolean;
+  /** Force IR/Taxi placement (active roster full path). */
+  forceReserveSlot?: "IR" | "TAXI";
   /** When true, blocked reserve returns an error instead of the blocked slot. */
   failIfReserveBlocked?: boolean;
 }): Promise<{ ok: true; slotPositionId: string } | { ok: false; error: string }> {
@@ -107,13 +189,16 @@ export async function resolveAcquisitionSlotPosition(input: {
     playerPositionId: input.player.primaryPositionId,
     injuryStatus: input.player.injuryStatus,
     irEligibleStatuses: resolveIrEligibleStatuses(input.irEligibleStatuses),
+    yearsExp: input.player.yearsExp,
+    taxiMaxYearsExp: input.taxiMaxYearsExp,
     rosterSlots: input.rosterSlots,
     benchSlots: input.benchSlots,
     irEnabled: input.irEnabled,
     taxiEnabled: input.taxiEnabled,
     occupiedBySlot: occupied,
   };
-  let slotPositionId = pickDefaultSlotPosition(slotArgs);
+  let slotPositionId =
+    input.forceReserveSlot ?? pickDefaultSlotPosition(slotArgs);
 
   const startedTeams = await loadStartedNflTeamsForLineupLock();
   if (!startedTeams) {
@@ -146,6 +231,17 @@ export async function resolveAcquisitionSlotPosition(input: {
           return { ok: false, error: reserveBlocked };
         }
       }
+    }
+  } else if (input.failIfReserveBlocked || input.forceReserveSlot) {
+    const reserveBlocked = findBlockedAcquisitionAdd({
+      mode,
+      startedTeams,
+      fullName: input.player.fullName,
+      nflTeam: input.player.nflTeam,
+      nextSlot: slotPositionId,
+    });
+    if (reserveBlocked) {
+      return { ok: false, error: reserveBlocked };
     }
   }
 

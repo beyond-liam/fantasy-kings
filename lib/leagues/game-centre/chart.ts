@@ -1,4 +1,5 @@
 import type { ScheduleGame } from "@/lib/espn/scoreboard";
+import { UK_TIME_ZONE } from "@/lib/datetime/uk-time";
 import { normalizeNflTeamAbbrev } from "@/lib/nfl/matchups";
 
 export type ScoreChartPoint = {
@@ -41,8 +42,8 @@ function playerCountsAt(
 
 function formatChartTick(iso: string): string {
   const date = new Date(iso);
-  return new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/New_York",
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone: UK_TIME_ZONE,
     weekday: "short",
     hour: "numeric",
     minute: "2-digit",

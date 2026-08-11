@@ -41,6 +41,7 @@ type TeamRosterSectionsProps = {
   taxiEnabled: boolean;
   taxiSlots: number;
   taxiMaxYearsExp?: 0 | 1 | 2 | 3 | 4 | 5 | null;
+  taxiPreventReaddAfterActivation?: boolean;
   players: TeamRosterPlayer[];
   leagueSlug: string;
   actionsEnabled?: boolean;
@@ -82,6 +83,7 @@ export function TeamRosterSections({
   taxiEnabled,
   taxiSlots,
   taxiMaxYearsExp,
+  taxiPreventReaddAfterActivation = false,
   players,
   leagueSlug,
   actionsEnabled = false,
@@ -161,6 +163,7 @@ export function TeamRosterSections({
         benchSlots,
         resolvedIrEligible,
         taxiMaxYearsExp ?? 0,
+        taxiPreventReaddAfterActivation,
       );
       if ("error" in result) {
         toast.error(result.error);
@@ -180,6 +183,7 @@ export function TeamRosterSections({
         benchSlots,
         resolvedIrEligible,
         taxiMaxYearsExp ?? 0,
+        taxiPreventReaddAfterActivation,
       );
       if ("error" in result) {
         toast.error(result.error);
@@ -272,6 +276,7 @@ export function TeamRosterSections({
     benchSlots,
     rosterPlayers: draftPlayers,
     taxiMaxYearsExp,
+    taxiPreventReaddAfterActivation,
     onSlotChange: handleSlotChange,
     onSwap: handleSwap,
   } as const;

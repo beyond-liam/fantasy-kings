@@ -37,6 +37,7 @@ type RosterSlotSwapProps = {
   rosterSlots: RosterSlotConfig[];
   irEligibleStatuses?: readonly string[];
   taxiMaxYearsExp?: 0 | 1 | 2 | 3 | 4 | 5 | null;
+  taxiPreventReaddAfterActivation?: boolean;
   /** Moves a single player into a slot (used for empty slots and benching). */
   onSlotChange?: (playerId: string, slotPositionId: string) => void;
   /** Trades two players' slots. */
@@ -56,6 +57,7 @@ export function RosterSlotSwap({
   rosterSlots,
   irEligibleStatuses,
   taxiMaxYearsExp,
+  taxiPreventReaddAfterActivation,
   onSlotChange,
   onSwap,
   disabled,
@@ -76,7 +78,11 @@ export function RosterSlotSwap({
     rosterPlayers,
     slot,
     player?.id ?? null,
-    { irEligibleStatuses, taxiMaxYearsExp },
+    {
+      irEligibleStatuses,
+      taxiMaxYearsExp,
+      taxiPreventReaddAfterActivation,
+    },
   ).toSorted((a, b) => {
     const reserveDiff =
       Number(isReserveSlot(effectiveSlotPositionId(b))) -

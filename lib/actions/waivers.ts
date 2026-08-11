@@ -19,6 +19,7 @@ import {
   countsTowardRosterMax,
   getMaxRosterSize,
 } from "@/lib/leagues/roster-capacity";
+import { pickOpenReserveAcquisitionSlot } from "@/lib/leagues/roster/acquisition";
 import { getAcquisitionKind } from "@/lib/leagues/waivers/acquisition";
 import {
   getStartedNflTeamAbbreviations,
@@ -104,6 +105,8 @@ export async function getClaimContext(
       id: players.id,
       fullName: players.fullName,
       primaryPositionId: players.primaryPositionId,
+      injuryStatus: players.injuryStatus,
+      yearsExp: players.yearsExp,
     })
     .from(players)
     .where(eq(players.id, playerId))
@@ -118,7 +121,26 @@ export async function getClaimContext(
     season.settings.rosterSlots,
     season.benchSlots,
   );
-  const requiresDrop = countActiveRosterPlayers(rosteredOnTeam) >= maxRoster;
+  const rosterFull = countActiveRosterPlayers(rosteredOnTeam) >= maxRoster;
+  const canPlaceOnReserve =
+    rosterFull &&
+    pickOpenReserveAcquisitionSlot({
+      player: {
+        primaryPositionId: player.primaryPositionId,
+        injuryStatus: player.injuryStatus,
+        yearsExp: player.yearsExp,
+      },
+      rosteredOnTeam,
+      rosterSlots: season.settings.rosterSlots,
+      benchSlots: season.benchSlots,
+      irEnabled: season.irEnabled,
+      taxiEnabled: season.taxiEnabled,
+      irEligibleStatuses: season.settings.irEligibleStatuses,
+      taxiMaxYearsExp: season.settings.taxiMaxYearsExp,
+      taxiPreventReaddAfterActivation:
+        season.settings.taxiPreventReaddAfterActivation,
+    }) != null;
+  const requiresDrop = rosterFull && !canPlaceOnReserve;
 
   const cutCandidates = rosteredOnTeam
     .filter((row) =>
@@ -203,6 +225,7 @@ export async function fileWaiverClaim(
       primaryPositionId: players.primaryPositionId,
       nflTeam: players.nflTeam,
       injuryStatus: players.injuryStatus,
+      yearsExp: players.yearsExp,
     })
     .from(players)
     .where(eq(players.id, validated.playerId))
@@ -284,7 +307,26 @@ export async function fileWaiverClaim(
     season.benchSlots,
   );
   const activeCount = countActiveRosterPlayers(rosteredOnTeam);
-  const needsDrop = activeCount >= maxRoster;
+  const rosterFull = activeCount >= maxRoster;
+  const canPlaceOnReserve =
+    rosterFull &&
+    pickOpenReserveAcquisitionSlot({
+      player: {
+        primaryPositionId: player.primaryPositionId,
+        injuryStatus: player.injuryStatus,
+        yearsExp: player.yearsExp,
+      },
+      rosteredOnTeam,
+      rosterSlots: season.settings.rosterSlots,
+      benchSlots: season.benchSlots,
+      irEnabled: season.irEnabled,
+      taxiEnabled: season.taxiEnabled,
+      irEligibleStatuses: season.settings.irEligibleStatuses,
+      taxiMaxYearsExp: season.settings.taxiMaxYearsExp,
+      taxiPreventReaddAfterActivation:
+        season.settings.taxiPreventReaddAfterActivation,
+    }) != null;
+  const needsDrop = rosterFull && !canPlaceOnReserve;
 
   const dropPlayerId = validated.dropPlayerId ?? null;
   if (needsDrop && !dropPlayerId) {

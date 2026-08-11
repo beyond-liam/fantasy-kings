@@ -27,6 +27,7 @@ import {
 } from "@/lib/leagues/roster-slots";
 import {
   assertCutAllowedUnderLineupLock,
+  pickOpenReserveAcquisitionSlot,
   resolveAcquisitionSlotPosition,
 } from "@/lib/leagues/roster/acquisition";
 import {
@@ -37,7 +38,12 @@ import {
   waiveOrDeleteRosterRow,
 } from "@/lib/leagues/roster-writes";
 import { resolveIrEligibleStatuses } from "@/lib/leagues/ir-eligibility";
-import { resolveTaxiMaxYearsExp } from "@/lib/leagues/taxi-eligibility";
+import {
+  resolveTaxiMaxYearsExp,
+  resolveTaxiPreventReaddAfterActivation,
+  TAXI_ACTIVATED_BLOCK_MESSAGE,
+  canMovePlayerToTaxi,
+} from "@/lib/leagues/taxi-eligibility";
 import { findBlockedLineupMoves } from "@/lib/leagues/lineup-lock-enforce";
 import { parseLineupLockMode } from "@/lib/leagues/lineup-lock";
 import { loadStartedNflTeamsForLineupLock } from "@/lib/leagues/lineup-lock-started";
@@ -162,6 +168,7 @@ async function prepareAdd(
       primaryPositionId: players.primaryPositionId,
       injuryStatus: players.injuryStatus,
       nflTeam: players.nflTeam,
+      yearsExp: players.yearsExp,
     })
     .from(players)
     .where(eq(players.id, playerId))
@@ -271,7 +278,29 @@ async function prepareAdd(
   const positionFull =
     positionMax !== Number.POSITIVE_INFINITY && positionCount >= positionMax;
 
-  if (rosterFull || positionFull) {
+  const reserveArgs = {
+    player: {
+      primaryPositionId: player.primaryPositionId,
+      injuryStatus: player.injuryStatus,
+      yearsExp: player.yearsExp,
+    },
+    rosteredOnTeam,
+    rosterSlots: season.settings.rosterSlots,
+    benchSlots: season.benchSlots,
+    irEnabled: season.irEnabled,
+    taxiEnabled: season.taxiEnabled,
+    irEligibleStatuses: season.settings.irEligibleStatuses,
+    taxiMaxYearsExp: season.settings.taxiMaxYearsExp,
+    taxiPreventReaddAfterActivation:
+      season.settings.taxiPreventReaddAfterActivation,
+  };
+
+  /** Active roster full → try IR/Taxi instead of forcing a cut. */
+  const forceReserveSlot = rosterFull
+    ? pickOpenReserveAcquisitionSlot(reserveArgs)
+    : null;
+
+  if ((rosterFull || positionFull) && !forceReserveSlot) {
     const cutCandidates = (
       positionFull
         ? rosteredOnTeam.filter(
@@ -289,8 +318,8 @@ async function prepareAdd(
       result: {
         success: false,
         requiresCut: true,
-        reason: positionFull ? "position_max" : "roster_full",
-        error: positionFull
+        reason: positionFull && !rosterFull ? "position_max" : "roster_full",
+        error: positionFull && !rosterFull
           ? `At max ${player.primaryPositionId}s (${positionMax}). Cut one first.`
           : `Roster is full (${maxRoster} players). Cut someone first.`,
         cutCandidates,
@@ -309,6 +338,10 @@ async function prepareAdd(
     taxiEnabled: season.taxiEnabled,
     irEligibleStatuses: season.settings.irEligibleStatuses,
     lineupLockMode: season.settings.lineupLockMode,
+    taxiMaxYearsExp: season.settings.taxiMaxYearsExp,
+    taxiPreventReaddAfterActivation:
+      season.settings.taxiPreventReaddAfterActivation,
+    forceReserveSlot: forceReserveSlot ?? undefined,
     failIfReserveBlocked: true,
   });
   if (!slotResolved.ok) {
@@ -600,6 +633,10 @@ export async function assignPlayerSlot(
   const taxiMaxYearsExp = resolveTaxiMaxYearsExp(
     season.settings.taxiMaxYearsExp,
   );
+  const taxiPreventReaddAfterActivation =
+    resolveTaxiPreventReaddAfterActivation(
+      season.settings.taxiPreventReaddAfterActivation,
+    );
   const rosteredOnTeam = await listRosteredPlayers(team.id);
   const applied = applyLocalSlotAssignment(
     rosteredOnTeam,
@@ -609,6 +646,7 @@ export async function assignPlayerSlot(
     season.benchSlots,
     irEligibleStatuses,
     taxiMaxYearsExp,
+    taxiPreventReaddAfterActivation,
   );
 
   if ("error" in applied) {
@@ -779,6 +817,7 @@ async function applyRosterSlotAssignments(input: {
       irEligibleStatuses?: string[] | null;
       lineupLockMode?: string | null;
       taxiMaxYearsExp?: 0 | 1 | 2 | 3 | 4 | 5 | null;
+      taxiPreventReaddAfterActivation?: boolean;
     };
     benchSlots: number;
   };
@@ -805,6 +844,10 @@ async function applyRosterSlotAssignments(input: {
   const taxiMaxYearsExp = resolveTaxiMaxYearsExp(
     season.settings.taxiMaxYearsExp,
   );
+  const taxiPreventReaddAfterActivation =
+    resolveTaxiPreventReaddAfterActivation(
+      season.settings.taxiPreventReaddAfterActivation,
+    );
   const rosteredOnTeam = await listRosteredPlayers(teamId);
   const byId = new Map(rosteredOnTeam.map((row) => [row.id, row]));
   const assignmentById = new Map(
@@ -813,9 +856,15 @@ async function applyRosterSlotAssignments(input: {
 
   const nextPlayers = rosteredOnTeam.map((row) => {
     const nextSlot = assignmentById.get(row.id);
+    const previousSlot = row.slotPositionId ?? row.primaryPositionId;
+    const slotPositionId = nextSlot ?? previousSlot;
     return {
       ...row,
-      slotPositionId: nextSlot ?? row.slotPositionId ?? row.primaryPositionId,
+      slotPositionId,
+      taxiActivated:
+        previousSlot === "TAXI" && slotPositionId !== "TAXI"
+          ? true
+          : row.taxiActivated,
     };
   });
 
@@ -847,6 +896,18 @@ async function applyRosterSlotAssignments(input: {
     }
 
     if (movingOntoTaxi) {
+      if (
+        !canMovePlayerToTaxi({
+          preventReaddAfterActivation: taxiPreventReaddAfterActivation,
+          taxiActivated: current.taxiActivated,
+          currentSlotPositionId: current.slotPositionId,
+        })
+      ) {
+        return {
+          success: false,
+          error: TAXI_ACTIVATED_BLOCK_MESSAGE,
+        };
+      }
       if (
         !slotAcceptsPlayer("TAXI", player.primaryPositionId, {
           yearsExp: player.yearsExp,
@@ -986,10 +1047,13 @@ async function persistRosterSlotAssignments(
 
   await db.transaction(async (tx) => {
     for (const row of persist) {
+      const leavingTaxi =
+        row.previousSlot === "TAXI" && row.slotPositionId !== "TAXI";
       await tx
         .update(rosterPlayers)
         .set({
           slotPositionId: row.slotPositionId,
+          ...(leavingTaxi ? { taxiActivated: true } : {}),
           updatedAt: new Date(),
         })
         .where(eq(rosterPlayers.id, row.rosterRowId));

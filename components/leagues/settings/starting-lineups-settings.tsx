@@ -42,6 +42,8 @@ type StartingLineupsSettingsProps = {
   irEligibleStatuses?: string[];
   taxiEnabled: boolean;
   taxiSlots: number;
+  taxiMaxYearsExp?: 0 | 1 | 2 | 3 | 4 | 5 | null;
+  taxiPreventReaddAfterActivation?: boolean;
   players: TeamRosterPlayer[];
 };
 
@@ -56,6 +58,8 @@ export function StartingLineupsSettings({
   irEligibleStatuses,
   taxiEnabled,
   taxiSlots,
+  taxiMaxYearsExp,
+  taxiPreventReaddAfterActivation,
   players,
 }: StartingLineupsSettingsProps) {
   const router = useRouter();
@@ -126,6 +130,8 @@ export function StartingLineupsSettings({
               irEligibleStatuses={irEligibleStatuses}
               taxiEnabled={taxiEnabled}
               taxiSlots={taxiSlots}
+              taxiMaxYearsExp={taxiMaxYearsExp}
+              taxiPreventReaddAfterActivation={taxiPreventReaddAfterActivation}
               players={players}
               leagueSlug={slug}
               actionsEnabled

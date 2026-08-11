@@ -125,7 +125,12 @@ function RosterCountRow({
 }) {
   return (
     <li className="flex items-baseline gap-2 tabular-nums">
-      <span className="w-4 shrink-0 font-medium text-muted-foreground">
+      <span
+        className={cn(
+          "w-4 shrink-0 font-medium",
+          illegal ? "text-destructive" : "text-muted-foreground",
+        )}
+      >
         {count}
       </span>
       <span
@@ -190,6 +195,7 @@ export function TeamSummaryPanel({
                 count={row.count}
                 label={row.label}
                 range={`${row.min}-${row.max}`}
+                illegal={row.illegal}
               />
             ))}
             <RosterCountRow

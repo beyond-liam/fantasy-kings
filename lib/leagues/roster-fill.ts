@@ -23,6 +23,8 @@ export type TeamRosterPlayer = {
   yearsExp?: number | null;
   sleeperId: string | null;
   slotPositionId: string | null;
+  /** True after leaving Taxi for the active roster (see league taxi setting). */
+  taxiActivated?: boolean;
   ownedPct?: number | null;
   startPct?: number | null;
   opponent?: PlayerOpponent | null;

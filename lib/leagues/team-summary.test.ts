@@ -87,9 +87,11 @@ describe("buildTeamSummaryRosterBreakdown", () => {
     assert.equal(qb.count, 1);
     assert.equal(qb.min, 1);
     assert.equal(qb.max, 3);
+    assert.equal(qb.illegal, false);
     assert.ok(rb);
     assert.equal(rb.count, 1);
     assert.equal(rb.max, 9); // 8 + FLEX
+    assert.equal(rb.illegal, true); // min 2, only 1 active RB
 
     assert.equal(breakdown.starters.count, 1);
     assert.equal(breakdown.starters.max, 4);

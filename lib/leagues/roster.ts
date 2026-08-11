@@ -16,6 +16,7 @@ import {
 } from "@/lib/leagues/ir-eligibility";
 import {
   DEFAULT_TAXI_MAX_YEARS_EXP,
+  DEFAULT_TAXI_PREVENT_READD_AFTER_ACTIVATION,
   TAXI_MAX_YEARS_OPTIONS,
   type TaxiMaxYearsExp,
 } from "@/lib/leagues/taxi-eligibility";
@@ -42,6 +43,7 @@ export type RosterRequirementsValues = {
   taxiEnabled: boolean;
   taxiSlots: number;
   taxiMaxYearsExp: TaxiMaxYearsExp;
+  taxiPreventReaddAfterActivation: boolean;
   customRosterSlots: RosterSlotInput[];
 };
 
@@ -79,6 +81,7 @@ export const rosterRequirementsSchema = z
     taxiEnabled: z.boolean(),
     taxiSlots: z.number().int().min(0).max(5),
     taxiMaxYearsExp: taxiMaxYearsExpSchema,
+    taxiPreventReaddAfterActivation: z.boolean(),
     customRosterSlots: z.array(rosterSlotSchema),
   })
   .refine((data) => !data.irEnabled || data.irSlots >= 1, {
@@ -116,7 +119,7 @@ export const rosterRequirementsSchema = z
     },
   );
 
-export { DEFAULT_IR_ELIGIBLE_STATUSES, DEFAULT_TAXI_MAX_YEARS_EXP };
+export { DEFAULT_IR_ELIGIBLE_STATUSES, DEFAULT_TAXI_MAX_YEARS_EXP, DEFAULT_TAXI_PREVENT_READD_AFTER_ACTIVATION };
 
 export const ROSTER_PRESET_OPTIONS: Array<{
   value: RosterUiMode;

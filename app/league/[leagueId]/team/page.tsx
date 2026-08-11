@@ -44,7 +44,10 @@ import { resolveWaiverWireSettings } from "@/lib/leagues/waiver-wire";
 import { getUnseenTeamWaiverResults } from "@/lib/queries/activity";
 import { getLeagueHomeData } from "@/lib/queries/leagues";
 import { getIncomingTradeActionCount } from "@/lib/queries/trades";
-import { getTeamRosterPlayers } from "@/lib/queries/team-roster";
+import {
+  ensureTeamRosterSlotsAssigned,
+  getTeamRosterPlayers,
+} from "@/lib/queries/team-roster";
 import { getUserTeamForLeague } from "@/lib/queries/watchlist";
 
 type MyTeamPageProps = {
@@ -131,7 +134,15 @@ export default async function MyTeamPage({
             lastSeenAt: team.lastWaiverResultsSeenAt,
           })
         : Promise.resolve([]),
-      team ? getTeamRosterPlayers(team.id) : Promise.resolve([]),
+      team
+        ? ensureTeamRosterSlotsAssigned({
+            teamId: team.id,
+            rosterSlots: season.settings.rosterSlots,
+            benchSlots: season.benchSlots,
+            irEnabled: season.irEnabled,
+            taxiEnabled: season.taxiEnabled,
+          }).then(() => getTeamRosterPlayers(team.id))
+        : Promise.resolve([]),
     ]);
 
   const irViolations = getIrLockViolations(
@@ -191,6 +202,8 @@ export default async function MyTeamPage({
             rosterSlots: season.settings.rosterSlots,
             irEligibleStatuses: season.settings.irEligibleStatuses,
             taxiMaxYearsExp: season.settings.taxiMaxYearsExp,
+            taxiPreventReaddAfterActivation:
+              season.settings.taxiPreventReaddAfterActivation,
             schedule: season.settings.schedule,
           },
         }}

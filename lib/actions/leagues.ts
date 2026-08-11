@@ -107,6 +107,7 @@ export async function createLeague(input: CreateLeagueWizardValues) {
     taxiEnabled: values.taxiEnabled,
     taxiSlots: values.taxiSlots,
     taxiMaxYearsExp: values.taxiMaxYearsExp,
+    taxiPreventReaddAfterActivation: values.taxiPreventReaddAfterActivation,
     customRosterSlots: values.customRosterSlots,
   });
 
@@ -195,6 +196,9 @@ export async function createLeague(input: CreateLeagueWizardValues) {
             : undefined,
           taxiMaxYearsExp: values.taxiEnabled
             ? values.taxiMaxYearsExp
+            : undefined,
+          taxiPreventReaddAfterActivation: values.taxiEnabled
+            ? values.taxiPreventReaddAfterActivation
             : undefined,
         },
       })

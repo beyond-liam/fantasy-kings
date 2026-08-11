@@ -54,6 +54,7 @@ export function getDefaultMockDraftConfig(): MockDraftConfig {
       taxiEnabled: false,
       taxiSlots: 2,
       taxiMaxYearsExp: 0,
+      taxiPreventReaddAfterActivation: false,
       customRosterSlots: getDefaultCustomRosterSlots(),
     },
   };

@@ -16,7 +16,10 @@ import { getStartedNflTeamAbbreviations } from "@/lib/leagues/waivers/game-lock"
 import { getTeamSchedule } from "@/lib/queries/matchups";
 import { getRankedPlayers } from "@/lib/queries/players";
 import { getPlayerRosterRatesMap } from "@/lib/queries/player-roster-rates";
-import { getTeamRosterPlayers } from "@/lib/queries/team-roster";
+import {
+  ensureTeamRosterSlotsAssigned,
+  getTeamRosterPlayers,
+} from "@/lib/queries/team-roster";
 
 export type MyTeamRosterPanelProps = {
   slug: string;
@@ -46,6 +49,7 @@ export type MyTeamRosterPanelProps = {
       rosterSlots: RosterSlotConfig[];
       irEligibleStatuses?: string[];
       taxiMaxYearsExp?: 0 | 1 | 2 | 3 | 4 | 5 | null;
+      taxiPreventReaddAfterActivation?: boolean;
       schedule?: ScheduleSettings | null;
     };
   };
@@ -67,6 +71,14 @@ export async function MyTeamRosterPanel({
   tradesEnabled,
   wire,
 }: MyTeamRosterPanelProps) {
+  await ensureTeamRosterSlotsAssigned({
+    teamId: team.id,
+    rosterSlots: season.settings.rosterSlots,
+    benchSlots: season.benchSlots,
+    irEnabled: season.irEnabled,
+    taxiEnabled: season.taxiEnabled,
+  });
+
   const [
     { fantasyWeek, nflWeek, nflSeason, nflSeasonType, scoreboard, opponentsByTeam },
     rosterPlayers,
@@ -162,6 +174,9 @@ export async function MyTeamRosterPanel({
       taxiEnabled={season.taxiEnabled}
       taxiSlots={season.taxiSlots}
       taxiMaxYearsExp={season.settings.taxiMaxYearsExp}
+      taxiPreventReaddAfterActivation={
+        season.settings.taxiPreventReaddAfterActivation === true
+      }
       players={rosterPlayersWithRates}
       leagueSlug={slug}
       actionsEnabled={lineupEnabled}

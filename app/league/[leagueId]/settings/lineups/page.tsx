@@ -101,6 +101,10 @@ export default async function StartingLineupsPage({
         irEligibleStatuses={season.settings.irEligibleStatuses}
         taxiEnabled={season.taxiEnabled}
         taxiSlots={season.taxiSlots}
+        taxiMaxYearsExp={season.settings.taxiMaxYearsExp}
+        taxiPreventReaddAfterActivation={
+          season.settings.taxiPreventReaddAfterActivation === true
+        }
         players={players}
       />
     </div>

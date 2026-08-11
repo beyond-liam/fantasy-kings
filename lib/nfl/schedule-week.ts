@@ -1,3 +1,5 @@
+import { UK_TIME_ZONE } from "@/lib/datetime/uk-time";
+
 const MONTHS = [
   "Jan",
   "Feb",
@@ -13,6 +15,7 @@ const MONTHS = [
   "Dec",
 ] as const;
 
+/** NFL schedule week boundaries stay on Eastern time. */
 const NFL_TZ = "America/New_York";
 
 export type WeekWindow = {
@@ -112,7 +115,7 @@ export function getDefaultScheduleWeek(
 
 export function formatKickoffDay(date: Date): string {
   return new Intl.DateTimeFormat("en-GB", {
-    timeZone: NFL_TZ,
+    timeZone: UK_TIME_ZONE,
     weekday: "long",
     day: "numeric",
     month: "short",
@@ -122,7 +125,7 @@ export function formatKickoffDay(date: Date): string {
 /** Short weekday for compact match headers (e.g. "Wed 9 Sept"). */
 export function formatKickoffDayShort(date: Date): string {
   return new Intl.DateTimeFormat("en-GB", {
-    timeZone: NFL_TZ,
+    timeZone: UK_TIME_ZONE,
     weekday: "short",
     day: "numeric",
     month: "short",
@@ -130,8 +133,8 @@ export function formatKickoffDayShort(date: Date): string {
 }
 
 export function formatKickoffTime(date: Date): string {
-  return new Intl.DateTimeFormat("en-US", {
-    timeZone: NFL_TZ,
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone: UK_TIME_ZONE,
     hour: "numeric",
     minute: "2-digit",
     hour12: true,
