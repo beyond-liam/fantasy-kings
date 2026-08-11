@@ -57,7 +57,7 @@ function SwitchField({
           {label}
         </Label>
         {description ? (
-          <p className="text-xs leading-normal text-muted-foreground">
+          <p className="text-[13px] leading-normal text-muted-foreground">
             {description}
           </p>
         ) : null}
