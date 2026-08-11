@@ -53,7 +53,7 @@ function getAction(player: PlayerActionOwnership): {
   kind: ActionKind;
   label: string;
   icon: typeof UserAdd01Icon;
-  variant: "ghost" | "ghost-destructive";
+  variant: "secondary" | "ghost-destructive";
   actionable: boolean;
 } {
   if (player.fantasyTeamId) {
@@ -71,7 +71,7 @@ function getAction(player: PlayerActionOwnership): {
       kind: "trade",
       label: "Trade for player",
       icon: UserSwitchIcon,
-      variant: "ghost",
+      variant: "secondary",
       actionable: true,
     };
   }
@@ -83,7 +83,7 @@ function getAction(player: PlayerActionOwnership): {
       kind: "claim",
       label: "Claim player",
       icon: UserAdd01Icon,
-      variant: "ghost",
+      variant: "secondary",
       actionable: true,
     };
   }
@@ -93,7 +93,7 @@ function getAction(player: PlayerActionOwnership): {
       kind: "add",
       label: "Unavailable",
       icon: UserAdd01Icon,
-      variant: "ghost",
+      variant: "secondary",
       actionable: false,
     };
   }
@@ -102,7 +102,7 @@ function getAction(player: PlayerActionOwnership): {
     kind: "add",
     label: "Add player",
     icon: UserAdd01Icon,
-    variant: "ghost",
+    variant: "secondary",
     actionable: true,
   };
 }
@@ -116,7 +116,7 @@ type PlayerActionButtonProps = {
   acquisitionsLocked?: boolean;
   acquisitionLockReason?: string;
   tradesEnabled?: boolean;
-  /** Icon-only — `icon` for dense tables; `button` for dialog footers (outline). */
+  /** Icon-only — `icon` for dense tables; `button` for dialog footers. */
   appearance?: "icon" | "button";
 };
 
@@ -278,7 +278,7 @@ export function PlayerActionButton({
     appearance === "button"
       ? action.kind === "cut"
         ? "destructive"
-        : "outline"
+        : "secondary"
       : action.variant;
 
   const actionControl =

@@ -87,7 +87,7 @@ export function RosterRowActions({
           render={
             <Button
               type="button"
-              variant="ghost"
+              variant="secondary"
               size="icon-sm"
               aria-label="Player actions"
               disabled={menuDisabled}

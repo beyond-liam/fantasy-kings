@@ -4,19 +4,15 @@ import { useState } from "react";
 import { HistoryIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
-import { PlayerIdentity } from "@/components/rankings/player-identity";
 import {
-  TradePartiesTitle,
+  TradeCardHeader,
+  TradeSidesPanel,
   resolveTradeSideViews,
 } from "@/components/trades/trade-display";
-import { TradeStatusBadge } from "@/components/trades/trade-status-badge";
 import { ListPagination } from "@/components/ui/list-pagination";
 import {
   Card,
-  CardAction,
   CardContent,
-  CardDescription,
-  CardHeader,
 } from "@/components/ui/card";
 import {
   Empty,
@@ -79,7 +75,7 @@ export function TradeHistory({
   }
 
   const statusItems = [
-    { value: ALL_STATUSES, label: "All statuses" },
+    { value: ALL_STATUSES, label: "All" },
     ...CLOSED_STATUSES.filter((status) =>
       closed.some((trade) => trade.status === status),
     ).map((status) => ({
@@ -101,8 +97,8 @@ export function TradeHistory({
   );
 
   return (
-    <section className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-end justify-between gap-3">
+    <section className="flex flex-col gap-3 sm:gap-4">
+      <div className="flex flex-wrap items-end justify-between gap-2 sm:gap-3">
         <div className="flex min-w-0 flex-col gap-1">
           <h2 className="text-lg font-semibold tracking-tight text-balance">
             Trade History
@@ -125,7 +121,7 @@ export function TradeHistory({
         >
           <SelectTrigger
             size="sm"
-            className="w-48 shrink-0"
+            className="w-fit max-w-full shrink-0"
             aria-label="Filter trade history by status"
           >
             <SelectValue />
@@ -161,62 +157,19 @@ export function TradeHistory({
 
             return (
               <Card key={trade.id} size="sm">
-                <CardHeader className="border-b">
-                  <TradePartiesTitle
-                    proposingTeamName={trade.proposingTeamName}
-                    receivingTeamName={trade.receivingTeamName}
-                  />
-                  <CardDescription>
-                    {formatTradeDate(trade.createdAt)}
-                  </CardDescription>
-                  <CardAction className="self-center">
-                    <TradeStatusBadge status={trade.status} />
-                  </CardAction>
-                </CardHeader>
+                <TradeCardHeader
+                  proposingTeamName={trade.proposingTeamName}
+                  receivingTeamName={trade.receivingTeamName}
+                  eyebrow={formatTradeDate(trade.createdAt)}
+                  status={trade.status}
+                />
 
                 <CardContent>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <div className="flex flex-col gap-2">
-                      <p className="text-xs font-medium text-muted-foreground">
-                        {sides.left.label}
-                      </p>
-                      <ul className="flex flex-col gap-2">
-                        {sides.left.players.map((player) => (
-                          <li key={player.playerId}>
-                            <PlayerIdentity
-                              fullName={player.playerName}
-                              sleeperId={player.sleeperId}
-                              primaryPositionId={player.primaryPositionId}
-                              nflTeam={player.nflTeam}
-                              size="sm"
-                              playerId={player.playerId}
-                              leagueSlug={leagueSlug}
-                            />
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                    <div className="flex flex-col gap-2">
-                      <p className="text-xs font-medium text-muted-foreground">
-                        {sides.right.label}
-                      </p>
-                      <ul className="flex flex-col gap-2">
-                        {sides.right.players.map((player) => (
-                          <li key={player.playerId}>
-                            <PlayerIdentity
-                              fullName={player.playerName}
-                              sleeperId={player.sleeperId}
-                              primaryPositionId={player.primaryPositionId}
-                              nflTeam={player.nflTeam}
-                              size="sm"
-                              playerId={player.playerId}
-                              leagueSlug={leagueSlug}
-                            />
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
+                  <TradeSidesPanel
+                    left={sides.left}
+                    right={sides.right}
+                    leagueSlug={leagueSlug}
+                  />
                 </CardContent>
               </Card>
             );

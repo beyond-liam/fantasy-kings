@@ -64,7 +64,10 @@ export type DraftGradeValuePick = {
 export type DraftGradeTeamResult = {
   teamId: string;
   letter: DraftGradeLetter;
+  /** Absolute strength vs league leader (0–100). Matches power rankings. */
   score: number;
+  /** Raw weighted projection strength (starters full + bench ×0.35). */
+  projectedStrength: number;
   leagueRank: number;
   teamCount: number;
   projectedWins: number;
@@ -85,20 +88,28 @@ function starterCount(starterSlots: number) {
 }
 
 /** Higher projected pts weighted for starters; bench discounted. */
+export function weightedRosterStrength(
+  fantasyPts: readonly number[],
+  starterSlots: number,
+): number {
+  const starters = starterCount(starterSlots);
+  const sorted = [...fantasyPts].sort((a, b) => b - a);
+  let total = 0;
+  sorted.forEach((pts, index) => {
+    total += index < starters ? pts : pts * 0.35;
+  });
+  return total;
+}
+
+/** Higher projected pts weighted for starters; bench discounted. */
 export function teamProjectedStrength(
   picks: DraftGradePickInput[],
   starterSlots: number,
 ): number {
-  const starters = starterCount(starterSlots);
-  const sorted = [...picks].sort(
-    (a, b) => (b.fantasyPts ?? 0) - (a.fantasyPts ?? 0),
+  return weightedRosterStrength(
+    picks.map((pick) => pick.fantasyPts ?? 0),
+    starterSlots,
   );
-  let total = 0;
-  sorted.forEach((pick, index) => {
-    const pts = pick.fantasyPts ?? 0;
-    total += index < starters ? pts : pts * 0.35;
-  });
-  return total;
 }
 
 export function pickAdpValue(pick: DraftGradePickInput): number | null {
@@ -114,7 +125,31 @@ export function averageAdpValue(picks: DraftGradePickInput[]): number {
   return values.reduce((sum, value) => sum + value, 0) / values.length;
 }
 
-function bestAndWorstValue(picks: DraftGradePickInput[]): {
+/** K / DEF taken after round 8 are normal roster fills — not “worst pick”. */
+export const WORST_VALUE_K_DEF_MAX_ROUND = 8;
+
+export function isEligibleWorstValuePick(pick: DraftGradePickInput): boolean {
+  const position = pick.primaryPositionId;
+  if (position === "K" || position === "DEF") {
+    return pick.round <= WORST_VALUE_K_DEF_MAX_ROUND;
+  }
+  return true;
+}
+
+function toValuePick(pick: DraftGradePickInput): DraftGradeValuePick | null {
+  const value = pickAdpValue(pick);
+  if (value == null || pick.adp == null) return null;
+  return {
+    playerId: pick.playerId,
+    overall: pick.overall,
+    round: pick.round,
+    pickInRound: pick.pickInRound,
+    adp: pick.adp,
+    value,
+  };
+}
+
+export function bestAndWorstValue(picks: DraftGradePickInput[]): {
   best: DraftGradeValuePick | null;
   worst: DraftGradeValuePick | null;
 } {
@@ -122,40 +157,26 @@ function bestAndWorstValue(picks: DraftGradePickInput[]): {
   let worst: DraftGradeValuePick | null = null;
 
   for (const pick of picks) {
-    const value = pickAdpValue(pick);
-    if (value == null || pick.adp == null) continue;
-    const row: DraftGradeValuePick = {
-      playerId: pick.playerId,
-      overall: pick.overall,
-      round: pick.round,
-      pickInRound: pick.pickInRound,
-      adp: pick.adp,
-      value,
-    };
+    const row = toValuePick(pick);
+    if (!row) continue;
     if (!best || row.value > best.value) best = row;
+    if (!isEligibleWorstValuePick(pick)) continue;
     if (!worst || row.value < worst.value) worst = row;
   }
 
   return { best, worst };
 }
 
-/** Rank 1 = best. */
-export function letterFromLeagueRank(
-  rank: number,
-  teamCount: number,
-): DraftGradeLetter {
-  const n = Math.max(1, teamCount);
-  const r = clamp(rank, 1, n);
-  // Even small leagues get a spread across the scale.
-  const pct = n === 1 ? 1 : (n - r) / (n - 1);
-
-  if (pct >= 0.92) return "A+";
-  if (pct >= 0.78) return "A";
-  if (pct >= 0.62) return "B+";
-  if (pct >= 0.46) return "B";
-  if (pct >= 0.32) return "C+";
-  if (pct >= 0.18) return "C";
-  if (pct >= 0.08) return "D";
+/** Letter from absolute strength score (leader = 100). */
+export function letterFromPowerScore(score: number): DraftGradeLetter {
+  const s = Number.isFinite(score) ? score : 0;
+  if (s >= 97) return "A+";
+  if (s >= 93) return "A";
+  if (s >= 88) return "B+";
+  if (s >= 82) return "B";
+  if (s >= 75) return "C+";
+  if (s >= 65) return "C";
+  if (s >= 50) return "D";
   return "F";
 }
 
@@ -224,18 +245,9 @@ export function computeDraftGrades(
     return {
       teamId: team.teamId,
       strength: teamProjectedStrength(picks, input.starterSlots),
-      adpValue: averageAdpValue(picks),
       picks,
     };
   });
-
-  const strengthSorted = [...strengths].sort((a, b) => b.strength - a.strength);
-  const adpSorted = [...strengths].sort((a, b) => b.adpValue - a.adpValue);
-
-  const strengthRank = new Map<string, number>();
-  const adpRank = new Map<string, number>();
-  strengthSorted.forEach((row, index) => strengthRank.set(row.teamId, index + 1));
-  adpSorted.forEach((row, index) => adpRank.set(row.teamId, index + 1));
 
   const avgStrength =
     strengths.reduce((sum, row) => sum + row.strength, 0) /
@@ -245,13 +257,15 @@ export function computeDraftGrades(
     ...strengths.map((row) => Math.abs(row.strength - avgStrength)),
   );
 
+  let maxStrength = 0;
+  for (const row of strengths) {
+    if (row.strength > maxStrength) maxStrength = row.strength;
+  }
+
   const scored = strengths.map((row) => {
-    const sRank = strengthRank.get(row.teamId) ?? teamCount;
-    const aRank = adpRank.get(row.teamId) ?? teamCount;
-    const strengthScore = teamCount === 1 ? 100 : ((teamCount - sRank) / (teamCount - 1)) * 100;
-    const adpScore = teamCount === 1 ? 100 : ((teamCount - aRank) / (teamCount - 1)) * 100;
-    const score = strengthScore * 0.7 + adpScore * 0.3;
-    return { ...row, score, sRank };
+    const score =
+      maxStrength <= 0 ? 0 : (100 * row.strength) / maxStrength;
+    return { ...row, score };
   });
 
   scored.sort((a, b) => {
@@ -261,7 +275,8 @@ export function computeDraftGrades(
 
   return scored.map((row, index) => {
     const leagueRank = index + 1;
-    const letter = letterFromLeagueRank(leagueRank, teamCount);
+    const score = Math.round(row.score * 10) / 10;
+    const letter = letterFromPowerScore(score);
     const delta = row.strength - avgStrength;
     const winPct = 1 / (1 + Math.exp(-delta / (strengthSpread * 0.45)));
     const projectedWins = clamp(Math.round(winPct * weeks), 0, weeks);
@@ -277,7 +292,8 @@ export function computeDraftGrades(
     return {
       teamId: row.teamId,
       letter,
-      score: Math.round(row.score * 10) / 10,
+      score,
+      projectedStrength: Math.round(row.strength * 10) / 10,
       leagueRank,
       teamCount,
       projectedWins,

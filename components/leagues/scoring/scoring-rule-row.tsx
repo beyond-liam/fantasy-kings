@@ -42,7 +42,7 @@ export function ScoringRuleRow({
         />
         <Button
           type="button"
-          variant="ghost"
+          variant="secondary"
           size="icon-sm"
           aria-label={`Edit ${rule.stat}`}
           onClick={() => onEdit(rule)}

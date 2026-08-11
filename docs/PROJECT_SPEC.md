@@ -867,7 +867,8 @@ lib/
 | 2026-08-05 | Player Overview PPG: Production, Breakdown, and roster subject use weekly mean (not re-scored season bag) |
 | 2026-08-06 | Activity feed: draft picks and commissioner pick reverts |
 | 2026-08-06 | Backfill script `pnpm db:backfill:draft-activity` mirrors existing draft_picks into activity |
-| 2026-08-06 | Draft Rankings (Power Rankings) use live draft-grade scores from picks + season projections |
+| 2026-08-11 | Power Rankings: draft/week/ROS use absolute projected strength (leader=100); close rosters stay clustered |
+| 2026-08-11 | Draft grades: letter/score from absolute strength; K/DEF ignored for worst pick after round 8 |
 | 2026-08-06 | Power Rankings overview: trends, my ranks, season trajectory chart, then mode list |
 | 2026-08-06 | Activity feed filters condensed: Draft picks · Trades · Waivers · Roster · League |
 | 2026-08-07 | NFL Scores schedule settings: include preseason switch + start-week select on `/settings` |

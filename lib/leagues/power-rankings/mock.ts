@@ -93,6 +93,8 @@ export function buildMockPowerRankingsOverview(input: {
   if (teams.length === 0) {
     return {
       draftRows: [],
+      weekRows: [],
+      rosRows: [],
       ticks: [],
       chartData: [],
       summaries: [],
@@ -127,9 +129,12 @@ export function buildMockPowerRankingsOverview(input: {
     summaries.map((row) => [row.teamId, row] as const),
   );
   const draftRanks = ticks[0]!.ranksByTeamId;
+  const draftRows = draftRowsFromRanks(teams, draftRanks);
 
   return {
-    draftRows: draftRowsFromRanks(teams, draftRanks),
+    draftRows,
+    weekRows: draftRowsFromRanks(teams, ranksForTick(teamIds, 1)),
+    rosRows: draftRowsFromRanks(teams, ranksForTick(teamIds, 2)),
     ticks,
     chartData: trajectoryToChartData(ticks, teamIds),
     summaries,

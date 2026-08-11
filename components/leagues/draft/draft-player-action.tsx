@@ -99,7 +99,7 @@ export function DraftPlayerAction({
       <Button
         type="button"
         size="icon-sm"
-        variant="outline"
+        variant="secondary"
         className="md:h-8 md:w-auto md:gap-1 md:px-2.5"
         aria-label="Commish pick"
         disabled={isPending}

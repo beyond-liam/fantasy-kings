@@ -13,6 +13,8 @@ import {
   buildDraftPowerRankingRows,
   buildEmptyDraftPowerRankingRows,
 } from "@/lib/leagues/power-rankings/draft";
+import { buildEmptyPowerRankingRows } from "@/lib/leagues/power-rankings/rows";
+import { buildRosterPowerRankingRows } from "@/lib/leagues/power-rankings/roster";
 import {
   buildPowerRankTrajectory,
   pickTrendingTeams,
@@ -33,9 +35,12 @@ import {
 } from "@/lib/leagues/scoring";
 import { getDraftBySeasonId, getDraftPicks } from "@/lib/queries/draft";
 import { getRankedPlayers } from "@/lib/queries/players";
+import { getTeamRosterPlayers } from "@/lib/queries/team-roster";
 
 export type PowerRankingsOverview = {
   draftRows: PowerRankingTeamRow[];
+  weekRows: PowerRankingTeamRow[];
+  rosRows: PowerRankingTeamRow[];
   ticks: PowerRankTrajectoryTick[];
   chartData: Array<Record<string, string | number>>;
   summaries: PowerRankTeamSummary[];
@@ -44,6 +49,39 @@ export type PowerRankingsOverview = {
   teamCount: number;
   mySummary: PowerRankTeamSummary | null;
 };
+
+async function loadProjectionPts(input: {
+  playerIds: string[];
+  seasonYear: number;
+  week: number;
+  scoringRules: ReturnType<typeof resolveScoringRuleDefinitions>;
+}): Promise<Map<string, number>> {
+  if (input.playerIds.length === 0) return new Map();
+  const ranked = await getRankedPlayers({
+    season: String(input.seasonYear),
+    week: input.week,
+    kind: "projection",
+    scoringRules: input.scoringRules,
+    playerIds: input.playerIds,
+    includePositionRanks: false,
+  }).catch(() => []);
+  return new Map(
+    ranked.map((row) => [row.id, row.fantasyPts ?? 0] as const),
+  );
+}
+
+async function loadRosterPlayerIdsByTeam(
+  standingsTeams: LeagueStandingsMember[],
+): Promise<Map<string, string[]>> {
+  const claimed = standingsTeams.filter((team) => team.teamId);
+  const entries = await Promise.all(
+    claimed.map(async (team) => {
+      const players = await getTeamRosterPlayers(team.teamId!);
+      return [team.teamId!, players.map((player) => player.id)] as const;
+    }),
+  );
+  return new Map(entries);
+}
 
 export const getDraftPowerRankingRows = cache(
   async (input: {
@@ -113,11 +151,59 @@ export const getPowerRankingsOverview = cache(
     myTeamId: string | null;
     showFaabBudget: boolean;
     faabBudget: number | null;
+    upcomingWeek: number;
   }): Promise<PowerRankingsOverview> => {
-    const [draftRows, finals] = await Promise.all([
+    const scoringRules = resolveScoringRuleDefinitions(
+      input.scoringPreset as ScoringPreset,
+      input.settings.scoringRules,
+    );
+    const starterSlots = countStarterSlots(input.settings);
+    const week = Math.max(1, input.upcomingWeek);
+
+    const [draftRows, finals, playerIdsByTeamId] = await Promise.all([
       getDraftPowerRankingRows(input),
       getFinalMatchupsForSeason(input.leagueSeasonId).catch(() => []),
+      loadRosterPlayerIdsByTeam(input.standingsTeams),
     ]);
+
+    const allPlayerIds = [
+      ...new Set([...playerIdsByTeamId.values()].flat()),
+    ];
+
+    const [seasonPts, weekPts] = await Promise.all([
+      loadProjectionPts({
+        playerIds: allPlayerIds,
+        seasonYear: input.seasonYear,
+        week: 0,
+        scoringRules,
+      }),
+      loadProjectionPts({
+        playerIds: allPlayerIds,
+        seasonYear: input.seasonYear,
+        week,
+        scoringRules,
+      }),
+    ]);
+
+    const rosRows =
+      allPlayerIds.length === 0
+        ? buildEmptyPowerRankingRows(input.standingsTeams)
+        : buildRosterPowerRankingRows({
+            teams: input.standingsTeams,
+            fantasyPtsByPlayerId: seasonPts,
+            playerIdsByTeamId,
+            starterSlots,
+          });
+
+    const weekRows =
+      allPlayerIds.length === 0
+        ? buildEmptyPowerRankingRows(input.standingsTeams)
+        : buildRosterPowerRankingRows({
+            teams: input.standingsTeams,
+            fantasyPtsByPlayerId: weekPts,
+            playerIdsByTeamId,
+            starterSlots,
+          });
 
     const claimedTeams = input.standingsTeams.flatMap((team) => {
       if (!team.teamId) return [];
@@ -154,6 +240,8 @@ export const getPowerRankingsOverview = cache(
 
     return {
       draftRows,
+      weekRows,
+      rosRows,
       ticks,
       chartData: trajectoryToChartData(
         ticks,

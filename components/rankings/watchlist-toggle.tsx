@@ -43,7 +43,7 @@ export function WatchlistToggle({ playerId, label }: WatchlistToggleProps) {
         >
           <Button
             type="button"
-            variant="outline"
+            variant="secondary"
             size="icon-sm"
             aria-label={tooltip}
             aria-pressed={watched}
@@ -52,9 +52,8 @@ export function WatchlistToggle({ playerId, label }: WatchlistToggleProps) {
               toggle(playerId);
             }}
             className={cn(
-              "bg-input shadow-none hover:bg-input/80",
               watched &&
-                "border-transparent bg-transparent hover:bg-transparent",
+                "border-transparent bg-transparent shadow-none hover:bg-transparent",
             )}
           >
             <span className="relative flex size-4 items-center justify-center">

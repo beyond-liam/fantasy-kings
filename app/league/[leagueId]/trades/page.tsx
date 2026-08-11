@@ -82,8 +82,8 @@ export default async function TradesPage({ params }: TradesPageProps) {
     }));
 
   return (
-    <div className="flex flex-1 flex-col gap-6 p-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
+    <div className="flex flex-1 flex-col gap-5 p-4 sm:gap-6 sm:p-6">
+      <div className="flex flex-wrap items-end justify-between gap-2 sm:gap-3">
         <h1 className="text-2xl font-semibold tracking-tight text-balance">
           Trades
         </h1>
@@ -104,7 +104,7 @@ export default async function TradesPage({ params }: TradesPageProps) {
         </Empty>
       ) : (
         <>
-          <section className="flex flex-col gap-4">
+          <section className="flex flex-col gap-3 sm:gap-4">
             {openTradeCount > 0 ? (
               <h2 className="text-lg font-semibold tracking-tight text-balance">
                 Open Trades

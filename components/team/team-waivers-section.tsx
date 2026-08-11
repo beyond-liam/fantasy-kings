@@ -113,7 +113,7 @@ function SortableClaimCard({
         </span>
         <Button
           type="button"
-          variant="ghost"
+          variant="secondary"
           size="icon-sm"
           className="cursor-grab touch-none text-muted-foreground active:cursor-grabbing"
           aria-label={`Drag to reorder claim for ${claim.playerName}`}
@@ -143,7 +143,7 @@ function SortableClaimCard({
         <div className="flex shrink-0 flex-wrap gap-2">
           <Button
             type="button"
-            variant="outline"
+            variant="secondary"
             size="sm"
             disabled={disabled}
             onClick={onCancel}

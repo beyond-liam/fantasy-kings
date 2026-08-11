@@ -15,21 +15,17 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react";
 import { toast } from "sonner";
 
-import { PlayerIdentity } from "@/components/rankings/player-identity";
 import { TradeAcceptDialog } from "@/components/trades/trade-accept-dialog";
 import {
-  TradePartiesTitle,
+  TradeCardHeader,
+  TradeSidesPanel,
   resolveTradeSideViews,
 } from "@/components/trades/trade-display";
-import { TradeStatusBadge } from "@/components/trades/trade-status-badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
-  CardAction,
   CardContent,
-  CardDescription,
   CardFooter,
-  CardHeader,
 } from "@/components/ui/card";
 import {
   Empty,
@@ -290,79 +286,34 @@ export function TradeList({
 
         return (
           <Card key={trade.id} size="sm">
-            <CardHeader className="border-b">
-              <TradePartiesTitle
-                proposingTeamName={trade.proposingTeamName}
-                receivingTeamName={trade.receivingTeamName}
-              />
-              {countdown ? (
-                <CardDescription>{countdown}</CardDescription>
-              ) : null}
-              <CardAction className="self-center">
-                <TradeStatusBadge
-                  status={trade.status}
-                  vetoCount={
-                    allowVetoes && trade.status === "review"
-                      ? veto?.count
-                      : undefined
-                  }
-                  vetoThreshold={
-                    allowVetoes && trade.status === "review"
-                      ? veto?.threshold
-                      : undefined
-                  }
-                  myTeamVetoed={veto?.myTeamVetoed}
-                />
-              </CardAction>
-            </CardHeader>
+            <TradeCardHeader
+              proposingTeamName={trade.proposingTeamName}
+              receivingTeamName={trade.receivingTeamName}
+              eyebrow={countdown}
+              status={trade.status}
+              vetoCount={
+                allowVetoes && trade.status === "review"
+                  ? veto?.count
+                  : undefined
+              }
+              vetoThreshold={
+                allowVetoes && trade.status === "review"
+                  ? veto?.threshold
+                  : undefined
+              }
+              myTeamVetoed={veto?.myTeamVetoed}
+            />
 
-            <CardContent className="flex flex-col gap-4">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="flex flex-col gap-2">
-                  <p className="text-xs font-medium text-muted-foreground">
-                    {sides.left.label}
-                  </p>
-                  <ul className="flex flex-col gap-2">
-                    {sides.left.players.map((player) => (
-                      <li key={player.playerId}>
-                        <PlayerIdentity
-                          fullName={player.playerName}
-                          sleeperId={player.sleeperId}
-                          primaryPositionId={player.primaryPositionId}
-                          nflTeam={player.nflTeam}
-                          size="sm"
-                          playerId={player.playerId}
-                          leagueSlug={leagueSlug}
-                        />
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-                <div className="flex flex-col gap-2">
-                  <p className="text-xs font-medium text-muted-foreground">
-                    {sides.right.label}
-                  </p>
-                  <ul className="flex flex-col gap-2">
-                    {sides.right.players.map((player) => (
-                      <li key={player.playerId}>
-                        <PlayerIdentity
-                          fullName={player.playerName}
-                          sleeperId={player.sleeperId}
-                          primaryPositionId={player.primaryPositionId}
-                          nflTeam={player.nflTeam}
-                          size="sm"
-                          playerId={player.playerId}
-                          leagueSlug={leagueSlug}
-                        />
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
+            <CardContent>
+              <TradeSidesPanel
+                left={sides.left}
+                right={sides.right}
+                leagueSlug={leagueSlug}
+              />
             </CardContent>
 
             {hasActions ? (
-              <CardFooter className="justify-end gap-2 border-t">
+              <CardFooter className="flex-col-reverse items-stretch gap-2 border-t sm:flex-row sm:items-center sm:justify-end sm:*:w-auto *:w-full">
                 {showReceiverActions ? (
                   <>
                     <Button

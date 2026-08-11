@@ -79,7 +79,7 @@ function SortableRow({
       </span>
       <Button
         type="button"
-        variant="ghost"
+        variant="secondary"
         size="icon-sm"
         className="cursor-grab touch-none text-muted-foreground active:cursor-grabbing"
         aria-label={`Drag to reorder ${item.label}`}

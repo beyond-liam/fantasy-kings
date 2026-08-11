@@ -12,7 +12,7 @@ export type PowerRankingTeamRow = {
   ownerName: string;
   ownerUserId: string | null;
   logoUrl: string | null;
-  /** Display score 0–100; league leader is always 100. */
+  /** Display score 0–100; league leader is always 100 (raw strength / max). */
   powerScore: number;
   tone: PowerRankingTone;
 };

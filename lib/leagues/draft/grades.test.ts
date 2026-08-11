@@ -2,10 +2,11 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import {
+  bestAndWorstValue,
   computeDraftGrades,
   draftGradeImageSrc,
   formatDraftPickLabel,
-  letterFromLeagueRank,
+  letterFromPowerScore,
   teamProjectedStrength,
   type DraftGradePickInput,
 } from "@/lib/leagues/draft/grades";
@@ -44,14 +45,16 @@ describe("draft grades", () => {
     assert.equal(withStarterBias, 300 + 100 * 0.35);
   });
 
-  it("assigns spread letters by rank", () => {
-    assert.equal(letterFromLeagueRank(1, 12), "A+");
-    assert.equal(letterFromLeagueRank(12, 12), "F");
+  it("assigns letters from absolute power score", () => {
+    assert.equal(letterFromPowerScore(100), "A+");
+    assert.equal(letterFromPowerScore(95), "A");
+    assert.equal(letterFromPowerScore(90), "B+");
+    assert.equal(letterFromPowerScore(40), "F");
   });
 
-  it("ranks stronger projected teams higher", () => {
+  it("ranks stronger projected teams higher with clustered scores", () => {
     const results = computeDraftGrades({
-      teams: [{ teamId: "strong" }, { teamId: "weak" }],
+      teams: [{ teamId: "strong" }, { teamId: "close" }, { teamId: "weak" }],
       picks: [
         pick({
           teamId: "strong",
@@ -63,21 +66,35 @@ describe("draft grades", () => {
         pick({
           teamId: "strong",
           playerId: "b",
-          overall: 3,
+          overall: 4,
           fantasyPts: 350,
           adp: 8,
         }),
         pick({
-          teamId: "weak",
+          teamId: "close",
           playerId: "c",
           overall: 2,
+          fantasyPts: 390,
+          adp: 6,
+        }),
+        pick({
+          teamId: "close",
+          playerId: "d",
+          overall: 5,
+          fantasyPts: 340,
+          adp: 9,
+        }),
+        pick({
+          teamId: "weak",
+          playerId: "e",
+          overall: 3,
           fantasyPts: 120,
           adp: 2,
         }),
         pick({
           teamId: "weak",
-          playerId: "d",
-          overall: 4,
+          playerId: "f",
+          overall: 6,
           fantasyPts: 90,
           adp: 4,
         }),
@@ -88,10 +105,13 @@ describe("draft grades", () => {
     });
 
     assert.equal(results[0]?.teamId, "strong");
-    assert.equal(results[0]?.leagueRank, 1);
-    assert.ok(["A+", "A", "B+"].includes(results[0]!.letter));
-    assert.equal(results[1]?.teamId, "weak");
-    assert.ok(results[0]!.projectedWins >= results[1]!.projectedWins);
+    assert.equal(results[0]?.score, 100);
+    assert.equal(results[0]?.letter, "A+");
+    assert.equal(results[1]?.teamId, "close");
+    assert.ok((results[1]?.score ?? 0) >= 90);
+    assert.ok(["A+", "A", "B+"].includes(results[1]!.letter));
+    assert.equal(results[2]?.teamId, "weak");
+    assert.ok((results[2]?.score ?? 0) < (results[1]?.score ?? 0));
   });
 
   it("picks best and worst ADP values", () => {
@@ -120,5 +140,49 @@ describe("draft grades", () => {
 
     assert.equal(result?.bestValue?.playerId, "steal");
     assert.equal(result?.worstValue?.playerId, "reach");
+  });
+
+  it("ignores late K/DEF for worst value unless taken by round 8", () => {
+    const lateK = bestAndWorstValue([
+      pick({
+        teamId: "t1",
+        playerId: "skill-reach",
+        overall: 10,
+        adp: 30,
+        round: 2,
+        primaryPositionId: "WR",
+      }),
+      pick({
+        teamId: "t1",
+        playerId: "late-k",
+        overall: 120,
+        adp: 140,
+        round: 12,
+        primaryPositionId: "K",
+        fantasyPts: 80,
+      }),
+    ]);
+    assert.equal(lateK.worst?.playerId, "skill-reach");
+
+    const earlyDef = bestAndWorstValue([
+      pick({
+        teamId: "t1",
+        playerId: "mild-reach",
+        overall: 20,
+        adp: 25,
+        round: 3,
+        primaryPositionId: "RB",
+      }),
+      pick({
+        teamId: "t1",
+        playerId: "early-def",
+        overall: 40,
+        adp: 90,
+        round: 5,
+        primaryPositionId: "DEF",
+        fantasyPts: 90,
+      }),
+    ]);
+    assert.equal(earlyDef.worst?.playerId, "early-def");
   });
 });

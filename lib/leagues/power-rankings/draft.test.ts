@@ -6,6 +6,8 @@ import {
   buildDraftPowerRankingRows,
   buildEmptyDraftPowerRankingRows,
 } from "@/lib/leagues/power-rankings/draft";
+import { buildPowerRankingRowsFromStrength } from "@/lib/leagues/power-rankings/rows";
+import { buildRosterPowerRankingRows } from "@/lib/leagues/power-rankings/roster";
 import type { LeagueStandingsMember } from "@/lib/leagues/standings";
 
 function team(
@@ -32,7 +34,10 @@ function team(
 }
 
 function grade(
-  partial: Pick<DraftGradeTeamResult, "teamId" | "score" | "leagueRank">,
+  partial: Pick<
+    DraftGradeTeamResult,
+    "teamId" | "score" | "leagueRank" | "projectedStrength"
+  >,
 ): DraftGradeTeamResult {
   return {
     letter: "B",
@@ -55,13 +60,28 @@ describe("buildDraftPowerRankingRows", () => {
     team({ teamId: "c", teamName: "Charlie", firstName: "Cat" }),
   ];
 
-  it("ranks by draft-grade score with leader at 100", () => {
+  it("ranks by absolute projected strength with leader at 100", () => {
     const rows = buildDraftPowerRankingRows({
       teams,
       grades: [
-        grade({ teamId: "b", score: 90, leagueRank: 1 }),
-        grade({ teamId: "a", score: 60, leagueRank: 2 }),
-        grade({ teamId: "c", score: 30, leagueRank: 3 }),
+        grade({
+          teamId: "b",
+          score: 100,
+          leagueRank: 1,
+          projectedStrength: 1200,
+        }),
+        grade({
+          teamId: "a",
+          score: 50,
+          leagueRank: 2,
+          projectedStrength: 1140,
+        }),
+        grade({
+          teamId: "c",
+          score: 0,
+          leagueRank: 3,
+          projectedStrength: 1080,
+        }),
       ],
     });
 
@@ -73,8 +93,8 @@ describe("buildDraftPowerRankingRows", () => {
       })),
       [
         { teamId: "b", rank: 1, powerScore: 100 },
-        { teamId: "a", rank: 2, powerScore: 67 },
-        { teamId: "c", rank: 3, powerScore: 33 },
+        { teamId: "a", rank: 2, powerScore: 95 },
+        { teamId: "c", rank: 3, powerScore: 90 },
       ],
     );
   });
@@ -86,6 +106,64 @@ describe("buildDraftPowerRankingRows", () => {
     assert.deepEqual(
       rows.map((row) => row.rank),
       [1, 2, 3],
+    );
+  });
+});
+
+describe("buildPowerRankingRowsFromStrength", () => {
+  it("keeps close strengths clustered instead of forcing last to 0", () => {
+    const teams = [
+      team({ teamId: "a", teamName: "A" }),
+      team({ teamId: "b", teamName: "B" }),
+      team({ teamId: "c", teamName: "C" }),
+      team({ teamId: "d", teamName: "D" }),
+    ];
+    const rows = buildPowerRankingRowsFromStrength({
+      teams,
+      strengthByTeamId: new Map([
+        ["a", 1000],
+        ["b", 980],
+        ["c", 960],
+        ["d", 940],
+      ]),
+    });
+
+    assert.deepEqual(
+      rows.map((row) => row.powerScore),
+      [100, 98, 96, 94],
+    );
+  });
+});
+
+describe("buildRosterPowerRankingRows", () => {
+  it("weights starters fully and benches at 0.35", () => {
+    const teams = [
+      team({ teamId: "strong", teamName: "Strong" }),
+      team({ teamId: "weak", teamName: "Weak" }),
+    ];
+    const rows = buildRosterPowerRankingRows({
+      teams,
+      starterSlots: 1,
+      fantasyPtsByPlayerId: new Map([
+        ["s1", 100],
+        ["s2", 100],
+        ["w1", 50],
+        ["w2", 50],
+      ]),
+      playerIdsByTeamId: new Map([
+        ["strong", ["s1", "s2"]],
+        ["weak", ["w1", "w2"]],
+      ]),
+    });
+
+    // strong: 100 + 100*0.35 = 135 → 100
+    // weak: 50 + 50*0.35 = 67.5 → round(100 * 67.5/135) = 50
+    assert.deepEqual(
+      rows.map((row) => ({ teamId: row.teamId, powerScore: row.powerScore })),
+      [
+        { teamId: "strong", powerScore: 100 },
+        { teamId: "weak", powerScore: 50 },
+      ],
     );
   });
 });

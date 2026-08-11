@@ -22,7 +22,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { buildScaffoldPowerRankingRows } from "@/lib/leagues/power-rankings/scaffold";
 import type {
   PowerRankingMode,
   PowerRankingTeamRow,
@@ -31,13 +30,13 @@ import type {
   PowerRankTeamSummary,
   PowerRankTrendEntry,
 } from "@/lib/leagues/power-rankings/trajectory";
-import type { LeagueStandingsMember } from "@/lib/leagues/standings";
 
 type PowerRankingsCardProps = {
   leagueSlug: string;
-  standingsTeams: LeagueStandingsMember[];
   upcomingWeek: number;
   draftRows: PowerRankingTeamRow[];
+  weekRows: PowerRankingTeamRow[];
+  rosRows: PowerRankingTeamRow[];
   chartData: Array<Record<string, string | number>>;
   summaries: PowerRankTeamSummary[];
   trendingUp: PowerRankTrendEntry[];
@@ -49,9 +48,10 @@ type PowerRankingsCardProps = {
 
 export function PowerRankingsCard({
   leagueSlug,
-  standingsTeams,
   upcomingWeek,
   draftRows,
+  weekRows,
+  rosRows,
   chartData,
   summaries,
   trendingUp,
@@ -71,10 +71,8 @@ export function PowerRankingsCard({
     [upcomingWeek],
   );
 
-  const rows = useMemo(() => {
-    if (mode === "draft") return draftRows;
-    return buildScaffoldPowerRankingRows(standingsTeams, mode);
-  }, [draftRows, mode, standingsTeams]);
+  const rows =
+    mode === "draft" ? draftRows : mode === "week" ? weekRows : rosRows;
 
   return (
     <div className="flex flex-col gap-6">

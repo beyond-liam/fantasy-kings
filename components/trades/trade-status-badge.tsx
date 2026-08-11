@@ -29,13 +29,13 @@ function resolveTradeStatusBadge(status: string) {
       return {
         variant: "success" as const,
         icon: CheckmarkCircle01Icon,
-        label: "Trade complete",
+        label: "Complete",
       };
     case "pending":
       return {
         variant: "warning" as const,
         icon: Alert02Icon,
-        label: "Trade pending",
+        label: "Pending",
       };
     case "review":
     case "awaiting_commissioner":
@@ -48,7 +48,7 @@ function resolveTradeStatusBadge(status: string) {
       return {
         variant: "destructive" as const,
         icon: CircleXIcon,
-        label: "Trade cancelled",
+        label: "Cancelled",
       };
     default:
       return {
