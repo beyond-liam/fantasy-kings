@@ -15,7 +15,10 @@ import {
 import { db } from "@/lib/db";
 import { rosterPositionSortIndex } from "@/lib/leagues/roster-position-order";
 import { formatAcquisitionLabel } from "@/lib/leagues/trades/acquisition-label";
-import { OPEN_TRADE_STATUSES } from "@/lib/leagues/trades/guards";
+import {
+  LEAGUE_VISIBLE_TRADE_STATUSES,
+  OPEN_TRADE_STATUSES,
+} from "@/lib/leagues/trades/guards";
 import type { TradeRosterPlayer } from "@/lib/leagues/trades/validate";
 import type { ScoringRuleDefinition } from "@/lib/leagues/scoring/types";
 import { getRankedPlayers } from "@/lib/queries/players";
@@ -218,18 +221,8 @@ async function hydrateTradePlayers(tradeIds: string[]) {
 
 export async function getLeagueTrades(
   leagueSeasonId: string,
-  teamId?: string,
+  viewerTeamId: string,
 ): Promise<TradeListRow[]> {
-  const conditions = [eq(trades.leagueSeasonId, leagueSeasonId)];
-  if (teamId) {
-    conditions.push(
-      or(
-        eq(trades.proposingTeamId, teamId),
-        eq(trades.receivingTeamId, teamId),
-      )!,
-    );
-  }
-
   const rows = await db
     .select({
       id: trades.id,
@@ -248,7 +241,16 @@ export async function getLeagueTrades(
     .from(trades)
     .innerJoin(proposingTeam, eq(trades.proposingTeamId, proposingTeam.id))
     .innerJoin(receivingTeam, eq(trades.receivingTeamId, receivingTeam.id))
-    .where(and(...conditions))
+    .where(
+      and(
+        eq(trades.leagueSeasonId, leagueSeasonId),
+        or(
+          eq(trades.proposingTeamId, viewerTeamId),
+          eq(trades.receivingTeamId, viewerTeamId),
+          inArray(trades.status, [...LEAGUE_VISIBLE_TRADE_STATUSES]),
+        ),
+      ),
+    )
     .orderBy(desc(trades.createdAt));
 
   const playersByTrade = await hydrateTradePlayers(rows.map((row) => row.id));
@@ -270,9 +272,57 @@ export async function getLeagueTrades(
   }));
 }
 
-/** Trades that involve this team as proposer or receiver only. */
+/**
+ * Trades that involve this team as proposer or receiver only
+ * (includes private pending / rejected / cancelled).
+ */
 export async function getTeamTrades(leagueSeasonId: string, teamId: string) {
-  return getLeagueTrades(leagueSeasonId, teamId);
+  const rows = await db
+    .select({
+      id: trades.id,
+      status: trades.status,
+      comment: trades.comment,
+      reviewEndsAt: trades.reviewEndsAt,
+      createdAt: trades.createdAt,
+      proposingTeamId: trades.proposingTeamId,
+      receivingTeamId: trades.receivingTeamId,
+      createdByUserId: trades.createdByUserId,
+      proposingTeamName: proposingTeam.name,
+      proposingTeamSlug: proposingTeam.slug,
+      receivingTeamName: receivingTeam.name,
+      receivingTeamSlug: receivingTeam.slug,
+    })
+    .from(trades)
+    .innerJoin(proposingTeam, eq(trades.proposingTeamId, proposingTeam.id))
+    .innerJoin(receivingTeam, eq(trades.receivingTeamId, receivingTeam.id))
+    .where(
+      and(
+        eq(trades.leagueSeasonId, leagueSeasonId),
+        or(
+          eq(trades.proposingTeamId, teamId),
+          eq(trades.receivingTeamId, teamId),
+        ),
+      ),
+    )
+    .orderBy(desc(trades.createdAt));
+
+  const playersByTrade = await hydrateTradePlayers(rows.map((row) => row.id));
+
+  return rows.map((row) => ({
+    id: row.id,
+    status: row.status,
+    comment: row.comment,
+    reviewEndsAt: row.reviewEndsAt,
+    createdAt: row.createdAt,
+    proposingTeamId: row.proposingTeamId,
+    proposingTeamName: row.proposingTeamName,
+    proposingTeamSlug: row.proposingTeamSlug ?? row.proposingTeamId,
+    receivingTeamId: row.receivingTeamId,
+    receivingTeamName: row.receivingTeamName,
+    receivingTeamSlug: row.receivingTeamSlug ?? row.receivingTeamId,
+    createdByUserId: row.createdByUserId,
+    players: playersByTrade.get(row.id) ?? [],
+  }));
 }
 
 export async function getTeamOpenTrades(teamId: string) {

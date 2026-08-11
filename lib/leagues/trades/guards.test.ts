@@ -3,7 +3,9 @@ import { describe, it } from "node:test";
 
 import {
   canProposeTrades,
+  isLeagueVisibleTradeStatus,
   isTradeDeadlineLockout,
+  isTradeVisibleToTeam,
 } from "@/lib/leagues/trades/guards";
 
 describe("canProposeTrades", () => {
@@ -104,6 +106,42 @@ describe("isTradeDeadlineLockout", () => {
         deadlineWeek: null,
         lastGameWeek: 17,
       }),
+      false,
+    );
+  });
+});
+
+describe("trade league visibility", () => {
+  const pending = {
+    status: "pending",
+    proposingTeamId: "a",
+    receivingTeamId: "b",
+  };
+
+  it("hides pending from uninvolved teams", () => {
+    assert.equal(isLeagueVisibleTradeStatus("pending"), false);
+    assert.equal(isTradeVisibleToTeam(pending, "c"), false);
+  });
+
+  it("shows pending to involved teams", () => {
+    assert.equal(isTradeVisibleToTeam(pending, "a"), true);
+    assert.equal(isTradeVisibleToTeam(pending, "b"), true);
+  });
+
+  it("shows accepted and later statuses to the whole league", () => {
+    assert.equal(isLeagueVisibleTradeStatus("review"), true);
+    assert.equal(isLeagueVisibleTradeStatus("completed"), true);
+    assert.equal(
+      isTradeVisibleToTeam({ ...pending, status: "review" }, "c"),
+      true,
+    );
+  });
+
+  it("keeps rejected and cancelled private", () => {
+    assert.equal(isLeagueVisibleTradeStatus("rejected"), false);
+    assert.equal(isLeagueVisibleTradeStatus("cancelled"), false);
+    assert.equal(
+      isTradeVisibleToTeam({ ...pending, status: "rejected" }, "c"),
       false,
     );
   });

@@ -53,7 +53,7 @@ export default async function TradesPage({ params }: TradesPageProps) {
     void processReadyTrades(slug);
   });
 
-  const trades = await getLeagueTrades(season.id);
+  const trades = await getLeagueTrades(season.id, team.id);
   const transactionRules = resolveTransactionRules(
     season.settings.transactionRules,
   );

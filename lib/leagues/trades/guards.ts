@@ -15,6 +15,48 @@ export function isOpenTradeStatus(
   return OPEN_TRADE_STATUSES.includes(status as OpenTradeStatus);
 }
 
+/**
+ * Statuses the whole league can see. Pending / rejected / cancelled stay
+ * private to the proposing and receiving teams until a trade is accepted.
+ */
+export const LEAGUE_VISIBLE_TRADE_STATUSES = [
+  "review",
+  "awaiting_commissioner",
+  "completed",
+  "vetoed",
+  "commissioner_rejected",
+  "invalidated",
+] as const;
+
+export type LeagueVisibleTradeStatus =
+  (typeof LEAGUE_VISIBLE_TRADE_STATUSES)[number];
+
+export function isLeagueVisibleTradeStatus(
+  status: string,
+): status is LeagueVisibleTradeStatus {
+  return LEAGUE_VISIBLE_TRADE_STATUSES.includes(
+    status as LeagueVisibleTradeStatus,
+  );
+}
+
+/** Involved parties see everything; others only see post-acceptance trades. */
+export function isTradeVisibleToTeam(
+  trade: {
+    status: string;
+    proposingTeamId: string;
+    receivingTeamId: string;
+  },
+  teamId: string,
+) {
+  if (
+    trade.proposingTeamId === teamId ||
+    trade.receivingTeamId === teamId
+  ) {
+    return true;
+  }
+  return isLeagueVisibleTradeStatus(trade.status);
+}
+
 /** Season statuses where trades are allowed when `tradesEnabled` (includes draft). */
 const TRADE_OPEN_SEASON_STATUSES = new Set([
   "setup",
