@@ -20,7 +20,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
-  Cancel01Icon,
+  Delete02Icon,
   DragDropVerticalIcon,
   Edit02Icon,
   FlashIcon,
@@ -105,17 +105,16 @@ function SortableClaimCard({
         transform: CSS.Transform.toString(transform),
         transition,
       }}
-      className={cn(isDragging && "z-10 shadow-md")}
+      className={cn(
+        isDragging && "z-10 bg-card opacity-100 shadow-md",
+      )}
     >
-      <CardContent className="flex flex-wrap items-center gap-3">
-        <span className="w-5 shrink-0 text-sm tabular-nums text-muted-foreground">
-          {index + 1}
-        </span>
+      <CardContent className="grid grid-cols-[auto_2ch_minmax(0,1fr)] items-start gap-x-2 gap-y-3 sm:flex sm:flex-wrap sm:items-center sm:gap-3">
         <Button
           type="button"
           variant="secondary"
           size="icon-sm"
-          className="cursor-grab touch-none text-muted-foreground active:cursor-grabbing"
+          className="mt-0.5 shrink-0 cursor-grab touch-none text-muted-foreground active:cursor-grabbing sm:mt-0"
           aria-label={`Drag to reorder claim for ${claim.playerName}`}
           disabled={disabled}
           {...attributes}
@@ -123,7 +122,10 @@ function SortableClaimCard({
         >
           <HugeiconsIcon icon={DragDropVerticalIcon} strokeWidth={2} />
         </Button>
-        <div className="flex min-w-0 flex-1 flex-col gap-2">
+        <span className="pt-2 text-end text-sm tabular-nums text-muted-foreground sm:w-6 sm:shrink-0 sm:pt-0 sm:text-center">
+          {index + 1}
+        </span>
+        <div className="flex min-w-0 flex-col gap-1.5 sm:flex-1">
           <PlayerIdentity
             fullName={claim.playerName}
             sleeperId={claim.sleeperId}
@@ -135,28 +137,35 @@ function SortableClaimCard({
             leagueSlug={leagueSlug}
           />
           {claim.dropPlayerName ? (
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-pretty text-muted-foreground">
               Drop {claim.dropPlayerName}
             </p>
           ) : null}
         </div>
-        <div className="flex shrink-0 flex-wrap gap-2">
+        <div className="col-span-3 flex gap-2 sm:col-auto sm:ml-auto sm:shrink-0 sm:justify-end">
           <Button
             type="button"
-            variant="secondary"
+            variant="outline"
             size="sm"
+            className="min-h-9 min-w-0 flex-1 sm:flex-none"
             disabled={disabled}
             onClick={onCancel}
           >
             <HugeiconsIcon
-              icon={Cancel01Icon}
+              icon={Delete02Icon}
               strokeWidth={2}
               data-icon="inline-start"
             />
-            Cancel
+            Cancel Claim
           </Button>
           {isFaab ? (
-            <Button type="button" size="sm" disabled={disabled} onClick={onEdit}>
+            <Button
+              type="button"
+              size="sm"
+              className="min-h-9 min-w-0 flex-1 sm:flex-none"
+              disabled={disabled}
+              onClick={onEdit}
+            >
               <HugeiconsIcon
                 icon={Edit02Icon}
                 strokeWidth={2}
@@ -316,7 +325,7 @@ export function TeamWaiversSection({
                   strokeWidth={2}
                   data-icon="inline-start"
                 />
-                Process now ({pendingSeasonCount})
+                Process Now ({pendingSeasonCount})
               </Button>
             ) : null}
           </div>

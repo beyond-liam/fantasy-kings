@@ -259,7 +259,7 @@ export function TeamWatchlistSection({
               strokeWidth={2}
               data-icon="inline-start"
             />
-            Browse players
+            Browse Players
           </Button>
         </EmptyContent>
       </Empty>

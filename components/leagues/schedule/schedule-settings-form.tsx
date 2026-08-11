@@ -36,7 +36,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
+import { SwitchField } from "@/components/ui/switch-field";
 import { PRESEASON_START_WEEK_OPTIONS } from "@/lib/account/schedule-settings";
 import type { PlayEachOtherTimes } from "@/db/schema/league-seasons";
 import {
@@ -273,26 +273,14 @@ export function ScheduleSettingsForm({
             </FieldDescription>
           </Field>
 
-          <Field>
-            <div className="flex items-center justify-between gap-4">
-              <div className="min-w-0 space-y-1">
-                <FieldLabel htmlFor="includePreseason">
-                  Include preseason
-                </FieldLabel>
-                <FieldDescription>
-                  Extend the fantasy schedule so Week 1 starts in NFL preseason.
-                  Championship still ends on the configured NFL championship
-                  week.
-                </FieldDescription>
-              </div>
-              <Switch
-                id="includePreseason"
-                checked={includePreseason}
-                disabled={!editable}
-                onCheckedChange={setIncludePreseason}
-              />
-            </div>
-          </Field>
+          <SwitchField
+            id="includePreseason"
+            label="Include preseason"
+            description="Extend the fantasy schedule so Week 1 starts in NFL preseason. Championship still ends on the configured NFL championship week."
+            checked={includePreseason}
+            disabled={!editable}
+            onCheckedChange={setIncludePreseason}
+          />
 
           {includePreseason ? (
             <Field>

@@ -97,12 +97,12 @@ export function PowerRankingRow({
   return (
     <article
       className={cn(
-        "grid grid-cols-[3.5rem_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 rounded-lg bg-muted/30 px-3 py-3 ring-1 ring-foreground/8 sm:grid-cols-[4rem_minmax(0,14rem)_minmax(0,1fr)_3rem] sm:gap-x-4 sm:px-4",
+        "grid grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 rounded-lg bg-muted/30 px-3 py-3 ring-1 ring-foreground/8 sm:grid-cols-[2.25rem_minmax(0,14rem)_minmax(0,1fr)_auto] sm:gap-x-4",
         className,
       )}
     >
-      <div className="flex flex-col items-center gap-0.5">
-        <span className="text-lg font-semibold tabular-nums tracking-tight">
+      <div className="flex w-full flex-col items-start gap-0.5">
+        <span className="w-full text-lg font-semibold tabular-nums tracking-tight">
           {row.rank}
         </span>
         <RankDelta delta={row.rankDelta} />

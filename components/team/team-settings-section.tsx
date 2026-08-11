@@ -32,13 +32,12 @@ import {
 } from "@/components/ui/card";
 import {
   Field,
-  FieldDescription,
   FieldError,
   FieldGroup,
   FieldLabel,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
+import { SwitchField } from "@/components/ui/switch-field";
 import {
   dropOutOfLeague,
   updateTeamAutoPick,
@@ -200,23 +199,14 @@ export function TeamSettingsSection({
           <CardTitle className="text-base text-balance">Draft</CardTitle>
         </CardHeader>
         <CardContent className="py-4">
-          <Field>
-            <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
-              <div className="min-w-0">
-                <FieldLabel htmlFor="teamAutoPick">Autopick</FieldLabel>
-                <FieldDescription>
-                  When on, your team drafts from your queue (then best available)
-                  if the pick clock expires.
-                </FieldDescription>
-              </div>
-              <Switch
-                id="teamAutoPick"
-                checked={autoPickEnabled}
-                disabled={isPending}
-                onCheckedChange={handleAutoPickChange}
-              />
-            </div>
-          </Field>
+          <SwitchField
+            id="teamAutoPick"
+            label="Autopick"
+            description="When on, your team drafts from your queue (then best available) if the pick clock expires."
+            checked={autoPickEnabled}
+            disabled={isPending}
+            onCheckedChange={handleAutoPickChange}
+          />
         </CardContent>
       </Card>
 

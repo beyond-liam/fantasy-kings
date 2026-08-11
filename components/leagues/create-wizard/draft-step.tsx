@@ -19,7 +19,7 @@ import {
   FieldLabel,
 } from "@/components/ui/field";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Switch } from "@/components/ui/switch";
+import { SwitchField } from "@/components/ui/switch-field";
 import { applyLocalTime, formatLocalTime } from "@/lib/datetime/local-time";
 import {
   DEFAULT_PAUSE_WINDOW_END,
@@ -125,30 +125,20 @@ export function DraftStep({ values, errors, onChange }: DraftStepProps) {
       </div>
 
       {values.draftType === "email" ? (
-        <Field>
-          <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
-            <div className="min-w-0">
-              <FieldLabel htmlFor="pickTimeLimitEnabled">
-                Pick time limit
-              </FieldLabel>
-              <FieldDescription>
-                Limit how long each manager has on the clock.
-              </FieldDescription>
-            </div>
-            <Switch
-              id="pickTimeLimitEnabled"
-              checked={values.pickTimeLimitEnabled}
-              onCheckedChange={(pickTimeLimitEnabled) =>
-                onChange({
-                  pickTimeLimitEnabled,
-                  ...(pickTimeLimitEnabled
-                    ? {}
-                    : { pauseWindowEnabled: false }),
-                })
-              }
-            />
-          </div>
-        </Field>
+        <SwitchField
+          id="pickTimeLimitEnabled"
+          label="Pick time limit"
+          description="Limit how long each manager has on the clock."
+          checked={values.pickTimeLimitEnabled}
+          onCheckedChange={(pickTimeLimitEnabled) =>
+            onChange({
+              pickTimeLimitEnabled,
+              ...(pickTimeLimitEnabled
+                ? {}
+                : { pauseWindowEnabled: false }),
+            })
+          }
+        />
       ) : null}
 
       {showPickClock ? (
@@ -200,37 +190,26 @@ export function DraftStep({ values, errors, onChange }: DraftStepProps) {
 
       {values.draftType === "email" && values.pickTimeLimitEnabled ? (
         <>
-          <Field>
-            <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
-              <div className="min-w-0">
-                <FieldLabel htmlFor="pauseWindowEnabled">
-                  Pause during a time window
-                </FieldLabel>
-                <FieldDescription>
-                  Automatically pause the draft clock each day between these UK
-                  times (e.g. overnight).
-                </FieldDescription>
-              </div>
-              <Switch
-                id="pauseWindowEnabled"
-                checked={values.pauseWindowEnabled}
-                onCheckedChange={(pauseWindowEnabled) =>
-                  onChange({
-                    pauseWindowEnabled,
-                    ...(pauseWindowEnabled
-                      ? {
-                          pauseWindowStart:
-                            values.pauseWindowStart ||
-                            DEFAULT_PAUSE_WINDOW_START,
-                          pauseWindowEnd:
-                            values.pauseWindowEnd || DEFAULT_PAUSE_WINDOW_END,
-                        }
-                      : {}),
-                  })
-                }
-              />
-            </div>
-          </Field>
+          <SwitchField
+            id="pauseWindowEnabled"
+            label="Pause during a time window"
+            description="Automatically pause the draft clock each day between these UK times (e.g. overnight)."
+            checked={values.pauseWindowEnabled}
+            onCheckedChange={(pauseWindowEnabled) =>
+              onChange({
+                pauseWindowEnabled,
+                ...(pauseWindowEnabled
+                  ? {
+                      pauseWindowStart:
+                        values.pauseWindowStart ||
+                        DEFAULT_PAUSE_WINDOW_START,
+                      pauseWindowEnd:
+                        values.pauseWindowEnd || DEFAULT_PAUSE_WINDOW_END,
+                    }
+                  : {}),
+              })
+            }
+          />
           {values.pauseWindowEnabled ? (
             <div className="grid gap-4 sm:grid-cols-2">
               <Field>

@@ -24,7 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
+import { SwitchField } from "@/components/ui/switch-field";
 import { updateTransactionRules } from "@/lib/actions/league-settings";
 import {
   TRADE_PROCESSING_OPTIONS,
@@ -187,19 +187,13 @@ export function TransactionRulesSettings({
         }
       >
         <FieldGroup>
-          <Field orientation="horizontal">
-            <div className="flex flex-1 flex-col gap-1">
-              <FieldLabel htmlFor="tradesEnabled">Trades</FieldLabel>
-              <p className="text-sm text-muted-foreground">
-                Allow managers to trade players.
-              </p>
-            </div>
-            <Switch
-              id="tradesEnabled"
-              checked={values.tradesEnabled}
-              onCheckedChange={(checked) => patch({ tradesEnabled: checked })}
-            />
-          </Field>
+          <SwitchField
+            id="tradesEnabled"
+            label="Trades"
+            description="Allow managers to trade players."
+            checked={values.tradesEnabled}
+            onCheckedChange={(checked) => patch({ tradesEnabled: checked })}
+          />
 
           {values.tradesEnabled ? (
             <>

@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
+import { SwitchField } from "@/components/ui/switch-field";
 import { TableShell } from "@/components/ui/table";
 import {
   ToggleGroup,
@@ -258,30 +258,24 @@ export function RosterBreakdown({
 
       {showReserveSlots ? (
         <>
-          <Field orientation="horizontal">
-            <div className="flex flex-1 flex-col gap-1">
-              <FieldLabel htmlFor="irEnabled">Injured Reserve</FieldLabel>
-              <p className="text-sm text-muted-foreground">
-                Enable IR roster spots.
-              </p>
-            </div>
-            <Switch
-              id="irEnabled"
-              checked={values.irEnabled}
-              onCheckedChange={(checked) =>
-                onChange({
-                  irEnabled: checked,
-                  ...(checked && values.irEligibleStatuses.length === 0
-                    ? {
-                        irEligibleStatuses: IR_ELIGIBILITY_OPTIONS.map(
-                          (option) => option.id,
-                        ),
-                      }
-                    : {}),
-                })
-              }
-            />
-          </Field>
+          <SwitchField
+            id="irEnabled"
+            label="Injured Reserve"
+            description="Enable IR roster spots."
+            checked={values.irEnabled}
+            onCheckedChange={(checked) =>
+              onChange({
+                irEnabled: checked,
+                ...(checked && values.irEligibleStatuses.length === 0
+                  ? {
+                      irEligibleStatuses: IR_ELIGIBILITY_OPTIONS.map(
+                        (option) => option.id,
+                      ),
+                    }
+                  : {}),
+              })
+            }
+          />
           {values.irEnabled ? (
             <>
               <Field>
@@ -330,21 +324,13 @@ export function RosterBreakdown({
             </>
           ) : null}
 
-          <Field orientation="horizontal">
-            <div className="flex flex-1 flex-col gap-1">
-              <FieldLabel htmlFor="taxiEnabled">Taxi Squad</FieldLabel>
-              <p className="text-sm text-muted-foreground">
-                Reserve spots for development players.
-              </p>
-            </div>
-            <Switch
-              id="taxiEnabled"
-              checked={values.taxiEnabled}
-              onCheckedChange={(checked) =>
-                onChange({ taxiEnabled: checked })
-              }
-            />
-          </Field>
+          <SwitchField
+            id="taxiEnabled"
+            label="Taxi Squad"
+            description="Reserve spots for development players."
+            checked={values.taxiEnabled}
+            onCheckedChange={(checked) => onChange({ taxiEnabled: checked })}
+          />
           {values.taxiEnabled ? (
             <>
               <Field>
@@ -404,24 +390,15 @@ export function RosterBreakdown({
                   <FieldError>{errors.taxiMaxYearsExp}</FieldError>
                 ) : null}
               </Field>
-              <Field orientation="horizontal">
-                <div className="flex flex-1 flex-col gap-1">
-                  <FieldLabel htmlFor="taxiPreventReaddAfterActivation">
-                    Prevent re-add after activation
-                  </FieldLabel>
-                  <p className="text-sm text-muted-foreground">
-                    Once a player leaves Taxi for the active roster, they cannot
-                    return to Taxi.
-                  </p>
-                </div>
-                <Switch
-                  id="taxiPreventReaddAfterActivation"
-                  checked={values.taxiPreventReaddAfterActivation}
-                  onCheckedChange={(checked) =>
-                    onChange({ taxiPreventReaddAfterActivation: checked })
-                  }
-                />
-              </Field>
+              <SwitchField
+                id="taxiPreventReaddAfterActivation"
+                label="Prevent re-add after activation"
+                description="Once a player leaves Taxi for the active roster, they cannot return to Taxi."
+                checked={values.taxiPreventReaddAfterActivation}
+                onCheckedChange={(checked) =>
+                  onChange({ taxiPreventReaddAfterActivation: checked })
+                }
+              />
             </>
           ) : null}
         </>

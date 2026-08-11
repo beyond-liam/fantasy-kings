@@ -5,7 +5,12 @@ import { HugeiconsIcon } from "@hugeicons/react";
 
 import { PlayerIdentity } from "@/components/rankings/player-identity";
 import { TradeStatusBadge } from "@/components/trades/trade-status-badge";
-import { CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  CardAction,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import {
   Tooltip,
   TooltipContent,
@@ -108,7 +113,7 @@ export function TradePartiesTitle({
   return (
     <CardTitle
       className={cn(
-        "flex min-w-0 items-center gap-1.5 text-pretty sm:gap-2",
+        "flex min-w-0 items-center gap-1.5 text-pretty sm:flex-wrap sm:gap-2",
         className,
       )}
     >
@@ -126,7 +131,7 @@ export function TradePartiesTitle({
   );
 }
 
-/** Shared open/history card chrome: eyebrow → parties → status. */
+/** Shared open/history card chrome — mobile stack; desktop badge in CardAction. */
 export function TradeCardHeader({
   proposingTeamName,
   receivingTeamName,
@@ -144,42 +149,65 @@ export function TradeCardHeader({
   vetoThreshold?: number;
   myTeamVetoed?: boolean;
 }) {
+  const badge = (
+    <TradeStatusBadge
+      status={status}
+      vetoCount={vetoCount}
+      vetoThreshold={vetoThreshold}
+      myTeamVetoed={myTeamVetoed}
+    />
+  );
+
   return (
-    <CardHeader className="border-b gap-2">
-      {eyebrow ? (
-        <p className="text-[0.6875rem] font-medium tracking-wide text-muted-foreground uppercase">
-          {eyebrow}
-        </p>
-      ) : null}
-      <TradePartiesTitle
-        proposingTeamName={proposingTeamName}
-        receivingTeamName={receivingTeamName}
-      />
-      <TradeStatusBadge
-        status={status}
-        vetoCount={vetoCount}
-        vetoThreshold={vetoThreshold}
-        myTeamVetoed={myTeamVetoed}
-      />
-    </CardHeader>
+    <>
+      <CardHeader className="gap-2 border-b sm:hidden">
+        {eyebrow ? (
+          <p className="text-[0.6875rem] font-medium tracking-wide text-muted-foreground uppercase">
+            {eyebrow}
+          </p>
+        ) : null}
+        <TradePartiesTitle
+          proposingTeamName={proposingTeamName}
+          receivingTeamName={receivingTeamName}
+        />
+        {badge}
+      </CardHeader>
+
+      <CardHeader className="hidden border-b sm:grid">
+        <TradePartiesTitle
+          proposingTeamName={proposingTeamName}
+          receivingTeamName={receivingTeamName}
+        />
+        {eyebrow ? <CardDescription>{eyebrow}</CardDescription> : null}
+        <CardAction className="self-center">{badge}</CardAction>
+      </CardHeader>
+    </>
   );
 }
-
 
 function TradeSideColumn({
   label,
   players,
   leagueSlug,
   className,
+  compact,
 }: {
   label: string;
   players: TradeListPlayer[];
   leagueSlug: string;
   className?: string;
+  compact?: boolean;
 }) {
   return (
-    <div className={cn("flex min-w-0 flex-col gap-1.5", className)}>
-      <p className="truncate text-[0.6875rem] font-medium tracking-wide text-muted-foreground uppercase">
+    <div className={cn("flex min-w-0 flex-col gap-1.5 sm:gap-2", className)}>
+      <p
+        className={cn(
+          "font-medium text-muted-foreground",
+          compact
+            ? "truncate text-[0.6875rem] tracking-wide uppercase sm:text-xs sm:normal-case sm:tracking-normal"
+            : "text-xs",
+        )}
+      >
         {label}
       </p>
       <ul className="flex flex-col gap-2">
@@ -205,7 +233,10 @@ function TradeSideColumn({
   );
 }
 
-/** Receive / give columns — always two-up so mobile cards stay short. */
+/**
+ * Receive / give columns.
+ * Mobile: always two-up with a divider. Desktop: original 2-col gap layout.
+ */
 export function TradeSidesPanel({
   left,
   right,
@@ -218,17 +249,24 @@ export function TradeSidesPanel({
   className?: string;
 }) {
   return (
-    <div className={cn("grid grid-cols-2 gap-x-3", className)}>
+    <div
+      className={cn(
+        "grid grid-cols-2 gap-x-3 sm:gap-4",
+        className,
+      )}
+    >
       <TradeSideColumn
         label={left.label}
         players={left.players}
         leagueSlug={leagueSlug}
+        compact
       />
       <TradeSideColumn
         label={right.label}
         players={right.players}
         leagueSlug={leagueSlug}
-        className="border-l border-border/70 pl-3"
+        compact
+        className="border-l border-border/70 pl-3 sm:border-l-0 sm:pl-0"
       />
     </div>
   );

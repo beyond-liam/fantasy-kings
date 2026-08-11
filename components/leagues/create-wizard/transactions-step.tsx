@@ -9,7 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
+import { SwitchField } from "@/components/ui/switch-field";
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import type { TransactionsStepValues } from "@/lib/leagues/wizard-schema";
@@ -29,19 +29,13 @@ export function TransactionsStep({
 }: TransactionsStepProps) {
   return (
     <FieldGroup>
-      <Field orientation="horizontal">
-        <div className="flex flex-1 flex-col gap-1">
-          <FieldLabel htmlFor="waiversEnabled">Waivers</FieldLabel>
-          <p className="text-sm text-muted-foreground">
-            Require claims for free agent adds.
-          </p>
-        </div>
-        <Switch
-          id="waiversEnabled"
-          checked={values.waiversEnabled}
-          onCheckedChange={(checked) => onChange({ waiversEnabled: checked })}
-        />
-      </Field>
+      <SwitchField
+        id="waiversEnabled"
+        label="Waivers"
+        description="Require claims for free agent adds."
+        checked={values.waiversEnabled}
+        onCheckedChange={(checked) => onChange({ waiversEnabled: checked })}
+      />
 
       {values.waiversEnabled ? (
         <>
@@ -82,19 +76,13 @@ export function TransactionsStep({
         </>
       ) : null}
 
-      <Field orientation="horizontal">
-        <div className="flex flex-1 flex-col gap-1">
-          <FieldLabel htmlFor="tradesEnabled">Trades</FieldLabel>
-          <p className="text-sm text-muted-foreground">
-            Allow managers to trade players.
-          </p>
-        </div>
-        <Switch
-          id="tradesEnabled"
-          checked={values.tradesEnabled}
-          onCheckedChange={(checked) => onChange({ tradesEnabled: checked })}
-        />
-      </Field>
+      <SwitchField
+        id="tradesEnabled"
+        label="Trades"
+        description="Allow managers to trade players."
+        checked={values.tradesEnabled}
+        onCheckedChange={(checked) => onChange({ tradesEnabled: checked })}
+      />
 
       {values.tradesEnabled ? (
         <>

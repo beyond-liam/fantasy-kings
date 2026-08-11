@@ -30,7 +30,7 @@ import {
   WAIVER_PROCESS_DAY_OPTIONS,
   type WaiverWireFormValues,
 } from "@/lib/leagues/waiver-wire";
-import { Switch } from "@/components/ui/switch";
+import { SwitchField } from "@/components/ui/switch-field";
 
 type WaiverWireSettingsProps = {
   slug: string;
@@ -447,26 +447,20 @@ export function WaiverWireSettings({
                 </Select>
               </Field>
 
-              <Field orientation="horizontal">
-                <div className="flex flex-1 flex-col gap-1">
-                  <FieldLabel htmlFor="preseasonWaivers">
-                    Preseason waivers
-                  </FieldLabel>
-                  <FieldDescription>
-                    {draftComplete
-                      ? "When on, free agents require waiver claims until your first fantasy week starts (FCFS is paused). When off, free agents are unlocked after the draft."
-                      : "Available after the draft is complete."}
-                  </FieldDescription>
-                </div>
-                <Switch
-                  id="preseasonWaivers"
-                  checked={values.preseasonWaivers}
-                  disabled={!draftComplete}
-                  onCheckedChange={(checked) =>
-                    patch({ preseasonWaivers: checked })
-                  }
-                />
-              </Field>
+              <SwitchField
+                id="preseasonWaivers"
+                label="Preseason waivers"
+                description={
+                  draftComplete
+                    ? "When on, free agents require waiver claims until your first fantasy week starts (FCFS is paused). When off, free agents are unlocked after the draft."
+                    : "Available after the draft is complete."
+                }
+                checked={values.preseasonWaivers}
+                disabled={!draftComplete}
+                onCheckedChange={(checked) =>
+                  patch({ preseasonWaivers: checked })
+                }
+              />
 
               <Field>
                 <FieldLabel htmlFor="processDays">Process claims on</FieldLabel>

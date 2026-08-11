@@ -26,7 +26,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
+import { SwitchField } from "@/components/ui/switch-field";
 import { TimePicker } from "@/components/ui/time-picker";
 import { updateDraftConfig } from "@/lib/actions/league-settings";
 import { applyLocalTime, formatLocalTime } from "@/lib/datetime/local-time";
@@ -251,33 +251,23 @@ export function DraftConfigSettings({
         </Field>
 
         {values.draftType === "email" ? (
-          <Field>
-            <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
-              <div className="min-w-0">
-                <FieldLabel htmlFor="pickTimeLimitEnabled">
-                  Pick time limit
-                </FieldLabel>
-                <FieldDescription>
-                  Limit how long each manager has on the clock.
-                </FieldDescription>
-              </div>
-              <Switch
-                id="pickTimeLimitEnabled"
-                checked={values.pickTimeLimitEnabled}
-                onCheckedChange={(pickTimeLimitEnabled) =>
-                  patch({
-                    pickTimeLimitEnabled,
-                    ...(pickTimeLimitEnabled
-                      ? {}
-                      : {
-                          autoPickEnabled: false,
-                          pauseWindowEnabled: false,
-                        }),
-                  })
-                }
-              />
-            </div>
-          </Field>
+          <SwitchField
+            id="pickTimeLimitEnabled"
+            label="Pick time limit"
+            description="Limit how long each manager has on the clock."
+            checked={values.pickTimeLimitEnabled}
+            onCheckedChange={(pickTimeLimitEnabled) =>
+              patch({
+                pickTimeLimitEnabled,
+                ...(pickTimeLimitEnabled
+                  ? {}
+                  : {
+                      autoPickEnabled: false,
+                      pauseWindowEnabled: false,
+                    }),
+              })
+            }
+          />
         ) : null}
 
         {values.draftType === "live" || values.pickTimeLimitEnabled ? (
@@ -328,66 +318,42 @@ export function DraftConfigSettings({
         ) : null}
 
         {values.draftType === "live" || values.pickTimeLimitEnabled ? (
-          <Field>
-            <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
-              <div className="min-w-0">
-                <FieldLabel htmlFor="autoPickEnabled">
-                  Enable auto-pick
-                </FieldLabel>
-                <FieldDescription>
-                  When on, teams default to autopick (queue first, then best
-                  available). Managers can still change this later per team.
-                </FieldDescription>
-              </div>
-              <Switch
-                id="autoPickEnabled"
-                checked={values.autoPickEnabled}
-                onCheckedChange={(autoPickEnabled) =>
-                  patch({ autoPickEnabled })
-                }
-              />
-            </div>
-          </Field>
+          <SwitchField
+            id="autoPickEnabled"
+            label="Enable auto pick"
+            description="When on, teams default to autopick (queue first, then best available). Managers can still change this later per team."
+            checked={values.autoPickEnabled}
+            onCheckedChange={(autoPickEnabled) => patch({ autoPickEnabled })}
+          />
         ) : null}
 
         {values.draftType === "email" && values.pickTimeLimitEnabled ? (
           <>
-            <Field>
-              <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
-                <div className="min-w-0">
-                  <FieldLabel htmlFor="pauseWindowEnabled">
-                    Pause during a time window
-                  </FieldLabel>
-                  <FieldDescription>
-                    Automatically pause the draft clock each day between these
-                    UK times (e.g. overnight).
-                  </FieldDescription>
-                </div>
-                <Switch
-                  id="pauseWindowEnabled"
-                  checked={values.pauseWindowEnabled}
-                  onCheckedChange={(pauseWindowEnabled) =>
-                    patch({
-                      pauseWindowEnabled,
-                      ...(pauseWindowEnabled
-                        ? {
-                            pauseWindowStart:
-                              values.pauseWindowStart ||
-                              DEFAULT_PAUSE_WINDOW_START,
-                            pauseWindowEnd:
-                              values.pauseWindowEnd || DEFAULT_PAUSE_WINDOW_END,
-                          }
-                        : {}),
-                    })
-                  }
-                />
-              </div>
-            </Field>
+            <SwitchField
+              id="pauseWindowEnabled"
+              label="Pause during a time window"
+              description="Automatically pause the draft clock each day between these UK times (e.g. overnight)."
+              checked={values.pauseWindowEnabled}
+              onCheckedChange={(pauseWindowEnabled) =>
+                patch({
+                  pauseWindowEnabled,
+                  ...(pauseWindowEnabled
+                    ? {
+                        pauseWindowStart:
+                          values.pauseWindowStart ||
+                          DEFAULT_PAUSE_WINDOW_START,
+                        pauseWindowEnd:
+                          values.pauseWindowEnd || DEFAULT_PAUSE_WINDOW_END,
+                      }
+                    : {}),
+                })
+              }
+            />
             {values.pauseWindowEnabled ? (
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field>
                   <FieldLabel htmlFor="pauseWindowStart">
-                    Pause starts (UK)
+                    Pause starts
                   </FieldLabel>
                   <TimePicker
                     id="pauseWindowStart"
@@ -397,12 +363,12 @@ export function DraftConfigSettings({
                     }
                   />
                   <FieldDescription>
-                    Clock freezes from this UK time.
+                    Clock freezes from this time.
                   </FieldDescription>
                 </Field>
                 <Field>
                   <FieldLabel htmlFor="pauseWindowEnd">
-                    Pause ends (UK)
+                    Pause ends
                   </FieldLabel>
                   <TimePicker
                     id="pauseWindowEnd"
@@ -410,8 +376,7 @@ export function DraftConfigSettings({
                     onChange={(pauseWindowEnd) => patch({ pauseWindowEnd })}
                   />
                   <FieldDescription>
-                    Draft resumes at this UK time. Overnight windows are
-                    allowed.
+                    Draft resumes at this time. Overnight windows are allowed.
                   </FieldDescription>
                 </Field>
               </div>

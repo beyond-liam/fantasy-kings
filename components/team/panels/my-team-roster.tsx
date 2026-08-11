@@ -5,14 +5,13 @@ import {
 } from "@/components/team/panels/load-my-team-nfl-context";
 import { formatPersonName } from "@/lib/account/person-name";
 import { ensureProfile } from "@/lib/auth/session";
-import type { RosterSlotConfig, ScheduleSettings, WaiverWireSettings } from "@/db/schema/league-seasons";
+import type { RosterSlotConfig, ScheduleSettings } from "@/db/schema/league-seasons";
 import type { ScoringRuleDefinition } from "@/lib/leagues/scoring";
 import {
   formatWaiverPriority,
   resolveTeamSummaryMatchups,
   type TeamSummaryScheduleRow,
 } from "@/lib/leagues/team-summary";
-import { getStartedNflTeamAbbreviations } from "@/lib/leagues/waivers/game-lock";
 import { getTeamSchedule } from "@/lib/queries/matchups";
 import { getRankedPlayers } from "@/lib/queries/players";
 import { getPlayerRosterRatesMap } from "@/lib/queries/player-roster-rates";
@@ -57,7 +56,6 @@ export type MyTeamRosterPanelProps = {
   actionsEnabled: boolean;
   lineupEnabled: boolean;
   tradesEnabled: boolean;
-  wire: WaiverWireSettings;
 };
 
 export async function MyTeamRosterPanel({
@@ -69,7 +67,6 @@ export async function MyTeamRosterPanel({
   actionsEnabled,
   lineupEnabled,
   tradesEnabled,
-  wire,
 }: MyTeamRosterPanelProps) {
   await ensureTeamRosterSlotsAssigned({
     teamId: team.id,
@@ -80,7 +77,7 @@ export async function MyTeamRosterPanel({
   });
 
   const [
-    { fantasyWeek, nflWeek, nflSeason, nflSeasonType, scoreboard, opponentsByTeam },
+    { fantasyWeek, nflWeek, nflSeason, nflSeasonType, opponentsByTeam },
     rosterPlayers,
     teamScheduleRows,
     profile,
@@ -93,16 +90,6 @@ export async function MyTeamRosterPanel({
     getTeamSchedule(season.id, team.id),
     ensureProfile(user),
   ]);
-
-  let startedNflTeams = new Set<string>();
-  if (
-    scoreboard &&
-    season.waiversEnabled &&
-    wire.waiverPool === "drops_and_free_agents" &&
-    actionsEnabled
-  ) {
-    startedNflTeams = getStartedNflTeamAbbreviations(scoreboard.games);
-  }
 
   const ratePlayerIds = rosterPlayers.map((player) => player.id);
   const [rosterRates, weekProjections, weekStats] = await Promise.all([
@@ -183,7 +170,6 @@ export async function MyTeamRosterPanel({
       rowActionsEnabled={actionsEnabled || tradesEnabled}
       cutActionsEnabled={actionsEnabled}
       tradesEnabled={tradesEnabled}
-      startedNflTeams={[...startedNflTeams]}
       summary={{
         waiverPriorityLabel: season.waiversEnabled
           ? formatWaiverPriority(team.waiverPriority)

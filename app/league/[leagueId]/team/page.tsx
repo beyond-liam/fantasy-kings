@@ -211,7 +211,6 @@ export default async function MyTeamPage({
         actionsEnabled={actionsEnabled}
         lineupEnabled={lineupEnabled}
         tradesEnabled={tradesEnabled}
-        wire={wire}
       />,
     );
   } else if (activeTab === "stats" && team) {

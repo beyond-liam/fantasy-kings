@@ -313,7 +313,7 @@ export function TradeList({
             </CardContent>
 
             {hasActions ? (
-              <CardFooter className="flex-col-reverse items-stretch gap-2 border-t sm:flex-row sm:items-center sm:justify-end sm:*:w-auto *:w-full">
+              <CardFooter className="flex-col-reverse items-stretch gap-2 border-t sm:flex-row sm:items-center sm:justify-end sm:gap-2 sm:*:w-auto *:w-full">
                 {showReceiverActions ? (
                   <>
                     <Button

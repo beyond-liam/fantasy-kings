@@ -29,13 +29,15 @@ function resolveTradeStatusBadge(status: string) {
       return {
         variant: "success" as const,
         icon: CheckmarkCircle01Icon,
-        label: "Complete",
+        label: "Trade complete",
+        shortLabel: "Complete",
       };
     case "pending":
       return {
         variant: "warning" as const,
         icon: Alert02Icon,
-        label: "Pending",
+        label: "Trade pending",
+        shortLabel: "Pending",
       };
     case "review":
     case "awaiting_commissioner":
@@ -43,18 +45,21 @@ function resolveTradeStatusBadge(status: string) {
         variant: "warning" as const,
         icon: Alert02Icon,
         label: formatTradeStatusLabel(status),
+        shortLabel: formatTradeStatusLabel(status),
       };
     case "cancelled":
       return {
         variant: "destructive" as const,
         icon: CircleXIcon,
-        label: "Cancelled",
+        label: "Trade cancelled",
+        shortLabel: "Cancelled",
       };
     default:
       return {
         variant: "destructive" as const,
         icon: CircleXIcon,
         label: formatTradeStatusLabel(status),
+        shortLabel: formatTradeStatusLabel(status),
       };
   }
 }
@@ -77,7 +82,7 @@ export function TradeStatusBadge({
   vetoThreshold,
   myTeamVetoed = false,
 }: TradeStatusBadgeProps) {
-  const { variant, icon, label } = resolveTradeStatusBadge(status);
+  const { variant, icon, label, shortLabel } = resolveTradeStatusBadge(status);
   const showVetoes =
     status === "review" && vetoCount != null && vetoThreshold != null;
   const vetoLabel = showVetoes
@@ -87,8 +92,14 @@ export function TradeStatusBadge({
   const badge = (
     <Badge variant={variant}>
       <HugeiconsIcon icon={icon} strokeWidth={2} data-icon="inline-start" />
-      {label}
-      {vetoLabel}
+      <span className="sm:hidden">
+        {shortLabel}
+        {vetoLabel}
+      </span>
+      <span className="hidden sm:inline">
+        {label}
+        {vetoLabel}
+      </span>
     </Badge>
   );
 
