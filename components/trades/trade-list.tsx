@@ -17,6 +17,10 @@ import { toast } from "sonner";
 
 import { PlayerIdentity } from "@/components/rankings/player-identity";
 import { TradeAcceptDialog } from "@/components/trades/trade-accept-dialog";
+import {
+  TradePartiesTitle,
+  resolveTradeSideViews,
+} from "@/components/trades/trade-display";
 import { TradeStatusBadge } from "@/components/trades/trade-status-badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -26,7 +30,6 @@ import {
   CardDescription,
   CardFooter,
   CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import {
   Empty,
@@ -73,12 +76,6 @@ type TradeActionKind =
   | "veto"
   | "approve"
   | "commissioner_reject";
-
-function playersForTeam(trade: TradeListRow, teamId: string, isDrop = false) {
-  return trade.players.filter(
-    (player) => player.teamId === teamId && player.isDrop === isDrop,
-  );
-}
 
 const OPEN_STATUSES = new Set(["pending", "review", "awaiting_commissioner"]);
 const PAGE_SIZE = 10;
@@ -269,19 +266,7 @@ export function TradeList({
         const isInvolved = isProposer || isReceiver;
         const countdown = formatTradeProcessCountdown(trade.reviewEndsAt);
         const veto = localVetos[trade.id];
-        const myGets = isProposer
-          ? playersForTeam(trade, trade.receivingTeamId)
-          : playersForTeam(trade, trade.proposingTeamId);
-        const myGives = isProposer
-          ? playersForTeam(trade, trade.proposingTeamId)
-          : playersForTeam(trade, trade.receivingTeamId);
-
-        const receivePlayers = isInvolved
-          ? myGets
-          : playersForTeam(trade, trade.proposingTeamId);
-        const offerPlayers = isInvolved
-          ? myGives
-          : playersForTeam(trade, trade.receivingTeamId);
+        const sides = resolveTradeSideViews(trade, myTeamId);
 
         const showReceiverActions =
           isReceiver && trade.status === "pending";
@@ -306,15 +291,10 @@ export function TradeList({
         return (
           <Card key={trade.id} size="sm">
             <CardHeader className="border-b">
-              <CardTitle className="flex flex-wrap items-center gap-2">
-                <span>{trade.proposingTeamName}</span>
-                <HugeiconsIcon
-                  icon={ArrowLeftRightIcon}
-                  strokeWidth={2}
-                  className="size-4 shrink-0 text-muted-foreground"
-                />
-                <span>{trade.receivingTeamName}</span>
-              </CardTitle>
+              <TradePartiesTitle
+                proposingTeamName={trade.proposingTeamName}
+                receivingTeamName={trade.receivingTeamName}
+              />
               {countdown ? (
                 <CardDescription>{countdown}</CardDescription>
               ) : null}
@@ -340,12 +320,10 @@ export function TradeList({
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="flex flex-col gap-2">
                   <p className="text-xs font-medium text-muted-foreground">
-                    {isInvolved
-                      ? "You receive"
-                      : `${trade.receivingTeamName} gets`}
+                    {sides.left.label}
                   </p>
                   <ul className="flex flex-col gap-2">
-                    {receivePlayers.map((player) => (
+                    {sides.left.players.map((player) => (
                       <li key={player.playerId}>
                         <PlayerIdentity
                           fullName={player.playerName}
@@ -362,12 +340,10 @@ export function TradeList({
                 </div>
                 <div className="flex flex-col gap-2">
                   <p className="text-xs font-medium text-muted-foreground">
-                    {isInvolved
-                      ? "You offer"
-                      : `${trade.proposingTeamName} gives`}
+                    {sides.right.label}
                   </p>
                   <ul className="flex flex-col gap-2">
-                    {offerPlayers.map((player) => (
+                    {sides.right.players.map((player) => (
                       <li key={player.playerId}>
                         <PlayerIdentity
                           fullName={player.playerName}
@@ -383,12 +359,6 @@ export function TradeList({
                   </ul>
                 </div>
               </div>
-
-              {trade.comment ? (
-                <p className="text-sm text-muted-foreground">
-                  “{trade.comment}”
-                </p>
-              ) : null}
             </CardContent>
 
             {hasActions ? (

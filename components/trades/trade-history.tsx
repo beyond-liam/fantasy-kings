@@ -1,10 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowLeftRightIcon, HistoryIcon } from "@hugeicons/core-free-icons";
+import { HistoryIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
 import { PlayerIdentity } from "@/components/rankings/player-identity";
+import {
+  TradePartiesTitle,
+  resolveTradeSideViews,
+} from "@/components/trades/trade-display";
 import { TradeStatusBadge } from "@/components/trades/trade-status-badge";
 import { ListPagination } from "@/components/ui/list-pagination";
 import {
@@ -13,7 +17,6 @@ import {
   CardContent,
   CardDescription,
   CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import {
   Empty,
@@ -53,12 +56,6 @@ type TradeHistoryProps = {
   leagueSlug: string;
   description?: string;
 };
-
-function playersForTeam(trade: TradeListRow, teamId: string, isDrop = false) {
-  return trade.players.filter(
-    (player) => player.teamId === teamId && player.isDrop === isDrop,
-  );
-}
 
 function formatTradeDate(date: Date) {
   return new Intl.DateTimeFormat("en-GB", {
@@ -160,31 +157,15 @@ export function TradeHistory({
       ) : (
         <div className="flex flex-col gap-3">
           {visible.map((trade) => {
-            const isProposer = trade.proposingTeamId === myTeamId;
-            const isReceiver = trade.receivingTeamId === myTeamId;
-            const myGets = isProposer
-              ? playersForTeam(trade, trade.receivingTeamId)
-              : isReceiver
-                ? playersForTeam(trade, trade.proposingTeamId)
-                : [];
-            const myGives = isProposer
-              ? playersForTeam(trade, trade.proposingTeamId)
-              : isReceiver
-                ? playersForTeam(trade, trade.receivingTeamId)
-                : [];
+            const sides = resolveTradeSideViews(trade, myTeamId, "past");
 
             return (
               <Card key={trade.id} size="sm">
                 <CardHeader className="border-b">
-                  <CardTitle className="flex flex-wrap items-center gap-2">
-                    <span>{trade.proposingTeamName}</span>
-                    <HugeiconsIcon
-                      icon={ArrowLeftRightIcon}
-                      strokeWidth={2}
-                      className="size-4 shrink-0 text-muted-foreground"
-                    />
-                    <span>{trade.receivingTeamName}</span>
-                  </CardTitle>
+                  <TradePartiesTitle
+                    proposingTeamName={trade.proposingTeamName}
+                    receivingTeamName={trade.receivingTeamName}
+                  />
                   <CardDescription>
                     {formatTradeDate(trade.createdAt)}
                   </CardDescription>
@@ -193,52 +174,50 @@ export function TradeHistory({
                   </CardAction>
                 </CardHeader>
 
-                {isProposer || isReceiver ? (
-                  <CardContent>
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <div className="flex flex-col gap-2">
-                        <p className="text-xs font-medium text-muted-foreground">
-                          You received
-                        </p>
-                        <ul className="flex flex-col gap-2">
-                          {myGets.map((player) => (
-                            <li key={player.playerId}>
-                              <PlayerIdentity
-                                fullName={player.playerName}
-                                sleeperId={player.sleeperId}
-                                primaryPositionId={player.primaryPositionId}
-                                nflTeam={player.nflTeam}
-                                size="sm"
-                                playerId={player.playerId}
-                                leagueSlug={leagueSlug}
-                              />
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                      <div className="flex flex-col gap-2">
-                        <p className="text-xs font-medium text-muted-foreground">
-                          You gave
-                        </p>
-                        <ul className="flex flex-col gap-2">
-                          {myGives.map((player) => (
-                            <li key={player.playerId}>
-                              <PlayerIdentity
-                                fullName={player.playerName}
-                                sleeperId={player.sleeperId}
-                                primaryPositionId={player.primaryPositionId}
-                                nflTeam={player.nflTeam}
-                                size="sm"
-                                playerId={player.playerId}
-                                leagueSlug={leagueSlug}
-                              />
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
+                <CardContent>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="flex flex-col gap-2">
+                      <p className="text-xs font-medium text-muted-foreground">
+                        {sides.left.label}
+                      </p>
+                      <ul className="flex flex-col gap-2">
+                        {sides.left.players.map((player) => (
+                          <li key={player.playerId}>
+                            <PlayerIdentity
+                              fullName={player.playerName}
+                              sleeperId={player.sleeperId}
+                              primaryPositionId={player.primaryPositionId}
+                              nflTeam={player.nflTeam}
+                              size="sm"
+                              playerId={player.playerId}
+                              leagueSlug={leagueSlug}
+                            />
+                          </li>
+                        ))}
+                      </ul>
                     </div>
-                  </CardContent>
-                ) : null}
+                    <div className="flex flex-col gap-2">
+                      <p className="text-xs font-medium text-muted-foreground">
+                        {sides.right.label}
+                      </p>
+                      <ul className="flex flex-col gap-2">
+                        {sides.right.players.map((player) => (
+                          <li key={player.playerId}>
+                            <PlayerIdentity
+                              fullName={player.playerName}
+                              sleeperId={player.sleeperId}
+                              primaryPositionId={player.primaryPositionId}
+                              nflTeam={player.nflTeam}
+                              size="sm"
+                              playerId={player.playerId}
+                              leagueSlug={leagueSlug}
+                            />
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                </CardContent>
               </Card>
             );
           })}
