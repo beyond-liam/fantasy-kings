@@ -5,19 +5,30 @@ import { usePathname, useRouter } from "next/navigation";
 
 export const DRAFT_PICKS_EVENT = "draft-picks";
 
-type DraftPickEvent = {
+export type DraftPickEventPayload = {
+  id: string;
   overall: number;
+  round: number;
+  pickInRound: number;
+  playerId: string;
   playerFullName: string;
+  playerPositionId: string;
+  playerNflTeam: string | null;
+  playerByeWeek: number | null;
+  playerSleeperId: string | null;
   teamName: string;
   teamId: string;
+  source: "manual" | "commissioner" | "autopick";
   madeByUserId: string | null;
+  madeAt: string;
 };
 
 export type DraftPicksPollResponse = {
   status: "scheduled" | "live" | "paused" | "complete" | null;
   afterOverall: number;
   turnExpiresAt?: string | null;
-  picks: DraftPickEvent[];
+  pausedSecondsRemaining?: number | null;
+  picks: DraftPickEventPayload[];
   error?: string;
 };
 
@@ -121,16 +132,18 @@ export function DraftPickNotifier({
         const statusChanged =
           previousStatus !== undefined && previousStatus !== data.status;
 
-        // Always notify the draft room so the clock can adopt a fresh deadline
-        // even when no new pick rows were returned yet.
+        // Always notify the draft room so status / clock / picks can adopt
+        // without a full RSC reload of the ~4k projection pool.
         if (onDraft) {
           window.dispatchEvent(
             new CustomEvent(DRAFT_PICKS_EVENT, { detail: data }),
           );
-        }
-
-        // Status transitions (pause/complete) need a refresh even off-draft.
-        if (statusChanged || sawNewPick) {
+          // Grades dialog + season state need a server tree when the draft ends.
+          // Pause/resume/live are applied from the poll payload client-side.
+          if (statusChanged && data.status === "complete") {
+            router.refresh();
+          }
+        } else if (statusChanged || sawNewPick) {
           router.refresh();
         }
       } catch {

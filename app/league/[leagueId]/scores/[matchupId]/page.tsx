@@ -116,7 +116,17 @@ export default async function MatchupPage({ params }: MatchupPageProps) {
         />
       </div>
 
-      <LiveRefresh enabled={liveRefresh} intervalMs={30_000} />
+      <LiveRefresh
+        enabled={liveRefresh}
+        intervalMs={60_000}
+        freshness={{
+          season: String(data.seasonYear),
+          week: nflPoint?.week ?? data.week,
+          seasonType: nflPoint?.seasonType ?? "regular",
+          initialUpdatedAt: freshness?.toISOString() ?? null,
+        }}
+        gameCentrePatchUrl={`/api/league/${encodeURIComponent(slug)}/scores/game-centre?matchup=${encodeURIComponent(data.matchupPublicId || data.matchupId)}`}
+      />
 
       <GameCentre data={data} />
     </div>

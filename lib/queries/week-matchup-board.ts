@@ -20,7 +20,7 @@ import {
 } from "@/lib/leagues/win-probability";
 import { normalizeNflTeamAbbrev } from "@/lib/nfl/matchups";
 import type { LeagueMatchupRow } from "@/lib/queries/matchups";
-import { getRankedPlayers } from "@/lib/queries/players";
+import { getPlayerFantasyPoints } from "@/lib/queries/players";
 import { isMatchupResultFinal } from "@/lib/leagues/matchups/week-scoring";
 
 export type MatchupBoardSide = {
@@ -481,35 +481,26 @@ export async function enrichWeekMatchupBoard(
   const scoringWeek = input.scoringWeek ?? input.week;
   const scoringSeasonType = input.scoringSeasonType ?? "regular";
 
-  const [projections, actuals] = await Promise.all([
-    getRankedPlayers({
+  const [projectedById, actualById] = await Promise.all([
+    getPlayerFantasyPoints({
       season: input.seasonYear,
       week: scoringWeek,
       seasonType: scoringSeasonType,
       kind: "projection",
       scoringRules: input.scoringRules,
       playerIds: allStarterIds,
-      includePositionRanks: false,
-    }).catch(() => []),
+    }).catch(() => new Map<string, number | null>()),
     input.week <= input.currentWeek
-      ? getRankedPlayers({
+      ? getPlayerFantasyPoints({
           season: input.seasonYear,
           week: scoringWeek,
           seasonType: scoringSeasonType,
           kind: "stats",
           scoringRules: input.scoringRules,
           playerIds: allStarterIds,
-          includePositionRanks: false,
-        }).catch(() => [])
-      : Promise.resolve([]),
+        }).catch(() => new Map<string, number | null>())
+      : Promise.resolve(new Map<string, number | null>()),
   ]);
-
-  const projectedById = new Map(
-    projections.map((player) => [player.id, player.fantasyPts]),
-  );
-  const actualById = new Map(
-    actuals.map((player) => [player.id, player.fantasyPts]),
-  );
 
   const allStarters = [...startersByTeam.values()].flat();
   const progressByNflTeam = progressForWeek({

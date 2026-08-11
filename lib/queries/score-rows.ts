@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, ilike, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, inArray, notInArray, sql } from "drizzle-orm";
 
 import { playerExternalIds, playerScores, players } from "@/db/schema";
 import { db } from "@/lib/db";
@@ -47,6 +47,8 @@ export type LoadScoreRowsFilters = {
   /** player_scores.season_type — pre | regular | post. Defaults to regular. */
   seasonType?: string;
   playerIds?: string[];
+  /** Skip these player IDs (e.g. rostered players when loading FA tips). */
+  excludePlayerIds?: string[];
   limit?: number;
   offset?: number;
   /** Push position filter into SQL when set. */
@@ -55,7 +57,26 @@ export type LoadScoreRowsFilters = {
   rookiesOnly?: boolean;
   /** Case-insensitive substring match on player full name. */
   search?: string;
+  /**
+   * `rank` — id / name / position / stats (no sleeper join or metadata).
+   * `pts` — id / name / team / position / stats (no sleeper join or metadata).
+   * Used by board/win%/FA tips and position-rank maps to cut DB egress.
+   */
+  columns?: "full" | "rank" | "pts";
+  /**
+   * When set with `rank`/`pts`, project `player_scores.stats` to these keys
+   * in SQL so full week jsonb blobs never leave Postgres.
+   */
+  statKeys?: string[];
 };
+
+function hashFingerprint(value: string): string {
+  let hash = 0;
+  for (let i = 0; i < value.length; i++) {
+    hash = (hash * 31 + value.charCodeAt(i)) | 0;
+  }
+  return hash.toString(36);
+}
 
 function scoreRowsCacheKey(filters: LoadScoreRowsFilters) {
   const {
@@ -64,25 +85,31 @@ function scoreRowsCacheKey(filters: LoadScoreRowsFilters) {
     kind,
     seasonType,
     playerIds,
+    excludePlayerIds,
     limit,
     offset,
     position,
     team,
     rookiesOnly,
     search,
+    columns,
+    statKeys,
   } = filters;
-  let key = `${season}|${week}|${seasonType ?? "regular"}|${kind}|lim:${limit ?? "all"}|off:${offset ?? 0}`;
+  let key = `${season}|${week}|${seasonType ?? "regular"}|${kind}|cols:${columns ?? "full"}|lim:${limit ?? "all"}|off:${offset ?? 0}`;
   if (position) key += `|pos:${position}`;
   if (team && team !== "ALL") key += `|team:${team}`;
   if (rookiesOnly) key += `|rookies`;
   if (search?.trim()) key += `|q:${search.trim().toLowerCase()}`;
+  if (statKeys != null && statKeys.length > 0) {
+    key += `|sk:${statKeys.length}:${hashFingerprint(statKeys.join(","))}`;
+  }
   if (playerIds != null) {
     const fingerprint = [...playerIds].sort().join(",");
-    let hash = 0;
-    for (let i = 0; i < fingerprint.length; i++) {
-      hash = (hash * 31 + fingerprint.charCodeAt(i)) | 0;
-    }
-    key += `|ids:${playerIds.length}:${hash.toString(36)}`;
+    key += `|ids:${playerIds.length}:${hashFingerprint(fingerprint)}`;
+  }
+  if (excludePlayerIds != null && excludePlayerIds.length > 0) {
+    const fingerprint = [...excludePlayerIds].sort().join(",");
+    key += `|ex:${excludePlayerIds.length}:${hashFingerprint(fingerprint)}`;
   }
   return key;
 }
@@ -99,6 +126,26 @@ function resolveScoreRowsLimit(filters: LoadScoreRowsFilters): number {
     return Math.min(filters.limit, SCORE_ROWS_HARD_CAP);
   }
   return SCORE_ROWS_HARD_CAP;
+}
+
+function normalizeStats(raw: unknown): Record<string, number | null> {
+  return normalizePlayerStats(
+    (raw ?? {}) as Record<string, number | null>,
+  ) as Record<string, number | null>;
+}
+
+function projectStatsSelect(statKeys: string[] | undefined) {
+  if (statKeys == null || statKeys.length === 0) {
+    return playerScores.stats;
+  }
+  return sql<Record<string, number | null>>`(
+    SELECT COALESCE(jsonb_object_agg(kv.key, kv.value), '{}'::jsonb)
+    FROM jsonb_each(${playerScores.stats}) AS kv
+    WHERE kv.key IN (${sql.join(
+      statKeys.map((key) => sql`${key}`),
+      sql`, `,
+    )})
+  )`;
 }
 
 /** Load (and cache) player_scores joined to players for a week. */
@@ -140,59 +187,111 @@ export async function loadScoreRows(
   if (filters.rookiesOnly) {
     whereConditions.push(eq(players.yearsExp, 0));
   }
+  if (filters.excludePlayerIds != null && filters.excludePlayerIds.length > 0) {
+    whereConditions.push(notInArray(players.id, filters.excludePlayerIds));
+  }
   const search = filters.search?.trim();
   if (search) {
     whereConditions.push(ilike(players.fullName, `%${search}%`));
   }
 
-  let query = db
-    .select({
-      id: players.id,
-      fullName: players.fullName,
-      nflTeam: players.nflTeam,
-      primaryPositionId: players.primaryPositionId,
-      sleeperId: playerExternalIds.externalId,
-      yearsExp: players.yearsExp,
-      byeWeek: players.byeWeek,
-      injuryStatus: players.injuryStatus,
-      rookieYear: players.rookieYear,
-      stats: playerScores.stats,
-      ptsPpr: playerScores.ptsPpr,
-      ptsStd: playerScores.ptsStd,
-    })
-    .from(players)
-    .innerJoin(playerScores, and(...joinConditions))
-    .leftJoin(
-      playerExternalIds,
-      and(
-        eq(playerExternalIds.playerId, players.id),
-        eq(playerExternalIds.provider, "sleeper"),
-      ),
-    )
-    .$dynamic();
-
-  if (whereConditions.length > 0) {
-    query = query.where(and(...whereConditions));
-  }
-
-  query = query.orderBy(
-    desc(sql`coalesce(${playerScores.ptsPpr}, ${playerScores.ptsStd}, 0)`),
-    asc(players.fullName),
+  const slim = filters.columns === "rank" || filters.columns === "pts";
+  const statsSelect = projectStatsSelect(
+    slim ? filters.statKeys : undefined,
   );
+  let mapped: ScoreRow[];
 
-  if (filters.offset != null && filters.offset > 0) {
-    query = query.offset(filters.offset);
+  if (slim) {
+    let query = db
+      .select({
+        id: players.id,
+        fullName: players.fullName,
+        nflTeam: players.nflTeam,
+        primaryPositionId: players.primaryPositionId,
+        stats: statsSelect,
+        ptsPpr: playerScores.ptsPpr,
+        ptsStd: playerScores.ptsStd,
+      })
+      .from(players)
+      .innerJoin(playerScores, and(...joinConditions))
+      .$dynamic();
+
+    if (whereConditions.length > 0) {
+      query = query.where(and(...whereConditions));
+    }
+
+    query = query.orderBy(
+      desc(sql`coalesce(${playerScores.ptsPpr}, ${playerScores.ptsStd}, 0)`),
+      asc(players.fullName),
+    );
+
+    if (filters.offset != null && filters.offset > 0) {
+      query = query.offset(filters.offset);
+    }
+
+    const rows = await query.limit(effectiveLimit);
+    mapped = rows.map((row) => ({
+      id: row.id,
+      fullName: row.fullName,
+      // Rank maps ignore team; pts/FA tips need it.
+      nflTeam: filters.columns === "pts" ? row.nflTeam : null,
+      primaryPositionId: row.primaryPositionId,
+      sleeperId: null,
+      yearsExp: null,
+      byeWeek: null,
+      injuryStatus: null,
+      rookieYear: null,
+      stats: normalizeStats(row.stats),
+      ptsPpr: row.ptsPpr,
+      ptsStd: row.ptsStd,
+    }));
+  } else {
+    let query = db
+      .select({
+        id: players.id,
+        fullName: players.fullName,
+        nflTeam: players.nflTeam,
+        primaryPositionId: players.primaryPositionId,
+        sleeperId: playerExternalIds.externalId,
+        yearsExp: players.yearsExp,
+        byeWeek: players.byeWeek,
+        injuryStatus: players.injuryStatus,
+        rookieYear: players.rookieYear,
+        stats: playerScores.stats,
+        ptsPpr: playerScores.ptsPpr,
+        ptsStd: playerScores.ptsStd,
+      })
+      .from(players)
+      .innerJoin(playerScores, and(...joinConditions))
+      .leftJoin(
+        playerExternalIds,
+        and(
+          eq(playerExternalIds.playerId, players.id),
+          eq(playerExternalIds.provider, "sleeper"),
+        ),
+      )
+      .$dynamic();
+
+    if (whereConditions.length > 0) {
+      query = query.where(and(...whereConditions));
+    }
+
+    query = query.orderBy(
+      desc(sql`coalesce(${playerScores.ptsPpr}, ${playerScores.ptsStd}, 0)`),
+      asc(players.fullName),
+    );
+
+    if (filters.offset != null && filters.offset > 0) {
+      query = query.offset(filters.offset);
+    }
+
+    const rows = await query.limit(effectiveLimit);
+    mapped = rows.map((row) => ({
+      ...row,
+      sleeperId: row.sleeperId ?? null,
+      stats: normalizeStats(row.stats),
+    }));
   }
-
-  const rows = await query.limit(effectiveLimit);
-
-  const mapped: ScoreRow[] = rows.map((row) => ({
-    ...row,
-    sleeperId: row.sleeperId ?? null,
-    stats: normalizePlayerStats(
-      (row.stats ?? {}) as Record<string, number | null>,
-    ) as Record<string, number | null>,
-  }));
 
   if (scoreRowsCache.size >= SCORE_CACHE_MAX_ENTRIES) {
     let oldestKey: string | null = null;

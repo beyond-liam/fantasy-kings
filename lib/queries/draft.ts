@@ -130,11 +130,21 @@ export async function getDraftPicks(draftId: string): Promise<DraftPickRow[]> {
 }
 
 export type DraftPickEvent = {
+  id: string;
   overall: number;
+  round: number;
+  pickInRound: number;
+  playerId: string;
   playerFullName: string;
+  playerPositionId: string;
+  playerNflTeam: string | null;
+  playerByeWeek: number | null;
+  playerSleeperId: string | null;
   teamName: string;
   teamId: string;
+  source: "manual" | "commissioner" | "autopick";
   madeByUserId: string | null;
+  madeAt: Date;
 };
 
 /** Picks after a known overall (1-based). Used for live toast / soft refresh. */
@@ -144,15 +154,32 @@ export async function getDraftPickEventsAfter(
 ): Promise<DraftPickEvent[]> {
   return db
     .select({
+      id: draftPicks.id,
       overall: draftPicks.overall,
+      round: draftPicks.round,
+      pickInRound: draftPicks.pickInRound,
+      playerId: draftPicks.playerId,
       playerFullName: players.fullName,
+      playerPositionId: players.primaryPositionId,
+      playerNflTeam: players.nflTeam,
+      playerByeWeek: players.byeWeek,
+      playerSleeperId: playerExternalIds.externalId,
       teamName: teams.name,
       teamId: draftPicks.teamId,
+      source: draftPicks.source,
       madeByUserId: draftPicks.madeByUserId,
+      madeAt: draftPicks.madeAt,
     })
     .from(draftPicks)
     .innerJoin(players, eq(draftPicks.playerId, players.id))
     .innerJoin(teams, eq(draftPicks.teamId, teams.id))
+    .leftJoin(
+      playerExternalIds,
+      and(
+        eq(playerExternalIds.playerId, players.id),
+        eq(playerExternalIds.provider, "sleeper"),
+      ),
+    )
     .where(
       and(
         eq(draftPicks.draftId, draftId),

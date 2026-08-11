@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { AmericanFootballIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -12,6 +12,7 @@ import { MatchupHeader } from "@/components/leagues/game-centre/matchup-header";
 import { MatchupPreviewDashboard } from "@/components/leagues/game-centre/matchup-preview-dashboard";
 import { MatchupRosterList } from "@/components/leagues/game-centre/starter-duel-list";
 import { WaiverTips } from "@/components/leagues/game-centre/waiver-tips";
+import { LIVE_SCORES_GAME_CENTRE_EVENT } from "@/components/scores/live-refresh";
 import {
   Empty,
   EmptyDescription,
@@ -20,6 +21,10 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  applyGameCentrePatch,
+  type GameCentreLivePatch,
+} from "@/lib/leagues/game-centre/game-centre-live-patch";
 import { explainPlayerPoints } from "@/lib/leagues/scoring/calculate";
 import type {
   GameCentreData,
@@ -73,25 +78,87 @@ function parseTab(
   return "matchup";
 }
 
+function findPlayerById(
+  data: GameCentreData,
+  playerId: string,
+): GameCentrePlayer | null {
+  for (const row of data.duelRows) {
+    if (row.away?.id === playerId) return row.away;
+    if (row.home?.id === playerId) return row.home;
+  }
+  for (const row of data.benchRows) {
+    if (row.away?.id === playerId) return row.away;
+    if (row.home?.id === playerId) return row.home;
+  }
+  for (const player of data.boxScore.away.starters) {
+    if (player.id === playerId) return player;
+  }
+  for (const player of data.boxScore.home.starters) {
+    if (player.id === playerId) return player;
+  }
+  return null;
+}
+
 export function GameCentre({ data }: GameCentreProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const scheduled = isScheduled(data.status);
-  const tab = parseTab(searchParams.get("tab"), data.status);
+  const [live, setLive] = useState(data);
+  const [prevData, setPrevData] = useState(data);
+
+  if (data !== prevData) {
+    setPrevData(data);
+    setLive(data);
+  }
+
+  const scheduled = isScheduled(live.status);
+  const tab = parseTab(searchParams.get("tab"), live.status);
 
   const [optimumOpen, setOptimumOpen] = useState(false);
-  const [breakdownPlayer, setBreakdownPlayer] =
-    useState<GameCentrePlayer | null>(null);
+  const [breakdownPlayerId, setBreakdownPlayerId] = useState<string | null>(
+    null,
+  );
+
+  useEffect(() => {
+    const onPatch = (event: Event) => {
+      const patch = (event as CustomEvent<GameCentreLivePatch>).detail;
+      if (!patch) {
+        return;
+      }
+      if (
+        patch.matchupId !== data.matchupId &&
+        patch.matchupPublicId !== data.matchupPublicId
+      ) {
+        return;
+      }
+
+      // Preview / optimum / FA tips need a full tree when kickoff starts.
+      if (data.status === "scheduled" && patch.status !== "scheduled") {
+        router.refresh();
+        return;
+      }
+
+      setLive((prev) => applyGameCentrePatch(prev, patch));
+    };
+
+    window.addEventListener(LIVE_SCORES_GAME_CENTRE_EVENT, onPatch);
+    return () => {
+      window.removeEventListener(LIVE_SCORES_GAME_CENTRE_EVENT, onPatch);
+    };
+  }, [data.matchupId, data.matchupPublicId, data.status, router]);
+
+  const breakdownPlayer = breakdownPlayerId
+    ? findPlayerById(live, breakdownPlayerId)
+    : null;
 
   const breakdownExplanation = useMemo(() => {
     if (!breakdownPlayer || breakdownPlayer.actualPts == null) return null;
     return explainPlayerPoints(
       breakdownPlayer.stats,
       breakdownPlayer.primaryPositionId,
-      data.scoringRules,
+      live.scoringRules,
     );
-  }, [breakdownPlayer, data.scoringRules]);
+  }, [breakdownPlayer, live.scoringRules]);
 
   const setTab = (next: string | number | null) => {
     const value = String(next ?? (scheduled ? "preview" : "matchup"));
@@ -111,12 +178,12 @@ export function GameCentre({ data }: GameCentreProps) {
   return (
     <div className="flex flex-col gap-6">
       <MatchupHeader
-        away={data.away}
-        home={data.home}
-        status={data.status}
-        leagueSlug={data.leagueSlug}
+        away={live.away}
+        home={live.home}
+        status={live.status}
+        leagueSlug={live.leagueSlug}
         onProjectedClick={
-          data.optimum ? () => setOptimumOpen(true) : undefined
+          live.optimum ? () => setOptimumOpen(true) : undefined
         }
       />
 
@@ -137,12 +204,12 @@ export function GameCentre({ data }: GameCentreProps) {
 
         {scheduled ? (
           <TabsContent value="preview" className="pt-4">
-            {data.preview ? (
+            {live.preview ? (
               <MatchupPreviewDashboard
-                away={data.away}
-                home={data.home}
-                preview={data.preview}
-                leagueSlug={data.leagueSlug}
+                away={live.away}
+                home={live.home}
+                preview={live.preview}
+                leagueSlug={live.leagueSlug}
               />
             ) : (
               <Empty>
@@ -162,40 +229,40 @@ export function GameCentre({ data }: GameCentreProps) {
 
         <TabsContent value="matchup" className="flex flex-col gap-8 pt-4">
           <ScoreLineChart
-            data={data.chart}
-            awayName={data.away.teamName}
-            homeName={data.home.teamName}
-            empty={data.chartEmpty}
+            data={live.chart}
+            awayName={live.away.teamName}
+            homeName={live.home.teamName}
+            empty={live.chartEmpty}
           />
           <MatchupRosterList
             title="Starters"
-            rows={data.duelRows}
-            onActualClick={setBreakdownPlayer}
+            rows={live.duelRows}
+            onActualClick={(player) => setBreakdownPlayerId(player.id)}
             emptyMessage="No starters set for this matchup."
-            leagueSlug={data.leagueSlug}
+            leagueSlug={live.leagueSlug}
           />
           <MatchupRosterList
             title="Bench"
-            rows={data.benchRows}
-            onActualClick={setBreakdownPlayer}
+            rows={live.benchRows}
+            onActualClick={(player) => setBreakdownPlayerId(player.id)}
             emptyMessage="No bench players on either roster."
             showAdv={false}
-            leagueSlug={data.leagueSlug}
+            leagueSlug={live.leagueSlug}
           />
-          <WaiverTips tips={data.waiverTips} leagueSlug={data.leagueSlug} />
+          <WaiverTips tips={live.waiverTips} leagueSlug={live.leagueSlug} />
         </TabsContent>
 
         {!scheduled ? (
           <TabsContent value="box" className="flex flex-col gap-8 pt-4">
             <BoxScoreTable
-              team={data.boxScore.away}
-              onActualClick={setBreakdownPlayer}
-              leagueSlug={data.leagueSlug}
+              team={live.boxScore.away}
+              onActualClick={(player) => setBreakdownPlayerId(player.id)}
+              leagueSlug={live.leagueSlug}
             />
             <BoxScoreTable
-              team={data.boxScore.home}
-              onActualClick={setBreakdownPlayer}
-              leagueSlug={data.leagueSlug}
+              team={live.boxScore.home}
+              onActualClick={(player) => setBreakdownPlayerId(player.id)}
+              leagueSlug={live.leagueSlug}
             />
           </TabsContent>
         ) : null}
@@ -204,17 +271,17 @@ export function GameCentre({ data }: GameCentreProps) {
       <OptimumLineupDialog
         open={optimumOpen}
         onOpenChange={setOptimumOpen}
-        leagueSlug={data.leagueSlug}
-        optimum={data.optimum}
+        leagueSlug={live.leagueSlug}
+        optimum={live.optimum}
       />
 
       <ScoringBreakdownDialog
         open={breakdownPlayer != null}
         onOpenChange={(open) => {
-          if (!open) setBreakdownPlayer(null);
+          if (!open) setBreakdownPlayerId(null);
         }}
         playerName={breakdownPlayer?.fullName ?? ""}
-        week={data.week}
+        week={live.week}
         explanation={breakdownExplanation}
       />
     </div>

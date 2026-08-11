@@ -22,8 +22,12 @@ import {
   getLeagueMembership,
   getLeagueSeason,
 } from "@/lib/queries/leagues";
-import { getNflTeams, getRankedPlayers } from "@/lib/queries/players";
+import { getNflTeams, getRankedPlayers, type RankedPlayerRow } from "@/lib/queries/players";
 import { positionFiltersFromRosterSlots } from "@/lib/rankings/column-config";
+import {
+  draftStatAllowlist,
+  pickClientStats,
+} from "@/lib/rankings/pick-client-stats";
 import { getNflState } from "@/lib/sleeper/api";
 
 const DraftRoom = dynamic(
@@ -94,7 +98,7 @@ export default async function LeagueDraftRoomPage({
         week: 0,
         kind: "projection",
         scoringRules,
-      }).catch(() => []),
+      }).catch(() => [] as RankedPlayerRow[]),
       getNflTeams(),
       myTeam ? getTeamDraftQueue(myTeam.id) : Promise.resolve([]),
       myTeam ? getDraftedRosterForTeam(myTeam.id) : Promise.resolve([]),
@@ -176,10 +180,10 @@ function toIso(value: Date | string | null | undefined): string | null {
   return value;
 }
 
-/** Drop league-only / unused fields before shipping the pool to the client. */
-function toDraftPoolPlayer(
-  row: Awaited<ReturnType<typeof getRankedPlayers>>[number],
-) {
+const DRAFT_STAT_ALLOWLIST = draftStatAllowlist();
+
+/** Drop unused fields / box-score stats before shipping ~4k rows to the client. */
+function toDraftPoolPlayer(row: RankedPlayerRow) {
   return {
     id: row.id,
     fullName: row.fullName,
@@ -189,10 +193,10 @@ function toDraftPoolPlayer(
     yearsExp: row.yearsExp,
     byeWeek: row.byeWeek,
     injuryStatus: row.injuryStatus,
-    rookieYear: row.rookieYear,
-    stats: row.stats,
-    ptsPpr: row.ptsPpr,
-    ptsStd: row.ptsStd,
+    rookieYear: null,
+    stats: pickClientStats(row.stats, DRAFT_STAT_ALLOWLIST),
+    ptsPpr: null,
+    ptsStd: null,
     fantasyPts: row.fantasyPts,
     positionRank: row.positionRank,
   };

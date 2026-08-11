@@ -114,3 +114,74 @@ export function resolveDistanceStatKey(
 
   return null;
 }
+
+/** IDP provider keys that alias onto shared defense scoring keys. */
+const IDP_ALIAS_SOURCES: ReadonlyArray<readonly [string, string]> = [
+  ["idp_tkl_solo", "tkl_solo"],
+  ["idp_tkl_ast", "tkl_ast"],
+  ["idp_tkl", "tkl"],
+  ["idp_tkl_loss", "tkl_loss"],
+  ["idp_sack", "sack"],
+  ["idp_ff", "ff"],
+  ["idp_fum_rec", "fum_rec"],
+  ["idp_int", "int"],
+  ["idp_safe", "safe"],
+  ["idp_def_td", "def_td"],
+  ["idp_td", "def_td"],
+];
+
+const FG_NORMALIZE_KEYS = [
+  "fgm_0_19",
+  "fgm_20_29",
+  "fgm_30_39",
+  "fgm_40_49",
+  "fgm_50p",
+  "fgmiss_0_19",
+  "fgmiss_20_29",
+  "fgmiss_30_39",
+  "fgmiss_40_49",
+  "fgmiss_50p",
+  "xpm",
+  "xpmiss",
+] as const;
+
+const STAT_KEY_RE = /^[a-z][a-z0-9_]*$/i;
+
+/**
+ * JSONB keys needed to score + normalize a week row for the given rules.
+ * Used to project `player_scores.stats` in SQL and cut DB egress.
+ */
+export function scoringStatKeysForLoad(
+  rules: ScoringRuleDefinition[],
+): string[] {
+  const keys = new Set<string>();
+
+  for (const rule of rules) {
+    const aggregate = resolveSleeperStatKey(rule);
+    const distance = resolveDistanceStatKey(rule);
+    if (aggregate) keys.add(aggregate);
+    if (distance) keys.add(distance);
+  }
+
+  for (const [from, to] of IDP_ALIAS_SOURCES) {
+    if (keys.has(to)) {
+      keys.add(from);
+    }
+  }
+
+  const needsFgBuckets = [...keys].some(
+    (key) =>
+      key === "fgm" ||
+      key === "fga" ||
+      key === "fgmiss" ||
+      key.startsWith("fgm_") ||
+      key.startsWith("fgmiss_"),
+  );
+  if (needsFgBuckets) {
+    for (const key of FG_NORMALIZE_KEYS) {
+      keys.add(key);
+    }
+  }
+
+  return [...keys].filter((key) => STAT_KEY_RE.test(key)).sort();
+}

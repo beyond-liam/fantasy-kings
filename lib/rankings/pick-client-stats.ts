@@ -82,12 +82,38 @@ const HELPER_STAT_KEYS = [
   "idp_tkl",
 ] as const;
 
+/** ADP keys only — draft pool does not need Game Centre box-score extras. */
+const DRAFT_ADP_KEYS = [
+  "adp_ppr",
+  "adp_dd_ppr",
+  "adp_half_ppr",
+  "adp_std",
+  "adp_idp",
+  "adp_idp_1qb",
+] as const;
+
 /** Stat keys needed for table columns across all positions + position ranks. */
 export function clientStatAllowlist(): Set<string> {
   const keys = new Set<string>([...RANK_KEYS, ...HELPER_STAT_KEYS]);
   for (const position of POSITION_FILTERS) {
     for (const column of getStatColumns(position as PositionFilter)) {
       if (column.key !== "fantasy_pts") {
+        keys.add(column.key);
+      }
+    }
+  }
+  return keys;
+}
+
+/**
+ * Tight allowlist for the live draft player pool (~4k rows). Column keys + ADP
+ * only — keeps the RSC payload under Next's 2MB data-cache / transfer budget.
+ */
+export function draftStatAllowlist(): Set<string> {
+  const keys = new Set<string>([...DRAFT_ADP_KEYS, ...RANK_KEYS]);
+  for (const position of POSITION_FILTERS) {
+    for (const column of getStatColumns(position as PositionFilter)) {
+      if (column.key !== "fantasy_pts" && column.key !== "adp") {
         keys.add(column.key);
       }
     }

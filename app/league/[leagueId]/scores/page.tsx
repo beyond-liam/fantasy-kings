@@ -215,7 +215,17 @@ export default async function FantasyScoresPage({
           </Alert>
         ) : null}
 
-        <LiveRefresh enabled={liveRefresh} intervalMs={30_000} />
+        <LiveRefresh
+          enabled={liveRefresh}
+          intervalMs={60_000}
+          freshness={{
+            season: String(season.seasonYear),
+            week: scoringWeek,
+            seasonType: scoringSeasonType,
+            initialUpdatedAt: scoresUpdatedAt,
+          }}
+          boardPatchUrl={`/api/league/${encodeURIComponent(slug)}/scores/board?week=${week}&year=${year}`}
+        />
 
         <WeekMatchupsList
           games={games}
@@ -340,7 +350,17 @@ export default async function FantasyScoresPage({
         </Alert>
       ) : null}
 
-      <LiveRefresh enabled={liveRefresh} intervalMs={30_000} />
+      <LiveRefresh
+        enabled={liveRefresh}
+        intervalMs={60_000}
+        freshness={{
+          season: String(season.seasonYear),
+          week: scoringWeek,
+          seasonType: scoringSeasonType,
+          initialUpdatedAt: scoresUpdatedAt,
+        }}
+        boardPatchUrl={`/api/league/${encodeURIComponent(slug)}/scores/board?week=${week}&year=${year}`}
+      />
 
       <WeekMatchupsList
         games={games}

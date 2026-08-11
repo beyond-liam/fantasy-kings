@@ -1,6 +1,7 @@
 import { calculatePlayerPoints } from "@/lib/leagues/scoring/calculate";
 import { getDefaultScoringRuleDefinitions } from "@/lib/leagues/scoring/defaults";
 import { resolveScoringRuleDefinitions } from "@/lib/leagues/scoring/rules";
+import { scoringStatKeysForLoad } from "@/lib/leagues/scoring/stat-keys";
 import type {
   ScoringPreset,
   ScoringRuleDefinition,
@@ -40,6 +41,8 @@ export type RankingsFilters = {
   search?: string;
   /** When set, only these player IDs are loaded (empty → no query). */
   playerIds?: string[];
+  /** Skip these player IDs (e.g. rostered when loading FA tips). */
+  excludePlayerIds?: string[];
   /**
    * Applied in memory after scoring/ranks so page slices match the UI sort.
    * Defaults to fantasy points descending.
@@ -52,10 +55,16 @@ export type RankingsFilters = {
   offset?: number;
   /**
    * When scoping via `playerIds`, also load league-wide fantasy position ranks.
-   * Default true for table UIs; set false when only fantasyPts are needed
-   * (matchup board, win% — avoids a second full-week score load).
+   * Opt-in: default false so roster/board/pts-only callers skip a second
+   * full-week `player_scores` read (major DB egress). Pass true when RANK
+   * must be league-wide on a playerId subset.
    */
   includePositionRanks?: boolean;
+  /**
+   * Slim score load for fantasy pts only: no sleeper join, project stats
+   * jsonb to scoring keys. Skips position ranks.
+   */
+  pointsOnly?: boolean;
   scoringPreset?: ScoringPreset;
   scoringRules?: ScoringRuleDefinition[];
   /** Keep full normalized stats (skip client allowlist trim). */
@@ -99,8 +108,16 @@ export async function getRankedPlayers(
     return [];
   }
 
+  const rules =
+    filters.scoringRules ??
+    getDefaultScoringRuleDefinitions(filters.scoringPreset ?? "full_ppr");
+  const pointsOnly = filters.pointsOnly === true;
+  const statKeys = pointsOnly ? scoringStatKeysForLoad(rules) : undefined;
+
   // Load the full filtered set, then sort + paginate in memory so RANK (and
   // other columns) page correctly. SQL limit/offset would slice before sort.
+  // pointsOnly top-N (e.g. FA tips) can push limit to SQL — ordered by provider
+  // pts, then re-scored / re-sorted in memory on the smaller set.
   const baseRows = await loadScoreRows(
     filters.playerIds != null
       ? {
@@ -109,7 +126,12 @@ export async function getRankedPlayers(
           kind: filters.kind,
           seasonType: filters.seasonType,
           playerIds: filters.playerIds,
+          excludePlayerIds: filters.excludePlayerIds,
           search: filters.search,
+          columns: pointsOnly ? "pts" : undefined,
+          statKeys,
+          limit: pointsOnly ? filters.limit : undefined,
+          offset: pointsOnly ? filters.offset : undefined,
         }
       : {
           season: filters.season,
@@ -120,6 +142,11 @@ export async function getRankedPlayers(
           team: filters.team,
           rookiesOnly: filters.rookiesOnly,
           search: filters.search,
+          excludePlayerIds: filters.excludePlayerIds,
+          columns: pointsOnly ? "pts" : undefined,
+          statKeys,
+          limit: pointsOnly ? filters.limit : undefined,
+          offset: pointsOnly ? filters.offset : undefined,
         },
   );
 
@@ -129,15 +156,12 @@ export async function getRankedPlayers(
     positionRank: null,
   }));
 
-  const scored = applyScoring(mapped, filters);
-
-  const rules =
-    filters.scoringRules ??
-    getDefaultScoringRuleDefinitions(filters.scoringPreset ?? "full_ppr");
+  const scored = applyScoring(mapped, { ...filters, scoringRules: rules });
 
   // Empty preseason stats: use projection fantasy ranks so RANK stays meaningful.
   // Historical/current stats with production: RANK follows this season's scored PTS.
   const lacksProduction =
+    !pointsOnly &&
     filters.kind === "stats" &&
     scored.length > 0 &&
     scored.every((row) => !playerWeekHasFantasyAppearance(row.stats));
@@ -151,8 +175,9 @@ export async function getRankedPlayers(
       scoringRules: rules,
     });
   } else if (
+    !pointsOnly &&
     filters.playerIds != null &&
-    filters.includePositionRanks !== false
+    filters.includePositionRanks === true
   ) {
     fantasyRankByPlayerId = await getFantasyPositionRankMap({
       season: filters.season,
@@ -177,6 +202,9 @@ export async function getRankedPlayers(
         ? sorted.slice(offset)
         : sorted;
 
+  if (pointsOnly) {
+    return paged.map((row) => ({ ...row, stats: {} }));
+  }
   if (filters.preserveStats) {
     return paged;
   }
@@ -185,6 +213,35 @@ export async function getRankedPlayers(
     ...row,
     stats: pickClientStats(row.stats, allowlist),
   }));
+}
+
+/**
+ * Fantasy points only — slim score-row select + scoring-key jsonb projection.
+ * Prefer this over `getRankedPlayers` for board / win% / duel totals.
+ */
+export async function getPlayerFantasyPoints(filters: {
+  season: string;
+  week: number;
+  kind: "projection" | "stats";
+  seasonType?: string;
+  playerIds: string[];
+  scoringRules: ScoringRuleDefinition[];
+}): Promise<Map<string, number | null>> {
+  if (filters.playerIds.length === 0) {
+    return new Map();
+  }
+
+  const rows = await getRankedPlayers({
+    season: filters.season,
+    week: filters.week,
+    kind: filters.kind,
+    seasonType: filters.seasonType,
+    playerIds: filters.playerIds,
+    scoringRules: filters.scoringRules,
+    pointsOnly: true,
+  });
+
+  return new Map(rows.map((row) => [row.id, row.fantasyPts]));
 }
 
 function applyScoring(

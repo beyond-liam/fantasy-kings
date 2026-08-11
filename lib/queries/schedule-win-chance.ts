@@ -17,7 +17,7 @@ import {
 import { normalizeNflTeamAbbrev } from "@/lib/nfl/matchups";
 import type { ScoringRuleDefinition } from "@/lib/leagues/scoring/types";
 import type { TeamScheduleRow } from "@/lib/queries/matchups";
-import { getRankedPlayers } from "@/lib/queries/players";
+import { getPlayerFantasyPoints } from "@/lib/queries/players";
 
 type EnrichScheduleWinChancesInput = {
   focusTeamId: string;
@@ -215,34 +215,28 @@ export async function enrichScheduleWinChances(
   await Promise.all(
     weeks.map(async (week) => {
       const useLiveClock = week === input.currentWeek;
-      const [projections, actuals] = await Promise.all([
-        getRankedPlayers({
+      const [projectedById, actualById] = await Promise.all([
+        getPlayerFantasyPoints({
           season: input.seasonYear,
           week,
           kind: "projection",
           scoringRules: input.scoringRules,
           playerIds: allStarterIds,
-          includePositionRanks: false,
-        }).catch(() => []),
+        }).catch(() => new Map<string, number | null>()),
         week <= input.currentWeek
-          ? getRankedPlayers({
+          ? getPlayerFantasyPoints({
               season: input.seasonYear,
               week,
               kind: "stats",
               scoringRules: input.scoringRules,
               playerIds: allStarterIds,
-              includePositionRanks: false,
-            }).catch(() => [])
-          : Promise.resolve([]),
+            }).catch(() => new Map<string, number | null>())
+          : Promise.resolve(new Map<string, number | null>()),
       ]);
 
       weekData.set(week, {
-        projectedById: new Map(
-          projections.map((player) => [player.id, player.fantasyPts]),
-        ),
-        actualById: new Map(
-          actuals.map((player) => [player.id, player.fantasyPts]),
-        ),
+        projectedById,
+        actualById,
         progressByNflTeam: useLiveClock
           ? liveProgress
           : week < input.currentWeek

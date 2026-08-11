@@ -6,6 +6,7 @@ import { AmericanFootballIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
 import { MatchupStatusBadge } from "@/components/leagues/matchups/matchup-status-badge";
+import { LIVE_SCORES_BOARD_EVENT } from "@/components/scores/live-refresh";
 import {
   WeekFilter,
   type WeekFilterOption,
@@ -23,6 +24,10 @@ import { Spinner } from "@/components/ui/spinner";
 import { formatRecord, teamInitials } from "@/lib/leagues/standings";
 import { leagueMatchupPath } from "@/lib/leagues/utils";
 import type { MatchupBoardGame } from "@/lib/queries/week-matchup-board";
+import type {
+  MatchupBoardLiveGamePatch,
+  MatchupBoardLivePatch,
+} from "@/lib/leagues/matchups/board-live-patch";
 import { cn } from "@/lib/utils";
 
 type WeekMatchupsListProps = {
@@ -67,6 +72,45 @@ export function MatchupsWeekYearFilters({
 
 const PLACEHOLDER = "—";
 const CHANCE_ANIM_MS = 750;
+
+function mergeBoardGame(
+  game: MatchupBoardGame,
+  patch: MatchupBoardLiveGamePatch,
+): MatchupBoardGame {
+  return {
+    ...game,
+    status: patch.status,
+    resultFinal: patch.resultFinal,
+    away: {
+      ...game.away,
+      actualPts: patch.away.actualPts,
+      projectedPts: patch.away.projectedPts,
+      winChance: patch.away.winChance,
+      isLoser: patch.away.isLoser,
+    },
+    home: {
+      ...game.home,
+      actualPts: patch.home.actualPts,
+      projectedPts: patch.home.projectedPts,
+      winChance: patch.home.winChance,
+      isLoser: patch.home.isLoser,
+    },
+  };
+}
+
+function applyBoardPatch(
+  games: MatchupBoardGame[],
+  patch: MatchupBoardLivePatch,
+): MatchupBoardGame[] {
+  if (patch.games.length === 0) {
+    return games;
+  }
+  const byId = new Map(patch.games.map((game) => [game.id, game]));
+  return games.map((game) => {
+    const next = byId.get(game.id);
+    return next ? mergeBoardGame(game, next) : game;
+  });
+}
 
 function formatPts(value: number | null, digits = 2) {
   if (value == null || !Number.isFinite(value)) {
@@ -322,17 +366,39 @@ export function WeekMatchupsList({
   leagueSlug,
   myTeamSlug,
 }: WeekMatchupsListProps) {
+  const [liveGames, setLiveGames] = useState(games);
+  const [prevGames, setPrevGames] = useState(games);
+
+  if (games !== prevGames) {
+    setPrevGames(games);
+    setLiveGames(games);
+  }
+
+  useEffect(() => {
+    const onPatch = (event: Event) => {
+      const detail = (event as CustomEvent<MatchupBoardLivePatch>).detail;
+      if (!detail?.games) {
+        return;
+      }
+      setLiveGames((prev) => applyBoardPatch(prev, detail));
+    };
+    window.addEventListener(LIVE_SCORES_BOARD_EVENT, onPatch);
+    return () => {
+      window.removeEventListener(LIVE_SCORES_BOARD_EVENT, onPatch);
+    };
+  }, []);
+
   const myGame =
     myTeamSlug != null && myTeamSlug !== ""
-      ? (games.find(
+      ? (liveGames.find(
           (game) =>
             game.away.teamSlug === myTeamSlug ||
             game.home.teamSlug === myTeamSlug,
         ) ?? null)
       : null;
   const otherGames = myGame
-    ? games.filter((game) => game.id !== myGame.id)
-    : games;
+    ? liveGames.filter((game) => game.id !== myGame.id)
+    : liveGames;
 
   const filters = (
     <MatchupsWeekYearFilters
@@ -346,7 +412,7 @@ export function WeekMatchupsList({
 
   return (
     <div className="flex flex-col gap-4">
-      {games.length === 0 ? (
+      {liveGames.length === 0 ? (
         <>
           {filters}
           <Empty>

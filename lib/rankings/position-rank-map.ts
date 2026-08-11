@@ -1,6 +1,7 @@
 import { cache } from "react";
 
 import { calculatePlayerPoints } from "@/lib/leagues/scoring/calculate";
+import { scoringStatKeysForLoad } from "@/lib/leagues/scoring/stat-keys";
 import type { ScoringRuleDefinition } from "@/lib/leagues/scoring/types";
 import { loadScoreRows } from "@/lib/queries/score-rows";
 import { buildFantasyPositionRankById } from "@/lib/rankings/attach-position-ranks";
@@ -24,7 +25,13 @@ export const getFantasyPositionRankMap = cache(
     kind,
     scoringRules,
   }: RankMapKey): Promise<Map<string, number>> => {
-    const rows = await loadScoreRows({ season, week, kind });
+    const rows = await loadScoreRows({
+      season,
+      week,
+      kind,
+      columns: "rank",
+      statKeys: scoringStatKeysForLoad(scoringRules),
+    });
 
     const scored = rows.map((row) => ({
       id: row.id,

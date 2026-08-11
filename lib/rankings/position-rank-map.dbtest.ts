@@ -71,13 +71,14 @@ describe("getFantasyPositionRankMap", () => {
       scoringPreset: "full_ppr",
     });
 
-    // Get subset of players (scoped)
+    // Get subset of players (scoped) — opt into league-wide ranks
     const scopedPlayers = await getRankedPlayers({
       season: "2025",
       week: 1,
       kind: "projection",
       scoringPreset: "full_ppr",
       playerIds: [players[1]!.id, players[3]!.id], // QB2 and QB4
+      includePositionRanks: true,
     });
 
     // Verify QB2 has rank 2 in both queries
@@ -134,6 +135,7 @@ describe("getFantasyPositionRankMap", () => {
         kind: "stats",
         scoringPreset: "full_ppr",
         playerIds: [players[0]!.id],
+        includePositionRanks: true,
       }),
       getRankedPlayers({
         season: "2025",
@@ -141,6 +143,7 @@ describe("getFantasyPositionRankMap", () => {
         kind: "stats",
         scoringPreset: "full_ppr",
         playerIds: [players[1]!.id],
+        includePositionRanks: true,
       }),
       getRankedPlayers({
         season: "2025",
@@ -148,6 +151,7 @@ describe("getFantasyPositionRankMap", () => {
         kind: "stats",
         scoringPreset: "full_ppr",
         playerIds: [players[2]!.id],
+        includePositionRanks: true,
       }),
     ]);
 

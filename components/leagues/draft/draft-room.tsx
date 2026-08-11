@@ -20,6 +20,7 @@ import {
 } from "@/components/leagues/draft/draft-controls";
 import {
   DRAFT_PICKS_EVENT,
+  type DraftPickEventPayload,
   type DraftPicksPollResponse,
 } from "@/components/leagues/draft/draft-pick-notifier";
 import { DraftPlayerPool } from "@/components/leagues/draft/draft-player-pool";
@@ -122,6 +123,31 @@ function computeSecondsLeft(input: {
   return Math.max(0, Math.ceil((expiresMs - input.nowMs) / 1000));
 }
 
+function pickRowFromEvent(event: DraftPickEventPayload): DraftPickRow {
+  return {
+    id: event.id,
+    overall: event.overall,
+    round: event.round,
+    pickInRound: event.pickInRound,
+    teamId: event.teamId,
+    playerId: event.playerId,
+    source: event.source,
+    madeAt: new Date(event.madeAt),
+    playerFullName: event.playerFullName,
+    playerPositionId: event.playerPositionId,
+    playerNflTeam: event.playerNflTeam,
+    playerByeWeek: event.playerByeWeek,
+    playerSleeperId: event.playerSleeperId,
+  };
+}
+
+function serverPickSignature(
+  pickIndex: number,
+  serverPicks: DraftPickRow[],
+): string {
+  return `${pickIndex}:${serverPicks.length}`;
+}
+
 export function DraftRoom({
   slug,
   isCommissioner,
@@ -157,8 +183,26 @@ export function DraftRoom({
   const [prevStatus, setPrevStatus] = useState(status);
   const [liveTurnExpiresAt, setLiveTurnExpiresAt] = useState(turnExpiresAt);
   const [prevTurnExpiresAt, setPrevTurnExpiresAt] = useState(turnExpiresAt);
+  const [livePausedSeconds, setLivePausedSeconds] = useState(
+    pausedSecondsRemaining,
+  );
+  const [prevPausedSeconds, setPrevPausedSeconds] = useState(
+    pausedSecondsRemaining,
+  );
+  const [livePicks, setLivePicks] = useState(picks);
+  const [liveDraftedIds, setLiveDraftedIds] = useState(draftedPlayerIds);
+  const [livePickIndex, setLivePickIndex] = useState(currentPickIndex);
+  const [livePickByPlayerId, setLivePickByPlayerId] = useState(pickByPlayerId);
+  const [liveMyDrafted, setLiveMyDrafted] = useState(myDraftedPlayers);
+  const [propPickSig, setPropPickSig] = useState(() =>
+    serverPickSignature(currentPickIndex, picks),
+  );
   const autopickRef = useRef(false);
   const lastTurnCueRef = useRef<number | null>(null);
+  const poolById = useMemo(
+    () => new Map(poolPlayers.map((player) => [player.id, player])),
+    [poolPlayers],
+  );
 
   if (status !== prevStatus) {
     setPrevStatus(status);
@@ -170,11 +214,33 @@ export function DraftRoom({
     setLiveTurnExpiresAt(turnExpiresAt);
   }
 
+  if (pausedSecondsRemaining !== prevPausedSeconds) {
+    setPrevPausedSeconds(pausedSecondsRemaining);
+    setLivePausedSeconds(pausedSecondsRemaining);
+  }
+
+  const nextPropPickSig = serverPickSignature(currentPickIndex, picks);
+  if (nextPropPickSig !== propPickSig) {
+    setPropPickSig(nextPropPickSig);
+    setLivePicks(picks);
+    setLiveDraftedIds(draftedPlayerIds);
+    setLivePickIndex(currentPickIndex);
+    setLivePickByPlayerId(pickByPlayerId);
+    setLiveMyDrafted(myDraftedPlayers);
+  }
+
   const effectiveStatus = optimisticStatus;
   const draftLive = effectiveStatus === "live";
   const draftComplete = effectiveStatus === "complete";
+  const onTheClockLive =
+    effectiveStatus === "live" || effectiveStatus === "paused"
+      ? (schedule[livePickIndex] ?? null)
+      : onTheClock;
   const isMyTurn = Boolean(
-    draftLive && onTheClock && myTeamId && onTheClock.teamId === myTeamId,
+    draftLive &&
+      onTheClockLive &&
+      myTeamId &&
+      onTheClockLive.teamId === myTeamId,
   );
 
   const clockEnabled =
@@ -185,12 +251,12 @@ export function DraftRoom({
     status: effectiveStatus,
     clockEnabled,
     turnExpiresAt: liveTurnExpiresAt,
-    pausedSecondsRemaining,
+    pausedSecondsRemaining: livePausedSeconds,
     nowMs,
   });
 
-  const onClockTeam = onTheClock
-    ? (teams.find((team) => team.id === onTheClock.teamId) ?? null)
+  const onClockTeam = onTheClockLive
+    ? (teams.find((team) => team.id === onTheClockLive.teamId) ?? null)
     : null;
   const onClockIsOpenSlot = Boolean(onClockTeam && onClockTeam.userId == null);
   const autopickAllowed =
@@ -211,17 +277,15 @@ export function DraftRoom({
     ) {
       return null;
     }
-    for (let index = currentPickIndex; index < schedule.length; index++) {
+    for (let index = livePickIndex; index < schedule.length; index++) {
       if (schedule[index]?.teamId === myTeamId) {
-        return index - currentPickIndex;
+        return index - livePickIndex;
       }
     }
     return null;
-  }, [currentPickIndex, myTeamId, schedule, effectiveStatus]);
+  }, [livePickIndex, myTeamId, schedule, effectiveStatus]);
 
   useEffect(() => {
-    let debounceId = 0;
-
     const onDraftPicks = (event: Event) => {
       const detail = (event as CustomEvent<DraftPicksPollResponse>).detail;
       if (!detail) {
@@ -233,29 +297,83 @@ export function DraftRoom({
           prev === detail.turnExpiresAt ? prev : (detail.turnExpiresAt ?? null),
         );
       }
+      if (detail.pausedSecondsRemaining !== undefined) {
+        setLivePausedSeconds((prev) =>
+          prev === detail.pausedSecondsRemaining
+            ? prev
+            : (detail.pausedSecondsRemaining ?? null),
+        );
+      }
       if (detail.status) {
         setOptimisticStatus((prev) =>
           prev === detail.status ? prev : detail.status,
         );
       }
 
-      const sawNewPick = (detail.picks?.length ?? 0) > 0;
-      if (!sawNewPick) {
+      if (typeof detail.afterOverall === "number") {
+        setLivePickIndex((prev) => Math.max(prev, detail.afterOverall));
+      }
+
+      const incoming = detail.picks ?? [];
+      if (incoming.length === 0) {
         return;
       }
 
-      window.clearTimeout(debounceId);
-      debounceId = window.setTimeout(() => {
-        router.refresh();
-      }, 500);
+      setLivePicks((prev) => {
+        const byOverall = new Map(prev.map((pick) => [pick.overall, pick]));
+        for (const eventPick of incoming) {
+          if (!byOverall.has(eventPick.overall)) {
+            byOverall.set(eventPick.overall, pickRowFromEvent(eventPick));
+          }
+        }
+        return [...byOverall.values()].toSorted(
+          (a, b) => a.overall - b.overall,
+        );
+      });
+
+      setLiveDraftedIds((prev) => {
+        const next = new Set(prev);
+        for (const eventPick of incoming) {
+          next.add(eventPick.playerId);
+        }
+        return [...next];
+      });
+
+      setLivePickByPlayerId((prev) => {
+        const next = { ...prev };
+        for (const eventPick of incoming) {
+          next[eventPick.playerId] = eventPick.overall;
+        }
+        return next;
+      });
+
+      if (myTeamId) {
+        const mine = incoming.filter(
+          (eventPick) => eventPick.teamId === myTeamId,
+        );
+        if (mine.length > 0) {
+          setLiveMyDrafted((prev) => {
+            const seen = new Set(prev.map((player) => player.id));
+            const next = [...prev];
+            for (const eventPick of mine) {
+              if (seen.has(eventPick.playerId)) continue;
+              const fromPool = poolById.get(eventPick.playerId);
+              if (fromPool) {
+                next.push(fromPool);
+                seen.add(eventPick.playerId);
+              }
+            }
+            return next;
+          });
+        }
+      }
     };
 
     window.addEventListener(DRAFT_PICKS_EVENT, onDraftPicks);
     return () => {
-      window.clearTimeout(debounceId);
       window.removeEventListener(DRAFT_PICKS_EVENT, onDraftPicks);
     };
-  }, [router]);
+  }, [myTeamId, poolById]);
 
   // Tick the pick clock while live.
   useEffect(() => {
@@ -266,19 +384,19 @@ export function DraftRoom({
       setNowMs(Date.now());
     }, 250);
     return () => window.clearInterval(timer);
-  }, [clockEnabled, effectiveStatus, liveTurnExpiresAt, currentPickIndex]);
+  }, [clockEnabled, effectiveStatus, liveTurnExpiresAt, livePickIndex]);
 
   // Cue sound when it becomes your turn.
   useEffect(() => {
-    if (!draftLive || !isMyTurn || !onTheClock) {
+    if (!draftLive || !isMyTurn || !onTheClockLive) {
       return;
     }
-    if (lastTurnCueRef.current === onTheClock.overall) {
+    if (lastTurnCueRef.current === onTheClockLive.overall) {
       return;
     }
-    lastTurnCueRef.current = onTheClock.overall;
+    lastTurnCueRef.current = onTheClockLive.overall;
     playDraftSound("/sound-youre-up.mp3");
-  }, [draftLive, isMyTurn, onTheClock]);
+  }, [draftLive, isMyTurn, onTheClockLive]);
 
   // Open / unclaimed slots autopick promptly when there is no pick clock.
   useEffect(() => {
@@ -293,7 +411,6 @@ export function DraftRoom({
       void (async () => {
         const result = await autoDraftCurrentPick(slug);
         if (result.success) {
-          router.refresh();
           return;
         }
         autopickRef.current = false;
@@ -305,9 +422,8 @@ export function DraftRoom({
     onClockIsOpenSlot,
     clockEnabled,
     slug,
-    router,
-    currentPickIndex,
-    onTheClock?.overall,
+    livePickIndex,
+    onTheClockLive?.overall,
   ]);
 
   // Autopick when the clock hits zero; retry while it stays expired.
@@ -338,10 +454,8 @@ export function DraftRoom({
         return;
       }
       if (result.success) {
-        router.refresh();
         return;
       }
-      // Server may still be catching up; retry until the pick advances.
       retryId = window.setTimeout(() => {
         void attempt();
       }, 5_000);
@@ -357,10 +471,9 @@ export function DraftRoom({
     autopickAllowed,
     clockEnabled,
     draftLive,
-    router,
     secondsLeft,
     slug,
-    currentPickIndex,
+    livePickIndex,
     liveTurnExpiresAt,
   ]);
 
@@ -406,15 +519,15 @@ export function DraftRoom({
     return () => window.clearTimeout(timer);
   }, [draftStartAt, waitingToStart, slug, router]);
 
-  const onClockLabel = onTheClock
-    ? `${onTheClock.teamName}${onClockIsOpenSlot ? " (open)" : ""}`
+  const onClockLabel = onTheClockLive
+    ? `${onTheClockLive.teamName}${onClockIsOpenSlot ? " (open)" : ""}`
     : null;
 
   const clockCardTitle = waitingToStart
     ? "Waiting to start"
     : effectiveStatus === "paused"
       ? "Draft paused"
-      : onTheClock
+      : onTheClockLive
         ? "On the clock"
         : "Up next";
 
@@ -423,7 +536,7 @@ export function DraftRoom({
     : effectiveStatus === "paused"
       ? onClockLabel
       : isMyTurn
-        ? `You · Pick #${onTheClock?.overall ?? ""}`
+        ? `You · Pick #${onTheClockLive?.overall ?? ""}`
         : onClockLabel;
 
   const waitingMessage = (() => {
@@ -457,7 +570,7 @@ export function DraftRoom({
                     slug={slug}
                     isCommissioner={isCommissioner}
                     status={effectiveStatus}
-                    canRevert={currentPickIndex > 0}
+                    canRevert={livePickIndex > 0}
                     onStatusOptimistic={setOptimisticStatus}
                   />
                   <DraftClockToggle
@@ -472,7 +585,7 @@ export function DraftRoom({
             >
               {waitingToStart ? (
                 <p className="text-sm text-muted-foreground">{waitingMessage}</p>
-              ) : isMyTurn && onTheClock ? (
+              ) : isMyTurn && onTheClockLive ? (
                 <div className="flex flex-col gap-1">
                   {secondsLeft != null ? (
                     <>
@@ -484,12 +597,14 @@ export function DraftRoom({
                   ) : (
                     <p className="text-sm text-muted-foreground">
                       {clockEnabled
-                        ? `Round ${onTheClock.round} · Pick ${onTheClock.overall}`
+                        ? `Round ${onTheClockLive.round} · Pick ${onTheClockLive.overall}`
                         : "No time limit — pick when ready"}
                     </p>
                   )}
                 </div>
-              ) : onTheClock && picksUntilUser != null && picksUntilUser > 0 ? (
+              ) : onTheClockLive &&
+                picksUntilUser != null &&
+                picksUntilUser > 0 ? (
                 secondsLeft != null ? (
                   <div className="flex flex-col gap-1">
                     <p className="text-xs text-muted-foreground">
@@ -507,10 +622,10 @@ export function DraftRoom({
                     {picksUntilUser === 1 ? "pick" : "picks"}
                   </p>
                 )
-              ) : onTheClock ? (
+              ) : onTheClockLive ? (
                 <div className="flex flex-col gap-1">
                   <p className="text-sm text-muted-foreground">
-                    Round {onTheClock.round} · Pick #{onTheClock.overall}
+                    Round {onTheClockLive.round} · Pick #{onTheClockLive.overall}
                   </p>
                   {secondsLeft != null ? (
                     <>
@@ -556,10 +671,10 @@ export function DraftRoom({
               <DraftBoard
                 slug={slug}
                 schedule={schedule}
-                picks={picks}
+                picks={livePicks}
                 teams={teams}
                 rounds={rounds}
-                currentPickIndex={currentPickIndex}
+                currentPickIndex={livePickIndex}
                 status={effectiveStatus}
               />
             ) : null}
@@ -571,7 +686,7 @@ export function DraftRoom({
                 slug={slug}
                 data={poolPlayers}
                 teams={nflTeams}
-                draftedPlayerIds={draftedPlayerIds}
+                draftedPlayerIds={liveDraftedIds}
                 draftLive={draftLive}
                 draftComplete={draftComplete}
                 isMyTurn={isMyTurn}
@@ -590,8 +705,8 @@ export function DraftRoom({
           <TabsContent value="roster" className="pt-4">
             {tab === "roster" ? (
               <DraftRosterTab
-                players={myDraftedPlayers}
-                pickByPlayerId={pickByPlayerId}
+                players={liveMyDrafted}
+                pickByPlayerId={livePickByPlayerId}
                 leagueSlug={slug}
               />
             ) : null}
