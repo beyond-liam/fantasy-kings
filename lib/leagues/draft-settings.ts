@@ -8,15 +8,18 @@ import {
   WIZARD_DEFAULTS,
 } from "@/lib/leagues/defaults";
 
-/** Default daily pause window (UTC) when the option is enabled. */
+/** Default daily pause window (UK time) when the option is enabled. */
 export const DEFAULT_PAUSE_WINDOW_START = "22:00";
 export const DEFAULT_PAUSE_WINDOW_END = "08:00";
 
 const HH_MM_REGEX = /^([01]\d|2[0-3]):[0-5]\d$/;
 
-export const utcTimeOfDaySchema = z
+export const ukTimeOfDaySchema = z
   .string()
-  .regex(HH_MM_REGEX, "Use HH:mm (UTC).");
+  .regex(HH_MM_REGEX, "Use HH:mm (UK time).");
+
+/** @deprecated Use ukTimeOfDaySchema */
+export const utcTimeOfDaySchema = ukTimeOfDaySchema;
 
 export type DraftConfigFormValues = {
   draftType: "live" | "email";
@@ -71,8 +74,8 @@ export const draftConfigFormSchema = z
     pickTimeUnit: z.enum(["minutes", "hours"]),
     autoPickEnabled: z.boolean(),
     pauseWindowEnabled: z.boolean(),
-    pauseWindowStart: utcTimeOfDaySchema,
-    pauseWindowEnd: utcTimeOfDaySchema,
+    pauseWindowStart: ukTimeOfDaySchema,
+    pauseWindowEnd: ukTimeOfDaySchema,
   })
   .superRefine((data, ctx) => {
     const start = new Date(data.draftStartAt);

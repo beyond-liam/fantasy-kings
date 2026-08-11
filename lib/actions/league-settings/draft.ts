@@ -18,6 +18,7 @@ import {
 } from "@/lib/leagues/settings-activity";
 import { unwindDraftForFutureStart } from "@/lib/leagues/draft/reschedule";
 import { ensureDraftTurnClock } from "@/lib/leagues/draft/ensure-turn-clock";
+import { syncDraftPauseWindowForSeason } from "@/lib/leagues/draft/pause-window";
 import { getDraftBySeasonId } from "@/lib/queries/draft";
 
 import {
@@ -108,6 +109,9 @@ export async function updateDraftConfig(
     });
   }
 
+  // Honor the new pause window immediately (e.g. resume if end time already passed).
+  await syncDraftPauseWindowForSeason(season.id);
+
   // Apply league autopick default to all teams.
   await db
     .update(teams)
@@ -127,8 +131,8 @@ export async function updateDraftConfig(
       { path: "pickTimeLimitSeconds", label: "Pick time (seconds)" },
       { path: "autoPickEnabled", label: "Auto-pick default" },
       { path: "pauseWindowEnabled", label: "Pause window enabled" },
-      { path: "pauseWindowStart", label: "Pause window start (UTC)" },
-      { path: "pauseWindowEnd", label: "Pause window end (UTC)" },
+      { path: "pauseWindowStart", label: "Pause window start (UK)" },
+      { path: "pauseWindowEnd", label: "Pause window end (UK)" },
     ]),
   });
 

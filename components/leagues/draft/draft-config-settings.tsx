@@ -360,7 +360,7 @@ export function DraftConfigSettings({
                   </FieldLabel>
                   <FieldDescription>
                     Automatically pause the draft clock each day between these
-                    UTC times (e.g. overnight).
+                    UK times (e.g. overnight).
                   </FieldDescription>
                 </div>
                 <Switch
@@ -387,7 +387,7 @@ export function DraftConfigSettings({
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field>
                   <FieldLabel htmlFor="pauseWindowStart">
-                    Pause starts (UTC)
+                    Pause starts (UK)
                   </FieldLabel>
                   <TimePicker
                     id="pauseWindowStart"
@@ -397,12 +397,12 @@ export function DraftConfigSettings({
                     }
                   />
                   <FieldDescription>
-                    Clock freezes from this UTC time.
+                    Clock freezes from this UK time.
                   </FieldDescription>
                 </Field>
                 <Field>
                   <FieldLabel htmlFor="pauseWindowEnd">
-                    Pause ends (UTC)
+                    Pause ends (UK)
                   </FieldLabel>
                   <TimePicker
                     id="pauseWindowEnd"
@@ -410,7 +410,7 @@ export function DraftConfigSettings({
                     onChange={(pauseWindowEnd) => patch({ pauseWindowEnd })}
                   />
                   <FieldDescription>
-                    Draft resumes at this UTC time. Overnight windows are
+                    Draft resumes at this UK time. Overnight windows are
                     allowed.
                   </FieldDescription>
                 </Field>

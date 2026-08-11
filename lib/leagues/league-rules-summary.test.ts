@@ -211,7 +211,7 @@ describe("buildLeagueRulesSummary", () => {
     const draft = sections.find((section) => section.title === "Draft");
     assert.equal(
       draft?.rows.find((row) => row.label === "Daily Pause Window")?.value,
-      "22:00–08:00 UTC",
+      "22:00–08:00 UK",
     );
   });
 });

@@ -435,7 +435,7 @@ export function buildLeagueRulesSummary(input: {
         ? [
             {
               label: "Daily Pause Window",
-              value: `${draft.pauseWindowStart}–${draft.pauseWindowEnd} UTC`,
+              value: `${draft.pauseWindowStart}–${draft.pauseWindowEnd} UK`,
             },
           ]
         : []),

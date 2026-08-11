@@ -207,7 +207,7 @@ export function DraftStep({ values, errors, onChange }: DraftStepProps) {
                   Pause during a time window
                 </FieldLabel>
                 <FieldDescription>
-                  Automatically pause the draft clock each day between these UTC
+                  Automatically pause the draft clock each day between these UK
                   times (e.g. overnight).
                 </FieldDescription>
               </div>
@@ -235,7 +235,7 @@ export function DraftStep({ values, errors, onChange }: DraftStepProps) {
             <div className="grid gap-4 sm:grid-cols-2">
               <Field>
                 <FieldLabel htmlFor="pauseWindowStart">
-                  Pause starts (UTC)
+                  Pause starts (UK)
                 </FieldLabel>
                 <TimePicker
                   id="pauseWindowStart"
@@ -248,7 +248,7 @@ export function DraftStep({ values, errors, onChange }: DraftStepProps) {
               </Field>
               <Field>
                 <FieldLabel htmlFor="pauseWindowEnd">
-                  Pause ends (UTC)
+                  Pause ends (UK)
                 </FieldLabel>
                 <TimePicker
                   id="pauseWindowEnd"

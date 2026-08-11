@@ -131,9 +131,9 @@ export const transactionsStepSchema = z
     path: ["faabBudget"],
   });
 
-const utcTimeOfDaySchema = z
+const ukTimeOfDaySchema = z
   .string()
-  .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Use HH:mm (UTC).");
+  .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Use HH:mm (UK time).");
 
 export const draftStepSchema = z
   .object({
@@ -143,8 +143,8 @@ export const draftStepSchema = z
     pickTimeLimit: z.number().int().min(1).max(48),
     pickTimeUnit: z.enum(["minutes", "hours"]),
     pauseWindowEnabled: z.boolean(),
-    pauseWindowStart: utcTimeOfDaySchema,
-    pauseWindowEnd: utcTimeOfDaySchema,
+    pauseWindowStart: ukTimeOfDaySchema,
+    pauseWindowEnd: ukTimeOfDaySchema,
   })
   .superRefine((data, ctx) => {
     if (

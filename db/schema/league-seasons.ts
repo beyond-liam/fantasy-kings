@@ -104,8 +104,9 @@ export type DraftSettings = {
    */
   pickTimeLimitEnabled?: boolean;
   /**
-   * Timed email drafts only: daily UTC window when the draft auto-pauses.
-   * Times are `HH:mm` in UTC; overnight wrap (e.g. 22:00→08:00) is allowed.
+   * Timed email drafts only: daily UK (`Europe/London`) window when the draft
+   * auto-pauses. Times are `HH:mm` UK wall clock (GMT/BST); overnight wrap
+   * (e.g. 22:00→08:00) is allowed.
    */
   pauseWindowEnabled?: boolean;
   pauseWindowStart?: string;

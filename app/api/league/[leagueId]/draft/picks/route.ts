@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { getSessionUser } from "@/lib/auth/session";
+import { syncDraftPauseWindowForSeason } from "@/lib/leagues/draft/pause-window";
 import {
   getDraftBySeasonId,
   getDraftPickEventsAfter,
@@ -45,8 +46,15 @@ export async function GET(request: Request, context: RouteContext) {
       status: null,
       afterOverall: 0,
       turnExpiresAt: null,
+      pausedSecondsRemaining: null,
       picks: [],
     });
+  }
+
+  // Apply daily pause/resume before returning status so open clients honor
+  // the window without waiting on cron.
+  if (season.draftType === "email" && season.pickTimeLimitSeconds > 0) {
+    await syncDraftPauseWindowForSeason(season.id);
   }
 
   const draft = await getDraftBySeasonId(season.id);
@@ -55,6 +63,7 @@ export async function GET(request: Request, context: RouteContext) {
       status: draft?.status ?? null,
       afterOverall: draft?.currentPickIndex ?? 0,
       turnExpiresAt: draft?.turnExpiresAt?.toISOString() ?? null,
+      pausedSecondsRemaining: draft?.pausedSecondsRemaining ?? null,
       picks: [],
     });
   }
@@ -71,6 +80,23 @@ export async function GET(request: Request, context: RouteContext) {
     status: draft.status,
     afterOverall: draft.currentPickIndex,
     turnExpiresAt: draft.turnExpiresAt?.toISOString() ?? null,
-    picks,
+    pausedSecondsRemaining: draft.pausedSecondsRemaining,
+    picks: picks.map((pick) => ({
+      id: pick.id,
+      overall: pick.overall,
+      round: pick.round,
+      pickInRound: pick.pickInRound,
+      playerId: pick.playerId,
+      playerFullName: pick.playerFullName,
+      playerPositionId: pick.playerPositionId,
+      playerNflTeam: pick.playerNflTeam,
+      playerByeWeek: pick.playerByeWeek,
+      playerSleeperId: pick.playerSleeperId ?? null,
+      teamName: pick.teamName,
+      teamId: pick.teamId,
+      source: pick.source,
+      madeByUserId: pick.madeByUserId,
+      madeAt: pick.madeAt.toISOString(),
+    })),
   });
 }

@@ -25,7 +25,7 @@ A mobile-first fantasy football web app for a private friend group (4–16 users
 | Scoring | Offense engine + commissioner scoring UI; **minimal IDP defaults** (CB/S/DT/DE/LB) |
 | Roster | Lineup / IR / taxi (eligibility), FA add/cut, lineup-lock enforce |
 | Waivers / trades | FAAB + rolling, claims, vetoes, limits, crons, alerts |
-| Draft | Live + email/slow same room; Brevo turn emails; mock draft; timed email daily UTC pause window |
+| Draft | Live + email/slow same room; Brevo turn emails; mock draft; timed email daily UK pause window |
 | Matchups | Week board, Game Centre, standings from finals, Live/Final badges |
 | Live scores | Sleeper near-live + ESPN athlete boxscores → `player_scores` |
 | Official scores | nflverse post-week replace; optional `applyOfficialStatChanges` |
@@ -884,5 +884,7 @@ lib/
 | 2026-08-10 | Waiver Wire: Preseason waivers switch (off = unlocked FAs until first fantasy week; on after draft) |
 | 2026-08-10 | Trades allowed during draft; deadline lockout is after deadline week through last game week |
 | 2026-08-10 | Timed email drafts: optional daily UTC pause window (auto-pause/resume via process-draft-picks cron) |
+| 2026-08-11 | Draft pause window uses UK time (`Europe/London` GMT/BST), not UTC |
+| 2026-08-11 | Pause window auto-resume also runs on draft poll + settings save (not cron-only) |
 | 2026-08-10 | Lineup slot edits allowed during live/paused draft (FA add/cut still locked) |
 | 2026-08-10 | Email CTAs: harden app base URL (skip localhost in prod; APP_URL / Vercel production host); absoluteAppUrl safety net |
