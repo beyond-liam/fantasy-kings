@@ -4,7 +4,10 @@ import { CheckmarkCircle03Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
 import { PlayerAvatar } from "@/components/rankings/player-avatar";
-import { formatPlayerSubtitle } from "@/components/rankings/player-identity";
+import {
+  formatPlayerSubtitle,
+  PlayerProfileTrigger,
+} from "@/components/rankings/player-identity";
 import { OpponentCell } from "@/components/team/opponent-cell";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { TableShell } from "@/components/ui/table";
@@ -61,9 +64,11 @@ function shortInjuryLabel(label: string) {
 function MobilePlayerBlock({
   player,
   align,
+  leagueSlug,
 }: {
   player: GameCentrePlayer | null;
   align: "away" | "home";
+  leagueSlug?: string | null;
 }) {
   const isAway = align === "away";
   const alignCls = isAway ? "text-left items-start" : "text-right items-end";
@@ -93,8 +98,13 @@ function MobilePlayerBlock({
   ) : null;
 
   return (
-    <div className={cn("flex min-w-0 flex-1 flex-col gap-0.5", alignCls)}>
-      <span className="w-full truncate text-xs font-semibold leading-tight">
+    <PlayerProfileTrigger
+      playerId={player.id}
+      leagueSlug={leagueSlug}
+      aria-label={`View ${player.fullName}`}
+      className={cn("flex min-w-0 flex-1 flex-col gap-0.5", alignCls)}
+    >
+      <span className="w-full truncate text-xs font-semibold leading-tight underline-offset-2 group-hover/player-identity:underline group-focus-visible/player-identity:underline">
         {shortName(player.fullName)}
       </span>
 
@@ -144,7 +154,7 @@ function MobilePlayerBlock({
           {player.opponent?.label ?? PLACEHOLDER}
         </span>
       </div>
-    </div>
+    </PlayerProfileTrigger>
   );
 }
 
@@ -191,9 +201,11 @@ function MobileScoreCluster({
 function DuelPlayerCard({
   player,
   align,
+  leagueSlug,
 }: {
   player: GameCentrePlayer | null;
   align: "away" | "home";
+  leagueSlug?: string | null;
 }) {
   const isAway = align === "away";
 
@@ -220,7 +232,10 @@ function DuelPlayerCard({
         isAway ? "flex-row" : "flex-row-reverse",
       )}
     >
-      <div
+      <PlayerProfileTrigger
+        playerId={player.id}
+        leagueSlug={leagueSlug}
+        aria-label={`View ${player.fullName}`}
         className={cn(
           "flex min-w-0 items-center gap-2.5",
           PLAYER_IDENTITY,
@@ -241,7 +256,7 @@ function DuelPlayerCard({
             isAway ? "text-left" : "text-right",
           )}
         >
-          <div className="truncate text-sm font-medium leading-snug">
+          <div className="truncate text-sm font-medium leading-snug underline-offset-2 group-hover/player-identity:underline group-focus-visible/player-identity:underline">
             {player.fullName}
           </div>
           <div className="truncate text-xs leading-snug text-muted-foreground">
@@ -251,7 +266,7 @@ function DuelPlayerCard({
             })}
           </div>
         </div>
-      </div>
+      </PlayerProfileTrigger>
 
       <OpponentCell
         opponent={player.opponent}
@@ -355,16 +370,22 @@ function DuelRow({
   row,
   onActualClick,
   showAdv,
+  leagueSlug,
 }: {
   row: GameCentreDuelRow;
   onActualClick?: (player: GameCentrePlayer) => void;
   showAdv: boolean;
+  leagueSlug?: string | null;
 }) {
   return (
     <li className="border-b last:border-b-0">
       {/* Mobile — Sleeper-style compact row, no horizontal scroll */}
       <div className="flex min-w-0 items-center gap-1 px-2 py-2.5 md:hidden">
-        <MobilePlayerBlock player={row.away} align="away" />
+        <MobilePlayerBlock
+          player={row.away}
+          align="away"
+          leagueSlug={leagueSlug}
+        />
         <div className="flex shrink-0 items-center gap-2">
           <MobileScoreCluster
             player={row.away}
@@ -378,12 +399,20 @@ function DuelRow({
             onActualClick={onActualClick}
           />
         </div>
-        <MobilePlayerBlock player={row.home} align="home" />
+        <MobilePlayerBlock
+          player={row.home}
+          align="home"
+          leagueSlug={leagueSlug}
+        />
       </div>
 
       {/* Desktop — existing duel layout */}
       <div className="hidden min-w-[52rem] items-center justify-between sm:min-w-[56rem] md:flex">
-        <DuelPlayerCard player={row.away} align="away" />
+        <DuelPlayerCard
+          player={row.away}
+          align="away"
+          leagueSlug={leagueSlug}
+        />
 
         <div className="flex shrink-0 items-center gap-3 px-3 sm:gap-4 sm:px-4">
           <ScoreCluster
@@ -403,7 +432,11 @@ function DuelRow({
           />
         </div>
 
-        <DuelPlayerCard player={row.home} align="home" />
+        <DuelPlayerCard
+          player={row.home}
+          align="home"
+          leagueSlug={leagueSlug}
+        />
       </div>
     </li>
   );
@@ -416,6 +449,7 @@ type MatchupRosterListProps = {
   emptyMessage: string;
   /** ADV checkmarks — starters only (desktop). */
   showAdv?: boolean;
+  leagueSlug?: string | null;
 };
 
 export function MatchupRosterList({
@@ -424,6 +458,7 @@ export function MatchupRosterList({
   onActualClick,
   emptyMessage,
   showAdv = true,
+  leagueSlug,
 }: MatchupRosterListProps) {
   if (rows.length === 0) {
     return (
@@ -452,6 +487,7 @@ export function MatchupRosterList({
           row={row}
           onActualClick={onActualClick}
           showAdv={showAdv}
+          leagueSlug={leagueSlug}
         />
       ))}</ul>
     </TableShell>
@@ -461,9 +497,11 @@ export function MatchupRosterList({
 export function StarterDuelList({
   rows,
   onActualClick,
+  leagueSlug,
 }: {
   rows: GameCentreDuelRow[];
   onActualClick?: (player: GameCentrePlayer) => void;
+  leagueSlug?: string | null;
 }) {
   return (
     <MatchupRosterList
@@ -471,6 +509,7 @@ export function StarterDuelList({
       rows={rows}
       onActualClick={onActualClick}
       emptyMessage="No starters set for this matchup."
+      leagueSlug={leagueSlug}
     />
   );
 }

@@ -4,6 +4,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 
 import { ManagerPresenceBadge } from "@/components/leagues/presence/manager-presence-badge";
 import { PlayerAvatar } from "@/components/rankings/player-avatar";
+import { PlayerProfileTrigger } from "@/components/rankings/player-identity";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -220,10 +221,12 @@ function TeamSpotlight({
 
 function PlayerSpotlight({
   player,
+  leagueSlug,
   emptyTitle = "No data yet",
   empty,
 }: {
   player: OverviewPlayerHighlight | null;
+  leagueSlug: string;
   emptyTitle?: string;
   empty: string;
 }) {
@@ -240,24 +243,31 @@ function PlayerSpotlight({
 
   return (
     <div className="flex flex-col items-center gap-2 py-2 text-center">
-      <PlayerAvatar
-        fullName={player.fullName}
-        sleeperId={player.sleeperId}
-        primaryPositionId={player.primaryPositionId}
-        nflTeam={player.nflTeam}
-        size="lg"
-        className="size-16"
-      />
-      <div className="min-w-0 max-w-full">
-        <p className="truncate text-sm font-medium text-balance">
-          {player.fullName}
-        </p>
-        <p className="truncate text-xs text-muted-foreground">
-          {[player.nflTeam, player.primaryPositionId]
-            .filter(Boolean)
-            .join(" · ")}
-        </p>
-      </div>
+      <PlayerProfileTrigger
+        playerId={player.id}
+        leagueSlug={leagueSlug}
+        aria-label={`View ${player.fullName}`}
+        className="flex flex-col items-center gap-2"
+      >
+        <PlayerAvatar
+          fullName={player.fullName}
+          sleeperId={player.sleeperId}
+          primaryPositionId={player.primaryPositionId}
+          nflTeam={player.nflTeam}
+          size="lg"
+          className="size-16"
+        />
+        <div className="min-w-0 max-w-full">
+          <p className="truncate text-sm font-medium text-balance underline-offset-2 group-hover/player-identity:underline group-focus-visible/player-identity:underline">
+            {player.fullName}
+          </p>
+          <p className="truncate text-xs text-muted-foreground">
+            {[player.nflTeam, player.primaryPositionId]
+              .filter(Boolean)
+              .join(" · ")}
+          </p>
+        </div>
+      </PlayerProfileTrigger>
       <div className="flex flex-col items-center gap-0.5">
         <p className="text-2xl font-semibold tracking-tight tabular-nums">
           {formatPoints(player.points)}
@@ -567,6 +577,7 @@ export function LeagueOverview({
         <OverviewCard title={`Passing Leader${weekLabel}`}>
           <PlayerSpotlight
             player={playersOfTheWeek.passer}
+            leagueSlug={leagueSlug}
             emptyTitle="No QB scores yet"
             empty="Top passers appear after weekly scores land."
           />
@@ -574,6 +585,7 @@ export function LeagueOverview({
         <OverviewCard title={`Rushing Leader${weekLabel}`}>
           <PlayerSpotlight
             player={playersOfTheWeek.rusher}
+            leagueSlug={leagueSlug}
             emptyTitle="No RB scores yet"
             empty="Top rushers appear after weekly scores land."
           />
@@ -581,6 +593,7 @@ export function LeagueOverview({
         <OverviewCard title={`Receiving Leader${weekLabel}`}>
           <PlayerSpotlight
             player={playersOfTheWeek.receiver}
+            leagueSlug={leagueSlug}
             emptyTitle="No WR/TE scores yet"
             empty="Top receivers appear after weekly scores land."
           />

@@ -271,7 +271,7 @@ export default async function MyTeamPage({
     );
   } else if (activeTab === "draft-picks" && team) {
     draftPicksPanel = wrapActivePanel(
-      <MyTeamDraftPicksPanel teamId={team.id} />,
+      <MyTeamDraftPicksPanel teamId={team.id} leagueSlug={slug} />,
     );
   } else if (activeTab === "settings" && team) {
     settingsPanel = wrapActivePanel(

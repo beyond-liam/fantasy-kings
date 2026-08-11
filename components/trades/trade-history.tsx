@@ -50,6 +50,7 @@ const PAGE_SIZE = 10;
 type TradeHistoryProps = {
   trades: TradeListRow[];
   myTeamId: string;
+  leagueSlug: string;
   description?: string;
 };
 
@@ -69,6 +70,7 @@ function formatTradeDate(date: Date) {
 export function TradeHistory({
   trades,
   myTeamId,
+  leagueSlug,
   description,
 }: TradeHistoryProps) {
   const [page, setPage] = useState(0);
@@ -207,6 +209,8 @@ export function TradeHistory({
                                 primaryPositionId={player.primaryPositionId}
                                 nflTeam={player.nflTeam}
                                 size="sm"
+                                playerId={player.playerId}
+                                leagueSlug={leagueSlug}
                               />
                             </li>
                           ))}
@@ -225,6 +229,8 @@ export function TradeHistory({
                                 primaryPositionId={player.primaryPositionId}
                                 nflTeam={player.nflTeam}
                                 size="sm"
+                                playerId={player.playerId}
+                                leagueSlug={leagueSlug}
                               />
                             </li>
                           ))}

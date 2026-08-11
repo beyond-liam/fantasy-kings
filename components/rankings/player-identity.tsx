@@ -1,7 +1,11 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useState, type MouseEvent } from "react";
+import {
+  useState,
+  type MouseEvent,
+  type ReactNode,
+} from "react";
 
 import { PlayerAvatar } from "@/components/rankings/player-avatar";
 import { resolvePlayerByeWeek } from "@/lib/nfl/bye-weeks";
@@ -29,6 +33,55 @@ type PlayerIdentityProps = {
   playerId?: string | null;
   leagueSlug?: string | null;
 };
+
+type PlayerProfileTriggerProps = {
+  playerId?: string | null;
+  leagueSlug?: string | null;
+  className?: string;
+  children: ReactNode;
+  /** Accessible name when the trigger content is not self-describing. */
+  "aria-label"?: string;
+};
+
+/** Wrap any player name/avatar markup so it opens the profile dialog. */
+export function PlayerProfileTrigger({
+  playerId,
+  leagueSlug,
+  className,
+  children,
+  "aria-label": ariaLabel,
+}: PlayerProfileTriggerProps) {
+  const [open, setOpen] = useState(false);
+
+  if (!playerId) {
+    return <div className={className}>{children}</div>;
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        aria-label={ariaLabel}
+        className={cn(
+          "group/player-identity min-w-0 text-left focus-visible:outline-none",
+          className,
+        )}
+        onClick={(event: MouseEvent<HTMLButtonElement>) => {
+          event.stopPropagation();
+          setOpen(true);
+        }}
+      >
+        {children}
+      </button>
+      <PlayerProfileDialog
+        playerId={open ? playerId : null}
+        leagueSlug={leagueSlug}
+        open={open}
+        onOpenChange={setOpen}
+      />
+    </>
+  );
+}
 
 export function formatPlayerSubtitle({
   primaryPositionId,
@@ -65,7 +118,6 @@ export function PlayerIdentity({
   playerId,
   leagueSlug,
 }: PlayerIdentityProps) {
-  const [open, setOpen] = useState(false);
   const subtitle = formatPlayerSubtitle({
     primaryPositionId,
     nflTeam,
@@ -73,8 +125,13 @@ export function PlayerIdentity({
     record,
   });
 
-  const content = (
-    <>
+  return (
+    <PlayerProfileTrigger
+      playerId={playerId}
+      leagueSlug={leagueSlug}
+      aria-label={playerId ? `View ${fullName}` : undefined}
+      className={cn("flex min-w-0 items-center gap-2.5", className)}
+    >
       <PlayerAvatar
         fullName={fullName}
         sleeperId={sleeperId}
@@ -97,39 +154,7 @@ export function PlayerIdentity({
           {subtitle}
         </span>
       </div>
-    </>
-  );
-
-  if (!playerId) {
-    return (
-      <div className={cn("flex min-w-0 items-center gap-2.5", className)}>
-        {content}
-      </div>
-    );
-  }
-
-  return (
-    <>
-      <button
-        type="button"
-        className={cn(
-          "group/player-identity flex min-w-0 items-center gap-2.5 text-left focus-visible:outline-none",
-          className,
-        )}
-        onClick={(event: MouseEvent<HTMLButtonElement>) => {
-          event.stopPropagation();
-          setOpen(true);
-        }}
-      >
-        {content}
-      </button>
-      <PlayerProfileDialog
-        playerId={open ? playerId : null}
-        leagueSlug={leagueSlug}
-        open={open}
-        onOpenChange={setOpen}
-      />
-    </>
+    </PlayerProfileTrigger>
   );
 }
 

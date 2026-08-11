@@ -76,6 +76,7 @@ function SortableClaimCard({
   index,
   isFaab,
   disabled,
+  leagueSlug,
   onCancel,
   onEdit,
 }: {
@@ -83,6 +84,7 @@ function SortableClaimCard({
   index: number;
   isFaab: boolean;
   disabled: boolean;
+  leagueSlug: string;
   onCancel: () => void;
   onEdit: () => void;
 }) {
@@ -129,6 +131,8 @@ function SortableClaimCard({
             nflTeam={claim.nflTeam}
             record={isFaab && claim.bid != null ? `$${claim.bid}` : null}
             size="sm"
+            playerId={claim.playerId}
+            leagueSlug={leagueSlug}
           />
           {claim.dropPlayerName ? (
             <p className="text-xs text-muted-foreground">
@@ -334,11 +338,13 @@ export function TeamWaiversSection({
                     index={pageStart + index}
                     isFaab={isFaab}
                     disabled={isPending}
+                    leagueSlug={leagueSlug}
                     onCancel={() => handleCancel(claim.id)}
                     onEdit={() =>
                       setEditClaim({
                         open: true,
                         claimId: claim.id,
+                        playerId: claim.playerId,
                         playerName: claim.playerName,
                         sleeperId: claim.sleeperId,
                         primaryPositionId: claim.primaryPositionId,

@@ -23,6 +23,7 @@ import { updateWaiverClaimBid } from "@/lib/actions/waivers";
 export type EditClaimDialogState = {
   open: boolean;
   claimId: string;
+  playerId: string;
   playerName: string;
   sleeperId: string | null;
   primaryPositionId: string;
@@ -112,6 +113,8 @@ export function EditClaimDialog({
               primaryPositionId={state.primaryPositionId}
               nflTeam={state.nflTeam}
               size="sm"
+              playerId={state.playerId}
+              leagueSlug={leagueSlug}
             />
             <div className="flex flex-col gap-2">
               <Label htmlFor="edit-faab-bid">Bid ($)</Label>

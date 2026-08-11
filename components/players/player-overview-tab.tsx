@@ -2059,12 +2059,14 @@ type PlayerOverviewTabProps = {
   } | null;
   /** Controlled by the toolbar toggle opposite the season select. */
   withoutActive?: boolean;
+  leagueSlug?: string | null;
 };
 
 export function PlayerOverviewTab({
   overview: overviewAll,
   withoutQb1 = null,
   withoutActive = false,
+  leagueSlug,
 }: PlayerOverviewTabProps) {
   const isMobile = useIsMobile();
   const withoutOn =
@@ -2948,6 +2950,7 @@ export function PlayerOverviewTab({
             startableThreshold={
               weeklyFinish?.startableThreshold ?? 12
             }
+            leagueSlug={leagueSlug}
           />
         ) : (
           <Empty className="border-none" size="sm">

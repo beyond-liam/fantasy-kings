@@ -353,6 +353,8 @@ export function TradeList({
                           primaryPositionId={player.primaryPositionId}
                           nflTeam={player.nflTeam}
                           size="sm"
+                          playerId={player.playerId}
+                          leagueSlug={leagueSlug}
                         />
                       </li>
                     ))}
@@ -373,6 +375,8 @@ export function TradeList({
                           primaryPositionId={player.primaryPositionId}
                           nflTeam={player.nflTeam}
                           size="sm"
+                          playerId={player.playerId}
+                          leagueSlug={leagueSlug}
                         />
                       </li>
                     ))}
@@ -544,6 +548,7 @@ export function TradeList({
         loadError={acceptLoadError}
         dropsNeeded={acceptDropsNeeded}
         candidates={acceptCandidates}
+        leagueSlug={leagueSlug}
         onOpenChange={(open) => {
           if (!open) {
             setAcceptTradeId(null);

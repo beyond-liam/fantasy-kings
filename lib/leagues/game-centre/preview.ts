@@ -19,6 +19,7 @@ const LEADER_POSITIONS = [
 ] as const;
 
 export type GameCentrePreviewLeaderSide = {
+  playerId: string | null;
   name: string;
   primaryPositionId: string;
   sleeperId: string | null;
@@ -35,6 +36,7 @@ export type GameCentrePreviewLeader = {
 
 export type GameCentrePreviewInjury = {
   side: "away" | "home";
+  playerId: string | null;
   playerName: string;
   position: string;
   status: string;
@@ -61,6 +63,7 @@ export type GameCentrePreview = {
 };
 
 type PreviewPlayer = {
+  id: string;
   fullName: string;
   primaryPositionId: string;
   sleeperId: string | null;
@@ -113,6 +116,7 @@ function bestAtPosition(
 
 function emptyLeaderSide(): GameCentrePreviewLeaderSide {
   return {
+    playerId: null,
     name: "—",
     primaryPositionId: "",
     sleeperId: null,
@@ -126,6 +130,7 @@ function leaderSide(player: PreviewPlayer | null): GameCentrePreviewLeaderSide {
   if (!player) return emptyLeaderSide();
   const pts = player.seasonProjectedPts ?? player.projectedPts;
   return {
+    playerId: player.id,
     name: player.fullName,
     primaryPositionId: player.primaryPositionId,
     sleeperId: player.sleeperId,
@@ -164,6 +169,7 @@ export function buildInjuryReport(
       if (!indicator) continue;
       rows.push({
         side,
+        playerId: player.id,
         playerName: player.fullName,
         position: player.primaryPositionId,
         status: indicator.status,

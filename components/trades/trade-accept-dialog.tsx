@@ -23,6 +23,7 @@ type TradeAcceptDialogProps = {
   loadError: string | null;
   dropsNeeded: number;
   candidates: TradeAcceptCandidate[];
+  leagueSlug: string;
   onOpenChange: (open: boolean) => void;
   onConfirm: (dropIds: string[]) => void;
 };
@@ -33,6 +34,7 @@ export function TradeAcceptDialog({
   loadError,
   dropsNeeded,
   candidates,
+  leagueSlug,
   onOpenChange,
   onConfirm,
 }: TradeAcceptDialogProps) {
@@ -97,6 +99,8 @@ export function TradeAcceptDialog({
                   primaryPositionId={player.primaryPositionId}
                   nflTeam={player.nflTeam}
                   size="sm"
+                  playerId={player.id}
+                  leagueSlug={leagueSlug}
                 />
               </li>
             ))}

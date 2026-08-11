@@ -662,6 +662,7 @@ export async function getGameCentreData(input: {
         opponentTeamId: matchup.homeTeamId,
         seasonYear: season.seasonYear,
         awayPlayers: awayRoster.map((player) => ({
+          id: player.id,
           fullName: player.fullName,
           primaryPositionId: player.primaryPositionId,
           sleeperId: player.sleeperId,
@@ -672,6 +673,7 @@ export async function getGameCentreData(input: {
           isStarter: awayStarterIds.has(player.id),
         })),
         homePlayers: homeRoster.map((player) => ({
+          id: player.id,
           fullName: player.fullName,
           primaryPositionId: player.primaryPositionId,
           sleeperId: player.sleeperId,

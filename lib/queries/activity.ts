@@ -58,7 +58,9 @@ export async function getLeagueActivity(
 export type UnseenWaiverResult = {
   id: string;
   status: "awarded" | "failed";
+  playerId: string;
   playerName: string;
+  dropPlayerId: string | null;
   dropPlayerName: string | null;
   bid: number | null;
   failReason: string | null;
@@ -73,6 +75,7 @@ export async function getUnseenTeamWaiverResults(input: {
     .select({
       id: waiverClaims.id,
       status: waiverClaims.status,
+      playerId: waiverClaims.playerId,
       playerName: players.fullName,
       dropPlayerId: waiverClaims.dropPlayerId,
       bid: waiverClaims.bid,
@@ -131,7 +134,9 @@ export async function getUnseenTeamWaiverResults(input: {
   return rows.map((row) => ({
     id: row.id,
     status: row.status,
+    playerId: row.playerId,
     playerName: row.playerName,
+    dropPlayerId: row.dropPlayerId,
     dropPlayerName: row.dropPlayerId
       ? (dropNames.get(row.dropPlayerId) ?? null)
       : null,

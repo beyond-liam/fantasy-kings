@@ -4,6 +4,7 @@ import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
+import { PlayerProfileTrigger } from "@/components/rankings/player-identity";
 import { SortableList } from "@/components/ui/sortable-list";
 import {
   Empty,
@@ -34,6 +35,7 @@ type DraftQueuePanelProps = {
 export function DraftQueuePanel({ slug, items }: DraftQueuePanelProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const leagueSlug = slug === "mock" ? undefined : slug;
 
   if (items.length === 0) {
     return (
@@ -71,9 +73,23 @@ export function DraftQueuePanel({ slug, items }: DraftQueuePanelProps) {
       removeDisabled={isPending}
       items={items.map((item) => ({
         id: item.playerId,
-        label: `${item.fullName} · ${item.primaryPositionId}${
-          item.nflTeam ? ` · ${item.nflTeam}` : ""
-        }`,
+        label: item.fullName,
+        content: (
+          <span className="flex min-w-0 flex-wrap items-baseline gap-x-1.5">
+            <PlayerProfileTrigger
+              playerId={item.playerId}
+              leagueSlug={leagueSlug}
+              aria-label={`View ${item.fullName}`}
+              className="font-medium underline-offset-2 group-hover/player-identity:underline group-focus-visible/player-identity:underline"
+            >
+              {item.fullName}
+            </PlayerProfileTrigger>
+            <span className="text-muted-foreground">
+              · {item.primaryPositionId}
+              {item.nflTeam ? ` · ${item.nflTeam}` : ""}
+            </span>
+          </span>
+        ),
       }))}
       onReorder={(ids) => {
         startTransition(async () => {

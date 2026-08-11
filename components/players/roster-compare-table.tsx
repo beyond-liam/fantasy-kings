@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import type { ColumnDef, SortingState } from "@tanstack/react-table";
 
 import { PlayerAvatar } from "@/components/rankings/player-avatar";
+import { PlayerProfileTrigger } from "@/components/rankings/player-identity";
 import {
   DataTable,
   DataTableColumnHeader,
@@ -19,6 +20,7 @@ type RosterCompareTableProps = {
   showRbUsage?: boolean;
   /** Position startable cutoff for the T# column (WR 24, TE 12). */
   startableThreshold?: number;
+  leagueSlug?: string | null;
 };
 
 const PLACEHOLDER = "—";
@@ -163,6 +165,7 @@ export function RosterCompareTable({
   rows,
   showRbUsage = false,
   startableThreshold = 12,
+  leagueSlug,
 }: RosterCompareTableProps) {
   const [sorting, setSorting] = useState<SortingState>([
     { id: "fptsPerGame", desc: true },
@@ -186,7 +189,12 @@ export function RosterCompareTable({
         cell: ({ row }) => {
           const player = row.original;
           return (
-            <div className="flex min-w-0 items-start gap-2">
+            <PlayerProfileTrigger
+              playerId={player.id}
+              leagueSlug={leagueSlug}
+              aria-label={`View ${player.name}`}
+              className="flex min-w-0 items-start gap-2"
+            >
               <PlayerAvatar
                 fullName={player.name}
                 sleeperId={player.sleeperId}
@@ -197,7 +205,7 @@ export function RosterCompareTable({
               <div className="flex min-w-0 flex-col gap-0.5 leading-tight">
                 <span
                   className={cn(
-                    "truncate text-pretty font-medium",
+                    "truncate text-pretty font-medium underline-offset-2 group-hover/player-identity:underline group-focus-visible/player-identity:underline",
                     player.isViewed && "text-foreground",
                   )}
                 >
@@ -210,7 +218,7 @@ export function RosterCompareTable({
                     (player.isViewed ? "This player" : PLACEHOLDER)}
                 </span>
               </div>
-            </div>
+            </PlayerProfileTrigger>
           );
         },
         meta: {
@@ -371,7 +379,7 @@ export function RosterCompareTable({
     );
 
     return cols;
-  }, [showRbUsage, startableThreshold, viewed]);
+  }, [leagueSlug, showRbUsage, startableThreshold, viewed]);
 
   const table = useDataTable({
     data: rows,

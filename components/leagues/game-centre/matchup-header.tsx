@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { MatchupStatusBadge } from "@/components/leagues/matchups/matchup-status-badge";
+import { PlayerProfileTrigger } from "@/components/rankings/player-identity";
 import {
   Popover,
   PopoverContent,
@@ -68,9 +69,11 @@ function formatPts(value: number | null, digits = 2) {
 function YetToPlayLabel({
   yetToPlay,
   players,
+  leagueSlug,
 }: {
   yetToPlay: number;
   players: GameCentreYetToPlayPlayer[];
+  leagueSlug?: string | null;
 }) {
   const label = `Yet to play (${yetToPlay})`;
   if (yetToPlay === 0 || players.length === 0) {
@@ -104,12 +107,17 @@ function YetToPlayLabel({
                 : null;
             return (
               <li key={player.id} className="flex flex-col gap-0.5 text-xs">
-                <span>
+                <PlayerProfileTrigger
+                  playerId={player.id}
+                  leagueSlug={leagueSlug}
+                  aria-label={`View ${player.fullName}`}
+                  className="font-medium underline-offset-2 group-hover/player-identity:underline group-focus-visible/player-identity:underline"
+                >
                   {player.fullName}{" "}
                   <span className="tabular-nums text-muted-foreground">
                     {player.slotPositionId}
                   </span>
-                </span>
+                </PlayerProfileTrigger>
                 <span className="text-[11px] text-muted-foreground">
                   {[player.opponentLabel, when].filter(Boolean).join(" · ") ||
                     "Kickoff TBD"}
@@ -130,6 +138,7 @@ function WinChanceMeter({
   muted,
   yetToPlay,
   yetToPlayPlayers,
+  leagueSlug,
 }: {
   chance: number | null;
   growFrom: "end" | "start";
@@ -137,6 +146,7 @@ function WinChanceMeter({
   muted: boolean;
   yetToPlay: number;
   yetToPlayPlayers: GameCentreYetToPlayPlayer[];
+  leagueSlug?: string | null;
 }) {
   const targetPct =
     chance != null && Number.isFinite(chance)
@@ -165,7 +175,11 @@ function WinChanceMeter({
         align === "away" ? "justify-between" : "justify-between flex-row-reverse",
       )}
     >
-      <YetToPlayLabel yetToPlay={yetToPlay} players={yetToPlayPlayers} />
+      <YetToPlayLabel
+        yetToPlay={yetToPlay}
+        players={yetToPlayPlayers}
+        leagueSlug={leagueSlug}
+      />
       <span
         className={cn(
           muted ? "text-muted-foreground/70" : null,
@@ -209,10 +223,12 @@ function HeaderSide({
   side,
   align,
   onProjectedClick,
+  leagueSlug,
 }: {
   side: GameCentreTeamSide;
   align: "away" | "home";
   onProjectedClick?: () => void;
+  leagueSlug?: string | null;
 }) {
   const isAway = align === "away";
   const muted = side.isLoser;
@@ -296,6 +312,7 @@ function HeaderSide({
           muted={muted}
           yetToPlay={side.yetToPlay}
           yetToPlayPlayers={side.yetToPlayPlayers}
+          leagueSlug={leagueSlug}
         />
       </div>
       <div className="hidden md:block">
@@ -306,6 +323,7 @@ function HeaderSide({
           muted={muted}
           yetToPlay={side.yetToPlay}
           yetToPlayPlayers={side.yetToPlayPlayers}
+          leagueSlug={leagueSlug}
         />
       </div>
     </div>
@@ -317,6 +335,7 @@ type MatchupHeaderProps = {
   home: GameCentreTeamSide;
   status: "scheduled" | "in_progress" | "final";
   onProjectedClick?: () => void;
+  leagueSlug?: string | null;
 };
 
 export function MatchupHeader({
@@ -324,6 +343,7 @@ export function MatchupHeader({
   home,
   status,
   onProjectedClick,
+  leagueSlug,
 }: MatchupHeaderProps) {
   return (
     <div className="relative flex min-w-0 flex-col items-stretch overflow-hidden rounded-xl border bg-card pt-7 md:flex-row">
@@ -335,6 +355,7 @@ export function MatchupHeader({
           side={away}
           align="away"
           onProjectedClick={away.isViewerTeam ? onProjectedClick : undefined}
+          leagueSlug={leagueSlug}
         />
       </div>
       <div className="relative z-10 hidden shrink-0 items-center self-center md:flex">
@@ -346,6 +367,7 @@ export function MatchupHeader({
         side={home}
         align="home"
         onProjectedClick={home.isViewerTeam ? onProjectedClick : undefined}
+        leagueSlug={leagueSlug}
       />
     </div>
   );

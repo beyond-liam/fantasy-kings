@@ -15,6 +15,7 @@ import {
   TableShell,
 } from "@/components/ui/table";
 import { PlayerAvatar } from "@/components/rankings/player-avatar";
+import { PlayerProfileTrigger } from "@/components/rankings/player-identity";
 import { formatPoints, teamInitials } from "@/lib/leagues/standings";
 import type { GameCentrePreview } from "@/lib/leagues/game-centre/preview";
 import type { GameCentreTeamSide } from "@/lib/queries/game-centre";
@@ -180,18 +181,15 @@ function MatchupPredictor({
 function LeaderSide({
   side,
   align,
+  leagueSlug,
 }: {
   side: GameCentrePreview["leaders"][number]["away"];
   align: "left" | "right";
+  leagueSlug?: string | null;
 }) {
   const isEmpty = side.name === "—";
-  return (
-    <div
-      className={cn(
-        "flex min-w-0 items-center gap-2.5",
-        align === "right" && "flex-row-reverse text-right",
-      )}
-    >
+  const body = (
+    <>
       {!isEmpty ? (
         <PlayerAvatar
           fullName={side.name}
@@ -203,10 +201,32 @@ function LeaderSide({
         />
       ) : null}
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium">{side.name}</p>
+        <p
+          className={cn(
+            "truncate text-sm font-medium",
+            !isEmpty &&
+              "underline-offset-2 group-hover/player-identity:underline group-focus-visible/player-identity:underline",
+          )}
+        >
+          {side.name}
+        </p>
         <p className="text-xs tabular-nums text-muted-foreground">{side.line}</p>
       </div>
-    </div>
+    </>
+  );
+
+  return (
+    <PlayerProfileTrigger
+      playerId={isEmpty ? null : side.playerId}
+      leagueSlug={leagueSlug}
+      aria-label={isEmpty ? undefined : `View ${side.name}`}
+      className={cn(
+        "flex min-w-0 items-center gap-2.5",
+        align === "right" && "flex-row-reverse text-right",
+      )}
+    >
+      {body}
+    </PlayerProfileTrigger>
   );
 }
 
@@ -214,10 +234,12 @@ function TeamLeadersStack({
   team,
   leaders,
   sideKey,
+  leagueSlug,
 }: {
   team: GameCentreTeamSide;
   leaders: GameCentrePreview["leaders"];
   sideKey: "away" | "home";
+  leagueSlug?: string | null;
 }) {
   return (
     <section className="flex flex-col gap-3">
@@ -234,7 +256,11 @@ function TeamLeadersStack({
             <p className="text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
               {leader.category}
             </p>
-            <LeaderSide side={leader[sideKey]} align="left" />
+            <LeaderSide
+              side={leader[sideKey]}
+              align="left"
+              leagueSlug={leagueSlug}
+            />
           </li>
         ))}
       </ul>
@@ -246,16 +272,28 @@ function SeasonLeadersList({
   leaders,
   away,
   home,
+  leagueSlug,
 }: {
   leaders: GameCentrePreview["leaders"];
   away: GameCentreTeamSide;
   home: GameCentreTeamSide;
+  leagueSlug?: string | null;
 }) {
   return (
     <>
       <div className="flex flex-col gap-6 md:hidden">
-        <TeamLeadersStack team={away} leaders={leaders} sideKey="away" />
-        <TeamLeadersStack team={home} leaders={leaders} sideKey="home" />
+        <TeamLeadersStack
+          team={away}
+          leaders={leaders}
+          sideKey="away"
+          leagueSlug={leagueSlug}
+        />
+        <TeamLeadersStack
+          team={home}
+          leaders={leaders}
+          sideKey="home"
+          leagueSlug={leagueSlug}
+        />
       </div>
 
       <ul className="hidden flex-col gap-4 md:flex">
@@ -264,11 +302,19 @@ function SeasonLeadersList({
             key={leader.category}
             className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3"
           >
-            <LeaderSide side={leader.away} align="left" />
+            <LeaderSide
+              side={leader.away}
+              align="left"
+              leagueSlug={leagueSlug}
+            />
             <p className="max-w-28 text-center text-[10px] font-medium leading-tight tracking-wide text-muted-foreground uppercase sm:max-w-32">
               {leader.category}
             </p>
-            <LeaderSide side={leader.home} align="right" />
+            <LeaderSide
+              side={leader.home}
+              align="right"
+              leagueSlug={leagueSlug}
+            />
           </li>
         ))}
       </ul>
@@ -363,7 +409,12 @@ export function MatchupPreviewDashboard({
               </EmptyHeader>
             </Empty>
           ) : (
-            <SeasonLeadersList leaders={leaders} away={away} home={home} />
+            <SeasonLeadersList
+              leaders={leaders}
+              away={away}
+              home={home}
+              leagueSlug={leagueSlug}
+            />
           )}
         </SectionCard>
 
@@ -389,7 +440,14 @@ export function MatchupPreviewDashboard({
                         className="flex items-start justify-between gap-2 text-sm"
                       >
                         <span className="min-w-0">
-                          <span className="font-medium">{row.playerName}</span>
+                          <PlayerProfileTrigger
+                            playerId={row.playerId}
+                            leagueSlug={leagueSlug}
+                            aria-label={`View ${row.playerName}`}
+                            className="font-medium underline-offset-2 group-hover/player-identity:underline group-focus-visible/player-identity:underline"
+                          >
+                            {row.playerName}
+                          </PlayerProfileTrigger>
                           {row.position ? (
                             <span className="text-muted-foreground">
                               {" "}

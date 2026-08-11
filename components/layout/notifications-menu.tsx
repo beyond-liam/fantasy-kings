@@ -149,7 +149,7 @@ export function NotificationsMenu() {
           {hasUnread ? (
             <span
               aria-hidden
-              className="absolute top-0.5 right-0.5 size-2 rounded-full bg-destructive"
+              className="absolute -top-0.5 -right-0.5 size-2 rounded-full bg-destructive"
             />
           ) : null}
         </span>

@@ -133,7 +133,11 @@ export function TeamTransactionsSection({
             />
           </section>
 
-          <TradeHistory trades={myTrades} myTeamId={myTeamId} />
+          <TradeHistory
+            trades={myTrades}
+            myTeamId={myTeamId}
+            leagueSlug={leagueSlug}
+          />
         </TabsContent>
       </Tabs>
     </div>

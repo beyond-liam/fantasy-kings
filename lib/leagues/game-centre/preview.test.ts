@@ -8,6 +8,7 @@ import {
 
 function player(
   overrides: Partial<{
+    id: string;
     fullName: string;
     primaryPositionId: string;
     sleeperId: string | null;
@@ -19,6 +20,7 @@ function player(
   }> = {},
 ) {
   return {
+    id: "player-1",
     fullName: "Player",
     primaryPositionId: "QB",
     sleeperId: null,

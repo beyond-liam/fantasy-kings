@@ -7,6 +7,7 @@ import { ArrowDown01Icon, ArrowUp01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
 import { PlayerAvatar } from "@/components/rankings/player-avatar";
+import { PlayerProfileTrigger } from "@/components/rankings/player-identity";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Dialog,
@@ -43,10 +44,12 @@ function ValueCard({
   title,
   player,
   tone,
+  leagueSlug,
 }: {
   title: string;
   player: NonNullable<UnseenDraftGrade["bestValue"]>;
   tone: "best" | "worst";
+  leagueSlug: string;
 }) {
   /** overall − ADP: positive = drafted later than ADP (steal). */
   const adpDelta = Math.round(player.overall - player.adp);
@@ -54,7 +57,12 @@ function ValueCard({
   const isSteal = tone === "best";
 
   return (
-    <div className="flex flex-col overflow-hidden rounded-xl border bg-card">
+    <PlayerProfileTrigger
+      playerId={player.playerId}
+      leagueSlug={leagueSlug}
+      aria-label={`View ${player.fullName}`}
+      className="flex flex-col overflow-hidden rounded-xl border bg-card"
+    >
       <p className="px-3 pt-2.5 text-center text-xs font-medium text-muted-foreground">
         {title}
       </p>
@@ -95,9 +103,11 @@ function ValueCard({
           tone === "best" ? "bg-emerald-900" : "bg-rose-900",
         )}
       >
-        <span className="line-clamp-1">{player.fullName}</span>
+        <span className="line-clamp-1 underline-offset-2 group-hover/player-identity:underline group-focus-visible/player-identity:underline">
+          {player.fullName}
+        </span>
       </div>
-    </div>
+    </PlayerProfileTrigger>
   );
 }
 
@@ -202,6 +212,7 @@ export function DraftGradeDialog({
               title="Best value pick"
               player={grade.bestValue}
               tone="best"
+              leagueSlug={leagueSlug}
             />
           ) : (
             <div className="rounded-xl border bg-muted/30 p-4 text-center text-sm text-muted-foreground">
@@ -213,6 +224,7 @@ export function DraftGradeDialog({
               title="Worst value pick"
               player={grade.worstValue}
               tone="worst"
+              leagueSlug={leagueSlug}
             />
           ) : (
             <div className="rounded-xl border bg-muted/30 p-4 text-center text-sm text-muted-foreground">

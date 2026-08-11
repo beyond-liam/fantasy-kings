@@ -114,6 +114,7 @@ export function GameCentre({ data }: GameCentreProps) {
         away={data.away}
         home={data.home}
         status={data.status}
+        leagueSlug={data.leagueSlug}
         onProjectedClick={
           data.optimum ? () => setOptimumOpen(true) : undefined
         }
@@ -171,6 +172,7 @@ export function GameCentre({ data }: GameCentreProps) {
             rows={data.duelRows}
             onActualClick={setBreakdownPlayer}
             emptyMessage="No starters set for this matchup."
+            leagueSlug={data.leagueSlug}
           />
           <MatchupRosterList
             title="Bench"
@@ -178,6 +180,7 @@ export function GameCentre({ data }: GameCentreProps) {
             onActualClick={setBreakdownPlayer}
             emptyMessage="No bench players on either roster."
             showAdv={false}
+            leagueSlug={data.leagueSlug}
           />
           <WaiverTips tips={data.waiverTips} leagueSlug={data.leagueSlug} />
         </TabsContent>

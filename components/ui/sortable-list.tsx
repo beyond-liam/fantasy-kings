@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import {
   DndContext,
   KeyboardSensor,
@@ -29,7 +29,10 @@ import { cn } from "@/lib/utils";
 
 type SortableListItem = {
   id: string;
+  /** Used for aria labels. */
   label: string;
+  /** Optional rich content; defaults to `label`. */
+  content?: ReactNode;
 };
 
 type SortableListProps = {
@@ -85,7 +88,9 @@ function SortableRow({
       >
         <HugeiconsIcon icon={DragDropVerticalIcon} strokeWidth={2} />
       </Button>
-      <span className="min-w-0 flex-1 text-sm">{item.label}</span>
+      <span className="min-w-0 flex-1 text-sm">
+        {item.content ?? item.label}
+      </span>
       {onRemove ? (
         <Button
           type="button"

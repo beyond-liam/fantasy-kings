@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft02Icon, ArrowLeftRightIcon } from "@hugeicons/core-free-icons";
@@ -26,6 +27,14 @@ import { myTeamPath } from "@/lib/leagues/utils";
 import { stashPendingTradePropose } from "@/lib/trades/pending-propose";
 import type { TradePlayerRow } from "@/lib/queries/trades";
 import type { RosterSlotConfig } from "@/db/schema/league-seasons";
+
+const PlayerProfileDialog = dynamic(
+  () =>
+    import("@/components/players/player-profile-dialog").then(
+      (m) => m.PlayerProfileDialog,
+    ),
+  { ssr: false },
+);
 
 export type TradePartnerOption = {
   id: string;
@@ -70,10 +79,12 @@ function TradeSideChips({
   players,
   label,
   sectionLabel,
+  leagueSlug,
 }: {
   players: TradePlayerRow[];
   label: string;
   sectionLabel: string;
+  leagueSlug: string;
 }) {
   const visible = players.slice(0, VISIBLE_CHIPS);
   const overflow = players.length - visible.length;
@@ -81,21 +92,11 @@ function TradeSideChips({
   return (
     <>
       {visible.map((player) => (
-        <div
+        <TradePlayerChip
           key={player.id}
-          className="flex min-w-0 max-w-24 flex-col items-center gap-1"
-        >
-          <PlayerAvatar
-            fullName={player.fullName}
-            sleeperId={player.sleeperId}
-            primaryPositionId={player.primaryPositionId}
-            nflTeam={player.nflTeam}
-            size="sm"
-          />
-          <span className="w-full truncate text-center text-[10px] leading-tight text-foreground">
-            {shortName(player.fullName)}
-          </span>
-        </div>
+          player={player}
+          leagueSlug={leagueSlug}
+        />
       ))}
       {overflow > 0 ? (
         <Popover>
@@ -122,6 +123,8 @@ function TradeSideChips({
                     primaryPositionId={player.primaryPositionId}
                     nflTeam={player.nflTeam}
                     size="sm"
+                    playerId={player.id}
+                    leagueSlug={leagueSlug}
                   />
                 </li>
               ))}
@@ -132,6 +135,43 @@ function TradeSideChips({
       {players.length === 0 ? (
         <span className="text-xs text-muted-foreground">{label}</span>
       ) : null}
+    </>
+  );
+}
+
+function TradePlayerChip({
+  player,
+  leagueSlug,
+}: {
+  player: TradePlayerRow;
+  leagueSlug: string;
+}) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <>
+      <button
+        type="button"
+        className="group/player-chip flex min-w-0 max-w-24 flex-col items-center gap-1 text-left focus-visible:outline-none"
+        onClick={() => setOpen(true)}
+      >
+        <PlayerAvatar
+          fullName={player.fullName}
+          sleeperId={player.sleeperId}
+          primaryPositionId={player.primaryPositionId}
+          nflTeam={player.nflTeam}
+          size="sm"
+        />
+        <span className="w-full truncate text-center text-[10px] leading-tight text-foreground underline-offset-2 group-hover/player-chip:underline group-focus-visible/player-chip:underline">
+          {shortName(player.fullName)}
+        </span>
+      </button>
+      <PlayerProfileDialog
+        playerId={open ? player.id : null}
+        leagueSlug={leagueSlug}
+        open={open}
+        onOpenChange={setOpen}
+      />
     </>
   );
 }
@@ -271,6 +311,7 @@ export function TradeComposer({
           players={myRoster}
           selectedIds={myOfferIds}
           onToggle={(id) => setMyOfferIds((current) => toggleSet(current, id))}
+          leagueSlug={leagueSlug}
         />
         <TradeRosterTable
           teamName={partner.name}
@@ -279,6 +320,7 @@ export function TradeComposer({
           onToggle={(id) =>
             setTheirOfferIds((current) => toggleSet(current, id))
           }
+          leagueSlug={leagueSlug}
         />
       </div>
 
@@ -288,6 +330,7 @@ export function TradeComposer({
             players={myOfferPlayers}
             label="None selected"
             sectionLabel="You offer"
+            leagueSlug={leagueSlug}
           />
         </FloatingActionBarSection>
         <FloatingActionBarSection label="You receive">
@@ -295,6 +338,7 @@ export function TradeComposer({
             players={theirOfferPlayers}
             label="None selected"
             sectionLabel="You receive"
+            leagueSlug={leagueSlug}
           />
         </FloatingActionBarSection>
         <Button
@@ -330,6 +374,7 @@ export function TradeComposer({
         onProposingDropsChange={setProposingDropIds}
         partnerTeamName={partner.name}
         isCounter={Boolean(counterOfTradeId)}
+        leagueSlug={leagueSlug}
         onConfirm={handlePropose}
       />
     </div>

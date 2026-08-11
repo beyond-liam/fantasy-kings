@@ -412,11 +412,14 @@ export default async function LeagueTeamPage({
   if (needsDraftPicksPanel) {
     const draftPickRows = draftPicks.map((pick) => ({
       overall: pick.overall,
+      playerId: pick.playerId,
       playerName: pick.fullName,
       positionId: pick.primaryPositionId,
       nflTeam: pick.nflTeam,
     }));
-    draftPicksPanel = <TeamDraftPicksList picks={draftPickRows} />;
+    draftPicksPanel = (
+      <TeamDraftPicksList picks={draftPickRows} leagueSlug={slug} />
+    );
   }
 
   return (

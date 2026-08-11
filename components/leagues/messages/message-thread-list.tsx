@@ -42,7 +42,7 @@ export function MessageThreadList({
   }
 
   return (
-    <ul className="divide-y border-y md:rounded-xl md:border">
+    <ul className="divide-y overflow-hidden rounded-xl border">
       {threads.map((thread) => {
         const authorLabel =
           thread.authorTeamName ??

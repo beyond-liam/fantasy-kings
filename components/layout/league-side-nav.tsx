@@ -61,7 +61,7 @@ function NavLink({
       aria-label={statusLabel}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "group relative flex shrink-0 items-center justify-center transition-colors",
+        "group flex shrink-0 items-center justify-center transition-colors",
         pill
           ? "gap-1.5 rounded-sm px-2 py-1.5 text-xs font-semibold"
           : "min-h-16 flex-col gap-0.5 px-2 py-2 text-xs font-medium",
@@ -72,20 +72,11 @@ function NavLink({
           : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
       )}
     >
-      {showAttention && !showLive ? (
-        <span
-          className={cn(
-            "absolute size-2 rounded-full bg-destructive",
-            pill ? "top-1 right-1" : "top-2 right-2",
-          )}
-          aria-hidden
-        />
-      ) : null}
       <HugeiconsIcon
         icon={item.icon}
         size={pill ? 16 : 20}
         strokeWidth={active ? 2 : 1.75}
-        className="transition-[color] duration-150 ease-out"
+        className="shrink-0 transition-[color] duration-150 ease-out"
       />
       <span
         className={cn(
@@ -97,6 +88,12 @@ function NavLink({
           {item.shortLabel}
         </span>
         {showLive ? <LivePulseDot /> : null}
+        {showAttention && !showLive ? (
+          <span
+            className="size-2 shrink-0 rounded-full bg-destructive"
+            aria-hidden
+          />
+        ) : null}
       </span>
     </Link>
   );

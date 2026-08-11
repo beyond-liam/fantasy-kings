@@ -56,6 +56,7 @@ type TradeConfirmDialogProps = {
   proposingDropIds: string[];
   onProposingDropsChange: (playerIds: string[]) => void;
   partnerTeamName: string;
+  leagueSlug: string;
   isCounter?: boolean;
   onConfirm: (comment: string) => void;
 };
@@ -63,9 +64,11 @@ type TradeConfirmDialogProps = {
 function PlayerLine({
   player,
   direction,
+  leagueSlug,
 }: {
   player: TradePlayerRow;
   direction: "in" | "out";
+  leagueSlug: string;
 }) {
   const icon = direction === "in" ? ArrowRight02Icon : ArrowLeft02Icon;
   const arrowClass =
@@ -84,6 +87,8 @@ function PlayerLine({
         primaryPositionId={player.primaryPositionId}
         nflTeam={player.nflTeam}
         size="sm"
+        playerId={player.id}
+        leagueSlug={leagueSlug}
       />
     </li>
   );
@@ -94,11 +99,13 @@ function DropPlayerCombobox({
   analysis,
   selectedIds,
   onChange,
+  leagueSlug,
 }: {
   candidates: TradePlayerRow[];
   analysis: TradeDropAnalysis;
   selectedIds: string[];
   onChange: (playerIds: string[]) => void;
+  leagueSlug: string;
 }) {
   const anchor = useComboboxAnchor();
   const byId = useMemo(
@@ -193,6 +200,8 @@ function DropPlayerCombobox({
                   primaryPositionId={player.primaryPositionId}
                   nflTeam={player.nflTeam}
                   size="sm"
+                  playerId={player.id}
+                  leagueSlug={leagueSlug}
                 />
               </ComboboxItem>
             );
@@ -214,6 +223,7 @@ export function TradeConfirmDialog({
   proposingDropIds,
   onProposingDropsChange,
   partnerTeamName,
+  leagueSlug,
   isCounter = false,
   onConfirm,
 }: TradeConfirmDialogProps) {
@@ -249,7 +259,12 @@ export function TradeConfirmDialog({
               <p className="text-sm font-medium">Receiving</p>
               <ul>
                 {receivingPlayers.map((player) => (
-                  <PlayerLine key={player.id} player={player} direction="in" />
+                  <PlayerLine
+                    key={player.id}
+                    player={player}
+                    direction="in"
+                    leagueSlug={leagueSlug}
+                  />
                 ))}
               </ul>
             </div>
@@ -257,7 +272,12 @@ export function TradeConfirmDialog({
               <p className="text-sm font-medium">Offering</p>
               <ul>
                 {offeringPlayers.map((player) => (
-                  <PlayerLine key={player.id} player={player} direction="out" />
+                  <PlayerLine
+                    key={player.id}
+                    player={player}
+                    direction="out"
+                    leagueSlug={leagueSlug}
+                  />
                 ))}
               </ul>
             </div>
@@ -281,6 +301,7 @@ export function TradeConfirmDialog({
                   analysis={proposingDropAnalysis}
                   selectedIds={proposingDropIds}
                   onChange={onProposingDropsChange}
+                  leagueSlug={leagueSlug}
                 />
               </div>
             ) : null}

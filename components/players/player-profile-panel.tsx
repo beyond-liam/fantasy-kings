@@ -110,6 +110,7 @@ export function PlayerProfilePanel({ profile }: PlayerProfilePanelProps) {
             overview={profile.overview}
             withoutQb1={withoutQb1}
             withoutActive={withoutActive}
+            leagueSlug={profile.leagueSlug}
           />
         </TabsContent>
 

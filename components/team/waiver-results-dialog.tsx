@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { TickDouble02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
+import { PlayerProfileTrigger } from "@/components/rankings/player-identity";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -22,6 +23,56 @@ type WaiverResultsDialogProps = {
   results: UnseenWaiverResult[];
   waiverType: "priority" | "faab";
 };
+
+function PlayerNameLink({
+  playerId,
+  name,
+  leagueSlug,
+}: {
+  playerId: string | null | undefined;
+  name: string;
+  leagueSlug: string;
+}) {
+  return (
+    <PlayerProfileTrigger
+      playerId={playerId}
+      leagueSlug={leagueSlug}
+      aria-label={`View ${name}`}
+      className="underline-offset-2 group-hover/player-identity:underline group-focus-visible/player-identity:underline"
+    >
+      {name}
+    </PlayerProfileTrigger>
+  );
+}
+
+function awardedDetail(
+  row: UnseenWaiverResult,
+  waiverType: "priority" | "faab",
+  leagueSlug: string,
+): ReactNode {
+  const parts: ReactNode[] = [];
+  if (waiverType === "faab" && row.bid != null) {
+    parts.push(`$${row.bid}`);
+  }
+  if (row.dropPlayerName) {
+    parts.push(
+      <>
+        Dropped{" "}
+        <PlayerNameLink
+          playerId={row.dropPlayerId}
+          name={row.dropPlayerName}
+          leagueSlug={leagueSlug}
+        />
+      </>,
+    );
+  }
+  if (parts.length === 0) return "Claim awarded";
+  return parts.reduce<ReactNode[]>((acc, part, index) => {
+    if (index > 0) acc.push(" · ");
+    acc.push(part);
+    return acc;
+  }, []);
+}
 
 export function WaiverResultsDialog({
   leagueSlug,
@@ -73,25 +124,22 @@ export function WaiverResultsDialog({
           </DialogDescription>
         </DialogHeader>
 
-                <div className="grid gap-4">
+        <div className="grid gap-4">
           {awarded.length > 0 ? (
             <section className="grid gap-2">
               <h3 className="text-sm font-medium">Successful</h3>
               <ul className="divide-y rounded-lg border">
                 {awarded.map((row) => (
                   <li key={row.id} className="px-3 py-2 text-sm">
-                    <p className="font-medium">{row.playerName}</p>
+                    <p className="font-medium">
+                      <PlayerNameLink
+                        playerId={row.playerId}
+                        name={row.playerName}
+                        leagueSlug={leagueSlug}
+                      />
+                    </p>
                     <p className="text-muted-foreground">
-                      {[
-                        waiverType === "faab" && row.bid != null
-                          ? `$${row.bid}`
-                          : null,
-                        row.dropPlayerName
-                          ? `Dropped ${row.dropPlayerName}`
-                          : null,
-                      ]
-                        .filter(Boolean)
-                        .join(" · ") || "Claim awarded"}
+                      {awardedDetail(row, waiverType, leagueSlug)}
                     </p>
                   </li>
                 ))}
@@ -105,7 +153,13 @@ export function WaiverResultsDialog({
               <ul className="divide-y rounded-lg border">
                 {failed.map((row) => (
                   <li key={row.id} className="px-3 py-2 text-sm">
-                    <p className="font-medium">{row.playerName}</p>
+                    <p className="font-medium">
+                      <PlayerNameLink
+                        playerId={row.playerId}
+                        name={row.playerName}
+                        leagueSlug={leagueSlug}
+                      />
+                    </p>
                     <p className="text-muted-foreground">
                       {row.failReason?.trim() || "Claim failed."}
                     </p>
@@ -115,7 +169,7 @@ export function WaiverResultsDialog({
             </section>
           ) : null}
         </div>
-        
+
         <DialogFooter>
           <Button type="button" disabled={isPending} onClick={dismiss}>
             <HugeiconsIcon

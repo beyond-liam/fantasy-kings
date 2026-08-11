@@ -28,6 +28,7 @@ type TradeRosterTableProps = {
   players: TradePlayerRow[];
   selectedIds: Set<string>;
   onToggle: (playerId: string) => void;
+  leagueSlug?: string | null;
   dropMode?: boolean;
   disabled?: boolean;
 };
@@ -39,6 +40,7 @@ export function TradeRosterTable({
   players,
   selectedIds,
   onToggle,
+  leagueSlug,
   dropMode = false,
   disabled = false,
 }: TradeRosterTableProps) {
@@ -108,6 +110,7 @@ export function TradeRosterTable({
                       nflTeam={player.nflTeam}
                       size="sm"
                       playerId={player.id}
+                      leagueSlug={leagueSlug}
                     />
                   </TableCell>
                   <TableCell className="tabular-nums text-muted-foreground">

@@ -121,7 +121,7 @@ export default async function TradesPage({ params }: TradesPageProps) {
             />
           </section>
 
-          <TradeHistory trades={trades} myTeamId={team.id} />
+          <TradeHistory trades={trades} myTeamId={team.id} leagueSlug={slug} />
         </>
       )}
     </div>
