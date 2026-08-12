@@ -37,6 +37,7 @@ describe("buildLeagueRulesSummary", () => {
             fcfsMode: "after_process",
             processDays: ["wed"],
             resetOrderWeekly: true,
+            dailyDropProcessing: false,
             preseasonWaivers: false,
           },
           transactionRules: {

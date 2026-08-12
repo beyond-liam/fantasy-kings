@@ -52,6 +52,8 @@ type TeamRosterSectionsProps = {
   tradesEnabled?: boolean;
   /** Commissioner editing another team's lineup. */
   commissionerTeamId?: string;
+  /** Player IDs locked after their NFL game has started (cut + slot). */
+  gameLockedPlayerIds?: string[];
   /** When set, shows the sticky team summary beside the roster. */
   summary?: {
     waiverPriorityLabel: string | null;
@@ -89,6 +91,7 @@ export function TeamRosterSections({
   partnerTeamSlug,
   tradesEnabled = true,
   commissionerTeamId,
+  gameLockedPlayerIds = [],
   summary,
 }: TeamRosterSectionsProps) {
   const router = useRouter();
@@ -98,6 +101,7 @@ export function TeamRosterSections({
   const resolvedIrEligible = resolveIrEligibleStatuses(irEligibleStatuses);
   const showRowActions = rowActionsEnabled ?? actionsEnabled;
   const canCut = cutActionsEnabled ?? actionsEnabled;
+  const gameLockedIdSet = new Set(gameLockedPlayerIds);
 
   // Only reset the draft when persisted slot assignments change.
   const [syncedServerKey, setSyncedServerKey] = useState(serverKey);
@@ -228,6 +232,7 @@ export function TeamRosterSections({
     rosterPlayers: draftPlayers,
     taxiMaxYearsExp,
     taxiPreventReaddAfterActivation,
+    gameLockedPlayerIds: gameLockedIdSet,
     onSlotChange: handleSlotChange,
     onSwap: handleSwap,
   } as const;

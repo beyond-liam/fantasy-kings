@@ -1,12 +1,14 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import {
   CarTaxiFrontIcon,
   Hospital01Icon,
   RefreshIcon,
   Settings01Icon,
   StudentCardIcon,
+  Tick02Icon,
   UserBlock01Icon,
   UserCheck01Icon,
   UserDollarIcon,
@@ -43,14 +45,37 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { TABLE_SHELL_CLASSNAME } from "@/components/ui/table";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import type { FeedActivityType } from "@/lib/leagues/activity-log";
 import { formatSettingsActivityLabel } from "@/lib/leagues/settings-activity-labels";
+import {
+  formatClaimResolutionFailLabel,
+  type ClaimResolutionEntry,
+} from "@/lib/leagues/waivers/claim-resolution";
 import type { LeagueActivityRow } from "@/lib/queries/activity";
 import { cn } from "@/lib/utils";
 
 type LeagueActivityFeedProps = {
   items: LeagueActivityRow[];
+  leagueSlug: string;
 };
+
+const TRADE_ACTIVITY_TYPES = new Set<FeedActivityType>([
+  "trade_accepted",
+  "trade_completed",
+  "trade_vetoed",
+  "trade_cancelled",
+]);
+
+/** Drop trailing "(…)" from stored summaries (e.g. league review, veto counts). */
+function stripTrailingParenthetical(summary: string): string {
+  return summary.replace(/\s*\([^)]+\)(?=\.?$)/, "").replace(/\s+\./, ".");
+}
 
 const ALL_TYPES = "all";
 const PAGE_SIZE = 20;
@@ -217,7 +242,11 @@ function resolveActivitySummary(item: LeagueActivityRow): string {
   }
 
   const liveName = item.teamName?.trim();
-  if (!liveName) return item.summary;
+  if (!liveName) {
+    return TRADE_ACTIVITY_TYPES.has(item.type)
+      ? stripTrailingParenthetical(item.summary)
+      : item.summary;
+  }
 
   const playerName =
     item.playerName?.trim() || item.metadata?.playerName?.trim() || null;
@@ -242,6 +271,7 @@ function resolveActivitySummary(item: LeagueActivityRow): string {
           meta?.waiverType === "faab" && meta.bid != null
             ? ` for $${meta.bid}`
             : "";
+        // Legacy rows bundled the drop; new awards log a separate player_dropped row.
         const dropPart = meta?.dropPlayerName
           ? ` (dropped ${meta.dropPlayerName})`
           : "";
@@ -271,11 +301,106 @@ function resolveActivitySummary(item: LeagueActivityRow): string {
   }
 
   const staleName = meta?.teamName?.trim();
-  if (staleName && staleName !== liveName && item.summary.includes(staleName)) {
-    return item.summary.split(staleName).join(liveName);
+  let summary = item.summary;
+  if (staleName && staleName !== liveName && summary.includes(staleName)) {
+    summary = summary.split(staleName).join(liveName);
   }
 
-  return item.summary;
+  if (TRADE_ACTIVITY_TYPES.has(item.type)) {
+    return stripTrailingParenthetical(summary);
+  }
+
+  return summary;
+}
+
+function formatClaimResolutionLine(
+  entry: ClaimResolutionEntry,
+  waiverType: "priority" | "faab" | null | undefined,
+) {
+  const detail =
+    waiverType === "faab"
+      ? `$${entry.bid ?? 0}`
+      : `#${entry.waiverPriority}`;
+  const failLabel =
+    entry.status === "illegal_roster"
+      ? "illegal roster"
+      : entry.status === "lost"
+        ? formatClaimResolutionFailLabel(entry.failReason)
+        : null;
+  // Don't clutter winning/lost-outbid rows with "Outbid" / "Lower waiver priority"
+  const showFail =
+    entry.status === "illegal_roster" ||
+    (failLabel != null &&
+      failLabel !== "Outbid" &&
+      failLabel !== "Lower waiver priority");
+  return showFail ? `${entry.teamName} ${detail} - ${failLabel}` : `${entry.teamName} ${detail}`;
+}
+
+function ClaimResolutionMeta({ item }: { item: LeagueActivityRow }) {
+  const resolution = item.metadata?.claimResolution ?? [];
+  const claimCount = item.metadata?.claimCount ?? resolution.length;
+  if (claimCount <= 0 && resolution.length === 0) {
+    return null;
+  }
+  const count = claimCount || resolution.length;
+  const waiverType = item.metadata?.waiverType;
+
+  if (resolution.length === 0) {
+    return (
+      <span>
+        · Total claims: {count}
+      </span>
+    );
+  }
+
+  return (
+    <>
+      {" · "}
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <button
+              type="button"
+              className="underline decoration-dotted underline-offset-2 hover:text-foreground"
+            />
+          }
+        >
+          Total claims: {count}
+        </TooltipTrigger>
+        <TooltipContent
+          side="top"
+          align="start"
+          className="flex max-w-xs flex-col items-start gap-1.5 bg-foreground px-3 py-2 text-left text-background"
+        >
+          <p className="w-full text-left font-semibold">Claim Resolution</p>
+          <ul className="flex flex-col gap-1">
+            {resolution.map((entry) => {
+              const line = formatClaimResolutionLine(entry, waiverType);
+              const illegal = entry.status === "illegal_roster";
+              return (
+                <li
+                  key={`${entry.teamId}-${entry.waiverPriority}-${entry.bid}`}
+                  className={cn(
+                    "flex items-start gap-1.5",
+                    illegal && "line-through opacity-70",
+                  )}
+                >
+                  <span className="min-w-0 flex-1 text-pretty">{line}</span>
+                  {entry.status === "won" ? (
+                    <HugeiconsIcon
+                      icon={Tick02Icon}
+                      strokeWidth={2}
+                      className="size-3.5 shrink-0"
+                    />
+                  ) : null}
+                </li>
+              );
+            })}
+          </ul>
+        </TooltipContent>
+      </Tooltip>
+    </>
+  );
 }
 
 function formatActivityTime(date: Date) {
@@ -286,7 +411,10 @@ function formatActivityTime(date: Date) {
   }).format(date);
 }
 
-export function LeagueActivityFeed({ items }: LeagueActivityFeedProps) {
+export function LeagueActivityFeed({
+  items,
+  leagueSlug,
+}: LeagueActivityFeedProps) {
   const [typeFilter, setTypeFilter] = useState<ActivityFilterValue>(ALL_TYPES);
   const [page, setPage] = useState(0);
   const [settingsDetail, setSettingsDetail] =
@@ -397,11 +525,18 @@ export function LeagueActivityFeed({ items }: LeagueActivityFeedProps) {
         </Empty>
       ) : (
         <>
+          <TooltipProvider>
           <ul className={cn(TABLE_SHELL_CLASSNAME, "divide-y")}>
             {pageItems.map((item) => {
               const meta = ACTIVITY_META[item.type as FeedActivityType];
               if (!meta) return null;
               const isSettings = item.type === "settings_updated";
+              const tradeHref =
+                TRADE_ACTIVITY_TYPES.has(item.type) && item.tradeId
+                  ? `/league/${leagueSlug}/trades#trade-${item.tradeId}`
+                  : null;
+              const rowClassName =
+                "flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/50 focus-visible:bg-muted/50 focus-visible:outline-none";
               const body = (
                 <>
                   <span
@@ -422,6 +557,9 @@ export function LeagueActivityFeed({ items }: LeagueActivityFeedProps) {
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {formatActivityTime(item.createdAt)} UTC · {meta.label}
+                      {item.type === "waiver_awarded" ? (
+                        <ClaimResolutionMeta item={item} />
+                      ) : null}
                     </p>
                   </div>
                 </>
@@ -431,11 +569,15 @@ export function LeagueActivityFeed({ items }: LeagueActivityFeedProps) {
                   {isSettings ? (
                     <button
                       type="button"
-                      className="flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/50 focus-visible:bg-muted/50 focus-visible:outline-none"
+                      className={rowClassName}
                       onClick={() => setSettingsDetail(item)}
                     >
                       {body}
                     </button>
+                  ) : tradeHref ? (
+                    <Link href={tradeHref} className={rowClassName}>
+                      {body}
+                    </Link>
                   ) : (
                     <div className="flex items-start gap-3 px-4 py-3">
                       {body}
@@ -445,6 +587,7 @@ export function LeagueActivityFeed({ items }: LeagueActivityFeedProps) {
               );
             })}
           </ul>
+          </TooltipProvider>
           <ListPagination
             page={safePage}
             pageCount={pageCount}

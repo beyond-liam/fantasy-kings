@@ -228,7 +228,7 @@ export async function LeaguePlayersTable({
     seasonSettings.transactionRules?.preseasonFreeAgents,
   );
   const waiverProcessingLocked =
-    waiversEnabled && isWaiverClaimOrderLocked(wire.processDays);
+    waiversEnabled && isWaiverClaimOrderLocked(wire);
   let startedNflTeams = new Set<string>();
   if (
     waiversEnabled &&

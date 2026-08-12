@@ -131,4 +131,37 @@ describe("playoff calendar helpers", () => {
       false,
     );
   });
+
+  it("uses display_week when Sleeper week lags behind Preseason Week 1", () => {
+    const schedule = {
+      playEachOtherTimes: 1 as const,
+      includePreseason: true,
+      preseasonStartWeek: 1 as const,
+    };
+    // HOF still on `week`, but display is Preseason Week 1 (ESPN week 2).
+    assert.equal(
+      isNflSeasonUnderway(
+        2026,
+        { season: "2026", season_type: "pre", week: 1, display_week: 2 },
+        schedule,
+      ),
+      true,
+    );
+    assert.equal(
+      isFantasyLeaguePreseason(
+        2026,
+        { season: "2026", season_type: "pre", week: 1, display_week: 2 },
+        schedule,
+      ),
+      false,
+    );
+    assert.equal(
+      isFantasyLeaguePreseason(
+        2026,
+        { season: "2026", season_type: "pre", week: 1, display_week: 1 },
+        schedule,
+      ),
+      true,
+    );
+  });
 });

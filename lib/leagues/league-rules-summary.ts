@@ -112,26 +112,17 @@ function rosterRequirementsLabel(
   return { requirements, totals };
 }
 
-function waiverPoolLabel(
-  pool: ReturnType<typeof resolveWaiverWireSettings>["waiverPool"],
-): string {
-  if (pool === "drops_only") {
-    return "Dropped players only";
+function processDaysLabel(days: string[]): string {
+  if (days.length === 0) {
+    return "None";
   }
-  return "Dropped players and free agents (game-start lock until next week)";
-}
-
-function churnPreventionLabel(
-  value: ReturnType<typeof resolveWaiverWireSettings>["churnPrevention"],
-): string {
-  switch (value) {
-    case "return_to_fa":
-      return "Skip waivers for players acquired since the last process";
-    case "block_late_drops":
-      return "Prevent drops if there isn't enough time for other owners to claim them";
-    default:
-      return "None (drops always go on waivers)";
-  }
+  return days
+    .map(
+      (day) =>
+        WAIVER_PROCESS_DAY_OPTIONS.find((option) => option.value === day)
+          ?.label ?? formatLeagueLabel(day),
+    )
+    .join(", ");
 }
 
 function transactionLimitsLabel(
@@ -147,19 +138,6 @@ function transactionLimitsLabel(
     default:
       return "Unlimited";
   }
-}
-
-function processDaysLabel(days: string[]): string {
-  if (days.length === 0) {
-    return "None";
-  }
-  return days
-    .map(
-      (day) =>
-        WAIVER_PROCESS_DAY_OPTIONS.find((option) => option.value === day)
-          ?.label ?? formatLeagueLabel(day),
-    )
-    .join(", ");
 }
 
 function pickClockLabel(input: {
@@ -323,26 +301,24 @@ export function buildLeagueRulesSummary(input: {
               },
             ]),
         {
-          label: "Who is Placed on Waivers",
-          value: waiverPoolLabel(waiverWire.waiverPool),
+          label: "Daily Drop Processing",
+          value: yesNo(waiverWire.dailyDropProcessing),
         },
         {
           label: "Time on Waivers After Drop",
           value: `${waiverWire.dropWaiverHours} Hours`,
         },
         {
-          label: "Prevent Waiver Churning",
-          value: churnPreventionLabel(waiverWire.churnPrevention),
-        },
-        {
           label: "Process Claims On",
-          value: `${processDaysLabel(waiverWire.processDays)} at ${formatWaiverProcessHourUk(WAIVER_PROCESS_HOUR_UTC)} (claims lock ${formatWaiverProcessHourUk(WAIVER_PROCESS_HOUR_UTC - WAIVER_CLAIM_DEADLINE_OFFSET_HOURS)})`,
+          value: waiverWire.dailyDropProcessing
+            ? `Daily, plus ${processDaysLabel(waiverWire.processDays)} weekly for players who have already played, at ${formatWaiverProcessHourUk(WAIVER_PROCESS_HOUR_UTC)}`
+            : `${processDaysLabel(waiverWire.processDays)} at ${formatWaiverProcessHourUk(WAIVER_PROCESS_HOUR_UTC)} (claims lock ${formatWaiverProcessHourUk(WAIVER_PROCESS_HOUR_UTC - WAIVER_CLAIM_DEADLINE_OFFSET_HOURS)})`,
         },
         {
           label: "First-Come-First-Served",
           value:
             waiverWire.fcfsMode === "after_process"
-              ? `After process (+${WAIVER_FCFS_OFFSET_HOURS} hours)`
+              ? `After end-of-week process (+${WAIVER_FCFS_OFFSET_HOURS} hours)`
               : "Never (always use waivers)",
         },
         {

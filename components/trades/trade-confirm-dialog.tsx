@@ -58,6 +58,8 @@ type TradeConfirmDialogProps = {
   partnerTeamName: string;
   leagueSlug: string;
   isCounter?: boolean;
+  /** 24h review + a traded player kicks off within 24h. */
+  warnWeekEndFromKickoff?: boolean;
   onConfirm: (comment: string) => void;
 };
 
@@ -225,6 +227,7 @@ export function TradeConfirmDialog({
   partnerTeamName,
   leagueSlug,
   isCounter = false,
+  warnWeekEndFromKickoff = false,
   onConfirm,
 }: TradeConfirmDialogProps) {
   const [comment, setComment] = useState("");
@@ -252,6 +255,18 @@ export function TradeConfirmDialog({
               : `Review the trade before sending to ${partnerTeamName}.`}
           </DialogDescription>
         </DialogHeader>
+
+        {warnWeekEndFromKickoff ? (
+          <Alert variant="warning">
+            <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} />
+            <AlertTitle>May process after this game week</AlertTitle>
+            <AlertDescription>
+              A player in this trade kicks off within 24 hours. With 24-hour
+              review, the trade may not complete in time and will process at
+              fantasy week end if their game has already started.
+            </AlertDescription>
+          </Alert>
+        ) : null}
 
                 <div className="rounded-lg border p-4">
           <div className="flex flex-col gap-4">
@@ -352,7 +367,7 @@ export function TradeConfirmDialog({
               strokeWidth={2}
               data-icon="inline-start"
             />
-            {isCounter ? "Send counter-offer" : "Send trade proposal"}
+            {isCounter ? "Send Counter Offer" : "Send Trade Proposal"}
           </Button>
         </DialogFooter>
       </DialogContent>

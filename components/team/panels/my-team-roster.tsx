@@ -6,12 +6,15 @@ import {
 import { formatPersonName } from "@/lib/account/person-name";
 import { ensureProfile } from "@/lib/auth/session";
 import type { RosterSlotConfig, ScheduleSettings } from "@/db/schema/league-seasons";
+import { loadStartedNflTeamsForLineupLock } from "@/lib/leagues/lineup-lock-started";
 import type { ScoringRuleDefinition } from "@/lib/leagues/scoring";
+import { resolveTransactionRules } from "@/lib/leagues/transaction-rules";
 import {
   formatWaiverPriority,
   resolveTeamSummaryMatchups,
   type TeamSummaryScheduleRow,
 } from "@/lib/leagues/team-summary";
+import { hasNflTeamStarted } from "@/lib/leagues/waivers/game-lock";
 import { getTeamSchedule } from "@/lib/queries/matchups";
 import { getRankedPlayers } from "@/lib/queries/players";
 import { getPlayerRosterRatesMap } from "@/lib/queries/player-roster-rates";
@@ -50,6 +53,7 @@ export type MyTeamRosterPanelProps = {
       taxiMaxYearsExp?: 0 | 1 | 2 | 3 | 4 | 5 | null;
       taxiPreventReaddAfterActivation?: boolean;
       schedule?: ScheduleSettings | null;
+      transactionRules?: Parameters<typeof resolveTransactionRules>[0];
     };
   };
   scoringRules: ScoringRuleDefinition[];
@@ -151,6 +155,19 @@ export async function MyTeamRosterPanel({
     fantasyWeek,
   );
 
+  const preventCutsAfterGameStart = resolveTransactionRules(
+    season.settings.transactionRules,
+  ).preventCutsAfterGameStart;
+  const startedTeams = preventCutsAfterGameStart
+    ? await loadStartedNflTeamsForLineupLock()
+    : null;
+  const gameLockedPlayerIds =
+    startedTeams != null
+      ? rosterPlayersWithRates
+          .filter((player) => hasNflTeamStarted(player.nflTeam, startedTeams))
+          .map((player) => player.id)
+      : [];
+
   return (
     <TeamRosterSections
       rosterSlots={season.settings.rosterSlots}
@@ -170,6 +187,7 @@ export async function MyTeamRosterPanel({
       rowActionsEnabled={actionsEnabled || tradesEnabled}
       cutActionsEnabled={actionsEnabled}
       tradesEnabled={tradesEnabled}
+      gameLockedPlayerIds={gameLockedPlayerIds}
       summary={{
         waiverPriorityLabel: season.waiversEnabled
           ? formatWaiverPriority(team.waiverPriority)

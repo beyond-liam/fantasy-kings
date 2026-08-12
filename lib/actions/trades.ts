@@ -35,6 +35,14 @@ import {
   reviewEndsAtFromNow,
 } from "@/lib/leagues/trades/status";
 import {
+  reviewEndsAtForWeekHold,
+  tradeNeedsWeekEndHold,
+} from "@/lib/leagues/trades/week-hold";
+import {
+  loadNflTeamsForPlayerIds,
+} from "@/lib/leagues/trades/week-hold-server";
+import { loadStartedNflTeamsForLineupLock } from "@/lib/leagues/lineup-lock-started";
+import {
   isDropPlayerSelectable,
   listDropCandidates,
   validateTradeProposal,
@@ -569,9 +577,25 @@ export async function acceptTrade(
     return { success: false, error: irError };
   }
 
-  const nextStatus = resolveNextStatusOnAccept(season.tradeProcessing);
-  const reviewEndsAt =
+  const nextStatusBase = resolveNextStatusOnAccept(season.tradeProcessing);
+  let nextStatus = nextStatusBase;
+  let reviewEndsAt =
     nextStatus === "review" ? reviewEndsAtFromNow(24) : null;
+
+  const startedTeams = await loadStartedNflTeamsForLineupLock();
+  if (startedTeams) {
+    const nflTeams = await loadNflTeamsForPlayerIds([
+      ...proposingOfferIds,
+      ...receivingOfferIds,
+      ...proposingDropIds,
+      ...receivingDropIds,
+    ]);
+    if (tradeNeedsWeekEndHold({ nflTeams, startedTeams })) {
+      nextStatus = "review";
+      reviewEndsAt = reviewEndsAtForWeekHold();
+    }
+  }
+
   const wire = resolveWaiverWireSettings(season.settings.waiverWire);
 
   const result = await acceptTradeOffer({

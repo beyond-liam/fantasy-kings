@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache";
 import { leagues, leagueSeasons } from "@/db/schema";
 import type { LeagueSeasonSettings } from "@/db/schema/league-seasons";
 import { db } from "@/lib/db";
-import { isWaiverProcessDue } from "@/lib/leagues/waivers/calendar";
+import { isWaiverProcessDue, getWaiverProcessDays } from "@/lib/leagues/waivers/calendar";
 import { processSeasonWaivers } from "@/lib/leagues/waivers/process";
 import { resolveWaiverWireSettings } from "@/lib/leagues/waiver-wire";
 
@@ -61,7 +61,7 @@ export async function processAllDueWaivers(now: Date = new Date()): Promise<{
     );
     if (
       !isWaiverProcessDue({
-        processDays: wire.processDays,
+        processDays: getWaiverProcessDays(wire),
         lastWaiverProcessedAt: season.lastWaiverProcessedAt,
         now,
       })

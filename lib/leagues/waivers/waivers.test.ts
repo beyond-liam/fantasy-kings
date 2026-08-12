@@ -9,11 +9,17 @@ import {
   getFcfsOpensAtUtc,
   getLastProcessInstantUtc,
   getNextEligibleProcessInstantUtc,
+  getWaiverProcessDays,
   isClaimEligibleForProcess,
   isFcfsWindowOpen,
   isWaiverClaimOrderLocked,
   isWaiverProcessDue,
 } from "@/lib/leagues/waivers/calendar";
+import {
+  getDropWaiverClearsAt,
+  isEligibleForDailyProcess,
+} from "@/lib/leagues/waivers/daily-drops";
+import { resolveClaimProcessInstant } from "@/lib/leagues/waivers/claim-schedule";
 import { getAcquisitionKind } from "@/lib/leagues/waivers/acquisition";
 import {
   adjudicateWaiverClaims,
@@ -42,10 +48,23 @@ describe("waiver calendar", () => {
   });
 
   it("detects FCFS window after Wed process", () => {
+    const wire = { processDays: ["wed"] as WaiverProcessDay[] };
     const justBefore = new Date(Date.UTC(2026, 6, 15, 11, 59, 0));
     const justAfter = new Date(Date.UTC(2026, 6, 15, 12, 0, 0));
-    assert.equal(isFcfsWindowOpen(["wed"], justBefore), false);
-    assert.equal(isFcfsWindowOpen(["wed"], justAfter), true);
+    assert.equal(isFcfsWindowOpen(wire, justBefore), false);
+    assert.equal(isFcfsWindowOpen(wire, justAfter), true);
+  });
+
+  it("keeps weekly FCFS open midweek when daily processing is on", () => {
+    const wire = {
+      processDays: ["wed"] as WaiverProcessDay[],
+      dailyDropProcessing: true,
+    };
+    // Thursday 11:00 — after Wed +2h, before next Wed
+    assert.equal(
+      isFcfsWindowOpen(wire, new Date(Date.UTC(2026, 6, 16, 11, 0, 0))),
+      true,
+    );
   });
 
   it("finds last Wednesday 10:00 process", () => {
@@ -139,24 +158,77 @@ describe("waiver calendar", () => {
     );
   });
 
-  it("locks claim order from deadline until FCFS opens after process", () => {
-    const days: WaiverProcessDay[] = ["wed"];
+  it("locks claim order from deadline until FCFS opens after weekly process", () => {
+    const wire = {
+      processDays: ["wed"] as WaiverProcessDay[],
+      dailyDropProcessing: false,
+    };
 
     assert.equal(
-      isWaiverClaimOrderLocked(days, new Date(Date.UTC(2026, 7, 12, 8, 30, 0))),
+      isWaiverClaimOrderLocked(wire, new Date(Date.UTC(2026, 7, 12, 8, 30, 0))),
       false,
     );
     assert.equal(
-      isWaiverClaimOrderLocked(days, new Date(Date.UTC(2026, 7, 12, 9, 30, 0))),
+      isWaiverClaimOrderLocked(wire, new Date(Date.UTC(2026, 7, 12, 9, 30, 0))),
       true,
     );
     assert.equal(
-      isWaiverClaimOrderLocked(days, new Date(Date.UTC(2026, 7, 12, 10, 30, 0))),
+      isWaiverClaimOrderLocked(wire, new Date(Date.UTC(2026, 7, 12, 10, 30, 0))),
       true,
     );
     assert.equal(
-      isWaiverClaimOrderLocked(days, new Date(Date.UTC(2026, 7, 12, 12, 30, 0))),
+      isWaiverClaimOrderLocked(wire, new Date(Date.UTC(2026, 7, 12, 12, 30, 0))),
       false,
+    );
+  });
+
+  it("locks daily runs only until process, not through +2h", () => {
+    const wire = {
+      processDays: ["wed"] as WaiverProcessDay[],
+      dailyDropProcessing: true,
+    };
+    // Thursday: pre-process lock
+    assert.equal(
+      isWaiverClaimOrderLocked(wire, new Date(Date.UTC(2026, 6, 16, 9, 30, 0))),
+      true,
+    );
+    // Thursday 10:30 — after daily process, no weekly +2h tail
+    assert.equal(
+      isWaiverClaimOrderLocked(wire, new Date(Date.UTC(2026, 6, 16, 10, 30, 0))),
+      false,
+    );
+    // Wednesday 10:30 — weekly +2h still applies
+    assert.equal(
+      isWaiverClaimOrderLocked(wire, new Date(Date.UTC(2026, 6, 15, 10, 30, 0))),
+      true,
+    );
+  });
+
+  it("runs every day when daily drop processing is on", () => {
+    assert.deepEqual(
+      getWaiverProcessDays({
+        processDays: ["wed"],
+        dailyDropProcessing: true,
+      }),
+      ["sun", "mon", "tue", "wed", "thu", "fri", "sat"],
+    );
+    assert.deepEqual(
+      getWaiverProcessDays({
+        processDays: ["wed"],
+        dailyDropProcessing: false,
+      }),
+      ["wed"],
+    );
+    assert.equal(
+      isWaiverProcessDue({
+        processDays: getWaiverProcessDays({
+          processDays: ["wed"],
+          dailyDropProcessing: true,
+        }),
+        lastWaiverProcessedAt: new Date(Date.UTC(2026, 6, 15, 10, 0, 0)),
+        now: new Date(Date.UTC(2026, 6, 16, 10, 5, 0)),
+      }),
+      true,
     );
   });
 });
@@ -264,6 +336,115 @@ describe("getAcquisitionKind", () => {
         ownership: { fantasyTeamId: null, onWaivers: true },
       }),
       "unavailable",
+    );
+  });
+
+  it("keeps started players claimable when daily drop processing is on", () => {
+    assert.equal(
+      getAcquisitionKind({
+        ...base,
+        gameStartedThisWeek: true,
+        waiverWire: {
+          ...DEFAULT_WAIVER_WIRE_SETTINGS,
+          dailyDropProcessing: true,
+        },
+        ownership: { fantasyTeamId: null, onWaivers: true },
+      }),
+      "claim",
+    );
+  });
+
+  it("allows cleared free agents midweek when daily processing is on", () => {
+    assert.equal(
+      getAcquisitionKind({
+        ...base,
+        now: new Date(Date.UTC(2026, 6, 16, 14, 0, 0)), // Thu afternoon
+        waiverWire: {
+          ...DEFAULT_WAIVER_WIRE_SETTINGS,
+          dailyDropProcessing: true,
+        },
+        ownership: { fantasyTeamId: null, onWaivers: false },
+      }),
+      "add",
+    );
+  });
+});
+
+describe("daily drop routing", () => {
+  const dailyWire = {
+    ...DEFAULT_WAIVER_WIRE_SETTINGS,
+    dailyDropProcessing: true,
+    processDays: ["wed"] as WaiverProcessDay[],
+  };
+  const thursdayAfterProcess = new Date(Date.UTC(2026, 6, 16, 11, 0, 0));
+  const fridayProcess = new Date(Date.UTC(2026, 6, 17, 10, 0, 0));
+  const sundayKickoff = new Date(Date.UTC(2026, 6, 19, 17, 0, 0));
+
+  it("sends unplayed players to daily when kickoff is after the next run", () => {
+    assert.equal(
+      isEligibleForDailyProcess({
+        kickoff: sundayKickoff,
+        processInstant: fridayProcess,
+      }),
+      true,
+    );
+  });
+
+  it("sends already-started or same-day kickoffs to the weekly pool", () => {
+    assert.equal(
+      isEligibleForDailyProcess({
+        kickoff: sundayKickoff,
+        processInstant: fridayProcess,
+        alreadyStarted: true,
+      }),
+      false,
+    );
+    assert.equal(
+      isEligibleForDailyProcess({
+        kickoff: new Date(Date.UTC(2026, 6, 17, 9, 0, 0)),
+        processInstant: fridayProcess,
+      }),
+      false,
+    );
+  });
+
+  it("treats bye or unknown kickoff as daily", () => {
+    assert.equal(
+      isEligibleForDailyProcess({
+        kickoff: null,
+        processInstant: fridayProcess,
+      }),
+      true,
+    );
+  });
+
+  it("clears drops on the 24/48 timer even when daily processing is on", () => {
+    assert.equal(
+      getDropWaiverClearsAt({
+        wire: dailyWire,
+        now: thursdayAfterProcess,
+      }).toISOString(),
+      "2026-07-17T11:00:00.000Z",
+    );
+  });
+
+  it("uses 48 hours when configured", () => {
+    assert.equal(
+      getDropWaiverClearsAt({
+        wire: { ...dailyWire, dropWaiverHours: 48 },
+        now: thursdayAfterProcess,
+      }).toISOString(),
+      "2026-07-18T11:00:00.000Z",
+    );
+  });
+
+  it("keeps the 24/48 hour timer when daily processing is off", () => {
+    assert.equal(
+      getDropWaiverClearsAt({
+        wire: DEFAULT_WAIVER_WIRE_SETTINGS,
+        now: thursdayAfterProcess,
+      }).toISOString(),
+      "2026-07-17T11:00:00.000Z",
     );
   });
 });
@@ -588,7 +769,7 @@ describe("waiver activity summaries", () => {
         dropPlayerName: "Backup QB",
         waiverType: "faab",
       }),
-      "Kings claimed Josh Allen for $12 (dropped Backup QB).",
+      "Kings claimed Josh Allen for $12.",
     );
     assert.equal(
       formatWaiverFailSummary({
@@ -598,5 +779,31 @@ describe("waiver activity summaries", () => {
       }),
       "Kings claim on Josh Allen failed — Outbid.",
     );
+  });
+});
+
+describe("claim process schedule", () => {
+  it("routes already-kicked-off claims to the weekly process when daily is on", () => {
+    const now = new Date(Date.UTC(2026, 6, 16, 12, 0, 0)); // Thu
+    const sundayKickoff = new Date(Date.UTC(2026, 6, 12, 17, 0, 0));
+    const processAt = resolveClaimProcessInstant({
+      wire: { processDays: ["wed"], dailyDropProcessing: true },
+      createdAt: new Date(Date.UTC(2026, 6, 13, 12, 0, 0)),
+      kickoff: sundayKickoff,
+      now,
+    });
+    assert.equal(processAt?.toISOString(), "2026-07-22T10:00:00.000Z");
+  });
+
+  it("keeps unplayed claims on the next daily process", () => {
+    const now = new Date(Date.UTC(2026, 6, 16, 8, 0, 0)); // Thu before deadline
+    const fridayKickoff = new Date(Date.UTC(2026, 6, 17, 17, 0, 0));
+    const processAt = resolveClaimProcessInstant({
+      wire: { processDays: ["wed"], dailyDropProcessing: true },
+      createdAt: new Date(Date.UTC(2026, 6, 15, 12, 0, 0)),
+      kickoff: fridayKickoff,
+      now,
+    });
+    assert.equal(processAt?.toISOString(), "2026-07-16T10:00:00.000Z");
   });
 });

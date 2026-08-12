@@ -16,7 +16,12 @@ export function resolvePlayerAcquisitionKind(input: {
   startedNflTeams?: Set<string>;
   /** When set with seasonYear, derives fantasy-league preseason from the calendar. */
   seasonYear?: number;
-  nfl?: { season: string; season_type: string; week: number } | null;
+  nfl?: {
+    season: string;
+    season_type: string;
+    week: number;
+    display_week?: number;
+  } | null;
   schedule?: ScheduleSettings | null;
   /** Prefer deriving via seasonYear + nfl; kept for tests. */
   isFantasyPreseason?: boolean;

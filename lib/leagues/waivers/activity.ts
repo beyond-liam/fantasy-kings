@@ -3,6 +3,7 @@ import type { LeagueActivityMetadata } from "@/db/schema/league-activity";
 export function formatWaiverAwardSummary(input: {
   teamName: string;
   playerName: string;
+  /** @deprecated Ignored — drops are logged as separate player_dropped activity. */
   dropPlayerName?: string | null;
   bid?: number | null;
   waiverType: "priority" | "faab";
@@ -11,10 +12,7 @@ export function formatWaiverAwardSummary(input: {
     input.waiverType === "faab" && input.bid != null
       ? ` for $${input.bid}`
       : "";
-  const dropPart = input.dropPlayerName
-    ? ` (dropped ${input.dropPlayerName})`
-    : "";
-  return `${input.teamName} claimed ${input.playerName}${bidPart}${dropPart}.`;
+  return `${input.teamName} claimed ${input.playerName}${bidPart}.`;
 }
 
 export function formatWaiverFailSummary(input: {

@@ -32,8 +32,11 @@ export function getAcquisitionKind(input: AcquisitionInput): AcquisitionKind {
     return "owned";
   }
 
-  // Already played this fantasy week → locked until the next week.
-  if (input.gameStartedThisWeek) {
+  const wire = input.waiverWire;
+
+  // Already played this fantasy week → locked until the next week,
+  // unless daily drop processing holds them for the weekly claim pool.
+  if (input.gameStartedThisWeek && !wire.dailyDropProcessing) {
     return "unavailable";
   }
 
@@ -42,7 +45,6 @@ export function getAcquisitionKind(input: AcquisitionInput): AcquisitionKind {
   }
 
   const now = input.now ?? new Date();
-  const wire = input.waiverWire;
 
   // Active drop waiver period always requires a claim.
   if (input.ownership.onWaivers) {
@@ -58,6 +60,6 @@ export function getAcquisitionKind(input: AcquisitionInput): AcquisitionKind {
     return "claim";
   }
 
-  // Cleared free agents: add only during FCFS window.
-  return isFcfsWindowOpen(wire.processDays, now) ? "add" : "claim";
+  // Cleared free agents: add only during the weekly FCFS window.
+  return isFcfsWindowOpen(wire, now) ? "add" : "claim";
 }

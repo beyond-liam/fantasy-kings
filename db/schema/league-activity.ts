@@ -22,6 +22,16 @@ export type LeagueActivityMetadata = {
   dropPlayerName?: string | null;
   teamName?: string;
   waiverType?: "priority" | "faab";
+  /** Competing claims when this waiver award was processed. */
+  claimCount?: number | null;
+  claimResolution?: Array<{
+    teamId: string;
+    teamName: string;
+    bid: number | null;
+    waiverPriority: number;
+    status: "won" | "lost" | "illegal_roster";
+    failReason?: string | null;
+  }> | null;
   tradeId?: string | null;
   proposingTeamName?: string | null;
   receivingTeamName?: string | null;

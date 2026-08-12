@@ -34,7 +34,10 @@ import {
   listRosteredPlayers,
 } from "@/lib/leagues/roster-writes";
 import { resolveWaiverWireSettings } from "@/lib/leagues/waiver-wire";
-import { isWaiverClaimOrderLocked, WAIVER_PROCESSING_WINDOW_LOCK_REASON } from "@/lib/leagues/waivers/calendar";
+import {
+  isWaiverClaimOrderLocked,
+  WAIVER_PROCESSING_WINDOW_LOCK_REASON,
+} from "@/lib/leagues/waivers/calendar";
 import { getNflScoreboard } from "@/lib/espn/scoreboard";
 import { getNflState } from "@/lib/sleeper/api";
 
@@ -241,7 +244,7 @@ export async function fileWaiverClaim(
     season.settings.waiverWire,
     season.settings.transactionRules?.preseasonFreeAgents,
   );
-  if (isWaiverClaimOrderLocked(wire.processDays)) {
+  if (isWaiverClaimOrderLocked(wire)) {
     return {
       success: false,
       error: WAIVER_PROCESSING_WINDOW_LOCK_REASON,
@@ -513,7 +516,7 @@ export async function reorderWaiverClaims(
     season.settings.waiverWire,
     season.settings.transactionRules?.preseasonFreeAgents,
   );
-  if (isWaiverClaimOrderLocked(wire.processDays)) {
+  if (isWaiverClaimOrderLocked(wire)) {
     return {
       success: false,
       error: "Claim order is locked while waivers are processing.",
@@ -583,7 +586,7 @@ export async function updateWaiverClaimBid(
     season.settings.transactionRules?.preseasonFreeAgents,
   );
 
-  if (isWaiverClaimOrderLocked(wire.processDays)) {
+  if (isWaiverClaimOrderLocked(wire)) {
     return {
       success: false,
       error: "Claims are locked while waivers are processing.",

@@ -23,6 +23,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { listDropCandidates } from "@/lib/leagues/trades/validate";
+import { hasUpcomingKickoffWithinHours } from "@/lib/leagues/trades/week-hold";
 import { myTeamPath } from "@/lib/leagues/utils";
 import { stashPendingTradePropose } from "@/lib/trades/pending-propose";
 import type { TradePlayerRow } from "@/lib/queries/trades";
@@ -40,6 +41,7 @@ export type TradePartnerOption = {
   id: string;
   name: string;
   slug: string;
+  publicId?: string | null;
 };
 
 type TradeComposerProps = {
@@ -53,6 +55,9 @@ type TradeComposerProps = {
   counterOfTradeId?: string | null;
   rosterSlots: RosterSlotConfig[] | null | undefined;
   benchSlots: number;
+  tradeProcessing?: string;
+  /** ISO kickoff times keyed by NFL abbreviation (upper). */
+  kickoffsByNflTeam?: Record<string, string>;
 };
 
 const VISIBLE_CHIPS = 2;
@@ -187,6 +192,8 @@ export function TradeComposer({
   counterOfTradeId = null,
   rosterSlots,
   benchSlots,
+  tradeProcessing,
+  kickoffsByNflTeam = {},
 }: TradeComposerProps) {
   const [myOfferIds, setMyOfferIds] = useState(
     () => new Set(initialOfferIds),
@@ -206,6 +213,21 @@ export function TradeComposer({
     () => partnerRoster.filter((player) => theirOfferIds.has(player.id)),
     [partnerRoster, theirOfferIds],
   );
+
+  const warnWeekEndFromKickoff =
+    tradeProcessing === "review_24h" &&
+    hasUpcomingKickoffWithinHours({
+      hours: 24,
+      kickoffs: [...myOfferPlayers, ...theirOfferPlayers].map((player) => {
+        const abbr = player.nflTeam?.trim().toUpperCase();
+        if (!abbr) return null;
+        const iso =
+          kickoffsByNflTeam[abbr] ??
+          (abbr === "WAS" ? kickoffsByNflTeam.WSH : null) ??
+          (abbr === "WSH" ? kickoffsByNflTeam.WAS : null);
+        return iso ? new Date(iso) : null;
+      }),
+    });
 
   const canContinue =
     myOfferPlayers.length > 0 && theirOfferPlayers.length > 0;
@@ -375,6 +397,7 @@ export function TradeComposer({
         partnerTeamName={partner.name}
         isCounter={Boolean(counterOfTradeId)}
         leagueSlug={leagueSlug}
+        warnWeekEndFromKickoff={warnWeekEndFromKickoff}
         onConfirm={handlePropose}
       />
     </div>

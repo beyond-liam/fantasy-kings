@@ -75,41 +75,15 @@ const RESET_ORDER_ITEMS = [
   },
 ] as const;
 
-const WAIVER_POOL_ITEMS = [
-  { value: "drops_only", label: "Dropped players only" },
-  {
-    value: "drops_and_free_agents",
-    label:
-      "Dropped players and free agents (NFL game start locks until next week)",
-  },
-] as const;
-
 const DROP_WAIVER_HOURS_ITEMS = [
   { value: "24", label: "24 hours" },
   { value: "48", label: "48 hours" },
 ] as const;
 
-const CHURN_PREVENTION_ITEMS = [
-  {
-    value: "none",
-    label: "None, dropped players always go on waivers",
-  },
-  {
-    value: "return_to_fa",
-    label:
-      "Skip waivers for players acquired since the last process (straight to free agency)",
-  },
-  {
-    value: "block_late_drops",
-    label:
-      "Prevent drops if there's not enough time for other owners to claim them",
-  },
-] as const;
-
 const FCFS_MODE_ITEMS = [
   {
     value: "after_process",
-    label: "After weekly waiver processing (+2 hours)",
+    label: "After end-of-week processing (+2 hours)",
   },
   {
     value: "never",
@@ -261,6 +235,48 @@ export function WaiverWireSettings({
                 </Select>
               </Field>
 
+              <Field>
+                <FieldLabel htmlFor="processDays">Process claims on</FieldLabel>
+                <FieldDescription>
+                  {values.dailyDropProcessing
+                    ? `Weekly pool for players who have already played. Runs at ${formatWaiverProcessHourUk(WAIVER_PROCESS_HOUR_UTC)}. Daily runs use the same time.`
+                    : `Claims run at ${formatWaiverProcessHourUk(WAIVER_PROCESS_HOUR_UTC)}. Submit by ${formatWaiverProcessHourUk(
+                        WAIVER_PROCESS_HOUR_UTC -
+                          WAIVER_CLAIM_DEADLINE_OFFSET_HOURS,
+                      )} that day — later claims wait until the following week's process.`}
+                </FieldDescription>
+                <Select
+                  items={processDayItems}
+                  value={values.processDays[0] ?? "wed"}
+                  onValueChange={(value) => {
+                    if (
+                      value === "wed" ||
+                      value === "thu" ||
+                      value === "fri" ||
+                      value === "sat" ||
+                      value === "sun" ||
+                      value === "mon"
+                    ) {
+                      patch({ processDays: [value] });
+                    }
+                  }}
+                >
+                  <SelectTrigger id="processDays" className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      {processDayItems.map((item) => (
+                        <SelectItem key={item.value} value={item.value}>
+                          {item.label}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+                {fieldError ? <FieldError>{fieldError}</FieldError> : null}
+              </Field>
+
               {values.waiverType === "faab" ? (
                 <>
                   <Field>
@@ -333,38 +349,12 @@ export function WaiverWireSettings({
               )}
 
               <Field>
-                <FieldLabel htmlFor="waiverPool">Who is placed on waivers</FieldLabel>
-                <Select
-                  items={[...WAIVER_POOL_ITEMS]}
-                  value={values.waiverPool}
-                  onValueChange={(value) => {
-                    if (
-                      value === "drops_only" ||
-                      value === "drops_and_free_agents"
-                    ) {
-                      patch({ waiverPool: value });
-                    }
-                  }}
-                >
-                  <SelectTrigger id="waiverPool" className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectGroup>
-                      {WAIVER_POOL_ITEMS.map((item) => (
-                        <SelectItem key={item.value} value={item.value}>
-                          {item.label}
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
-              </Field>
-
-              <Field>
                 <FieldLabel htmlFor="dropWaiverHours">
                   Time on waivers after drop
                 </FieldLabel>
+                <FieldDescription>
+                  After this window, an unclaimed drop becomes a free agent.
+                </FieldDescription>
                 <Select
                   items={[...DROP_WAIVER_HOURS_ITEMS]}
                   value={String(values.dropWaiverHours)}
@@ -392,41 +382,10 @@ export function WaiverWireSettings({
               </Field>
 
               <Field>
-                <FieldLabel htmlFor="churnPrevention">
-                  Prevent waiver churning
-                </FieldLabel>
-                <Select
-                  items={[...CHURN_PREVENTION_ITEMS]}
-                  value={values.churnPrevention}
-                  onValueChange={(value) => {
-                    if (
-                      value === "return_to_fa" ||
-                      value === "block_late_drops" ||
-                      value === "none"
-                    ) {
-                      patch({ churnPrevention: value });
-                    }
-                  }}
-                >
-                  <SelectTrigger id="churnPrevention" className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectGroup>
-                      {CHURN_PREVENTION_ITEMS.map((item) => (
-                        <SelectItem key={item.value} value={item.value}>
-                          {item.label}
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
-              </Field>
-
-              <Field>
                 <FieldLabel htmlFor="fcfsMode">First-come first-served</FieldLabel>
                 <FieldDescription>
-                  When free agents clear waivers and become immediately addable.
+                  When cleared free agents become immediately addable after the
+                  end-of-week process. Daily runs do not open this window.
                 </FieldDescription>
                 <Select
                   items={[...FCFS_MODE_ITEMS]}
@@ -467,48 +426,15 @@ export function WaiverWireSettings({
                 }
               />
 
-              <Field>
-                <FieldLabel htmlFor="processDays">Process claims on</FieldLabel>
-                <FieldDescription>
-                  Claims run at {formatWaiverProcessHourUk(WAIVER_PROCESS_HOUR_UTC)}.
-                  Submit by{" "}
-                  {formatWaiverProcessHourUk(
-                    WAIVER_PROCESS_HOUR_UTC - WAIVER_CLAIM_DEADLINE_OFFSET_HOURS,
-                  )}{" "}
-                  that day — later claims wait until the following week&apos;s
-                  process.
-                </FieldDescription>
-                <Select
-                  items={processDayItems}
-                  value={values.processDays[0] ?? "wed"}
-                  onValueChange={(value) => {
-                    if (
-                      value === "wed" ||
-                      value === "thu" ||
-                      value === "fri" ||
-                      value === "sat" ||
-                      value === "sun" ||
-                      value === "mon"
-                    ) {
-                      patch({ processDays: [value] });
-                    }
-                  }}
-                >
-                  <SelectTrigger id="processDays" className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectGroup>
-                      {processDayItems.map((item) => (
-                        <SelectItem key={item.value} value={item.value}>
-                          {item.label}
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
-                {fieldError ? <FieldError>{fieldError}</FieldError> : null}
-              </Field>
+              <SwitchField
+                id="dailyDropProcessing"
+                label="Daily drop processing"
+                description="When on, dropped players who have not played yet are processed every day. Players who already played, or whose next daily run is at or after kickoff, wait until the weekly process day."
+                checked={values.dailyDropProcessing}
+                onCheckedChange={(checked) =>
+                  patch({ dailyDropProcessing: checked })
+                }
+              />
             </>
           ) : null}
         </FieldGroup>

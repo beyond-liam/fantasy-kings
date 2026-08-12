@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/empty";
 import { processReadyTrades } from "@/lib/actions/trades";
 import { getSessionUser } from "@/lib/auth/session";
-import { canProposeTrades, isOpenTradeStatus } from "@/lib/leagues/trades/guards";
+import { canProposeTrades } from "@/lib/leagues/trades/guards";
 import { resolveTransactionRules } from "@/lib/leagues/transaction-rules";
 import { getLeagueHomeData } from "@/lib/queries/leagues";
 import { getLeagueTrades, getTradeVetoSummaries } from "@/lib/queries/trades";
@@ -70,9 +70,6 @@ export default async function TradesPage({ params }: TradesPageProps) {
     (member) => member.userId === user.id && member.role === "commissioner",
   );
   const proposeGate = canProposeTrades(season);
-  const openTradeCount = trades.filter((trade) =>
-    isOpenTradeStatus(trade.status),
-  ).length;
   const partners = data.members
     .filter((member) => member.teamId && member.teamId !== team.id)
     .map((member) => ({
@@ -105,11 +102,9 @@ export default async function TradesPage({ params }: TradesPageProps) {
       ) : (
         <>
           <section className="flex flex-col gap-3 sm:gap-4">
-            {openTradeCount > 0 ? (
-              <h2 className="text-lg font-semibold tracking-tight text-balance">
-                Open Trades
-              </h2>
-            ) : null}
+            <h2 className="text-lg font-semibold tracking-tight text-balance">
+              Open Trades
+            </h2>
             <TradeList
               leagueSlug={slug}
               trades={trades}

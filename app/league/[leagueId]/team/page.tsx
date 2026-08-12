@@ -157,7 +157,7 @@ export default async function MyTeamPage({
   const acquisitionsLocked =
     irViolations.length > 0 || taxiViolations.length > 0;
   const waiverProcessingLocked =
-    season.waiversEnabled && isWaiverClaimOrderLocked(wire.processDays);
+    season.waiversEnabled && isWaiverClaimOrderLocked(wire);
   const acquisitionLockReason = (() => {
     if (irViolations.length > 0 && taxiViolations.length > 0) {
       return `${formatIrLockMessage(irViolations)} ${formatTaxiLockMessage(taxiViolations)}`;
@@ -208,6 +208,7 @@ export default async function MyTeamPage({
             taxiPreventReaddAfterActivation:
               season.settings.taxiPreventReaddAfterActivation,
             schedule: season.settings.schedule,
+            transactionRules: season.settings.transactionRules,
           },
         }}
         scoringRules={scoringRules}

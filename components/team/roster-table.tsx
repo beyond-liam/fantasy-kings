@@ -60,6 +60,7 @@ type TeamRosterTableProps = {
   rosterPlayers: TeamRosterPlayer[];
   taxiMaxYearsExp?: 0 | 1 | 2 | 3 | 4 | 5 | null;
   taxiPreventReaddAfterActivation?: boolean;
+  gameLockedPlayerIds?: Set<string>;
   onSlotChange?: (playerId: string, slotPositionId: string) => void;
   onSwap?: (playerId: string, otherPlayerId: string) => void;
 };
@@ -202,6 +203,7 @@ export function TeamRosterTable({
   rosterPlayers,
   taxiMaxYearsExp,
   taxiPreventReaddAfterActivation,
+  gameLockedPlayerIds,
   onSlotChange,
   onSwap,
 }: TeamRosterTableProps) {
@@ -211,6 +213,7 @@ export function TeamRosterTable({
 
   const showRowActions = rowActionsEnabled ?? actionsEnabled;
   const canCut = cutActionsEnabled ?? actionsEnabled;
+  const lockedIds = gameLockedPlayerIds ?? new Set<string>();
   const columns = showRowActions
     ? COLUMNS
     : COLUMNS.filter((column) => column.id !== "action");
@@ -245,7 +248,11 @@ export function TeamRosterTable({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {slots.map((slot) => (
+              {slots.map((slot) => {
+                const playerLocked = Boolean(
+                  slot.player && lockedIds.has(slot.player.id),
+                );
+                return (
                 <TableRow key={slot.key}>
                   <TableCell
                     className={cn(
@@ -266,7 +273,7 @@ export function TeamRosterTable({
                         }
                         onSlotChange={onSlotChange}
                         onSwap={onSwap}
-                        disabled={!actionsEnabled}
+                        disabled={!actionsEnabled || playerLocked}
                       />
                       {slot.player ? (
                         <PlayerIdentity
@@ -328,7 +335,9 @@ export function TeamRosterTable({
                     <RosterSlotSelect
                       slot={slot}
                       assignmentOptions={assignmentOptions}
-                      disabled={!actionsEnabled || !slot.player}
+                      disabled={
+                        !actionsEnabled || !slot.player || playerLocked
+                      }
                       irEligibleStatuses={irEligibleStatuses}
                       taxiMaxYearsExp={taxiMaxYearsExp}
                       taxiPreventReaddAfterActivation={
@@ -345,7 +354,7 @@ export function TeamRosterTable({
                       <RosterRowActions
                         player={slot.player}
                         leagueSlug={leagueSlug}
-                        disabled={!slot.player || !canCut}
+                        disabled={!slot.player || !canCut || playerLocked}
                         variant={actionsVariant}
                         partnerTeamSlug={partnerTeamSlug}
                         tradesEnabled={tradesEnabled}
@@ -353,7 +362,8 @@ export function TeamRosterTable({
                     </TableCell>
                   ) : null}
                 </TableRow>
-              ))}
+                );
+              })}
             </TableBody>
           </Table>
         </TooltipProvider>

@@ -164,10 +164,18 @@ export function isValidSeasonCalendar(
  * True once this league's fantasy season is underway for the NFL year.
  * Offseason stays unlocked. Preseason only locks when the league includes
  * those preseason weeks and we've reached the configured start week.
+ *
+ * Uses `display_week` when present (same as fantasy-week mapping) so HOF vs
+ * Preseason Week 1 stays aligned with matchups / Game Centre.
  */
 export function isNflSeasonUnderway(
   seasonYear: number,
-  nfl: { season: string; season_type: string; week: number },
+  nfl: {
+    season: string;
+    season_type: string;
+    week: number;
+    display_week?: number;
+  },
   schedule?: ScheduleSettings | null,
 ): boolean {
   const nflSeason = Number(nfl.season);
@@ -185,6 +193,8 @@ export function isNflSeasonUnderway(
     return false;
   }
 
+  const week = nfl.display_week ?? nfl.week;
+
   if (nfl.season_type === "pre") {
     const settings = resolveScheduleSettings(schedule);
     if (!settings.includePreseason) {
@@ -192,11 +202,11 @@ export function isNflSeasonUnderway(
     }
     // ESPN/Sleeper week 1 = Hall of Fame; user Week 1 starts at ESPN week 2.
     const espnStart = (settings.preseasonStartWeek ?? 1) + 1;
-    return nfl.week >= espnStart;
+    return week >= espnStart;
   }
 
   if (nfl.season_type === "regular") {
-    return nfl.week >= 1;
+    return week >= 1;
   }
 
   // post / playoffs / unknown in-season phases
@@ -206,7 +216,12 @@ export function isNflSeasonUnderway(
 /** Schedule / playoff calendar edits until the fantasy season begins. */
 export function isScheduleEditable(
   seasonYear: number,
-  nfl: { season: string; season_type: string; week: number },
+  nfl: {
+    season: string;
+    season_type: string;
+    week: number;
+    display_week?: number;
+  },
   schedule?: ScheduleSettings | null,
 ): boolean {
   return !isNflSeasonUnderway(seasonYear, nfl, schedule);
@@ -220,7 +235,12 @@ export function isScheduleEditable(
  */
 export function isFantasyLeaguePreseason(
   seasonYear: number,
-  nfl: { season: string; season_type: string; week: number },
+  nfl: {
+    season: string;
+    season_type: string;
+    week: number;
+    display_week?: number;
+  },
   schedule?: ScheduleSettings | null,
 ): boolean {
   return !isNflSeasonUnderway(seasonYear, nfl, schedule);

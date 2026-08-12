@@ -36,10 +36,24 @@ import {
   formatWaiverFailSummary,
 } from "@/lib/leagues/waivers/activity";
 import {
+  buildClaimResolution,
+  isIllegalRosterFailReason,
+  orderClaimsForResolution,
+  withClaimResolutionMetadata,
+} from "@/lib/leagues/waivers/claim-resolution";
+import {
   getFantasyWeekStartUtc,
   getLastProcessInstantUtc,
+  getNextEligibleProcessInstantUtc,
+  getWaiverProcessDays,
   isClaimEligibleForProcess,
+  isWeeklyProcessInstant,
 } from "@/lib/leagues/waivers/calendar";
+import { isEligibleForDailyProcess, getDropWaiverClearsAt } from "@/lib/leagues/waivers/daily-drops";
+import {
+  kickoffDateForNflTeam,
+  loadNflKickoffsThisWeek,
+} from "@/lib/leagues/waivers/nfl-kickoffs";
 import { seasonUsesFaab } from "@/lib/leagues/waivers/faab";
 import { announceWaiverProcessed } from "@/lib/alerts/waivers";
 import { transactionsHref } from "@/lib/notifications/create";
@@ -70,8 +84,14 @@ export async function processSeasonWaivers(input: {
   const { season, leagueSlug } = input;
   const wire = resolveWaiverWireSettings(season.settings.waiverWire);
   const now = input.now ?? new Date();
-  const processInstant =
-    getLastProcessInstantUtc(wire.processDays, now) ?? now;
+  const processDays = getWaiverProcessDays(wire);
+  // Cron uses the last due run. Commissioner "Process Now" runs the upcoming
+  // eligible process early (same claims the UI lists under Next process).
+  const processInstant = input.force
+    ? (getNextEligibleProcessInstantUtc(processDays, now) ??
+      getLastProcessInstantUtc(processDays, now) ??
+      now)
+    : (getLastProcessInstantUtc(processDays, now) ?? now);
 
   // Season-level lease so overlapping cron/manual runs don't double-adjudicate.
   if (!input.force) {
@@ -137,12 +157,15 @@ export async function processSeasonWaivers(input: {
     }
   }
 
-  if (wire.resetOrderWeekly) {
+  if (wire.resetOrderWeekly && teamRows.length > 0) {
     const weekStart = getFantasyWeekStartUtc(now);
     const alreadyProcessedThisWeek =
       season.lastWaiverProcessedAt != null &&
       season.lastWaiverProcessedAt >= weekStart;
-    if (!alreadyProcessedThisWeek && teamRows.length > 0) {
+    const shouldReset = wire.dailyDropProcessing
+      ? isWeeklyProcessInstant(wire, processInstant)
+      : !alreadyProcessedThisWeek;
+    if (shouldReset) {
       const renumbered = teamRows.map((row, index) => ({
         teamId: row.id,
         waiverPriority: index + 1,
@@ -169,9 +192,11 @@ export async function processSeasonWaivers(input: {
       sortOrder: waiverClaims.sortOrder,
       waiverPriority: teams.waiverPriority,
       faabRemaining: teams.faabRemaining,
+      nflTeam: players.nflTeam,
     })
     .from(waiverClaims)
     .innerJoin(teams, eq(waiverClaims.teamId, teams.id))
+    .innerJoin(players, eq(waiverClaims.playerId, players.id))
     .where(
       and(
         eq(waiverClaims.leagueSeasonId, season.id),
@@ -179,9 +204,24 @@ export async function processSeasonWaivers(input: {
       ),
     );
 
-  const pending = pendingRows.filter((row) =>
+  const deadlineEligible = pendingRows.filter((row) =>
     isClaimEligibleForProcess(row.createdAt, processInstant),
   );
+
+  const kickoffs =
+    wire.dailyDropProcessing && deadlineEligible.length > 0
+      ? await loadNflKickoffsThisWeek()
+      : new Map<string, Date>();
+  const weeklyRun = isWeeklyProcessInstant(wire, processInstant);
+  let pending = deadlineEligible;
+  if (wire.dailyDropProcessing && !weeklyRun && deadlineEligible.length > 0) {
+    pending = deadlineEligible.filter((row) =>
+      isEligibleForDailyProcess({
+        kickoff: kickoffDateForNflTeam(row.nflTeam, kickoffs),
+        processInstant,
+      }),
+    );
+  }
 
   let awarded = 0;
   let failed = 0;
@@ -231,6 +271,17 @@ export async function processSeasonWaivers(input: {
     });
 
     const claimById = new Map(pending.map((row) => [row.id, row]));
+    const finalByClaimId = new Map(
+      adjudication.outcomes.map((row) => [
+        row.claimId,
+        {
+          status: row.status as "awarded" | "failed",
+          failReason: row.failReason ?? null,
+        },
+      ]),
+    );
+    const skipFailedClaimIds = new Set<string>();
+    const forceAwardClaimIds = new Set<string>();
     const successfulWinners: string[] = [];
     const notificationRows: Array<{
       recipientUserId: string;
@@ -240,6 +291,35 @@ export async function processSeasonWaivers(input: {
       playerId: string;
     }> = [];
     const href = transactionsHref(leagueSlug);
+    const teamNameOnlyById = new Map(
+      [...teamNameById.entries()].map(([id, row]) => [
+        id,
+        row.name?.trim() || "A team",
+      ]),
+    );
+
+    const nextFaabCandidate = (
+      playerId: string,
+      excludeClaimIds: Set<string>,
+    ) => {
+      const rivals = orderClaimsForResolution(
+        pending.filter(
+          (row) =>
+            row.playerId === playerId && !excludeClaimIds.has(row.id),
+        ),
+        "faab",
+      );
+      return (
+        rivals.find((row) => {
+          const result = finalByClaimId.get(row.id);
+          return (
+            result?.status === "failed" &&
+            (result.failReason === "Outbid." ||
+              result.failReason === "Lower waiver priority.")
+          );
+        }) ?? null
+      );
+    };
 
     for (const outcome of adjudication.outcomes) {
       const claim = claimById.get(outcome.claimId);
@@ -252,8 +332,19 @@ export async function processSeasonWaivers(input: {
         ? (playerNameById.get(claim.dropPlayerId) ?? null)
         : null;
 
-      if (outcome.status === "failed") {
+      const treatAsAward =
+        outcome.status === "awarded" || forceAwardClaimIds.has(claim.id);
+      if (
+        outcome.status === "failed" &&
+        !treatAsAward &&
+        skipFailedClaimIds.has(claim.id)
+      ) {
+        continue;
+      }
+
+      if (!treatAsAward) {
         const failReason = outcome.failReason?.trim() || "Claim failed.";
+        finalByClaimId.set(claim.id, { status: "failed", failReason });
         const [claimed] = await db
           .update(waiverClaims)
           .set({
@@ -331,7 +422,11 @@ export async function processSeasonWaivers(input: {
       });
 
       if (applyError) {
-        const failReason = applyError.trim() || "Could not apply claim.";
+        const rawReason = applyError.trim() || "Could not apply claim.";
+        const failReason = isIllegalRosterFailReason(rawReason)
+          ? "Illegal roster."
+          : rawReason;
+        finalByClaimId.set(claim.id, { status: "failed", failReason });
         await db
           .update(waiverClaims)
           .set({
@@ -375,16 +470,69 @@ export async function processSeasonWaivers(input: {
           });
         }
         failed += 1;
+
+        if (
+          season.waiverType === "faab" &&
+          isIllegalRosterFailReason(failReason)
+        ) {
+          const excluded = new Set<string>(
+            pending
+              .filter((row) => {
+                if (row.playerId !== claim.playerId) return false;
+                const result = finalByClaimId.get(row.id);
+                return result?.status === "failed";
+              })
+              .map((row) => row.id),
+          );
+          const next = nextFaabCandidate(claim.playerId, excluded);
+          if (next) {
+            forceAwardClaimIds.add(next.id);
+            skipFailedClaimIds.add(next.id);
+            finalByClaimId.set(next.id, {
+              status: "awarded",
+              failReason: null,
+            });
+          }
+        }
         continue;
       }
+
+      finalByClaimId.set(claim.id, { status: "awarded", failReason: null });
 
       const awardSummary = formatWaiverAwardSummary({
         teamName,
         playerName,
-        dropPlayerName,
         bid: claim.bid,
         waiverType: season.waiverType,
       });
+
+      const playerClaims = pending.filter(
+        (row) => row.playerId === claim.playerId,
+      );
+      const claimResolution = buildClaimResolution({
+        claims: playerClaims,
+        teamNameById: teamNameOnlyById,
+        statusByClaimId: finalByClaimId,
+        waiverType: season.waiverType,
+      });
+
+      // Drop slightly earlier so claim sorts above it (createdAt DESC).
+      if (claim.dropPlayerId && dropPlayerName) {
+        await db.insert(leagueActivity).values({
+          leagueSeasonId: season.id,
+          type: "player_dropped",
+          teamId: claim.teamId,
+          actorUserId: teamInfo?.userId ?? null,
+          playerId: claim.dropPlayerId,
+          claimId: claim.id,
+          summary: `${teamName} dropped ${dropPlayerName}`,
+          metadata: {
+            teamName,
+            playerName: dropPlayerName,
+          },
+          createdAt: new Date(now.getTime() - 1),
+        });
+      }
 
       await db.insert(leagueActivity).values({
         leagueSeasonId: season.id,
@@ -395,13 +543,16 @@ export async function processSeasonWaivers(input: {
         relatedPlayerId: claim.dropPlayerId,
         claimId: claim.id,
         summary: awardSummary,
-        metadata: buildWaiverActivityMetadata({
-          teamName,
-          playerName,
-          dropPlayerName,
-          bid: claim.bid,
-          waiverType: season.waiverType,
-        }),
+        metadata: withClaimResolutionMetadata(
+          buildWaiverActivityMetadata({
+            teamName,
+            playerName,
+            dropPlayerName: null,
+            bid: claim.bid,
+            waiverType: season.waiverType,
+          }),
+          claimResolution,
+        ),
         createdAt: now,
       });
 
@@ -587,6 +738,9 @@ async function applyAwardedClaim(input: {
     return slotResolved.error;
   }
   const slotPositionId = slotResolved.slotPositionId;
+  const dropClearsAt = dropRow
+    ? getDropWaiverClearsAt({ wire })
+    : null;
 
   await db.transaction(async (tx) => {
     if (dropRow) {
@@ -594,6 +748,7 @@ async function applyAwardedClaim(input: {
         rowId: dropRow.rosterRowId,
         waiversEnabled: season.waiversEnabled,
         dropWaiverHours: wire.dropWaiverHours,
+        waiverClearsAt: dropClearsAt ?? undefined,
         client: tx,
       });
     }

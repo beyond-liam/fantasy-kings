@@ -4,7 +4,6 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  ArrowLeftRightIcon,
   ArrowTurnBackwardIcon,
   Cancel01Icon,
   Delete02Icon,
@@ -27,14 +26,6 @@ import {
   CardContent,
   CardFooter,
 } from "@/components/ui/card";
-import {
-  Empty,
-  EmptyContent,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "@/components/ui/empty";
 import { ListPagination } from "@/components/ui/list-pagination";
 import {
   acceptTrade,
@@ -220,30 +211,14 @@ export function TradeList({
 
   if (openTrades.length === 0) {
     return (
-      <Empty>
-        <EmptyHeader>
-          <EmptyMedia variant="icon">
-            <HugeiconsIcon icon={UserSwitchIcon} strokeWidth={2} />
-          </EmptyMedia>
-          <EmptyTitle>No open trades right now</EmptyTitle>
-          <EmptyDescription>
-            Propose a trade when you are ready to shake up your roster.
-          </EmptyDescription>
-        </EmptyHeader>
-        <EmptyContent>
-          <Button
-            nativeButton={false}
-            render={<Link href={tradeComposerPath(leagueSlug)} />}
-          >
-            <HugeiconsIcon
-              icon={ArrowLeftRightIcon}
-              strokeWidth={2}
-              data-icon="inline-start"
-            />
-            Propose Trade
-          </Button>
-        </EmptyContent>
-      </Empty>
+      <div className="flex flex-col gap-1">
+        <p className="text-sm text-muted-foreground">
+          No open trades right now.
+        </p>
+        <p className="text-sm text-muted-foreground">
+          Propose a trade when you are ready to shake up your roster.
+        </p>
+      </div>
     );
   }
 
@@ -285,7 +260,7 @@ export function TradeList({
           showCommissionerActions;
 
         return (
-          <Card key={trade.id} size="sm">
+          <Card key={trade.id} id={`trade-${trade.id}`} size="sm" className="scroll-mt-4">
             <TradeCardHeader
               proposingTeamName={trade.proposingTeamName}
               receivingTeamName={trade.receivingTeamName}

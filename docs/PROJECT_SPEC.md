@@ -1,7 +1,7 @@
 # Fantasy Kings — Project Specification
 
 > Living document. Update this file as requirements, decisions, and scope change.
-> Last updated: 2026-08-09
+> Last updated: 2026-08-12
 
 ---
 
@@ -23,8 +23,8 @@ A mobile-first fantasy football web app for a private friend group (4–16 users
 |---|---|
 | Auth / leagues | Email/password auth, create/join, multi-league, settings |
 | Scoring | Offense engine + commissioner scoring UI; **minimal IDP defaults** (CB/S/DT/DE/LB) |
-| Roster | Lineup / IR / taxi (eligibility), FA add/cut, lineup-lock enforce |
-| Waivers / trades | FAAB + rolling, claims, vetoes, limits, crons, alerts |
+| Roster | Lineup / IR / taxi (eligibility), FA add/cut, lineup-lock enforce; cut/slot lock after NFL game start |
+| Waivers / trades | FAAB + rolling, claims (grouped by process date), vetoes, limits, crons, alerts; optional daily drop processing; trade week-end hold for started players |
 | Draft | Live + email/slow same room; Brevo turn emails; mock draft; timed email daily UK pause window |
 | Matchups | Week board, Game Centre, standings from finals, Live/Final badges |
 | Live scores | Sleeper near-live + ESPN athlete boxscores → `player_scores` |
@@ -299,7 +299,7 @@ Two variants via the `Empty` **`size`** prop:
 
 ### In-season management
 
-- Waivers: FAAB or rolling priority — processing, claims UI, cron + commissioner force-run **(shipped)**
+- Waivers: FAAB or rolling priority — processing, claims UI, cron + commissioner force-run; optional daily drop processing **(shipped)**
 - Trades: instant / 24h review / commissioner approval — propose, counter, veto, cron complete **(shipped)**
 - Future draft pick trading for dynasty leagues **(deferred)**
 - Lineup lock (first game / individual) enforced on roster writes **(shipped)**
@@ -729,6 +729,9 @@ lib/
 
 | Date | Change |
 |---|---|
+| 2026-08-12 | Roster/trades/waivers: cut+slot lock after game start; pending claims grouped by process date; trades with started players held to week end; 24h review kickoff warning |
+| 2026-08-12 | Waiver Wire: daily drops + independent 24/48 clear timer; +2h FCFS only after weekly; hardcoded drops-and-FAs + always-waive-on-drop |
+| 2026-08-12 | Waiver Wire: optional daily drop processing (unplayed drops process daily; already-played / game-day drops wait for the weekly day; default off) |
 | 2026-08-12 | Waivers: rolling priority adjudication (WP1 top claim → move to bottom → continue; multi-award; no orphaned contested players) |
 | 2026-08-09 | IDP v1: CB/S/DT/DE/LB positions + import, Individual defense roster preset, minimal scoring, projection fetch; gaps in `docs/IDP.md`. Deferred advanced filters / responsive sizes / matchup insights / win-margins / season rewind |
 | 2026-07-08 | Initial spec created from project brief |

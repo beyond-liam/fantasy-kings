@@ -31,12 +31,13 @@ import type { ScoringRuleDefinition } from "@/lib/leagues/scoring/types";
 export type LineupLockMode = "first_game" | "individual";
 
 export type WaiverProcessDay =
+  | "sun"
+  | "mon"
+  | "tue"
   | "wed"
   | "thu"
   | "fri"
-  | "sat"
-  | "sun"
-  | "mon";
+  | "sat";
 
 export type WaiverWireSettings = {
   allowZeroBids: boolean;
@@ -46,6 +47,12 @@ export type WaiverWireSettings = {
   fcfsMode: "after_process" | "never";
   processDays: WaiverProcessDay[];
   resetOrderWeekly: boolean;
+  /**
+   * When true, dropped players who have not played yet process daily.
+   * Players who already played, or whose game is before the next daily run,
+   * wait until `processDays` (weekly).
+   */
+  dailyDropProcessing: boolean;
   /**
    * When true during fantasy-league preseason (after the draft, until the
    * league's first counting fantasy week), free agents always require a waiver

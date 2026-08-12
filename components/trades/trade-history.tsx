@@ -156,7 +156,7 @@ export function TradeHistory({
             const sides = resolveTradeSideViews(trade, myTeamId, "past");
 
             return (
-              <Card key={trade.id} size="sm">
+              <Card key={trade.id} id={`trade-${trade.id}`} size="sm" className="scroll-mt-4">
                 <TradeCardHeader
                   proposingTeamName={trade.proposingTeamName}
                   receivingTeamName={trade.receivingTeamName}

@@ -17,6 +17,7 @@ export type LeagueActivityRow = {
   teamName: string | null;
   playerId: string | null;
   playerName: string | null;
+  tradeId: string | null;
   metadata: LeagueActivityMetadata | null;
 };
 
@@ -34,6 +35,7 @@ export async function getLeagueActivity(
       teamName: teams.name,
       playerId: leagueActivity.playerId,
       playerName: players.fullName,
+      tradeId: leagueActivity.tradeId,
       metadata: leagueActivity.metadata,
     })
     .from(leagueActivity)

@@ -314,6 +314,12 @@ export function TeamWaiversSection({
   const pageStart = safePage * PAGE_SIZE;
   const pageClaims = orderedClaims.slice(pageStart, pageStart + PAGE_SIZE);
   const claimIds = pageClaims.map((claim) => claim.id);
+  const distinctProcessLabels = new Set(
+    orderedClaims
+      .map((claim) => claim.processLabel)
+      .filter((label): label is string => Boolean(label)),
+  );
+  const showProcessGroups = distinctProcessLabels.size > 1;
 
   const handleCancel = (claimId: string) => {
     startTransition(async () => {
@@ -366,11 +372,13 @@ export function TeamWaiversSection({
               <h2 className="text-lg font-semibold tracking-tight">
                 Pending Claims
               </h2>
-              <p className="text-sm text-muted-foreground">
-                {nextProcessLabel
-                  ? `Next process ${nextProcessLabel}`
-                  : "No upcoming waiver process scheduled"}
-              </p>
+              {!showProcessGroups ? (
+                <p className="text-sm text-muted-foreground">
+                  {nextProcessLabel
+                    ? `Next process ${nextProcessLabel}`
+                    : "No upcoming waiver process scheduled"}
+                </p>
+              ) : null}
             </div>
             {isCommissioner ? (
               <Button
@@ -429,43 +437,57 @@ export function TeamWaiversSection({
             <div className="flex flex-col gap-4">
               {pageClaims.map((claim, index) => {
                 const displayIndex = pageStart + index + 1;
-                if (claimsLocked) {
-                  return (
-                    <LockedClaimCard
-                      key={claim.id}
-                      claim={claim}
-                      displayIndex={displayIndex}
-                      isFaab={isFaab}
-                      actionsDisabled={isPending}
-                      leagueSlug={leagueSlug}
-                      onCancel={() => handleCancel(claim.id)}
-                    />
-                  );
-                }
+                const prevLabel =
+                  index > 0
+                    ? pageClaims[index - 1]?.processLabel
+                    : pageStart > 0
+                      ? orderedClaims[pageStart - 1]?.processLabel
+                      : null;
+                const showProcessHeader =
+                  showProcessGroups &&
+                  Boolean(claim.processLabel) &&
+                  claim.processLabel !== prevLabel;
 
                 return (
-                  <SortableClaimCard
-                    key={claim.id}
-                    claim={claim}
-                    index={index}
-                    displayIndex={displayIndex}
-                    isFaab={isFaab}
-                    disabled={isPending}
-                    leagueSlug={leagueSlug}
-                    onCancel={() => handleCancel(claim.id)}
-                    onEdit={() =>
-                      setEditClaim({
-                        open: true,
-                        claimId: claim.id,
-                        playerId: claim.playerId,
-                        playerName: claim.playerName,
-                        sleeperId: claim.sleeperId,
-                        primaryPositionId: claim.primaryPositionId,
-                        nflTeam: claim.nflTeam,
-                        bid: claim.bid ?? 0,
-                      })
-                    }
-                  />
+                  <div key={claim.id} className="flex flex-col gap-3">
+                    {showProcessHeader ? (
+                      <h3 className="text-sm font-medium text-muted-foreground">
+                        Processes {claim.processLabel}
+                      </h3>
+                    ) : null}
+                    {claimsLocked ? (
+                      <LockedClaimCard
+                        claim={claim}
+                        displayIndex={displayIndex}
+                        isFaab={isFaab}
+                        actionsDisabled={isPending}
+                        leagueSlug={leagueSlug}
+                        onCancel={() => handleCancel(claim.id)}
+                      />
+                    ) : (
+                      <SortableClaimCard
+                        claim={claim}
+                        index={index}
+                        displayIndex={displayIndex}
+                        isFaab={isFaab}
+                        disabled={isPending}
+                        leagueSlug={leagueSlug}
+                        onCancel={() => handleCancel(claim.id)}
+                        onEdit={() =>
+                          setEditClaim({
+                            open: true,
+                            claimId: claim.id,
+                            playerId: claim.playerId,
+                            playerName: claim.playerName,
+                            sleeperId: claim.sleeperId,
+                            primaryPositionId: claim.primaryPositionId,
+                            nflTeam: claim.nflTeam,
+                            bid: claim.bid ?? 0,
+                          })
+                        }
+                      />
+                    )}
+                  </div>
                 );
               })}
             </div>

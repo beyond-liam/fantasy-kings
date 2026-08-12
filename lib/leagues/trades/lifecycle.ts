@@ -19,6 +19,8 @@ import {
   countEligibleVetoVoters,
   vetoThreshold,
 } from "@/lib/leagues/trades/vetoes";
+import { deferTradeExecutionIfWeekHold } from "@/lib/leagues/trades/week-hold-server";
+import { reviewEndsAtForWeekHold } from "@/lib/leagues/trades/week-hold";
 import type { resolveWaiverWireSettings } from "@/lib/leagues/waiver-wire";
 
 export type TradeLifecycleResult =
@@ -60,6 +62,18 @@ export async function completeExpiredTrade(input: {
 
   if (!trade) {
     return { ok: false, error: "Trade not found." };
+  }
+
+  const deferral = await deferTradeExecutionIfWeekHold(input.tradeId);
+  if (deferral.deferred) {
+    await logTradeActivity({
+      leagueSeasonId: input.league.leagueSeasonId,
+      tradeId: input.tradeId,
+      type: "trade_accepted",
+      summary:
+        "Trade held until fantasy week end — involved players have already started.",
+    });
+    return { ok: true, tradeId: input.tradeId };
   }
 
   const result = await executeTrade({
@@ -252,6 +266,30 @@ export async function acceptTradeOffer(input: {
       return { ok: false, error: "This trade is no longer pending." };
     }
 
+    const deferral = await deferTradeExecutionIfWeekHold(input.tradeId);
+    if (deferral.deferred) {
+      await logTradeActivity({
+        leagueSeasonId: input.league.leagueSeasonId,
+        tradeId: input.tradeId,
+        type: "trade_accepted",
+        summary: `${input.proposingTeam.name} ↔ ${input.actor.teamName} trade agreed.`,
+        actorUserId: input.actor.userId,
+      });
+      await announceTradeAcceptedReview({
+        tradeId: input.tradeId,
+        leagueSeasonId: input.league.leagueSeasonId,
+        leaguePublicId: input.league.leaguePublicId,
+        leagueName: input.league.leagueName,
+        proposingTeamName: input.proposingTeam.name,
+        receivingTeamName: input.actor.teamName,
+        proposingUserId: input.proposingTeam.userId,
+        receivingUserId: input.actor.userId,
+        reviewEndsAt: reviewEndsAtForWeekHold(),
+        acceptBody: `${input.actor.teamName} accepted your trade. It is held until fantasy week end because involved players have already started.`,
+      });
+      return { ok: true, tradeId: input.tradeId };
+    }
+
     const result = await executeTrade({
       tradeId: input.tradeId,
       waiversEnabled: input.waiversEnabled,
@@ -290,10 +328,7 @@ export async function acceptTradeOffer(input: {
       leagueSeasonId: input.league.leagueSeasonId,
       tradeId: input.tradeId,
       type: "trade_accepted",
-      summary:
-        input.nextStatus === "review"
-          ? `${input.proposingTeam.name} ↔ ${input.actor.teamName} trade agreed (league review).`
-          : `${input.proposingTeam.name} ↔ ${input.actor.teamName} trade agreed (awaiting commissioner).`,
+      summary: `${input.proposingTeam.name} ↔ ${input.actor.teamName} trade agreed.`,
       actorUserId: input.actor.userId,
     });
   }
@@ -417,6 +452,19 @@ export async function approveTradeByCommissioner(input: {
   rosterSlots: RosterSlotConfig[] | null | undefined;
   benchSlots: number;
 }): Promise<TradeLifecycleResult> {
+  const deferral = await deferTradeExecutionIfWeekHold(input.tradeId);
+  if (deferral.deferred) {
+    await logTradeActivity({
+      leagueSeasonId: input.league.leagueSeasonId,
+      tradeId: input.tradeId,
+      type: "trade_accepted",
+      summary:
+        "Commissioner approved — held until fantasy week end (players already started).",
+      actorUserId: input.actorUserId,
+    });
+    return { ok: true, tradeId: input.tradeId };
+  }
+
   const result = await executeTrade({
     tradeId: input.tradeId,
     waiversEnabled: input.waiversEnabled,
@@ -528,7 +576,7 @@ export async function castTradeVeto(input: {
         leagueSeasonId: input.league.leagueSeasonId,
         tradeId: input.tradeId,
         type: "trade_vetoed",
-        summary: `Trade vetoed (${vetoCountRows.length} of ${threshold} required).`,
+        summary: `Trade vetoed.`,
         teamId: input.actor.teamId,
         actorUserId: input.actor.userId,
       });

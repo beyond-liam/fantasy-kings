@@ -6,8 +6,14 @@ import {
   formatWaiverInstantUtc,
   getLastProcessInstantUtc,
   getNextEligibleProcessInstantUtc,
+  getWaiverProcessDays,
   isWaiverClaimOrderLocked,
 } from "@/lib/leagues/waivers/calendar";
+import { resolveClaimProcessInstant } from "@/lib/leagues/waivers/claim-schedule";
+import {
+  kickoffDateForNflTeam,
+  loadNflKickoffsThisWeek,
+} from "@/lib/leagues/waivers/nfl-kickoffs";
 import {
   getTeamTrades,
   getTradeVetoSummaries,
@@ -44,7 +50,7 @@ export async function MyTeamTransactionsPanel({
   isCommissioner,
 }: MyTeamTransactionsPanelProps) {
   const teamTradesPromise = getTeamTrades(season.id, team.id);
-  const [pendingClaims, pendingSeasonCount, teamTrades, vetoSummaries] =
+  const [pendingClaims, pendingSeasonCount, teamTrades, vetoSummaries, kickoffs] =
     await Promise.all([
       getTeamPendingWaiverClaims(team.id),
       getSeasonPendingClaimCount(season.id),
@@ -61,25 +67,50 @@ export async function MyTeamTransactionsPanel({
           }),
         );
       }),
+      wire.dailyDropProcessing
+        ? loadNflKickoffsThisWeek()
+        : Promise.resolve(new Map<string, Date>()),
     ]);
+
+  const claims = pendingClaims
+    .map((claim) => {
+      const processAt = resolveClaimProcessInstant({
+        wire,
+        createdAt: claim.createdAt,
+        kickoff: kickoffDateForNflTeam(claim.nflTeam, kickoffs),
+      });
+      return {
+        ...claim,
+        processAtMs: processAt?.getTime() ?? null,
+        processLabel: processAt ? formatWaiverInstantUtc(processAt) : null,
+      };
+    })
+    .toSorted((a, b) => {
+      const aMs = a.processAtMs ?? Number.POSITIVE_INFINITY;
+      const bMs = b.processAtMs ?? Number.POSITIVE_INFINITY;
+      if (aMs !== bMs) return aMs - bMs;
+      if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
+      return a.createdAt.getTime() - b.createdAt.getTime();
+    });
 
   const transactionRules = resolveTransactionRules(
     season.settings.transactionRules,
   );
-  const nextProcess = getNextEligibleProcessInstantUtc(wire.processDays);
+  const processDays = getWaiverProcessDays(wire);
+  const nextProcess = getNextEligibleProcessInstantUtc(processDays);
   const nextProcessLabel = nextProcess
     ? formatWaiverInstantUtc(nextProcess)
     : null;
-  const lastProcess = getLastProcessInstantUtc(wire.processDays);
+  const lastProcess = getLastProcessInstantUtc(processDays);
   const lastProcessLabel = lastProcess
     ? formatWaiverInstantUtc(lastProcess)
     : null;
-  const claimsLocked = isWaiverClaimOrderLocked(wire.processDays);
+  const claimsLocked = isWaiverClaimOrderLocked(wire);
 
   return (
     <TeamTransactionsSection
       leagueSlug={slug}
-      claims={pendingClaims}
+      claims={claims}
       trades={teamTrades}
       myTeamId={team.id}
       isCommissioner={isCommissioner}

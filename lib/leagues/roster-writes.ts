@@ -214,6 +214,7 @@ export async function waiveOrDeleteRosterRow(input: {
   waiversEnabled: boolean;
   dropWaiverHours: number;
   skipWaivers?: boolean;
+  waiverClearsAt?: Date;
   client?: DbClient;
 }) {
   const dbc = input.client ?? db;
@@ -222,9 +223,9 @@ export async function waiveOrDeleteRosterRow(input: {
     return;
   }
 
-  const waiverClearsAt = new Date(
-    Date.now() + input.dropWaiverHours * 60 * 60 * 1000,
-  );
+  const waiverClearsAt =
+    input.waiverClearsAt ??
+    new Date(Date.now() + input.dropWaiverHours * 60 * 60 * 1000);
 
   await dbc
     .update(rosterPlayers)

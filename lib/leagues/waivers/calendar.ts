@@ -1,4 +1,7 @@
-import type { WaiverProcessDay } from "@/db/schema/league-seasons";
+import type {
+  WaiverProcessDay,
+  WaiverWireSettings,
+} from "@/db/schema/league-seasons";
 import { UK_TIME_ZONE, ukTimezoneAbbrev } from "@/lib/datetime/uk-time";
 
 const PROCESS_HOUR_UTC = 10;
@@ -12,11 +15,46 @@ const WEEK_START_MINUTE = 1;
 const DOW_TO_UTC: Record<WaiverProcessDay, number> = {
   sun: 0,
   mon: 1,
+  tue: 2,
   wed: 3,
   thu: 4,
   fri: 5,
   sat: 6,
 };
+
+/** Every day at process hour — used when daily drop processing is on. */
+export const DAILY_WAIVER_PROCESS_DAYS: WaiverProcessDay[] = [
+  "sun",
+  "mon",
+  "tue",
+  "wed",
+  "thu",
+  "fri",
+  "sat",
+];
+
+export function getWeeklyProcessDay(
+  wire: Pick<WaiverWireSettings, "processDays">,
+): WaiverProcessDay {
+  return wire.processDays[0] ?? "wed";
+}
+
+/** Days the cron actually runs: daily when the switch is on, else the weekly day. */
+export function getWaiverProcessDays(
+  wire: Pick<WaiverWireSettings, "processDays" | "dailyDropProcessing">,
+): WaiverProcessDay[] {
+  if (wire.dailyDropProcessing) {
+    return DAILY_WAIVER_PROCESS_DAYS;
+  }
+  return wire.processDays.length > 0 ? wire.processDays : ["wed"];
+}
+
+export function isWeeklyProcessInstant(
+  wire: Pick<WaiverWireSettings, "processDays">,
+  processInstant: Date,
+): boolean {
+  return processInstant.getUTCDay() === DOW_TO_UTC[getWeeklyProcessDay(wire)];
+}
 
 export function getFantasyWeekStartUtc(now: Date = new Date()): Date {
   const date = new Date(
@@ -183,14 +221,15 @@ export function isWaiverProcessDue(input: {
 }
 
 /**
- * Free-agent FCFS is open after the last process + 2h, until the next process.
- * (No timezone conversion — all UTC.)
+ * Free-agent FCFS is open after the last *weekly* process + 2h, until the
+ * next weekly process. Daily runs do not open/close this window.
  */
 export function isFcfsWindowOpen(
-  processDays: WaiverProcessDay[],
+  wire: Pick<WaiverWireSettings, "processDays">,
   now: Date = new Date(),
 ): boolean {
-  const last = getLastProcessInstantUtc(processDays, now);
+  const weeklyDays: WaiverProcessDay[] = [getWeeklyProcessDay(wire)];
+  const last = getLastProcessInstantUtc(weeklyDays, now);
   if (!last) {
     return false;
   }
@@ -198,7 +237,7 @@ export function isFcfsWindowOpen(
   if (now < opens) {
     return false;
   }
-  const next = getNextProcessInstantUtc(processDays, now);
+  const next = getNextProcessInstantUtc(weeklyDays, now);
   if (next && now >= next) {
     return false;
   }
@@ -206,18 +245,19 @@ export function isFcfsWindowOpen(
 }
 
 /**
- * True during the waiver processing window: from claim deadline for the
- * upcoming run until FCFS opens after that run (deadline → process → +2h).
- * Claim order is locked; cancel remains allowed.
+ * True during a processing lock window.
+ * - Every run (daily or weekly): claim deadline → process
+ * - Weekly run only: process → +2h (FCFS opens)
  */
 export const WAIVER_PROCESSING_WINDOW_LOCK_REASON =
   "Players can only be claimed or added after the waiver processing window ends.";
 
 export function isWaiverClaimOrderLocked(
-  processDays: WaiverProcessDay[],
+  wire: Pick<WaiverWireSettings, "processDays" | "dailyDropProcessing">,
   now: Date = new Date(),
 ): boolean {
-  const next = getNextProcessInstantUtc(processDays, now);
+  const runDays = getWaiverProcessDays(wire);
+  const next = getNextProcessInstantUtc(runDays, now);
   if (next) {
     const deadline = getClaimDeadlineForProcess(next);
     if (now >= deadline && now < next) {
@@ -225,10 +265,13 @@ export function isWaiverClaimOrderLocked(
     }
   }
 
-  const last = getLastProcessInstantUtc(processDays, now);
-  if (last) {
-    const fcfsOpens = getFcfsOpensAtUtc(last);
-    if (now >= last && now < fcfsOpens) {
+  const lastWeekly = getLastProcessInstantUtc(
+    [getWeeklyProcessDay(wire)],
+    now,
+  );
+  if (lastWeekly) {
+    const fcfsOpens = getFcfsOpensAtUtc(lastWeekly);
+    if (now >= lastWeekly && now < fcfsOpens) {
       return true;
     }
   }

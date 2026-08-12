@@ -117,11 +117,9 @@ export function TeamTransactionsSection({
 
         <TabsContent value="trades" className="flex flex-col gap-8">
           <section className="flex flex-col gap-4">
-            {openTradeCount > 0 ? (
-              <h2 className="text-lg font-semibold tracking-tight text-balance">
-                Open Trades
-              </h2>
-            ) : null}
+            <h2 className="text-lg font-semibold tracking-tight text-balance">
+              Open Trades
+            </h2>
             <TradeList
               leagueSlug={leagueSlug}
               trades={myTrades}

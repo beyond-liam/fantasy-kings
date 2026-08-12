@@ -60,7 +60,7 @@ export function RosterRowActions({
   const menuDisabled =
     variant === "mine"
       ? !player || isPending || !leagueSlug || (cutDisabled && !tradeHref)
-      : !player;
+      : !player || !tradeHref;
 
   const handleConfirmCut = () => {
     if (!player || cutDisabled) return;

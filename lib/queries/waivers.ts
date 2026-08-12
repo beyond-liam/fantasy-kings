@@ -17,6 +17,9 @@ export type PendingWaiverClaimRow = {
   createdAt: Date;
   teamId: string;
   teamName: string;
+  /** When this claim is expected to process (display). */
+  processLabel?: string | null;
+  processAtMs?: number | null;
 };
 
 export async function getTeamPendingWaiverClaims(

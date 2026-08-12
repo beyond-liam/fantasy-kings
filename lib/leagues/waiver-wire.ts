@@ -10,12 +10,11 @@ export type WaiverWireFormValues = {
   waiverType: "priority" | "faab";
   faabBudget: number;
   allowZeroBids: boolean;
-  waiverPool: WaiverWireSettings["waiverPool"];
   dropWaiverHours: WaiverWireSettings["dropWaiverHours"];
-  churnPrevention: WaiverWireSettings["churnPrevention"];
   fcfsMode: WaiverWireSettings["fcfsMode"];
   processDays: WaiverProcessDay[];
   resetOrderWeekly: boolean;
+  dailyDropProcessing: boolean;
   preseasonWaivers: boolean;
 };
 
@@ -40,6 +39,7 @@ export const DEFAULT_WAIVER_WIRE_SETTINGS: WaiverWireSettings = {
   /** Single weekly process day (default Wednesday). */
   processDays: ["wed"],
   resetOrderWeekly: true,
+  dailyDropProcessing: false,
   preseasonWaivers: false,
 };
 
@@ -47,7 +47,13 @@ export const DEFAULT_WAIVER_WIRE_FORM: WaiverWireFormValues = {
   waiversEnabled: true,
   waiverType: "priority",
   faabBudget: 100,
-  ...DEFAULT_WAIVER_WIRE_SETTINGS,
+  allowZeroBids: DEFAULT_WAIVER_WIRE_SETTINGS.allowZeroBids,
+  dropWaiverHours: DEFAULT_WAIVER_WIRE_SETTINGS.dropWaiverHours,
+  fcfsMode: DEFAULT_WAIVER_WIRE_SETTINGS.fcfsMode,
+  processDays: DEFAULT_WAIVER_WIRE_SETTINGS.processDays,
+  resetOrderWeekly: DEFAULT_WAIVER_WIRE_SETTINGS.resetOrderWeekly,
+  dailyDropProcessing: DEFAULT_WAIVER_WIRE_SETTINGS.dailyDropProcessing,
+  preseasonWaivers: DEFAULT_WAIVER_WIRE_SETTINGS.preseasonWaivers,
 };
 
 const processDaySchema = z.enum(["wed", "thu", "fri", "sat", "sun", "mon"]);
@@ -58,12 +64,11 @@ export const waiverWireFormSchema = z
     waiverType: z.enum(["priority", "faab"]),
     faabBudget: z.number().int().min(1).max(1000),
     allowZeroBids: z.boolean(),
-    waiverPool: z.enum(["drops_only", "drops_and_free_agents"]),
     dropWaiverHours: z.union([z.literal(24), z.literal(48)]),
-    churnPrevention: z.enum(["return_to_fa", "block_late_drops", "none"]),
     fcfsMode: z.enum(["after_process", "never"]),
     processDays: z.array(processDaySchema),
     resetOrderWeekly: z.boolean(),
+    dailyDropProcessing: z.boolean(),
     preseasonWaivers: z.boolean(),
   })
   .refine(
@@ -103,11 +108,11 @@ export function resolveWaiverWireSettings(
 
   return {
     allowZeroBids: stored.allowZeroBids ?? DEFAULT_WAIVER_WIRE_SETTINGS.allowZeroBids,
-    waiverPool: stored.waiverPool ?? DEFAULT_WAIVER_WIRE_SETTINGS.waiverPool,
+    // Strict product defaults — no longer commissioner-configurable.
+    waiverPool: "drops_and_free_agents",
     dropWaiverHours:
       stored.dropWaiverHours ?? DEFAULT_WAIVER_WIRE_SETTINGS.dropWaiverHours,
-    churnPrevention:
-      stored.churnPrevention ?? DEFAULT_WAIVER_WIRE_SETTINGS.churnPrevention,
+    churnPrevention: "none",
     fcfsMode: stored.fcfsMode ?? DEFAULT_WAIVER_WIRE_SETTINGS.fcfsMode,
     processDays:
       stored.processDays?.length === 1
@@ -117,6 +122,7 @@ export function resolveWaiverWireSettings(
           : DEFAULT_WAIVER_WIRE_SETTINGS.processDays,
     resetOrderWeekly:
       stored.resetOrderWeekly ?? DEFAULT_WAIVER_WIRE_SETTINGS.resetOrderWeekly,
+    dailyDropProcessing: Boolean(stored.dailyDropProcessing),
     preseasonWaivers: Boolean(preseasonWaivers),
   };
 }
@@ -138,7 +144,13 @@ export function toWaiverWireFormValues(input: {
     waiversEnabled: input.waiversEnabled,
     waiverType: input.waiverType,
     faabBudget: input.faabBudget ?? DEFAULT_WAIVER_WIRE_FORM.faabBudget,
-    ...wire,
+    allowZeroBids: wire.allowZeroBids,
+    dropWaiverHours: wire.dropWaiverHours,
+    fcfsMode: wire.fcfsMode,
+    processDays: wire.processDays,
+    resetOrderWeekly: wire.resetOrderWeekly,
+    dailyDropProcessing: wire.dailyDropProcessing,
+    preseasonWaivers: wire.preseasonWaivers,
   };
 }
 
@@ -147,12 +159,13 @@ export function toPersistedWaiverWire(
 ): WaiverWireSettings {
   return {
     allowZeroBids: values.allowZeroBids,
-    waiverPool: values.waiverPool,
+    waiverPool: "drops_and_free_agents",
     dropWaiverHours: values.dropWaiverHours,
-    churnPrevention: values.churnPrevention,
+    churnPrevention: "none",
     fcfsMode: values.fcfsMode,
     processDays: values.processDays,
     resetOrderWeekly: values.resetOrderWeekly,
+    dailyDropProcessing: values.dailyDropProcessing,
     preseasonWaivers: values.preseasonWaivers,
   };
 }

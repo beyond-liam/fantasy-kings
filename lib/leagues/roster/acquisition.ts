@@ -12,6 +12,7 @@ import {
   getMaxRosterSize,
   getPositionRosterMax,
 } from "@/lib/leagues/roster-capacity";
+import { findBlockedGameStartCut } from "@/lib/leagues/roster/game-start-lock";
 import {
   occupiedBySlot,
   pickDefaultSlotPosition,
@@ -80,6 +81,27 @@ export async function assertCutAllowedUnderLineupLock(input: {
     fullName: input.fullName,
     nflTeam: input.nflTeam,
     previousSlot: input.previousSlot,
+  });
+}
+
+/** Block cuts for any rostered player whose NFL game has started (until week end). */
+export async function assertCutAllowedAfterGameStart(input: {
+  preventCutsAfterGameStart: boolean;
+  fullName: string;
+  nflTeam: string | null;
+}): Promise<string | null> {
+  if (!input.preventCutsAfterGameStart) {
+    return null;
+  }
+  const startedTeams = await loadStartedNflTeamsForLineupLock();
+  if (!startedTeams) {
+    return null;
+  }
+  return findBlockedGameStartCut({
+    preventCutsAfterGameStart: true,
+    startedTeams,
+    fullName: input.fullName,
+    nflTeam: input.nflTeam,
   });
 }
 

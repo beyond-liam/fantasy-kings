@@ -852,7 +852,7 @@ export const getPlayerProfile = cache(
                   : "Free agency is closed",
               waiverProcessingLocked:
                 Boolean(seasonRow.waiversEnabled) &&
-                isWaiverClaimOrderLocked(wire.processDays),
+                isWaiverClaimOrderLocked(wire),
             };
 
             activity = await loadPlayerTransactionHistory({

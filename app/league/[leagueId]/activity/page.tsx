@@ -35,7 +35,7 @@ export default async function ActivityPage({ params }: ActivityPageProps) {
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-6">
-      <LeagueActivityFeed items={items} />
+      <LeagueActivityFeed items={items} leagueSlug={slug} />
     </div>
   );
 }

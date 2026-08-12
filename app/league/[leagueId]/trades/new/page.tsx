@@ -16,6 +16,7 @@ import { getLeagueHomeData } from "@/lib/queries/leagues";
 import { getTradeById, getTradeComposerRoster } from "@/lib/queries/trades";
 import { getUserTeamForLeague } from "@/lib/queries/watchlist";
 import { getNflState } from "@/lib/sleeper/api";
+import { loadNflKickoffsThisWeek } from "@/lib/leagues/waivers/nfl-kickoffs";
 
 type NewTradePageProps = {
   params: Promise<{ leagueId: string }>;
@@ -63,7 +64,8 @@ export default async function NewTradePage({
     .map((member) => ({
       id: member.teamId!,
       name: member.teamName ?? "Team",
-      slug: member.teamSlug ?? member.teamId!,
+      slug: member.teamSlug ?? member.teamPublicId ?? member.teamId!,
+      publicId: member.teamPublicId ?? null,
     }));
 
   if (partners.length === 0) {
@@ -91,7 +93,11 @@ export default async function NewTradePage({
     (partnerIdFromCounter
       ? partners.find((partner) => partner.id === partnerIdFromCounter)
       : null) ??
-    partners.find((partner) => partner.slug === query.with) ??
+    partners.find(
+      (partner) =>
+        partner.slug === query.with ||
+        partner.publicId === query.with,
+    ) ??
     null;
 
   if (!initialPartner) {
@@ -124,7 +130,7 @@ export default async function NewTradePage({
     season.settings.scoringRules,
   );
 
-  const [myRoster, partnerRoster] = await Promise.all([
+  const [myRoster, partnerRoster, kickoffs] = await Promise.all([
     getTradeComposerRoster({
       teamId: team.id,
       seasonYear: nflState.season,
@@ -135,7 +141,12 @@ export default async function NewTradePage({
       seasonYear: nflState.season,
       scoringRules,
     }),
+    loadNflKickoffsThisWeek(),
   ]);
+
+  const kickoffsByNflTeam = Object.fromEntries(
+    [...kickoffs.entries()].map(([abbr, date]) => [abbr, date.toISOString()]),
+  );
 
   // Drop IDs that are no longer on the roster (e.g. waived since propose).
   // Still open the composer — especially for counter-offers.
@@ -160,6 +171,8 @@ export default async function NewTradePage({
         counterOfTradeId={counterOfTradeId}
         rosterSlots={season.settings.rosterSlots}
         benchSlots={season.benchSlots}
+        tradeProcessing={season.tradeProcessing}
+        kickoffsByNflTeam={kickoffsByNflTeam}
       />
     </div>
   );

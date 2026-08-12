@@ -40,6 +40,7 @@ import {
 } from "@/lib/leagues/schedule-display";
 import { buildTeamH2hSeries } from "@/lib/leagues/team-h2h";
 import { myTeamPath } from "@/lib/leagues/utils";
+import { canProposeTrades } from "@/lib/leagues/trades/guards";
 import {
   loadMyTeamNflContext,
   withPlayerOpponent,
@@ -146,6 +147,7 @@ export default async function LeagueTeamPage({
     scoringPreset,
     season.settings.scoringRules,
   );
+  const tradesEnabled = Boolean(myTeam) && canProposeTrades(season).ok;
 
   const needsRosterPanel = activeTab === "roster";
   const needsStatsPanel = activeTab === "stats";
@@ -300,6 +302,11 @@ export default async function LeagueTeamPage({
         players={rosterPlayersWithRates}
         leagueSlug={slug}
         actionsEnabled={false}
+        rowActionsEnabled={tradesEnabled}
+        cutActionsEnabled={false}
+        actionsVariant="opponent"
+        partnerTeamSlug={team.publicId ?? team.slug}
+        tradesEnabled={tradesEnabled}
         summary={{
           waiverPriorityLabel: season.waiversEnabled
             ? formatWaiverPriority(team.waiverPriority)

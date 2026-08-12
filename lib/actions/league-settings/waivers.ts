@@ -65,9 +65,9 @@ export async function updateWaiverWireRules(
     waiverType: season.waiverType,
     faabBudget: season.faabBudget,
     processDays: beforeWire.processDays,
-    waiverPool: beforeWire.waiverPool,
     dropWaiverHours: beforeWire.dropWaiverHours,
     resetOrderWeekly: beforeWire.resetOrderWeekly,
+    dailyDropProcessing: beforeWire.dailyDropProcessing,
     preseasonWaivers: beforeWire.preseasonWaivers,
   };
   const afterWire = toPersistedWaiverWire(next);
@@ -77,9 +77,9 @@ export async function updateWaiverWireRules(
     faabBudget:
       next.waiversEnabled && next.waiverType === "faab" ? next.faabBudget : null,
     processDays: afterWire.processDays,
-    waiverPool: afterWire.waiverPool,
     dropWaiverHours: afterWire.dropWaiverHours,
     resetOrderWeekly: afterWire.resetOrderWeekly,
+    dailyDropProcessing: afterWire.dailyDropProcessing,
     preseasonWaivers: afterWire.preseasonWaivers,
   };
 
@@ -133,9 +133,9 @@ export async function updateWaiverWireRules(
       { path: "waiverType", label: "Waiver type" },
       { path: "faabBudget", label: "FAAB budget" },
       { path: "processDays", label: "Process days" },
-      { path: "waiverPool", label: "Waiver pool" },
       { path: "dropWaiverHours", label: "Drop waiver hours" },
       { path: "resetOrderWeekly", label: "Reset order weekly" },
+      { path: "dailyDropProcessing", label: "Daily drop processing" },
       { path: "preseasonWaivers", label: "Preseason waivers" },
     ]),
   });

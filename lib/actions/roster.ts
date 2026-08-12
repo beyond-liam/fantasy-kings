@@ -26,10 +26,13 @@ import {
   slotAcceptsPlayer,
 } from "@/lib/leagues/roster-slots";
 import {
+  assertCutAllowedAfterGameStart,
   assertCutAllowedUnderLineupLock,
   pickOpenReserveAcquisitionSlot,
   resolveAcquisitionSlotPosition,
 } from "@/lib/leagues/roster/acquisition";
+import { findBlockedGameStartMoves } from "@/lib/leagues/roster/game-start-lock";
+import { resolveTransactionRules } from "@/lib/leagues/transaction-rules";
 import {
   assertReserveAcquisitionsAllowed,
   findSeasonRosterRows,
@@ -48,7 +51,9 @@ import { findBlockedLineupMoves } from "@/lib/leagues/lineup-lock-enforce";
 import { parseLineupLockMode } from "@/lib/leagues/lineup-lock";
 import { loadStartedNflTeamsForLineupLock } from "@/lib/leagues/lineup-lock-started";
 import { getAcquisitionKind } from "@/lib/leagues/waivers/acquisition";
+import { getDropWaiverClearsAt } from "@/lib/leagues/waivers/daily-drops";
 import {
+  getWaiverProcessDays,
   isWaiverClaimOrderLocked,
   WAIVER_PROCESSING_WINDOW_LOCK_REASON,
 } from "@/lib/leagues/waivers/calendar";
@@ -210,7 +215,7 @@ async function prepareAdd(
   );
   if (
     season.waiversEnabled &&
-    isWaiverClaimOrderLocked(wire.processDays)
+    isWaiverClaimOrderLocked(wire)
   ) {
     return {
       ok: false,
@@ -425,8 +430,14 @@ export async function addPlayerToRoster(
   return { success: true, playerName: prepared.player.fullName };
 }
 
+function dropWaiverClearsAt(
+  wire: ReturnType<typeof resolveWaiverWireSettings>,
+): Date {
+  return getDropWaiverClearsAt({ wire });
+}
+
 type PrepareCutSuccess = {
-  row: { id: string; fullName: string };
+  row: { id: string; fullName: string; nflTeam: string | null };
   skipWaivers: boolean;
   wire: ReturnType<typeof resolveWaiverWireSettings>;
 };
@@ -470,7 +481,7 @@ async function prepareCut(
   );
   const churn = resolveChurnCut({
     churnPrevention: wire.churnPrevention,
-    processDays: wire.processDays,
+    processDays: getWaiverProcessDays(wire),
     dropWaiverHours: wire.dropWaiverHours,
     acquiredAt: row.acquiredAt,
   });
@@ -489,8 +500,18 @@ async function prepareCut(
     return { error: cutBlocked };
   }
 
+  const rules = resolveTransactionRules(season.settings.transactionRules);
+  const gameStartCutBlocked = await assertCutAllowedAfterGameStart({
+    preventCutsAfterGameStart: rules.preventCutsAfterGameStart,
+    fullName: row.fullName,
+    nflTeam: row.nflTeam,
+  });
+  if (gameStartCutBlocked) {
+    return { error: gameStartCutBlocked };
+  }
+
   return {
-    row: { id: row.id, fullName: row.fullName },
+    row: { id: row.id, fullName: row.fullName, nflTeam: row.nflTeam },
     skipWaivers: churn.skipWaivers,
     wire,
   };
@@ -525,6 +546,7 @@ export async function cutPlayerFromRoster(
     waiversEnabled: season.waiversEnabled,
     dropWaiverHours: prepared.wire.dropWaiverHours,
     skipWaivers: prepared.skipWaivers,
+    waiverClearsAt: dropWaiverClearsAt(prepared.wire),
   });
 
   await logLeagueActivity({
@@ -580,12 +602,15 @@ export async function cutAndAddPlayer(
     return addPrepared.result;
   }
 
+  const cutClearsAt = dropWaiverClearsAt(cutPrepared.wire);
+
   await db.transaction(async (tx) => {
     await waiveOrDeleteRosterRow({
       rowId: cutPrepared.row.id,
       waiversEnabled: season.waiversEnabled,
       dropWaiverHours: cutPrepared.wire.dropWaiverHours,
       skipWaivers: cutPrepared.skipWaivers,
+      waiverClearsAt: cutClearsAt,
       client: tx,
     });
     await insertOrRestoreRosteredPlayer({
@@ -778,6 +803,7 @@ export async function commissionerUpdateRosterSlots(
 async function assertLineupLockAllowsChanges(input: {
   seasonSettings: {
     lineupLockMode?: string | null;
+    transactionRules?: Parameters<typeof resolveTransactionRules>[0];
   };
   current: Array<{
     id: string;
@@ -795,6 +821,7 @@ async function assertLineupLockAllowsChanges(input: {
   }>;
 }): Promise<string | null> {
   const mode = parseLineupLockMode(input.seasonSettings.lineupLockMode);
+  const rules = resolveTransactionRules(input.seasonSettings.transactionRules);
   const currentById = new Map(input.current.map((row) => [row.id, row]));
   const changes = input.next.flatMap((player) => {
     const previous = currentById.get(player.id);
@@ -821,6 +848,15 @@ async function assertLineupLockAllowsChanges(input: {
     return null;
   }
 
+  const gameStartBlocked = findBlockedGameStartMoves({
+    preventCutsAfterGameStart: rules.preventCutsAfterGameStart,
+    startedTeams,
+    changes,
+  });
+  if (gameStartBlocked) {
+    return gameStartBlocked;
+  }
+
   return findBlockedLineupMoves({ mode, startedTeams, changes });
 }
 
@@ -834,6 +870,7 @@ async function applyRosterSlotAssignments(input: {
       lineupLockMode?: string | null;
       taxiMaxYearsExp?: 0 | 1 | 2 | 3 | 4 | 5 | null;
       taxiPreventReaddAfterActivation?: boolean;
+      transactionRules?: Parameters<typeof resolveTransactionRules>[0];
     };
     benchSlots: number;
   };

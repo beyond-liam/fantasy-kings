@@ -17,6 +17,7 @@ import {
 import { isOpenTradeStatus, OPEN_TRADE_STATUSES } from "@/lib/leagues/trades/guards";
 import { validateTeamPostTrade } from "@/lib/leagues/trades/validate";
 import { resolveWaiverWireSettings } from "@/lib/leagues/waiver-wire";
+import { getDropWaiverClearsAt } from "@/lib/leagues/waivers/daily-drops";
 
 /**
  * Assign starter/bench slots for players arriving via trade.
@@ -381,9 +382,10 @@ export async function executeTrade(input: {
         if (!input.waiversEnabled) {
           await tx.delete(rosterPlayers).where(eq(rosterPlayers.id, row.id));
         } else {
-          const waiverClearsAt = new Date(
-            Date.now() + input.waiverWire.dropWaiverHours * 60 * 60 * 1000,
-          );
+          const waiverClearsAt = getDropWaiverClearsAt({
+            wire: input.waiverWire,
+            now: acquiredAt,
+          });
           await tx
             .update(rosterPlayers)
             .set({
