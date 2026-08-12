@@ -26,7 +26,12 @@ import {
   resolveWaiverWireSettings,
   WAIVER_PROCESS_DAY_OPTIONS,
 } from "@/lib/leagues/waiver-wire";
-import { WAIVER_CLAIM_DEADLINE_OFFSET_HOURS, WAIVER_FCFS_OFFSET_HOURS, WAIVER_PROCESS_HOUR_UTC } from "@/lib/leagues/waivers/calendar";
+import {
+  formatWaiverProcessHourUk,
+  WAIVER_CLAIM_DEADLINE_OFFSET_HOURS,
+  WAIVER_FCFS_OFFSET_HOURS,
+  WAIVER_PROCESS_HOUR_UTC,
+} from "@/lib/leagues/waivers/calendar";
 
 export type LeagueRulesRow = {
   label: string;
@@ -331,7 +336,7 @@ export function buildLeagueRulesSummary(input: {
         },
         {
           label: "Process Claims On",
-          value: `${processDaysLabel(waiverWire.processDays)} at ${String(WAIVER_PROCESS_HOUR_UTC).padStart(2, "0")}:00 UTC (claims lock ${String(WAIVER_PROCESS_HOUR_UTC - WAIVER_CLAIM_DEADLINE_OFFSET_HOURS).padStart(2, "0")}:00 UTC)`,
+          value: `${processDaysLabel(waiverWire.processDays)} at ${formatWaiverProcessHourUk(WAIVER_PROCESS_HOUR_UTC)} (claims lock ${formatWaiverProcessHourUk(WAIVER_PROCESS_HOUR_UTC - WAIVER_CLAIM_DEADLINE_OFFSET_HOURS)})`,
         },
         {
           label: "First-Come-First-Served",

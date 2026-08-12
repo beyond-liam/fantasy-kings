@@ -249,7 +249,8 @@ export type SlotAssignmentPlayer = {
   taxiActivated?: boolean;
 };
 
-/** Apply a slot change in memory, bumping an occupant to BN when the target is full. */
+/** Apply a slot change in memory. Full targets swap into the vacated slot when
+ *  eligible; otherwise the occupant is bumped to bench. */
 export function applyLocalSlotAssignment<T extends SlotAssignmentPlayer>(
   players: T[],
   playerId: string,
@@ -322,7 +323,29 @@ export function applyLocalSlotAssignment<T extends SlotAssignmentPlayer>(
 
     const displaced = occupants[0];
     if (displaced) {
-      displaced.slotPositionId = "BN";
+      // Prefer filling the vacated slot (swap) so we don't empty a starter.
+      const canTakeVacated =
+        isActiveLineupSlot(currentSlot) &&
+        slotAcceptsPlayer(currentSlot, displaced.primaryPositionId, {
+          injuryStatus: displaced.injuryStatus,
+          irEligibleStatuses,
+          yearsExp: displaced.yearsExp,
+          taxiMaxYearsExp,
+        }) &&
+        !(
+          currentSlot === "TAXI" &&
+          !canMovePlayerToTaxi({
+            preventReaddAfterActivation: taxiPreventReaddAfterActivation,
+            taxiActivated: displaced.taxiActivated === true,
+            currentSlotPositionId: displaced.slotPositionId,
+          })
+        );
+
+      if (canTakeVacated) {
+        displaced.slotPositionId = currentSlot;
+      } else {
+        displaced.slotPositionId = "BN";
+      }
     }
   }
 

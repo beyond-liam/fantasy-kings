@@ -1,4 +1,5 @@
 import type { WaiverProcessDay } from "@/db/schema/league-seasons";
+import { UK_TIME_ZONE, ukTimezoneAbbrev } from "@/lib/datetime/uk-time";
 
 const PROCESS_HOUR_UTC = 10;
 /** Claims must be submitted by this many hours before process (e.g. 09:00 for 10:00). */
@@ -256,22 +257,49 @@ export const WAIVER_PROCESS_HOUR_UTC = PROCESS_HOUR_UTC;
 export const WAIVER_CLAIM_DEADLINE_OFFSET_HOURS = CLAIM_DEADLINE_OFFSET_HOURS;
 export const WAIVER_FCFS_OFFSET_HOURS = FCFS_OFFSET_HOURS;
 
-/** e.g. `Wed, 12 Aug at 10:00 UTC` */
-export function formatWaiverInstantUtc(date: Date): string {
+/** e.g. `Wed, 12 Aug at 11:00 BST` (always Europe/London). */
+export function formatWaiverInstant(date: Date): string {
   const weekday = new Intl.DateTimeFormat("en-GB", {
-    timeZone: "UTC",
+    timeZone: UK_TIME_ZONE,
     weekday: "short",
   }).format(date);
   const dayMonth = new Intl.DateTimeFormat("en-GB", {
-    timeZone: "UTC",
+    timeZone: UK_TIME_ZONE,
     day: "numeric",
     month: "short",
   }).format(date);
   const time = new Intl.DateTimeFormat("en-GB", {
-    timeZone: "UTC",
+    timeZone: UK_TIME_ZONE,
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
   }).format(date);
-  return `${weekday}, ${dayMonth} at ${time} UTC`;
+  return `${weekday}, ${dayMonth} at ${time} ${ukTimezoneAbbrev(date)}`;
+}
+
+/** @deprecated Prefer {@link formatWaiverInstant} — kept for call-site churn. */
+export const formatWaiverInstantUtc = formatWaiverInstant;
+
+/** UK wall-clock for a fixed UTC process hour on `at`'s calendar day. */
+export function formatWaiverProcessHourUk(
+  utcHour: number,
+  at = new Date(),
+): string {
+  const instant = new Date(
+    Date.UTC(
+      at.getUTCFullYear(),
+      at.getUTCMonth(),
+      at.getUTCDate(),
+      utcHour,
+      0,
+      0,
+    ),
+  );
+  const time = new Intl.DateTimeFormat("en-GB", {
+    timeZone: UK_TIME_ZONE,
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(instant);
+  return `${time} ${ukTimezoneAbbrev(instant)}`;
 }

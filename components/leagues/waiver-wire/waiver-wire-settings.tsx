@@ -26,11 +26,16 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { updateWaiverWireRules } from "@/lib/actions/league-settings";
+import { SwitchField } from "@/components/ui/switch-field";
+import {
+  formatWaiverProcessHourUk,
+  WAIVER_CLAIM_DEADLINE_OFFSET_HOURS,
+  WAIVER_PROCESS_HOUR_UTC,
+} from "@/lib/leagues/waivers/calendar";
 import {
   WAIVER_PROCESS_DAY_OPTIONS,
   type WaiverWireFormValues,
 } from "@/lib/leagues/waiver-wire";
-import { SwitchField } from "@/components/ui/switch-field";
 
 type WaiverWireSettingsProps = {
   slug: string;
@@ -465,8 +470,13 @@ export function WaiverWireSettings({
               <Field>
                 <FieldLabel htmlFor="processDays">Process claims on</FieldLabel>
                 <FieldDescription>
-                  Claims run at 10:00 UTC. Submit by 09:00 UTC that day — later
-                  claims wait until the following week&apos;s process.
+                  Claims run at {formatWaiverProcessHourUk(WAIVER_PROCESS_HOUR_UTC)}.
+                  Submit by{" "}
+                  {formatWaiverProcessHourUk(
+                    WAIVER_PROCESS_HOUR_UTC - WAIVER_CLAIM_DEADLINE_OFFSET_HOURS,
+                  )}{" "}
+                  that day — later claims wait until the following week&apos;s
+                  process.
                 </FieldDescription>
                 <Select
                   items={processDayItems}

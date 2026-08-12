@@ -122,14 +122,18 @@ describe("waiver calendar", () => {
     );
   });
 
-  it("formats process instants in natural UTC language", () => {
+  it("formats process instants in UK wall-clock language", () => {
     assert.equal(
       formatWaiverInstantUtc(new Date(Date.UTC(2026, 7, 12, 10, 0, 0))),
-      "Wed, 12 Aug at 10:00 UTC",
+      "Wed, 12 Aug at 11:00 BST",
     );
     assert.equal(
       formatWaiverInstantUtc(new Date(Date.UTC(2026, 7, 12, 9, 0, 0))),
-      "Wed, 12 Aug at 09:00 UTC",
+      "Wed, 12 Aug at 10:00 BST",
+    );
+    assert.equal(
+      formatWaiverInstantUtc(new Date(Date.UTC(2026, 0, 14, 10, 0, 0))),
+      "Wed, 14 Jan at 10:00 GMT",
     );
   });
 });

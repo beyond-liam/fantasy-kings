@@ -1,27 +1,10 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import {
-  DndContext,
-  DragOverlay,
-  KeyboardSensor,
-  PointerSensor,
-  closestCorners,
-  useDroppable,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-  type DragStartEvent,
-} from "@dnd-kit/core";
-import {
-  SortableContext,
-  arrayMove,
-  sortableKeyboardCoordinates,
-  useSortable,
-  verticalListSortingStrategy,
-} from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
+import { move } from "@dnd-kit/helpers";
+import { DragDropProvider, useDroppable } from "@dnd-kit/react";
+import { useSortable } from "@dnd-kit/react/sortable";
 import {
   Cancel01Icon,
   DragDropVerticalIcon,
@@ -62,43 +45,40 @@ type RealignDivisionsSettingsProps = {
   teams: RealignTeam[];
 };
 
+const TEAM_TYPE = "team";
+
 function SortableTeamCard({
   team,
-  isOverlay = false,
+  index,
+  divisionId,
 }: {
   team: RealignTeam;
-  isOverlay?: boolean;
+  index: number;
+  divisionId: string;
 }) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: team.id });
+  const { ref, handleRef, isDragging } = useSortable({
+    id: team.id,
+    index,
+    group: divisionId,
+    type: TEAM_TYPE,
+    accept: TEAM_TYPE,
+  });
 
   return (
     <li
-      ref={setNodeRef}
-      style={{
-        transform: CSS.Transform.toString(transform),
-        transition,
-      }}
+      ref={ref}
       className={cn(
         "flex items-center gap-2 rounded-lg border bg-card px-2 py-2 shadow-xs",
-        isDragging && !isOverlay && "opacity-40",
-        isOverlay && "shadow-md",
+        isDragging && "bg-background shadow-md",
       )}
     >
       <Button
+        ref={handleRef}
         type="button"
         variant="ghost"
         size="icon-sm"
         className="cursor-grab touch-none text-muted-foreground active:cursor-grabbing"
         aria-label={`Drag ${team.name}`}
-        {...attributes}
-        {...listeners}
       >
         <HugeiconsIcon icon={DragDropVerticalIcon} strokeWidth={2} />
       </Button>
@@ -118,13 +98,19 @@ function DivisionColumn({
   teamById: Map<string, RealignTeam>;
   targetCount: number;
 }) {
-  const { setNodeRef, isOver } = useDroppable({ id: division.id });
+  // Low priority so item-to-item collisions win over the column droppable.
+  const { ref, isDropTarget } = useDroppable({
+    id: division.id,
+    type: "column",
+    accept: TEAM_TYPE,
+    collisionPriority: 1,
+  });
   const balancedHere = teamIds.length === targetCount;
 
   return (
     <Card
       size="sm"
-      className={cn("gap-0 py-0", isOver && "ring-2 ring-primary/40")}
+      className={cn("gap-0 py-0", isDropTarget && "ring-2 ring-primary/40")}
     >
       <CardHeader className="border-b py-(--card-spacing)">
         <CardTitle className="flex items-center justify-between gap-2">
@@ -140,19 +126,20 @@ function DivisionColumn({
         </CardTitle>
       </CardHeader>
       <CardContent className="p-3">
-        <SortableContext
-          id={division.id}
-          items={teamIds}
-          strategy={verticalListSortingStrategy}
-        >
-          <ol ref={setNodeRef} className="flex min-h-24 flex-col gap-2">
-            {teamIds.map((id) => {
-              const team = teamById.get(id);
-              if (!team) return null;
-              return <SortableTeamCard key={id} team={team} />;
-            })}
-          </ol>
-        </SortableContext>
+        <ol ref={ref} className="flex min-h-24 flex-col gap-2">
+          {teamIds.map((id, index) => {
+            const team = teamById.get(id);
+            if (!team) return null;
+            return (
+              <SortableTeamCard
+                key={id}
+                team={team}
+                index={index}
+                divisionId={division.id}
+              />
+            );
+          })}
+        </ol>
       </CardContent>
     </Card>
   );
@@ -195,7 +182,7 @@ export function RealignDivisionsSettings({
 }: RealignDivisionsSettingsProps) {
   const router = useRouter();
   const [columns, setColumns] = useState(() => buildColumns(divisions, teams));
-  const [activeId, setActiveId] = useState<string | null>(null);
+  const previousColumns = useRef(columns);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -216,66 +203,6 @@ export function RealignDivisionsSettings({
     Object.entries(assignments).some(
       ([teamId, divisionId]) => baseline[teamId] !== divisionId,
     );
-
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    }),
-  );
-
-  const findContainer = (id: string) => {
-    if (id in columns) return id;
-    return (
-      Object.entries(columns).find(([, teamIds]) => teamIds.includes(id))?.[0] ??
-      null
-    );
-  };
-
-  const handleDragStart = (event: DragStartEvent) => {
-    setActiveId(String(event.active.id));
-  };
-
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-    setActiveId(null);
-    if (!over) return;
-
-    const activeTeamId = String(active.id);
-    const overId = String(over.id);
-    const from = findContainer(activeTeamId);
-    const to = findContainer(overId);
-    if (!from || !to) return;
-
-    if (from === to) {
-      const items = columns[from] ?? [];
-      const oldIndex = items.indexOf(activeTeamId);
-      const newIndex = items.indexOf(overId);
-      if (oldIndex < 0 || newIndex < 0 || oldIndex === newIndex) return;
-      setColumns((prev) => ({
-        ...prev,
-        [from]: arrayMove(items, oldIndex, newIndex),
-      }));
-      return;
-    }
-
-    setColumns((prev) => {
-      const fromItems = [...(prev[from] ?? [])];
-      const toItems = [...(prev[to] ?? [])];
-      const fromIndex = fromItems.indexOf(activeTeamId);
-      if (fromIndex < 0) return prev;
-      fromItems.splice(fromIndex, 1);
-      const overIndex = toItems.indexOf(overId);
-      if (overIndex >= 0) {
-        toItems.splice(overIndex, 0, activeTeamId);
-      } else {
-        toItems.push(activeTeamId);
-      }
-      return { ...prev, [from]: fromItems, [to]: toItems };
-    });
-  };
-
-  const activeTeam = activeId ? teamById.get(activeId) : null;
 
   const handleSave = () => {
     if (!balanced) {
@@ -346,30 +273,31 @@ export function RealignDivisionsSettings({
           </PageFormActions>
         }
       >
-        <DndContext
-        sensors={sensors}
-        collisionDetection={closestCorners}
-        onDragStart={handleDragStart}
-        onDragEnd={handleDragEnd}
-        onDragCancel={() => setActiveId(null)}
-      >
-        <div className="grid gap-4 md:grid-cols-2">
-          {divisions.map((division) => (
-            <DivisionColumn
-              key={division.id}
-              division={division}
-              teamIds={columns[division.id] ?? []}
-              teamById={teamById}
-              targetCount={targetCount}
-            />
-          ))}
-        </div>
-        <DragOverlay>
-          {activeTeam ? (
-            <SortableTeamCard team={activeTeam} isOverlay />
-          ) : null}
-        </DragOverlay>
-      </DndContext>
+        <DragDropProvider
+          onDragStart={() => {
+            previousColumns.current = columns;
+          }}
+          onDragOver={(event) => {
+            setColumns((items) => move(items, event));
+          }}
+          onDragEnd={(event) => {
+            if (event.canceled) {
+              setColumns(previousColumns.current);
+            }
+          }}
+        >
+          <div className="grid gap-4 md:grid-cols-2">
+            {divisions.map((division) => (
+              <DivisionColumn
+                key={division.id}
+                division={division}
+                teamIds={columns[division.id] ?? []}
+                teamById={teamById}
+                targetCount={targetCount}
+              />
+            ))}
+          </div>
+        </DragDropProvider>
       </SettingsFormCard>
     </div>
   );

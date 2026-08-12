@@ -1,23 +1,9 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
-import {
-  DndContext,
-  KeyboardSensor,
-  PointerSensor,
-  closestCenter,
-  type DragEndEvent,
-  useSensor,
-  useSensors,
-} from "@dnd-kit/core";
-import {
-  SortableContext,
-  arrayMove,
-  sortableKeyboardCoordinates,
-  useSortable,
-  verticalListSortingStrategy,
-} from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
+import { useMemo, type ReactNode } from "react";
+import { move } from "@dnd-kit/helpers";
+import { DragDropProvider } from "@dnd-kit/react";
+import { useSortable } from "@dnd-kit/react/sortable";
 import {
   Delete02Icon,
   DragDropVerticalIcon,
@@ -53,38 +39,29 @@ function SortableRow({
   onRemove?: (id: string) => void;
   removeDisabled?: boolean;
 }) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: item.id });
+  const { ref, handleRef, isDragging } = useSortable({
+    id: item.id,
+    index,
+  });
 
   return (
     <li
-      ref={setNodeRef}
-      style={{
-        transform: CSS.Transform.toString(transform),
-        transition,
-      }}
+      ref={ref}
       className={cn(
         "flex items-center gap-3 rounded-lg border bg-background px-3 py-2.5",
-        isDragging && "z-10 shadow-md",
+        isDragging && "shadow-md",
       )}
     >
       <span className="w-5 shrink-0 text-sm tabular-nums text-muted-foreground">
         {index + 1}
       </span>
       <Button
+        ref={handleRef}
         type="button"
         variant="secondary"
         size="icon-sm"
         className="cursor-grab touch-none text-muted-foreground active:cursor-grabbing"
         aria-label={`Drag to reorder ${item.label}`}
-        {...attributes}
-        {...listeners}
       >
         <HugeiconsIcon icon={DragDropVerticalIcon} strokeWidth={2} />
       </Button>
@@ -113,56 +90,31 @@ export function SortableList({
   onRemove,
   removeDisabled,
 }: SortableListProps) {
-  const [activeId, setActiveId] = useState<string | null>(null);
   const ids = useMemo(() => items.map((item) => item.id), [items]);
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: { distance: 6 },
-    }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    }),
-  );
-
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-    setActiveId(null);
-
-    if (!over || active.id === over.id) {
-      return;
-    }
-
-    const oldIndex = ids.indexOf(String(active.id));
-    const newIndex = ids.indexOf(String(over.id));
-    if (oldIndex < 0 || newIndex < 0) {
-      return;
-    }
-
-    onReorder(arrayMove(ids, oldIndex, newIndex));
-  };
-
   return (
-    <DndContext
-      sensors={sensors}
-      collisionDetection={closestCenter}
-      onDragStart={({ active }) => setActiveId(String(active.id))}
-      onDragEnd={handleDragEnd}
-      onDragCancel={() => setActiveId(null)}
+    <DragDropProvider
+      onDragEnd={(event) => {
+        if (event.canceled) {
+          return;
+        }
+        const next = move(ids, event);
+        if (next !== ids) {
+          onReorder(next.map(String));
+        }
+      }}
     >
-      <SortableContext items={ids} strategy={verticalListSortingStrategy}>
-        <ol className={cn("flex flex-col gap-2", activeId && "select-none")}>
-          {items.map((item, index) => (
-            <SortableRow
-              key={item.id}
-              item={item}
-              index={index}
-              onRemove={onRemove}
-              removeDisabled={removeDisabled}
-            />
-          ))}
-        </ol>
-      </SortableContext>
-    </DndContext>
+      <ol className="flex flex-col gap-2">
+        {items.map((item, index) => (
+          <SortableRow
+            key={item.id}
+            item={item}
+            index={index}
+            onRemove={onRemove}
+            removeDisabled={removeDisabled}
+          />
+        ))}
+      </ol>
+    </DragDropProvider>
   );
 }

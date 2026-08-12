@@ -2,23 +2,9 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import {
-  DndContext,
-  KeyboardSensor,
-  PointerSensor,
-  closestCenter,
-  type DragEndEvent,
-  useSensor,
-  useSensors,
-} from "@dnd-kit/core";
-import {
-  SortableContext,
-  arrayMove,
-  sortableKeyboardCoordinates,
-  useSortable,
-  verticalListSortingStrategy,
-} from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
+import { move } from "@dnd-kit/helpers";
+import { DragDropProvider } from "@dnd-kit/react";
+import { useSortable } from "@dnd-kit/react/sortable";
 import {
   Delete02Icon,
   DragDropVerticalIcon,
@@ -74,6 +60,7 @@ type TeamWaiversSectionProps = {
 function SortableClaimCard({
   claim,
   index,
+  displayIndex,
   isFaab,
   disabled,
   leagueSlug,
@@ -82,48 +69,39 @@ function SortableClaimCard({
 }: {
   claim: PendingWaiverClaimRow;
   index: number;
+  displayIndex: number;
   isFaab: boolean;
   disabled: boolean;
   leagueSlug: string;
   onCancel: () => void;
   onEdit: () => void;
 }) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: claim.id });
+  const { ref, handleRef, isDragging } = useSortable({
+    id: claim.id,
+    index,
+    disabled,
+  });
 
   return (
     <Card
-      ref={setNodeRef}
+      ref={ref}
       size="sm"
-      style={{
-        transform: CSS.Transform.toString(transform),
-        transition,
-      }}
-      className={cn(
-        isDragging && "z-10 bg-card opacity-100 shadow-md",
-      )}
+      className={cn(isDragging && "bg-background shadow-md")}
     >
       <CardContent className="grid grid-cols-[auto_2ch_minmax(0,1fr)] items-start gap-x-2 gap-y-3 sm:flex sm:flex-wrap sm:items-center sm:gap-3">
         <Button
+          ref={handleRef}
           type="button"
           variant="secondary"
           size="icon-sm"
           className="mt-0.5 shrink-0 cursor-grab touch-none text-muted-foreground active:cursor-grabbing sm:mt-0"
           aria-label={`Drag to reorder claim for ${claim.playerName}`}
           disabled={disabled}
-          {...attributes}
-          {...listeners}
         >
           <HugeiconsIcon icon={DragDropVerticalIcon} strokeWidth={2} />
         </Button>
         <span className="pt-2 text-end text-sm tabular-nums text-muted-foreground sm:w-6 sm:shrink-0 sm:pt-0 sm:text-center">
-          {index + 1}
+          {displayIndex}
         </span>
         <div className="flex min-w-0 flex-col gap-1.5 sm:flex-1">
           <PlayerIdentity
@@ -211,15 +189,6 @@ export function TeamWaiversSection({
   const pageClaims = orderedClaims.slice(pageStart, pageStart + PAGE_SIZE);
   const claimIds = pageClaims.map((claim) => claim.id);
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: { distance: 6 },
-    }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    }),
-  );
-
   const handleCancel = (claimId: string) => {
     startTransition(async () => {
       const result = await cancelWaiverClaim(leagueSlug, claimId);
@@ -246,38 +215,6 @@ export function TeamWaiversSection({
       toast.success(
         `Processed waivers: ${result.awarded ?? 0} awarded, ${result.failed ?? 0} failed`,
       );
-      router.refresh();
-    });
-  };
-
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-    if (!over || active.id === over.id) {
-      return;
-    }
-
-    const oldIndex = claimIds.indexOf(String(active.id));
-    const newIndex = claimIds.indexOf(String(over.id));
-    if (oldIndex < 0 || newIndex < 0) {
-      return;
-    }
-
-    const nextPage = arrayMove(pageClaims, oldIndex, newIndex);
-    const next = [
-      ...orderedClaims.slice(0, pageStart),
-      ...nextPage,
-      ...orderedClaims.slice(pageStart + PAGE_SIZE),
-    ];
-    const nextIds = next.map((claim) => claim.id);
-    setOrderedClaims(next);
-
-    startTransition(async () => {
-      const result = await reorderWaiverClaims(leagueSlug, nextIds);
-      if (!result.success) {
-        toast.error(result.error ?? "Could not reorder claims.");
-        setOrderedClaims(claims);
-        return;
-      }
       router.refresh();
     });
   };
@@ -330,42 +267,70 @@ export function TeamWaiversSection({
             ) : null}
           </div>
 
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragEnd={handleDragEnd}
+          <DragDropProvider
+            onDragEnd={(event) => {
+              if (event.canceled || isPending) {
+                return;
+              }
+
+              const nextPageIds = move(claimIds, event);
+              if (nextPageIds === claimIds) {
+                return;
+              }
+
+              const byId = new Map(
+                pageClaims.map((claim) => [claim.id, claim] as const),
+              );
+              const nextPage = nextPageIds.flatMap((id) => {
+                const claim = byId.get(String(id));
+                return claim ? [claim] : [];
+              });
+              const next = [
+                ...orderedClaims.slice(0, pageStart),
+                ...nextPage,
+                ...orderedClaims.slice(pageStart + PAGE_SIZE),
+              ];
+              const nextIds = next.map((claim) => claim.id);
+              setOrderedClaims(next);
+
+              startTransition(async () => {
+                const result = await reorderWaiverClaims(leagueSlug, nextIds);
+                if (!result.success) {
+                  toast.error(result.error ?? "Could not reorder claims.");
+                  setOrderedClaims(claims);
+                  return;
+                }
+                router.refresh();
+              });
+            }}
           >
-            <SortableContext
-              items={claimIds}
-              strategy={verticalListSortingStrategy}
-            >
-              <div className="flex flex-col gap-4">
-                {pageClaims.map((claim, index) => (
-                  <SortableClaimCard
-                    key={claim.id}
-                    claim={claim}
-                    index={pageStart + index}
-                    isFaab={isFaab}
-                    disabled={isPending}
-                    leagueSlug={leagueSlug}
-                    onCancel={() => handleCancel(claim.id)}
-                    onEdit={() =>
-                      setEditClaim({
-                        open: true,
-                        claimId: claim.id,
-                        playerId: claim.playerId,
-                        playerName: claim.playerName,
-                        sleeperId: claim.sleeperId,
-                        primaryPositionId: claim.primaryPositionId,
-                        nflTeam: claim.nflTeam,
-                        bid: claim.bid ?? 0,
-                      })
-                    }
-                  />
-                ))}
-              </div>
-            </SortableContext>
-          </DndContext>
+            <div className="flex flex-col gap-4">
+              {pageClaims.map((claim, index) => (
+                <SortableClaimCard
+                  key={claim.id}
+                  claim={claim}
+                  index={index}
+                  displayIndex={pageStart + index + 1}
+                  isFaab={isFaab}
+                  disabled={isPending}
+                  leagueSlug={leagueSlug}
+                  onCancel={() => handleCancel(claim.id)}
+                  onEdit={() =>
+                    setEditClaim({
+                      open: true,
+                      claimId: claim.id,
+                      playerId: claim.playerId,
+                      playerName: claim.playerName,
+                      sleeperId: claim.sleeperId,
+                      primaryPositionId: claim.primaryPositionId,
+                      nflTeam: claim.nflTeam,
+                      bid: claim.bid ?? 0,
+                    })
+                  }
+                />
+              ))}
+            </div>
+          </DragDropProvider>
 
           <ListPagination
             page={safePage}

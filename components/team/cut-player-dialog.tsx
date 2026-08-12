@@ -59,7 +59,7 @@ export function CutPlayerDialog({
               strokeWidth={2}
               data-icon="inline-start"
             />
-            Cut player
+            Cut Player
           </Button>
         </AlertDialogFooter>
       </AlertDialogContent>
