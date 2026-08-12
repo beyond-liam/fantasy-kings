@@ -4,9 +4,9 @@ import { resolveTransactionRules } from "@/lib/leagues/transaction-rules";
 import { resolveFaabRemaining } from "@/lib/leagues/waivers/faab";
 import {
   formatWaiverInstantUtc,
-  getClaimDeadlineForProcess,
   getLastProcessInstantUtc,
   getNextEligibleProcessInstantUtc,
+  isWaiverClaimOrderLocked,
 } from "@/lib/leagues/waivers/calendar";
 import {
   getTeamTrades,
@@ -70,16 +70,11 @@ export async function MyTeamTransactionsPanel({
   const nextProcessLabel = nextProcess
     ? formatWaiverInstantUtc(nextProcess)
     : null;
-  const claimDeadline = nextProcess
-    ? getClaimDeadlineForProcess(nextProcess)
-    : null;
-  const claimDeadlineLabel = claimDeadline
-    ? formatWaiverInstantUtc(claimDeadline)
-    : null;
   const lastProcess = getLastProcessInstantUtc(wire.processDays);
   const lastProcessLabel = lastProcess
     ? formatWaiverInstantUtc(lastProcess)
     : null;
+  const claimsLocked = isWaiverClaimOrderLocked(wire.processDays);
 
   return (
     <TeamTransactionsSection
@@ -99,8 +94,8 @@ export async function MyTeamTransactionsPanel({
       allowZeroBids={wire.allowZeroBids}
       pendingSeasonCount={pendingSeasonCount}
       nextProcessLabel={nextProcessLabel}
-      claimDeadlineLabel={claimDeadlineLabel}
       lastProcessLabel={lastProcessLabel}
+      claimsLocked={claimsLocked}
       resetOrderWeekly={wire.resetOrderWeekly}
       fcfsMode={wire.fcfsMode}
       processDays={wire.processDays}

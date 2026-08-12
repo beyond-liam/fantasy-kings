@@ -34,6 +34,7 @@ import {
   listRosteredPlayers,
 } from "@/lib/leagues/roster-writes";
 import { resolveWaiverWireSettings } from "@/lib/leagues/waiver-wire";
+import { isWaiverClaimOrderLocked } from "@/lib/leagues/waivers/calendar";
 import { getNflScoreboard } from "@/lib/espn/scoreboard";
 import { getNflState } from "@/lib/sleeper/api";
 
@@ -500,7 +501,18 @@ export async function reorderWaiverClaims(
     return { success: false, error: context.error };
   }
 
-  const { league, team } = context;
+  const { league, team, season } = context;
+
+  const wire = resolveWaiverWireSettings(
+    season.settings.waiverWire,
+    season.settings.transactionRules?.preseasonFreeAgents,
+  );
+  if (isWaiverClaimOrderLocked(wire.processDays)) {
+    return {
+      success: false,
+      error: "Claim order is locked while waivers are processing.",
+    };
+  }
 
   const existing = await db
     .select({ id: waiverClaims.id })
@@ -564,6 +576,13 @@ export async function updateWaiverClaimBid(
     season.settings.waiverWire,
     season.settings.transactionRules?.preseasonFreeAgents,
   );
+
+  if (isWaiverClaimOrderLocked(wire.processDays)) {
+    return {
+      success: false,
+      error: "Claims are locked while waivers are processing.",
+    };
+  }
 
   if (!Number.isFinite(bidInput)) {
     return { success: false, error: "Enter a FAAB bid." };

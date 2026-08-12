@@ -205,6 +205,34 @@ export function isFcfsWindowOpen(
   return true;
 }
 
+/**
+ * True during the waiver processing window: from claim deadline for the
+ * upcoming run until FCFS opens after that run (deadline → process → +2h).
+ * Claim order is locked; cancel remains allowed.
+ */
+export function isWaiverClaimOrderLocked(
+  processDays: WaiverProcessDay[],
+  now: Date = new Date(),
+): boolean {
+  const next = getNextProcessInstantUtc(processDays, now);
+  if (next) {
+    const deadline = getClaimDeadlineForProcess(next);
+    if (now >= deadline && now < next) {
+      return true;
+    }
+  }
+
+  const last = getLastProcessInstantUtc(processDays, now);
+  if (last) {
+    const fcfsOpens = getFcfsOpensAtUtc(last);
+    if (now >= last && now < fcfsOpens) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 function mostRecentWeekdayAtHourUtc(
   weekday: number,
   hour: number,
@@ -257,7 +285,7 @@ export const WAIVER_PROCESS_HOUR_UTC = PROCESS_HOUR_UTC;
 export const WAIVER_CLAIM_DEADLINE_OFFSET_HOURS = CLAIM_DEADLINE_OFFSET_HOURS;
 export const WAIVER_FCFS_OFFSET_HOURS = FCFS_OFFSET_HOURS;
 
-/** e.g. `Wed, 12 Aug at 11:00 BST` (always Europe/London). */
+/** e.g. `Wed, 12 Aug at 11am` (Europe/London wall clock, no zone abbrev). */
 export function formatWaiverInstant(date: Date): string {
   const weekday = new Intl.DateTimeFormat("en-GB", {
     timeZone: UK_TIME_ZONE,
@@ -268,13 +296,20 @@ export function formatWaiverInstant(date: Date): string {
     day: "numeric",
     month: "short",
   }).format(date);
-  const time = new Intl.DateTimeFormat("en-GB", {
+  const parts = new Intl.DateTimeFormat("en-GB", {
     timeZone: UK_TIME_ZONE,
-    hour: "2-digit",
+    hour: "numeric",
     minute: "2-digit",
-    hour12: false,
-  }).format(date);
-  return `${weekday}, ${dayMonth} at ${time} ${ukTimezoneAbbrev(date)}`;
+    hour12: true,
+  }).formatToParts(date);
+  const hour = parts.find((part) => part.type === "hour")?.value ?? "";
+  const minute = parts.find((part) => part.type === "minute")?.value ?? "00";
+  const dayPeriod = (
+    parts.find((part) => part.type === "dayPeriod")?.value ?? ""
+  ).toLowerCase();
+  const time =
+    minute === "00" ? `${hour}${dayPeriod}` : `${hour}:${minute}${dayPeriod}`;
+  return `${weekday}, ${dayMonth} at ${time}`;
 }
 
 /** @deprecated Prefer {@link formatWaiverInstant} — kept for call-site churn. */

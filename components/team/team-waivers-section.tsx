@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { move } from "@dnd-kit/helpers";
 import { DragDropProvider } from "@dnd-kit/react";
@@ -10,6 +10,7 @@ import {
   DragDropVerticalIcon,
   Edit02Icon,
   FlashIcon,
+  LockIcon,
   UserAdd01Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -31,6 +32,12 @@ import {
 } from "@/components/ui/empty";
 import { ListPagination } from "@/components/ui/list-pagination";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   cancelWaiverClaim,
   processWaiverClaimsNow,
   reorderWaiverClaims,
@@ -41,6 +48,9 @@ import { cn } from "@/lib/utils";
 
 const PAGE_SIZE = 10;
 
+const CLAIMS_LOCKED_TOOLTIP =
+  "Editing locked while waivers are processed";
+
 type TeamWaiversSectionProps = {
   leagueSlug: string;
   claims: PendingWaiverClaimRow[];
@@ -50,12 +60,126 @@ type TeamWaiversSectionProps = {
   isCommissioner: boolean;
   pendingSeasonCount: number;
   nextProcessLabel: string | null;
-  claimDeadlineLabel: string | null;
   lastProcessLabel: string | null;
+  claimsLocked: boolean;
   resetOrderWeekly: boolean;
   fcfsMode: "after_process" | "never";
   processDays: WaiverProcessDay[];
 };
+
+function ClaimsLockedHint({ children }: { children: ReactNode }) {
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger
+          render={<span className="inline-flex cursor-default" />}
+        >
+          {children}
+        </TooltipTrigger>
+        <TooltipContent>{CLAIMS_LOCKED_TOOLTIP}</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
+function ClaimCardContent({
+  claim,
+  displayIndex,
+  isFaab,
+  actionsDisabled,
+  claimsLocked,
+  leagueSlug,
+  onCancel,
+  onEdit,
+  leadingControl,
+}: {
+  claim: PendingWaiverClaimRow;
+  displayIndex: number;
+  isFaab: boolean;
+  actionsDisabled: boolean;
+  claimsLocked: boolean;
+  leagueSlug: string;
+  onCancel: () => void;
+  onEdit: () => void;
+  leadingControl: ReactNode;
+}) {
+  return (
+    <CardContent className="grid grid-cols-[auto_2ch_minmax(0,1fr)] items-start gap-x-2 gap-y-3 sm:flex sm:flex-wrap sm:items-center sm:gap-3">
+      {leadingControl}
+      <span className="pt-2 text-end text-sm tabular-nums text-muted-foreground sm:w-6 sm:shrink-0 sm:pt-0 sm:text-center">
+        {displayIndex}
+      </span>
+      <div className="flex min-w-0 flex-col gap-1.5 sm:flex-1">
+        <PlayerIdentity
+          fullName={claim.playerName}
+          sleeperId={claim.sleeperId}
+          primaryPositionId={claim.primaryPositionId}
+          nflTeam={claim.nflTeam}
+          record={isFaab && claim.bid != null ? `$${claim.bid}` : null}
+          size="sm"
+          playerId={claim.playerId}
+          leagueSlug={leagueSlug}
+        />
+        {claim.dropPlayerName ? (
+          <p className="text-xs text-pretty text-muted-foreground">
+            Drop {claim.dropPlayerName}
+          </p>
+        ) : null}
+      </div>
+      <div className="col-span-3 flex gap-2 sm:col-auto sm:ml-auto sm:shrink-0 sm:justify-end">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="min-h-9 min-w-0 flex-1 sm:flex-none"
+          disabled={actionsDisabled}
+          onClick={onCancel}
+        >
+          <HugeiconsIcon
+            icon={Delete02Icon}
+            strokeWidth={2}
+            data-icon="inline-start"
+          />
+          Cancel Claim
+        </Button>
+        {isFaab ? (
+          claimsLocked ? (
+            <ClaimsLockedHint>
+              <Button
+                type="button"
+                size="sm"
+                className="min-h-9 min-w-0 flex-1 sm:flex-none"
+                disabled
+              >
+                <HugeiconsIcon
+                  icon={LockIcon}
+                  strokeWidth={2}
+                  data-icon="inline-start"
+                />
+                Edit claim
+              </Button>
+            </ClaimsLockedHint>
+          ) : (
+            <Button
+              type="button"
+              size="sm"
+              className="min-h-9 min-w-0 flex-1 sm:flex-none"
+              disabled={actionsDisabled}
+              onClick={onEdit}
+            >
+              <HugeiconsIcon
+                icon={Edit02Icon}
+                strokeWidth={2}
+                data-icon="inline-start"
+              />
+              Edit claim
+            </Button>
+          )
+        ) : null}
+      </div>
+    </CardContent>
+  );
+}
 
 function SortableClaimCard({
   claim,
@@ -88,72 +212,74 @@ function SortableClaimCard({
       size="sm"
       className={cn(isDragging && "bg-background shadow-md")}
     >
-      <CardContent className="grid grid-cols-[auto_2ch_minmax(0,1fr)] items-start gap-x-2 gap-y-3 sm:flex sm:flex-wrap sm:items-center sm:gap-3">
-        <Button
-          ref={handleRef}
-          type="button"
-          variant="secondary"
-          size="icon-sm"
-          className="mt-0.5 shrink-0 cursor-grab touch-none text-muted-foreground active:cursor-grabbing sm:mt-0"
-          aria-label={`Drag to reorder claim for ${claim.playerName}`}
-          disabled={disabled}
-        >
-          <HugeiconsIcon icon={DragDropVerticalIcon} strokeWidth={2} />
-        </Button>
-        <span className="pt-2 text-end text-sm tabular-nums text-muted-foreground sm:w-6 sm:shrink-0 sm:pt-0 sm:text-center">
-          {displayIndex}
-        </span>
-        <div className="flex min-w-0 flex-col gap-1.5 sm:flex-1">
-          <PlayerIdentity
-            fullName={claim.playerName}
-            sleeperId={claim.sleeperId}
-            primaryPositionId={claim.primaryPositionId}
-            nflTeam={claim.nflTeam}
-            record={isFaab && claim.bid != null ? `$${claim.bid}` : null}
-            size="sm"
-            playerId={claim.playerId}
-            leagueSlug={leagueSlug}
-          />
-          {claim.dropPlayerName ? (
-            <p className="text-xs text-pretty text-muted-foreground">
-              Drop {claim.dropPlayerName}
-            </p>
-          ) : null}
-        </div>
-        <div className="col-span-3 flex gap-2 sm:col-auto sm:ml-auto sm:shrink-0 sm:justify-end">
+      <ClaimCardContent
+        claim={claim}
+        displayIndex={displayIndex}
+        isFaab={isFaab}
+        actionsDisabled={disabled}
+        claimsLocked={false}
+        leagueSlug={leagueSlug}
+        onCancel={onCancel}
+        onEdit={onEdit}
+        leadingControl={
           <Button
+            ref={handleRef}
             type="button"
-            variant="outline"
-            size="sm"
-            className="min-h-9 min-w-0 flex-1 sm:flex-none"
+            variant="secondary"
+            size="icon-sm"
+            className="mt-0.5 shrink-0 cursor-grab touch-none text-muted-foreground active:cursor-grabbing sm:mt-0"
+            aria-label={`Drag to reorder claim for ${claim.playerName}`}
             disabled={disabled}
-            onClick={onCancel}
           >
-            <HugeiconsIcon
-              icon={Delete02Icon}
-              strokeWidth={2}
-              data-icon="inline-start"
-            />
-            Cancel Claim
+            <HugeiconsIcon icon={DragDropVerticalIcon} strokeWidth={2} />
           </Button>
-          {isFaab ? (
+        }
+      />
+    </Card>
+  );
+}
+
+function LockedClaimCard({
+  claim,
+  displayIndex,
+  isFaab,
+  actionsDisabled,
+  leagueSlug,
+  onCancel,
+}: {
+  claim: PendingWaiverClaimRow;
+  displayIndex: number;
+  isFaab: boolean;
+  actionsDisabled: boolean;
+  leagueSlug: string;
+  onCancel: () => void;
+}) {
+  return (
+    <Card size="sm">
+      <ClaimCardContent
+        claim={claim}
+        displayIndex={displayIndex}
+        isFaab={isFaab}
+        actionsDisabled={actionsDisabled}
+        claimsLocked
+        leagueSlug={leagueSlug}
+        onCancel={onCancel}
+        onEdit={() => {}}
+        leadingControl={
+          <ClaimsLockedHint>
             <Button
               type="button"
-              size="sm"
-              className="min-h-9 min-w-0 flex-1 sm:flex-none"
-              disabled={disabled}
-              onClick={onEdit}
+              variant="secondary"
+              size="icon-sm"
+              className="mt-0.5 shrink-0 text-muted-foreground sm:mt-0"
+              aria-label="Claim locked while waivers are processing"
+              disabled
             >
-              <HugeiconsIcon
-                icon={Edit02Icon}
-                strokeWidth={2}
-                data-icon="inline-start"
-              />
-              Edit claim
+              <HugeiconsIcon icon={LockIcon} strokeWidth={2} />
             </Button>
-          ) : null}
-        </div>
-      </CardContent>
+          </ClaimsLockedHint>
+        }
+      />
     </Card>
   );
 }
@@ -167,7 +293,7 @@ export function TeamWaiversSection({
   isCommissioner,
   pendingSeasonCount,
   nextProcessLabel,
-  claimDeadlineLabel,
+  claimsLocked,
 }: TeamWaiversSectionProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -242,11 +368,7 @@ export function TeamWaiversSection({
               </h2>
               <p className="text-sm text-muted-foreground">
                 {nextProcessLabel
-                  ? `Next process ${nextProcessLabel}${
-                      claimDeadlineLabel
-                        ? ` · submit claims by ${claimDeadlineLabel}`
-                        : ""
-                    }`
+                  ? `Next process ${nextProcessLabel}`
                   : "No upcoming waiver process scheduled"}
               </p>
             </div>
@@ -269,7 +391,7 @@ export function TeamWaiversSection({
 
           <DragDropProvider
             onDragEnd={(event) => {
-              if (event.canceled || isPending) {
+              if (event.canceled || isPending || claimsLocked) {
                 return;
               }
 
@@ -305,30 +427,47 @@ export function TeamWaiversSection({
             }}
           >
             <div className="flex flex-col gap-4">
-              {pageClaims.map((claim, index) => (
-                <SortableClaimCard
-                  key={claim.id}
-                  claim={claim}
-                  index={index}
-                  displayIndex={pageStart + index + 1}
-                  isFaab={isFaab}
-                  disabled={isPending}
-                  leagueSlug={leagueSlug}
-                  onCancel={() => handleCancel(claim.id)}
-                  onEdit={() =>
-                    setEditClaim({
-                      open: true,
-                      claimId: claim.id,
-                      playerId: claim.playerId,
-                      playerName: claim.playerName,
-                      sleeperId: claim.sleeperId,
-                      primaryPositionId: claim.primaryPositionId,
-                      nflTeam: claim.nflTeam,
-                      bid: claim.bid ?? 0,
-                    })
-                  }
-                />
-              ))}
+              {pageClaims.map((claim, index) => {
+                const displayIndex = pageStart + index + 1;
+                if (claimsLocked) {
+                  return (
+                    <LockedClaimCard
+                      key={claim.id}
+                      claim={claim}
+                      displayIndex={displayIndex}
+                      isFaab={isFaab}
+                      actionsDisabled={isPending}
+                      leagueSlug={leagueSlug}
+                      onCancel={() => handleCancel(claim.id)}
+                    />
+                  );
+                }
+
+                return (
+                  <SortableClaimCard
+                    key={claim.id}
+                    claim={claim}
+                    index={index}
+                    displayIndex={displayIndex}
+                    isFaab={isFaab}
+                    disabled={isPending}
+                    leagueSlug={leagueSlug}
+                    onCancel={() => handleCancel(claim.id)}
+                    onEdit={() =>
+                      setEditClaim({
+                        open: true,
+                        claimId: claim.id,
+                        playerId: claim.playerId,
+                        playerName: claim.playerName,
+                        sleeperId: claim.sleeperId,
+                        primaryPositionId: claim.primaryPositionId,
+                        nflTeam: claim.nflTeam,
+                        bid: claim.bid ?? 0,
+                      })
+                    }
+                  />
+                );
+              })}
             </div>
           </DragDropProvider>
 

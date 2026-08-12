@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import type { WaiverProcessDay } from "@/db/schema/league-seasons";
 import {
   formatWaiverInstantUtc,
   getClaimDeadlineForProcess,
@@ -10,6 +11,7 @@ import {
   getNextEligibleProcessInstantUtc,
   isClaimEligibleForProcess,
   isFcfsWindowOpen,
+  isWaiverClaimOrderLocked,
   isWaiverProcessDue,
 } from "@/lib/leagues/waivers/calendar";
 import { getAcquisitionKind } from "@/lib/leagues/waivers/acquisition";
@@ -125,15 +127,36 @@ describe("waiver calendar", () => {
   it("formats process instants in UK wall-clock language", () => {
     assert.equal(
       formatWaiverInstantUtc(new Date(Date.UTC(2026, 7, 12, 10, 0, 0))),
-      "Wed, 12 Aug at 11:00 BST",
+      "Wed, 12 Aug at 11am",
     );
     assert.equal(
       formatWaiverInstantUtc(new Date(Date.UTC(2026, 7, 12, 9, 0, 0))),
-      "Wed, 12 Aug at 10:00 BST",
+      "Wed, 12 Aug at 10am",
     );
     assert.equal(
       formatWaiverInstantUtc(new Date(Date.UTC(2026, 0, 14, 10, 0, 0))),
-      "Wed, 14 Jan at 10:00 GMT",
+      "Wed, 14 Jan at 10am",
+    );
+  });
+
+  it("locks claim order from deadline until FCFS opens after process", () => {
+    const days: WaiverProcessDay[] = ["wed"];
+
+    assert.equal(
+      isWaiverClaimOrderLocked(days, new Date(Date.UTC(2026, 7, 12, 8, 30, 0))),
+      false,
+    );
+    assert.equal(
+      isWaiverClaimOrderLocked(days, new Date(Date.UTC(2026, 7, 12, 9, 30, 0))),
+      true,
+    );
+    assert.equal(
+      isWaiverClaimOrderLocked(days, new Date(Date.UTC(2026, 7, 12, 10, 30, 0))),
+      true,
+    );
+    assert.equal(
+      isWaiverClaimOrderLocked(days, new Date(Date.UTC(2026, 7, 12, 12, 30, 0))),
+      false,
     );
   });
 });

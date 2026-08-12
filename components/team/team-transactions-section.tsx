@@ -30,8 +30,8 @@ type TeamTransactionsSectionProps = {
   allowZeroBids: boolean;
   pendingSeasonCount: number;
   nextProcessLabel: string | null;
-  claimDeadlineLabel: string | null;
   lastProcessLabel: string | null;
+  claimsLocked: boolean;
   resetOrderWeekly: boolean;
   fcfsMode: "after_process" | "never";
   processDays: WaiverProcessDay[];
@@ -59,8 +59,8 @@ export function TeamTransactionsSection({
   allowZeroBids,
   pendingSeasonCount,
   nextProcessLabel,
-  claimDeadlineLabel,
   lastProcessLabel,
+  claimsLocked,
   resetOrderWeekly,
   fcfsMode,
   processDays,
@@ -107,8 +107,8 @@ export function TeamTransactionsSection({
             isCommissioner={isCommissioner}
             pendingSeasonCount={pendingSeasonCount}
             nextProcessLabel={nextProcessLabel}
-            claimDeadlineLabel={claimDeadlineLabel}
             lastProcessLabel={lastProcessLabel}
+            claimsLocked={claimsLocked}
             resetOrderWeekly={resetOrderWeekly}
             fcfsMode={fcfsMode}
             processDays={processDays}

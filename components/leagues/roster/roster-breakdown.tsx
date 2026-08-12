@@ -292,7 +292,7 @@ export function RosterBreakdown({
                 ) : null}
               </Field>
               <Field>
-                <FieldLabel>IR-Eligible Designations</FieldLabel>
+                <FieldLabel>IR eligible designations</FieldLabel>
                 <ToggleGroup
                   value={values.irEligibleStatuses}
                   onValueChange={(statuses) =>
