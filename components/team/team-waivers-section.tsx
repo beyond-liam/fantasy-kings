@@ -10,7 +10,7 @@ import {
   DragDropVerticalIcon,
   Edit02Icon,
   FlashIcon,
-  LockIcon,
+  SquareLock02Icon,
   UserAdd01Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -152,7 +152,7 @@ function ClaimCardContent({
                 disabled
               >
                 <HugeiconsIcon
-                  icon={LockIcon}
+                  icon={SquareLock02Icon}
                   strokeWidth={2}
                   data-icon="inline-start"
                 />
@@ -275,7 +275,7 @@ function LockedClaimCard({
               aria-label="Claim locked while waivers are processing"
               disabled
             >
-              <HugeiconsIcon icon={LockIcon} strokeWidth={2} />
+              <HugeiconsIcon icon={SquareLock02Icon} strokeWidth={2} />
             </Button>
           </ClaimsLockedHint>
         }
