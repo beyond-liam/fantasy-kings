@@ -143,7 +143,7 @@ export function DraftGradeDialog({
         if (!next) dismiss();
       }}
     >
-      <DialogContent className="max-h-[min(92vh,720px)] gap-0 overflow-y-auto sm:max-w-md">
+      <DialogContent className="gap-0 sm:max-w-md">
         <DialogHeader className="gap-3 text-center sm:text-center">
           <div className="flex items-center justify-center gap-3">
             <Avatar size="sm">
