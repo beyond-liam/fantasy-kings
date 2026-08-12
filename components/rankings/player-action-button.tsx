@@ -278,7 +278,7 @@ export function PlayerActionButton({
     appearance === "button"
       ? action.kind === "cut"
         ? "destructive"
-        : "secondary"
+        : "outline"
       : action.variant;
 
   const actionControl =

@@ -429,9 +429,7 @@ export async function processSeasonWaivers(input: {
         }
       }
 
-      if (!successfulWinners.includes(claim.teamId)) {
-        successfulWinners.push(claim.teamId);
-      }
+      successfulWinners.push(claim.teamId);
       awarded += 1;
     }
 

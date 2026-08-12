@@ -18,7 +18,10 @@ export type ClaimProcessOutcome = {
 
 export type ProcessClaimsResult = {
   outcomes: ClaimProcessOutcome[];
-  /** Winning team ids in process order (for priority bottom-moves). */
+  /**
+   * Team ids for each successful award in process order (duplicates allowed).
+   * Used to apply sequential move-to-bottom priority updates.
+   */
   winnersInOrder: string[];
   /** FAAB deductions by team id. */
   faabSpendByTeam: Map<string, number>;
@@ -26,44 +29,164 @@ export type ProcessClaimsResult = {
 
 /**
  * Adjudicate pending claims.
- * - Priority: lower waiverPriority wins; ties → earlier createdAt.
- * - FAAB: higher bid wins; ties → better (lower) priority, then earlier createdAt.
- * - Per team, only the best (lowest sortOrder) awarded claim is kept; others fail.
- * Winner goes to bottom externally after this returns.
+ *
+ * Priority (rolling):
+ * - Teams process in current waiver-priority order.
+ * - Each turn, a team is awarded their first remaining claim whose player is still free.
+ * - That team moves to the bottom of the queue and may win again later in the same run.
+ * - Contested players are not orphaned: if WP1 takes someone else later, WP2 can still get them
+ *   only if WP1 did not already take that player on an earlier turn.
+ *
+ * FAAB:
+ * - Each player is resolved independently (highest bid; ties → better WP, then earlier createdAt).
+ * - Teams may win multiple players; there is no per-team demotion pass.
  */
 export function adjudicateWaiverClaims(input: {
   claims: PendingClaimForProcess[];
   waiverType: "priority" | "faab";
 }): ProcessClaimsResult {
+  if (input.waiverType === "faab") {
+    return adjudicateFaabClaims(input.claims);
+  }
+  return adjudicatePriorityClaims(input.claims);
+}
+
+function adjudicatePriorityClaims(
+  claims: PendingClaimForProcess[],
+): ProcessClaimsResult {
+  const outcomes: ClaimProcessOutcome[] = [];
+  const winnersInOrder: string[] = [];
+  const resolved = new Set<string>();
+  const takenPlayers = new Set<string>();
+
+  const claimsByTeam = new Map<string, PendingClaimForProcess[]>();
+  for (const claim of claims) {
+    const list = claimsByTeam.get(claim.teamId) ?? [];
+    list.push(claim);
+    claimsByTeam.set(claim.teamId, list);
+  }
+
+  for (const list of claimsByTeam.values()) {
+    list.sort((a, b) => {
+      if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
+      return a.createdAt.getTime() - b.createdAt.getTime();
+    });
+  }
+
+  const teamPriority = (teamId: string) => {
+    const list = claimsByTeam.get(teamId) ?? [];
+    return list.reduce(
+      (best, claim) => Math.min(best, claim.waiverPriority),
+      Number.POSITIVE_INFINITY,
+    );
+  };
+
+  const queue = [...claimsByTeam.keys()].sort((a, b) => {
+    const priorityDiff = teamPriority(a) - teamPriority(b);
+    if (priorityDiff !== 0) return priorityDiff;
+    return a.localeCompare(b);
+  });
+
+  const unresolvedFor = (teamId: string) =>
+    (claimsByTeam.get(teamId) ?? []).filter((claim) => !resolved.has(claim.id));
+
+  let guard = claims.length + queue.length + 1;
+  while (queue.length > 0 && guard > 0) {
+    guard -= 1;
+    const teamId = queue.shift()!;
+    const pending = unresolvedFor(teamId);
+    if (pending.length === 0) {
+      continue;
+    }
+
+    let awarded: PendingClaimForProcess | null = null;
+    for (const claim of pending) {
+      if (takenPlayers.has(claim.playerId)) {
+        outcomes.push({
+          claimId: claim.id,
+          status: "failed",
+          failReason: "Lower waiver priority.",
+        });
+        resolved.add(claim.id);
+        continue;
+      }
+      awarded = claim;
+      break;
+    }
+
+    if (!awarded) {
+      continue;
+    }
+
+    outcomes.push({ claimId: awarded.id, status: "awarded" });
+    resolved.add(awarded.id);
+    takenPlayers.add(awarded.playerId);
+    winnersInOrder.push(teamId);
+
+    for (const other of claims) {
+      if (
+        other.playerId !== awarded.playerId ||
+        other.id === awarded.id ||
+        resolved.has(other.id)
+      ) {
+        continue;
+      }
+      outcomes.push({
+        claimId: other.id,
+        status: "failed",
+        failReason: "Lower waiver priority.",
+      });
+      resolved.add(other.id);
+    }
+
+    if (unresolvedFor(teamId).length > 0) {
+      queue.push(teamId);
+    }
+  }
+
+  for (const claim of claims) {
+    if (resolved.has(claim.id)) continue;
+    outcomes.push({
+      claimId: claim.id,
+      status: "failed",
+      failReason: "Claim was not processed.",
+    });
+  }
+
+  return {
+    outcomes,
+    winnersInOrder,
+    faabSpendByTeam: new Map(),
+  };
+}
+
+function adjudicateFaabClaims(
+  claims: PendingClaimForProcess[],
+): ProcessClaimsResult {
   const outcomes: ClaimProcessOutcome[] = [];
   const winnersInOrder: string[] = [];
   const faabSpendByTeam = new Map<string, number>();
-  const teamsAlreadyMoved: Set<string> = new Set();
 
   const byPlayer = new Map<string, PendingClaimForProcess[]>();
-  for (const claim of input.claims) {
+  for (const claim of claims) {
     const list = byPlayer.get(claim.playerId) ?? [];
     list.push(claim);
     byPlayer.set(claim.playerId, list);
   }
 
-  const playerIds = [...byPlayer.keys()].sort();
-
-  for (const playerId of playerIds) {
-    const claims = byPlayer.get(playerId) ?? [];
-    const eligible = claims.filter((claim) => {
-      if (input.waiverType === "faab") {
-        const bid = claim.bid ?? 0;
-        const spent = faabSpendByTeam.get(claim.teamId) ?? 0;
-        const budget = claim.faabRemaining ?? 0;
-        if (bid > budget - spent) {
-          outcomes.push({
-            claimId: claim.id,
-            status: "failed",
-            failReason: "Bid exceeds remaining FAAB.",
-          });
-          return false;
-        }
+  for (const playerId of [...byPlayer.keys()].sort()) {
+    const playerClaims = byPlayer.get(playerId) ?? [];
+    const eligible = playerClaims.filter((claim) => {
+      const bid = claim.bid ?? 0;
+      const spent = faabSpendByTeam.get(claim.teamId) ?? 0;
+      const budget = claim.faabRemaining ?? 0;
+      if (bid > budget - spent) {
+        outcomes.push({
+          claimId: claim.id,
+          status: "failed",
+          failReason: "Bid exceeds remaining FAAB.",
+        });
+        return false;
       }
       return true;
     });
@@ -72,19 +195,12 @@ export function adjudicateWaiverClaims(input: {
       continue;
     }
 
-    const winner = pickWinner(eligible, input.waiverType);
-    if (!teamsAlreadyMoved.has(winner.teamId)) {
-      winnersInOrder.push(winner.teamId);
-      teamsAlreadyMoved.add(winner.teamId);
-    }
-
-    if (input.waiverType === "faab") {
-      const bid = winner.bid ?? 0;
-      faabSpendByTeam.set(
-        winner.teamId,
-        (faabSpendByTeam.get(winner.teamId) ?? 0) + bid,
-      );
-    }
+    const winner = pickFaabWinner(eligible);
+    winnersInOrder.push(winner.teamId);
+    faabSpendByTeam.set(
+      winner.teamId,
+      (faabSpendByTeam.get(winner.teamId) ?? 0) + (winner.bid ?? 0),
+    );
 
     for (const claim of eligible) {
       if (claim.id === winner.id) {
@@ -93,15 +209,13 @@ export function adjudicateWaiverClaims(input: {
         outcomes.push({
           claimId: claim.id,
           status: "failed",
-          failReason:
-            input.waiverType === "faab" ? "Outbid." : "Lower waiver priority.",
+          failReason: "Outbid.",
         });
       }
     }
   }
 
-  // Any claim not yet recorded (shouldn't happen) fails closed.
-  for (const claim of input.claims) {
+  for (const claim of claims) {
     if (!outcomes.some((row) => row.claimId === claim.id)) {
       outcomes.push({
         claimId: claim.id,
@@ -111,58 +225,13 @@ export function adjudicateWaiverClaims(input: {
     }
   }
 
-  const claimById = new Map(input.claims.map((claim) => [claim.id, claim]));
-  const awardedByTeam = new Map<string, string[]>();
-  for (const outcome of outcomes) {
-    if (outcome.status !== "awarded") continue;
-    const claim = claimById.get(outcome.claimId);
-    if (!claim) continue;
-    const list = awardedByTeam.get(claim.teamId) ?? [];
-    list.push(claim.id);
-    awardedByTeam.set(claim.teamId, list);
-  }
-
-  for (const [, claimIds] of awardedByTeam) {
-    if (claimIds.length < 2) continue;
-    const preferred = claimIds
-      .map((id) => claimById.get(id)!)
-      .sort((a, b) => {
-        if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
-        return a.createdAt.getTime() - b.createdAt.getTime();
-      })[0]!;
-
-    for (const claimId of claimIds) {
-      if (claimId === preferred.id) continue;
-      const index = outcomes.findIndex((row) => row.claimId === claimId);
-      if (index < 0) continue;
-      outcomes[index] = {
-        claimId,
-        status: "failed",
-        failReason: "Higher-priority claim succeeded.",
-      };
-      const claim = claimById.get(claimId);
-      if (claim && input.waiverType === "faab") {
-        const bid = claim.bid ?? 0;
-        faabSpendByTeam.set(
-          claim.teamId,
-          Math.max(0, (faabSpendByTeam.get(claim.teamId) ?? 0) - bid),
-        );
-      }
-    }
-  }
-
   return { outcomes, winnersInOrder, faabSpendByTeam };
 }
 
-function pickWinner(
-  claims: PendingClaimForProcess[],
-  waiverType: "priority" | "faab",
-): PendingClaimForProcess {
+function pickFaabWinner(claims: PendingClaimForProcess[]): PendingClaimForProcess {
   const sorted = [...claims].sort((a, b) => {
-    if (waiverType === "faab") {
-      const bidDiff = (b.bid ?? 0) - (a.bid ?? 0);
-      if (bidDiff !== 0) return bidDiff;
-    }
+    const bidDiff = (b.bid ?? 0) - (a.bid ?? 0);
+    if (bidDiff !== 0) return bidDiff;
     if (a.waiverPriority !== b.waiverPriority) {
       return a.waiverPriority - b.waiverPriority;
     }
@@ -171,31 +240,35 @@ function pickWinner(
   return sorted[0]!;
 }
 
-/** Move winning teams to the bottom of the priority queue, preserving relative order of winners. */
+/**
+ * Apply each award as a move-to-bottom, in process order.
+ * The same team may appear multiple times when they win more than once.
+ */
 export function moveWinnersToBottom(
   priorities: Array<{ teamId: string; waiverPriority: number }>,
   winnersInOrder: string[],
 ): Array<{ teamId: string; waiverPriority: number }> {
-  if (winnersInOrder.length === 0) {
-    return priorities
-      .slice()
-      .sort((a, b) => a.waiverPriority - b.waiverPriority)
-      .map((row, index) => ({ ...row, waiverPriority: index + 1 }));
-  }
-
-  const winnerSet = new Set(winnersInOrder);
-  const ordered = priorities
+  let ordered = priorities
     .slice()
     .sort((a, b) => a.waiverPriority - b.waiverPriority);
 
-  const remaining = ordered.filter((row) => !winnerSet.has(row.teamId));
-  const winners = winnersInOrder
-    .map((teamId) => ordered.find((row) => row.teamId === teamId))
-    .filter((row): row is { teamId: string; waiverPriority: number } =>
-      Boolean(row),
-    );
+  if (winnersInOrder.length === 0) {
+    return ordered.map((row, index) => ({
+      teamId: row.teamId,
+      waiverPriority: index + 1,
+    }));
+  }
 
-  return [...remaining, ...winners].map((row, index) => ({
+  for (const winnerId of winnersInOrder) {
+    const winner = ordered.find((row) => row.teamId === winnerId);
+    if (!winner) continue;
+    ordered = [
+      ...ordered.filter((row) => row.teamId !== winnerId),
+      winner,
+    ];
+  }
+
+  return ordered.map((row, index) => ({
     teamId: row.teamId,
     waiverPriority: index + 1,
   }));

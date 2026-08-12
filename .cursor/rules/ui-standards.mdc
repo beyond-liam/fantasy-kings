@@ -38,10 +38,10 @@ For any UI, component, layout, styling, or frontend interaction work in this pro
 </Button>
 ```
 
-4. **Dialog footers are always sticky**:
+4. **Dialog footers**:
    - Modal action rows must use `DialogFooter` (or `AlertDialogFooter`)
-   - Keep footer actions visible while dialog content scrolls
-   - Sticky positioning belongs in the shared UI primitives, not repeated at call sites
+   - Do not make footers sticky by default — keep stock shadcn footer layout
+   - Add sticky positioning only at the call site when a specific dialog needs it
 
 5. **Page scrolling belongs to the browser document**:
    - Never put the primary vertical scrollbar on a route layout or max-width content container

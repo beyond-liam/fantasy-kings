@@ -729,6 +729,7 @@ lib/
 
 | Date | Change |
 |---|---|
+| 2026-08-12 | Waivers: rolling priority adjudication (WP1 top claim → move to bottom → continue; multi-award; no orphaned contested players) |
 | 2026-08-09 | IDP v1: CB/S/DT/DE/LB positions + import, Individual defense roster preset, minimal scoring, projection fetch; gaps in `docs/IDP.md`. Deferred advanced filters / responsive sizes / matchup insights / win-margins / season rewind |
 | 2026-07-08 | Initial spec created from project brief |
 | 2026-07-08 | Updated IA: app-level vs league-level page structure |
@@ -742,7 +743,7 @@ lib/
 | 2026-07-12 | Docs sync: Query/Zustand deferred; offense scoring shipped; checklist matches routes; auth/join/scoring status corrected |
 | 2026-07-16 | Commish Powers: Set Starting Lineups (any team) |
 | 2026-07-16 | Commish Powers: Edit Waiver Order (DnD priority) |
-| 2026-07-16 | Waivers: drag-reorder pending claims (`sortOrder`); one preferred award per team |
+| 2026-07-16 | Waivers: drag-reorder pending claims (`sortOrder`); rolling priority awards (superseded one-preferred demotion) |
 | 2026-07-16 | Trades: counter-offers from pending inbound trades via prefilled composer |
 | 2026-07-16 | Trades: vetoes, accept drop picker, history, trade cron, activity labels |
 | 2026-07-17 | Player profile dialog: bio fields from Sleeper; season projection + game log (no narrative outlook) |

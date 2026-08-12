@@ -226,7 +226,7 @@ export function PlayerIdentityCard({
               </span>
               <span>
                 <span className="font-semibold">
-                  {formatOwnershipPct(profile.startPct)}
+                  {formatOwnershipPct(profile.startPct ?? 0)}
                 </span>{" "}
                 <span className="text-muted-foreground">Started</span>
               </span>

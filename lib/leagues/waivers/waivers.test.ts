@@ -269,32 +269,39 @@ describe("getAcquisitionKind", () => {
 });
 
 describe("adjudicateWaiverClaims", () => {
+  const claim = (
+    partial: Partial<Parameters<typeof adjudicateWaiverClaims>[0]["claims"][number]> &
+      Pick<
+        Parameters<typeof adjudicateWaiverClaims>[0]["claims"][number],
+        "id" | "teamId" | "playerId" | "sortOrder" | "waiverPriority"
+      >,
+  ) => ({
+    dropPlayerId: null,
+    bid: null,
+    createdAt: new Date("2026-01-01T00:00:00Z"),
+    faabRemaining: null,
+    ...partial,
+  });
+
   it("awards priority to better priority number", () => {
     const result = adjudicateWaiverClaims({
       waiverType: "priority",
       claims: [
-        {
+        claim({
           id: "c1",
           teamId: "a",
           playerId: "p1",
-          dropPlayerId: null,
-          bid: null,
-          createdAt: new Date("2026-01-01T00:00:00Z"),
           sortOrder: 1,
           waiverPriority: 3,
-          faabRemaining: null,
-        },
-        {
+        }),
+        claim({
           id: "c2",
           teamId: "b",
           playerId: "p1",
-          dropPlayerId: null,
-          bid: null,
           createdAt: new Date("2026-01-01T01:00:00Z"),
           sortOrder: 1,
           waiverPriority: 1,
-          faabRemaining: null,
-        },
+        }),
       ],
     });
     const awarded = result.outcomes.find((row) => row.status === "awarded");
@@ -306,28 +313,25 @@ describe("adjudicateWaiverClaims", () => {
     const result = adjudicateWaiverClaims({
       waiverType: "faab",
       claims: [
-        {
+        claim({
           id: "c1",
           teamId: "a",
           playerId: "p1",
-          dropPlayerId: null,
           bid: 5,
-          createdAt: new Date("2026-01-01T00:00:00Z"),
           sortOrder: 1,
           waiverPriority: 1,
           faabRemaining: 100,
-        },
-        {
+        }),
+        claim({
           id: "c2",
           teamId: "b",
           playerId: "p1",
-          dropPlayerId: null,
           bid: 12,
           createdAt: new Date("2026-01-01T01:00:00Z"),
           sortOrder: 1,
           waiverPriority: 2,
           faabRemaining: 100,
-        },
+        }),
       ],
     });
     assert.equal(
@@ -337,32 +341,25 @@ describe("adjudicateWaiverClaims", () => {
     assert.equal(result.faabSpendByTeam.get("b"), 12);
   });
 
-  it("keeps only the preferred claim when a team would win multiple", () => {
+  it("lets one team win multiple players in claim order under rolling priority", () => {
     const result = adjudicateWaiverClaims({
       waiverType: "priority",
       claims: [
-        {
+        claim({
           id: "c1",
           teamId: "a",
           playerId: "p1",
-          dropPlayerId: null,
-          bid: null,
-          createdAt: new Date("2026-01-01T00:00:00Z"),
           sortOrder: 2,
           waiverPriority: 1,
-          faabRemaining: null,
-        },
-        {
+        }),
+        claim({
           id: "c2",
           teamId: "a",
           playerId: "p2",
-          dropPlayerId: null,
-          bid: null,
           createdAt: new Date("2026-01-01T01:00:00Z"),
           sortOrder: 1,
           waiverPriority: 1,
-          faabRemaining: null,
-        },
+        }),
       ],
     });
     assert.equal(
@@ -371,12 +368,157 @@ describe("adjudicateWaiverClaims", () => {
     );
     assert.equal(
       result.outcomes.find((row) => row.claimId === "c1")?.status,
+      "awarded",
+    );
+    assert.deepEqual(result.winnersInOrder, ["a", "a"]);
+  });
+
+  it("awards WP1 top claim then cascades contested leftovers (Lions/Darren)", () => {
+    // Lions WP1: Jags → Tate → Charbonnet. Darren WP2: Jags only.
+    const result = adjudicateWaiverClaims({
+      waiverType: "priority",
+      claims: [
+        claim({
+          id: "lions-jags",
+          teamId: "lions",
+          playerId: "jags",
+          sortOrder: 1,
+          waiverPriority: 1,
+        }),
+        claim({
+          id: "lions-tate",
+          teamId: "lions",
+          playerId: "tate",
+          createdAt: new Date("2026-01-01T01:00:00Z"),
+          sortOrder: 2,
+          waiverPriority: 1,
+        }),
+        claim({
+          id: "lions-charb",
+          teamId: "lions",
+          playerId: "charb",
+          createdAt: new Date("2026-01-01T02:00:00Z"),
+          sortOrder: 3,
+          waiverPriority: 1,
+        }),
+        claim({
+          id: "darren-jags",
+          teamId: "darren",
+          playerId: "jags",
+          createdAt: new Date("2026-01-01T03:00:00Z"),
+          sortOrder: 1,
+          waiverPriority: 2,
+        }),
+      ],
+    });
+
+    assert.equal(
+      result.outcomes.find((row) => row.claimId === "lions-jags")?.status,
+      "awarded",
+    );
+    assert.equal(
+      result.outcomes.find((row) => row.claimId === "lions-tate")?.status,
+      "awarded",
+    );
+    assert.equal(
+      result.outcomes.find((row) => row.claimId === "lions-charb")?.status,
+      "awarded",
+    );
+    assert.equal(
+      result.outcomes.find((row) => row.claimId === "darren-jags")?.status,
       "failed",
     );
     assert.equal(
-      result.outcomes.find((row) => row.claimId === "c1")?.failReason,
-      "Higher-priority claim succeeded.",
+      result.outcomes.find((row) => row.claimId === "darren-jags")?.failReason,
+      "Lower waiver priority.",
     );
+    assert.deepEqual(result.winnersInOrder, ["lions", "lions", "lions"]);
+  });
+
+  it("gives demoted contested player to next WP when WP1 prefers someone else", () => {
+    // WP1 prefers Tate over Jags; WP2 also wants Jags → WP2 must get Jags.
+    const result = adjudicateWaiverClaims({
+      waiverType: "priority",
+      claims: [
+        claim({
+          id: "lions-tate",
+          teamId: "lions",
+          playerId: "tate",
+          sortOrder: 1,
+          waiverPriority: 1,
+        }),
+        claim({
+          id: "lions-jags",
+          teamId: "lions",
+          playerId: "jags",
+          createdAt: new Date("2026-01-01T01:00:00Z"),
+          sortOrder: 2,
+          waiverPriority: 1,
+        }),
+        claim({
+          id: "darren-jags",
+          teamId: "darren",
+          playerId: "jags",
+          createdAt: new Date("2026-01-01T02:00:00Z"),
+          sortOrder: 1,
+          waiverPriority: 2,
+        }),
+      ],
+    });
+
+    assert.equal(
+      result.outcomes.find((row) => row.claimId === "lions-tate")?.status,
+      "awarded",
+    );
+    assert.equal(
+      result.outcomes.find((row) => row.claimId === "darren-jags")?.status,
+      "awarded",
+    );
+    assert.equal(
+      result.outcomes.find((row) => row.claimId === "lions-jags")?.status,
+      "failed",
+    );
+    assert.equal(
+      result.outcomes.find((row) => row.claimId === "lions-jags")?.failReason,
+      "Lower waiver priority.",
+    );
+    assert.deepEqual(result.winnersInOrder, ["lions", "darren"]);
+  });
+
+  it("allows FAAB teams to win multiple players without demotion", () => {
+    const result = adjudicateWaiverClaims({
+      waiverType: "faab",
+      claims: [
+        claim({
+          id: "c1",
+          teamId: "a",
+          playerId: "p1",
+          bid: 10,
+          sortOrder: 1,
+          waiverPriority: 1,
+          faabRemaining: 100,
+        }),
+        claim({
+          id: "c2",
+          teamId: "a",
+          playerId: "p2",
+          bid: 8,
+          createdAt: new Date("2026-01-01T01:00:00Z"),
+          sortOrder: 2,
+          waiverPriority: 1,
+          faabRemaining: 100,
+        }),
+      ],
+    });
+    assert.equal(
+      result.outcomes.find((row) => row.claimId === "c1")?.status,
+      "awarded",
+    );
+    assert.equal(
+      result.outcomes.find((row) => row.claimId === "c2")?.status,
+      "awarded",
+    );
+    assert.equal(result.faabSpendByTeam.get("a"), 18);
   });
 
   it("moves winners to bottom of priority", () => {
@@ -391,6 +533,22 @@ describe("adjudicateWaiverClaims", () => {
     assert.deepEqual(next, [
       { teamId: "b", waiverPriority: 1 },
       { teamId: "c", waiverPriority: 2 },
+      { teamId: "a", waiverPriority: 3 },
+    ]);
+  });
+
+  it("applies sequential move-to-bottom for multiple awards", () => {
+    const next = moveWinnersToBottom(
+      [
+        { teamId: "a", waiverPriority: 1 },
+        { teamId: "b", waiverPriority: 2 },
+        { teamId: "c", waiverPriority: 3 },
+      ],
+      ["a", "b", "a"],
+    );
+    assert.deepEqual(next, [
+      { teamId: "c", waiverPriority: 1 },
+      { teamId: "b", waiverPriority: 2 },
       { teamId: "a", waiverPriority: 3 },
     ]);
   });

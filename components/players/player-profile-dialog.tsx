@@ -277,7 +277,7 @@ function PlayerProfileHeader({
               </span>
               <span>
                 <span className="font-semibold">
-                  {formatOwnershipPct(profile.startPct)}
+                  {formatOwnershipPct(profile.startPct ?? 0)}
                 </span>{" "}
                 <span style={{ color: muted }}>Started</span>
               </span>
@@ -462,8 +462,8 @@ function PlayerProfileDialogFooter({
   return (
     <DialogFooter
       className={cn(
-        // Keep sticky from DialogFooter — do not set `relative` (overrides sticky).
-        "z-40 mb-0 flex-row items-center gap-2 border-t bg-dialog p-4 sm:p-6",
+        // p-0 shell: cancel footer bleed; sticky only for this long-scrolling profile.
+        "sticky bottom-0 z-10 mx-0 mb-0 bg-muted flex-row items-center gap-2 sm:p-6",
         showLeagueActions ? "justify-between" : "justify-end",
       )}
     >

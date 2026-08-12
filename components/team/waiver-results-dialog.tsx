@@ -177,7 +177,7 @@ export function WaiverResultsDialog({
               strokeWidth={2}
               data-icon="inline-start"
             />
-            Got it
+            Got It
           </Button>
         </DialogFooter>
       </DialogContent>

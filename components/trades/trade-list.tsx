@@ -240,7 +240,7 @@ export function TradeList({
               strokeWidth={2}
               data-icon="inline-start"
             />
-            Propose trade
+            Propose Trade
           </Button>
         </EmptyContent>
       </Empty>
