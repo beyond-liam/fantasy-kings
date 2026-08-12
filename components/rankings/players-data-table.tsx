@@ -38,6 +38,7 @@ type PlayersDataTableProps = {
   tradesEnabled?: boolean;
   acquisitionsLocked?: boolean;
   acquisitionLockReason?: string;
+  waiverProcessingLocked?: boolean;
   /** When set, action column shows draft instead of add/trade. */
   draftActions?: LeagueDraftTableActions;
   /** Server-driven page of `data` (do not hydrate the full filtered set). */
@@ -100,6 +101,7 @@ export function PlayersDataTable({
   tradesEnabled = true,
   acquisitionsLocked = false,
   acquisitionLockReason,
+  waiverProcessingLocked = false,
   draftActions,
   page = 1,
   pageSize,
@@ -177,6 +179,7 @@ export function PlayersDataTable({
         tradesEnabled,
         acquisitionsLocked,
         acquisitionLockReason,
+        waiverProcessingLocked,
         leagueSlug,
         draftActions,
         isMobile,
@@ -189,6 +192,7 @@ export function PlayersDataTable({
       tradesEnabled,
       acquisitionsLocked,
       acquisitionLockReason,
+      waiverProcessingLocked,
       draftActions,
       isMobile,
     ],
@@ -295,6 +299,7 @@ export function PlayersDataTable({
                 tradesEnabled,
                 acquisitionsLocked,
                 acquisitionLockReason,
+                waiverProcessingLocked,
                 draftActions,
               }
             : undefined

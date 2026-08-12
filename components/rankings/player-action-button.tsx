@@ -33,6 +33,7 @@ import {
 } from "@/lib/actions/roster";
 import { getClaimContext } from "@/lib/actions/waivers";
 import { tradeComposerPath } from "@/lib/leagues/utils";
+import { WAIVER_PROCESSING_WINDOW_LOCK_REASON } from "@/lib/leagues/waivers/calendar";
 
 export type PlayerActionOwnership = {
   id: string;
@@ -115,6 +116,8 @@ type PlayerActionButtonProps = {
   /** Blocks add / claim / trade while IR lock is active. Cuts still work. */
   acquisitionsLocked?: boolean;
   acquisitionLockReason?: string;
+  /** Blocks add / claim during waiver processing window. Trades and cuts still work. */
+  waiverProcessingLocked?: boolean;
   tradesEnabled?: boolean;
   /** Icon-only — `icon` for dense tables; `button` for dialog footers. */
   appearance?: "icon" | "button";
@@ -127,6 +130,7 @@ export function PlayerActionButton({
   disabledReason = "Free agency is closed",
   acquisitionsLocked = false,
   acquisitionLockReason = "Move ineligible IR players off IR before free agent adds, claims, or trades.",
+  waiverProcessingLocked = false,
   tradesEnabled = true,
   appearance = "icon",
 }: PlayerActionButtonProps) {
@@ -148,12 +152,17 @@ export function PlayerActionButton({
       action.kind === "claim" ||
       action.kind === "trade");
 
+  const waiverProcessingBlocked =
+    waiverProcessingLocked &&
+    (action.kind === "add" || action.kind === "claim");
+
   // Free-agency / draft locks block add/cut/claim only — trades stay available.
   const isDisabled =
     isPending ||
     !action.actionable ||
     !leagueSlug ||
     claimAlreadyFiled ||
+    waiverProcessingBlocked ||
     (action.kind === "trade"
       ? !tradesEnabled || acquisitionBlocked
       : disabled || acquisitionBlocked);
@@ -175,15 +184,17 @@ export function PlayerActionButton({
     ? "Claim already made for this player"
     : action.kind === "trade" && !tradesEnabled
       ? "Trades are disabled"
-      : acquisitionBlocked
-        ? acquisitionLockReason
-        : action.kind !== "trade" && disabled
-          ? disabledReason
-          : !action.actionable
-            ? action.kind === "trade" && !player.fantasyTeamSlug
-              ? "Trades are not available yet"
-              : action.label
-            : action.label;
+      : waiverProcessingBlocked
+        ? WAIVER_PROCESSING_WINDOW_LOCK_REASON
+        : acquisitionBlocked
+          ? acquisitionLockReason
+          : action.kind !== "trade" && disabled
+            ? disabledReason
+            : !action.actionable
+              ? action.kind === "trade" && !player.fantasyTeamSlug
+                ? "Trades are not available yet"
+                : action.label
+              : action.label;
 
   const handleAdd = () => {
     startTransition(async () => {

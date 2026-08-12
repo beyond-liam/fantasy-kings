@@ -48,6 +48,7 @@ export function getPlayersColumns(
     actionsEnabled?: boolean;
     acquisitionsLocked?: boolean;
     acquisitionLockReason?: string;
+    waiverProcessingLocked?: boolean;
     leagueSlug?: string;
     tradesEnabled?: boolean;
     draftActions?: LeagueDraftTableActions;
@@ -61,6 +62,7 @@ export function getPlayersColumns(
   const actionsEnabled = options?.actionsEnabled ?? true;
   const acquisitionsLocked = options?.acquisitionsLocked ?? false;
   const acquisitionLockReason = options?.acquisitionLockReason;
+  const waiverProcessingLocked = options?.waiverProcessingLocked ?? false;
   const leagueSlug = options?.leagueSlug ?? "";
   const tradesEnabled = options?.tradesEnabled ?? true;
   const draftActions = options?.draftActions;
@@ -143,6 +145,7 @@ export function getPlayersColumns(
               tradesEnabled={tradesEnabled}
               acquisitionsLocked={acquisitionsLocked}
               acquisitionLockReason={acquisitionLockReason}
+              waiverProcessingLocked={waiverProcessingLocked}
             />
           );
         }
@@ -176,6 +179,7 @@ export function getPlayersColumns(
           tradesEnabled={tradesEnabled}
           acquisitionsLocked={acquisitionsLocked}
           acquisitionLockReason={acquisitionLockReason}
+          waiverProcessingLocked={waiverProcessingLocked}
         />
       );
     },

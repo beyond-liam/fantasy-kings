@@ -41,6 +41,7 @@ import {
 } from "@/lib/leagues/taxi-lock";
 import { resolveTaxiMaxYearsExp } from "@/lib/leagues/taxi-eligibility";
 import { resolveWaiverWireSettings } from "@/lib/leagues/waiver-wire";
+import { isWaiverClaimOrderLocked } from "@/lib/leagues/waivers/calendar";
 import { getUnseenTeamWaiverResults } from "@/lib/queries/activity";
 import { getLeagueHomeData } from "@/lib/queries/leagues";
 import { getIncomingTradeActionCount } from "@/lib/queries/trades";
@@ -155,6 +156,8 @@ export default async function MyTeamPage({
   );
   const acquisitionsLocked =
     irViolations.length > 0 || taxiViolations.length > 0;
+  const waiverProcessingLocked =
+    season.waiversEnabled && isWaiverClaimOrderLocked(wire.processDays);
   const acquisitionLockReason = (() => {
     if (irViolations.length > 0 && taxiViolations.length > 0) {
       return `${formatIrLockMessage(irViolations)} ${formatTaxiLockMessage(taxiViolations)}`;
@@ -239,6 +242,7 @@ export default async function MyTeamPage({
         wire={wire}
         acquisitionsLocked={acquisitionsLocked}
         acquisitionLockReason={acquisitionLockReason}
+        waiverProcessingLocked={waiverProcessingLocked}
       />,
     );
   } else if (activeTab === "schedule" && team) {

@@ -39,6 +39,7 @@ type TeamWatchlistSectionProps = {
   actionsEnabled?: boolean;
   acquisitionsLocked?: boolean;
   acquisitionLockReason?: string;
+  waiverProcessingLocked?: boolean;
 };
 
 const PLACEHOLDER = "—";
@@ -49,6 +50,7 @@ export function TeamWatchlistSection({
   actionsEnabled = false,
   acquisitionsLocked = false,
   acquisitionLockReason,
+  waiverProcessingLocked = false,
 }: TeamWatchlistSectionProps) {
   const { isWatched } = useWatchlist();
   const [sorting, setSorting] = useState<SortingState>([]);
@@ -215,6 +217,7 @@ export function TeamWatchlistSection({
             disabled={!actionsEnabled}
             acquisitionsLocked={acquisitionsLocked}
             acquisitionLockReason={acquisitionLockReason}
+            waiverProcessingLocked={waiverProcessingLocked}
           />
         ),
         meta: { cellClassName: "w-10" },
@@ -224,6 +227,7 @@ export function TeamWatchlistSection({
       actionsEnabled,
       acquisitionLockReason,
       acquisitionsLocked,
+      waiverProcessingLocked,
       leagueSlug,
     ],
   );

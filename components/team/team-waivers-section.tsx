@@ -49,7 +49,7 @@ import { cn } from "@/lib/utils";
 const PAGE_SIZE = 10;
 
 const CLAIMS_LOCKED_TOOLTIP =
-  "Editing locked while waivers are processed";
+  "Claim order is locked during the waiver processing window";
 
 type TeamWaiversSectionProps = {
   leagueSlug: string;

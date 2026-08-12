@@ -48,6 +48,10 @@ import { findBlockedLineupMoves } from "@/lib/leagues/lineup-lock-enforce";
 import { parseLineupLockMode } from "@/lib/leagues/lineup-lock";
 import { loadStartedNflTeamsForLineupLock } from "@/lib/leagues/lineup-lock-started";
 import { getAcquisitionKind } from "@/lib/leagues/waivers/acquisition";
+import {
+  isWaiverClaimOrderLocked,
+  WAIVER_PROCESSING_WINDOW_LOCK_REASON,
+} from "@/lib/leagues/waivers/calendar";
 import { resolveChurnCut } from "@/lib/leagues/waivers/churn";
 import { isFantasyLeaguePreseason } from "@/lib/leagues/season-calendar";
 import {
@@ -204,6 +208,18 @@ async function prepareAdd(
     season.settings.waiverWire,
     season.settings.transactionRules?.preseasonFreeAgents,
   );
+  if (
+    season.waiversEnabled &&
+    isWaiverClaimOrderLocked(wire.processDays)
+  ) {
+    return {
+      ok: false,
+      result: {
+        success: false,
+        error: WAIVER_PROCESSING_WINDOW_LOCK_REASON,
+      },
+    };
+  }
   let gameStartedThisWeek = false;
   let isFantasyPreseason = false;
   try {

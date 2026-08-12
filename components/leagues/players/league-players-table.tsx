@@ -19,6 +19,7 @@ import { resolveTaxiMaxYearsExp } from "@/lib/leagues/taxi-eligibility";
 import type { ScoringPreset } from "@/lib/leagues/scoring";
 import type { ScoringRuleDefinition } from "@/lib/leagues/scoring/types";
 import { resolveWaiverWireSettings } from "@/lib/leagues/waiver-wire";
+import { isWaiverClaimOrderLocked } from "@/lib/leagues/waivers/calendar";
 import { getStartedNflTeamAbbreviations } from "@/lib/leagues/waivers/game-lock";
 import { resolvePlayerAcquisitionKind } from "@/lib/leagues/waivers/resolve-kind";
 import type { PositionFilter } from "@/lib/rankings/column-config";
@@ -226,6 +227,8 @@ export async function LeaguePlayersTable({
     seasonSettings.waiverWire,
     seasonSettings.transactionRules?.preseasonFreeAgents,
   );
+  const waiverProcessingLocked =
+    waiversEnabled && isWaiverClaimOrderLocked(wire.processDays);
   let startedNflTeams = new Set<string>();
   if (
     waiversEnabled &&
@@ -339,6 +342,7 @@ export async function LeaguePlayersTable({
         tradesEnabled={tradesEnabled}
         acquisitionsLocked={acquisitionsLocked}
         acquisitionLockReason={acquisitionLockReason}
+        waiverProcessingLocked={waiverProcessingLocked}
         draftActions={draftActions}
         page={page}
         pageSize={PLAYERS_PAGE_SIZE}

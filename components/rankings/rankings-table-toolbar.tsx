@@ -68,6 +68,7 @@ type PlayerSearchActions = {
   tradesEnabled?: boolean;
   acquisitionsLocked?: boolean;
   acquisitionLockReason?: string;
+  waiverProcessingLocked?: boolean;
   draftActions?: LeagueDraftTableActions;
 };
 
@@ -400,6 +401,7 @@ export function RankingsTableToolbar<TData>({
           tradesEnabled={searchActions?.tradesEnabled}
           acquisitionsLocked={searchActions?.acquisitionsLocked}
           acquisitionLockReason={searchActions?.acquisitionLockReason}
+          waiverProcessingLocked={searchActions?.waiverProcessingLocked}
           draftActions={searchActions?.draftActions}
         />
 

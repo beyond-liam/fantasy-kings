@@ -61,7 +61,7 @@ export function CreateSuccessInvite({
             strokeWidth={2}
             data-icon="inline-start"
           />
-          {copied ? "Copied!" : "Copy invite link"}
+          {copied ? "Copied!" : "Copy Invite Link"}
         </Button>
         <Button
           nativeButton={false}
@@ -73,7 +73,7 @@ export function CreateSuccessInvite({
             strokeWidth={2}
             data-icon="inline-start"
           />
-          Go to league
+          Go to League
         </Button>
       </div>
     </>

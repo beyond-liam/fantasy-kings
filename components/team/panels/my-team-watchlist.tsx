@@ -34,6 +34,7 @@ export type MyTeamWatchlistPanelProps = {
   wire: WaiverWireSettings;
   acquisitionsLocked: boolean;
   acquisitionLockReason: string;
+  waiverProcessingLocked: boolean;
 };
 
 export async function MyTeamWatchlistPanel({
@@ -49,6 +50,7 @@ export async function MyTeamWatchlistPanel({
   wire,
   acquisitionsLocked,
   acquisitionLockReason,
+  waiverProcessingLocked,
 }: MyTeamWatchlistPanelProps) {
   const [
     { nflWeek, nflSeason, nflSeasonType, nflState, scoreboard, opponentsByTeam },
@@ -152,6 +154,7 @@ export async function MyTeamWatchlistPanel({
         actionsEnabled={actionsEnabled}
         acquisitionsLocked={acquisitionsLocked}
         acquisitionLockReason={acquisitionLockReason}
+        waiverProcessingLocked={waiverProcessingLocked}
       />
     </WatchlistProvider>
   );

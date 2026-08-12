@@ -37,6 +37,7 @@ import {
   resolveLeagueSeasonMaxWeek,
 } from "@/lib/leagues/season-calendar";
 import { resolveWaiverWireSettings } from "@/lib/leagues/waiver-wire";
+import { isWaiverClaimOrderLocked } from "@/lib/leagues/waivers/calendar";
 import { resolvePlayerAcquisitionKind } from "@/lib/leagues/waivers/resolve-kind";
 import {
   getLeagueBySlug,
@@ -163,6 +164,7 @@ export type PlayerProfile = {
     actionsEnabled: boolean;
     tradesEnabled: boolean;
     actionsLockReason: string | null;
+    waiverProcessingLocked: boolean;
   } | null;
   isWatched: boolean;
   activity: PlayerProfileActivityRow[];
@@ -848,6 +850,9 @@ export const getPlayerProfile = cache(
                 : isDraftBlockingRosterActions(draft?.status)
                   ? "Roster changes are locked while the draft is underway."
                   : "Free agency is closed",
+              waiverProcessingLocked:
+                Boolean(seasonRow.waiversEnabled) &&
+                isWaiverClaimOrderLocked(wire.processDays),
             };
 
             activity = await loadPlayerTransactionHistory({

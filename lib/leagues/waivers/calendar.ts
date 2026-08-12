@@ -210,6 +210,9 @@ export function isFcfsWindowOpen(
  * upcoming run until FCFS opens after that run (deadline → process → +2h).
  * Claim order is locked; cancel remains allowed.
  */
+export const WAIVER_PROCESSING_WINDOW_LOCK_REASON =
+  "Players can only be claimed or added after the waiver processing window ends.";
+
 export function isWaiverClaimOrderLocked(
   processDays: WaiverProcessDay[],
   now: Date = new Date(),

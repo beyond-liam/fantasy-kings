@@ -34,7 +34,7 @@ import {
   listRosteredPlayers,
 } from "@/lib/leagues/roster-writes";
 import { resolveWaiverWireSettings } from "@/lib/leagues/waiver-wire";
-import { isWaiverClaimOrderLocked } from "@/lib/leagues/waivers/calendar";
+import { isWaiverClaimOrderLocked, WAIVER_PROCESSING_WINDOW_LOCK_REASON } from "@/lib/leagues/waivers/calendar";
 import { getNflScoreboard } from "@/lib/espn/scoreboard";
 import { getNflState } from "@/lib/sleeper/api";
 
@@ -241,6 +241,12 @@ export async function fileWaiverClaim(
     season.settings.waiverWire,
     season.settings.transactionRules?.preseasonFreeAgents,
   );
+  if (isWaiverClaimOrderLocked(wire.processDays)) {
+    return {
+      success: false,
+      error: WAIVER_PROCESSING_WINDOW_LOCK_REASON,
+    };
+  }
   const seasonRows = await findSeasonRosterRows(season.id, validated.playerId);
   const rostered = seasonRows.find((row) => row.status === "rostered");
   if (rostered) {

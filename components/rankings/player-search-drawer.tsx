@@ -53,6 +53,7 @@ export type PlayerSearchDrawerProps = {
   tradesEnabled?: boolean;
   acquisitionsLocked?: boolean;
   acquisitionLockReason?: string;
+  waiverProcessingLocked?: boolean;
   draftActions?: LeagueDraftTableActions;
 };
 
@@ -100,6 +101,7 @@ export function PlayerSearchDrawer({
   tradesEnabled = true,
   acquisitionsLocked,
   acquisitionLockReason,
+  waiverProcessingLocked,
   draftActions,
 }: PlayerSearchDrawerProps) {
   const [open, setOpen] = useState(false);
@@ -386,6 +388,7 @@ export function PlayerSearchDrawer({
                         tradesEnabled={resolvedTradesEnabled}
                         acquisitionsLocked={acquisitionsLocked}
                         acquisitionLockReason={acquisitionLockReason}
+                        waiverProcessingLocked={waiverProcessingLocked}
                       />
                     )
                   ) : null}

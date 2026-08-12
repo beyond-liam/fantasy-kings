@@ -164,6 +164,7 @@ export function PlayerIdentityCard({
                   ownership.actionsLockReason ?? "Free agency is closed"
                 }
                 tradesEnabled={ownership.tradesEnabled}
+                waiverProcessingLocked={ownership.waiverProcessingLocked}
                 player={{
                   id: profile.id,
                   fullName: profile.fullName,
