@@ -4,7 +4,9 @@ import { playerExternalIds, playerScores } from "@/db/schema";
 import { db } from "@/lib/db";
 import { fetchEspnPlayerBoxscore } from "@/lib/espn/player-boxscore";
 import { getNflScoreboard } from "@/lib/espn/scoreboard";
+import { espnSeasonTypeForNfl } from "@/lib/leagues/schedule/fantasy-week-map";
 import { clearScoreRowsCache } from "@/lib/queries/players";
+import type { ScoreSyncSeasonType } from "@/lib/scores/sync-calendar";
 import { getNflState } from "@/lib/sleeper/api";
 
 const UPSERT_CHUNK_SIZE = 100;
@@ -15,6 +17,7 @@ export type SyncEspnLiveScoresResult = {
   ok: true;
   season: string;
   week: number;
+  seasonType: ScoreSyncSeasonType;
   eventsConsidered: number;
   athleteLines: number;
   upserted: number;
@@ -46,6 +49,7 @@ export async function loadEspnPlayerIdMap(
 async function maxUpdatedAtForWeek(input: {
   season: string;
   week: number;
+  seasonType: ScoreSyncSeasonType;
 }): Promise<Date | null> {
   const [row] = await db
     .select({ value: max(playerScores.updatedAt) })
@@ -54,7 +58,7 @@ async function maxUpdatedAtForWeek(input: {
       and(
         eq(playerScores.season, input.season),
         eq(playerScores.week, input.week),
-        eq(playerScores.seasonType, "regular"),
+        eq(playerScores.seasonType, input.seasonType),
         eq(playerScores.kind, "stats"),
       ),
     );
@@ -72,14 +76,16 @@ export async function upsertEspnStatLines(input: {
   espnIdToPlayerId: Map<string, string>;
   season: string;
   week: number;
+  seasonType?: ScoreSyncSeasonType;
   lines: Array<{ espnAthleteId: string; stats: Record<string, number> }>;
 }): Promise<{ upserted: number; unmapped: number }> {
   const executor = input.executor ?? db;
+  const seasonType = input.seasonType ?? "regular";
   const values: Array<{
     playerId: string;
     season: string;
     week: number;
-    seasonType: "regular";
+    seasonType: ScoreSyncSeasonType;
     kind: "stats";
     stats: Record<string, number>;
     gp: number;
@@ -99,7 +105,7 @@ export async function upsertEspnStatLines(input: {
       playerId,
       season: input.season,
       week: input.week,
-      seasonType: "regular",
+      seasonType,
       kind: "stats",
       stats: line.stats,
       gp: 1,
@@ -138,6 +144,7 @@ export async function upsertEspnStatLines(input: {
 export async function syncEspnLiveScores(options?: {
   week?: number;
   season?: string;
+  seasonType?: ScoreSyncSeasonType;
   /** Include finished games (default true). */
   includePost?: boolean;
   /** Only sync these event ids (skip scoreboard filter). */
@@ -155,6 +162,11 @@ export async function syncEspnLiveScores(options?: {
   const week = hasWeekOverride
     ? options.week!
     : (state.display_week ?? state.week);
+  const seasonType: ScoreSyncSeasonType =
+    options?.seasonType ??
+    (state.season_type === "pre" || state.season_type === "post"
+      ? state.season_type
+      : "regular");
 
   const sleeperOffseason =
     !hasWeekOverride &&
@@ -170,6 +182,7 @@ export async function syncEspnLiveScores(options?: {
         "Sleeper is in offseason (week 0). Pass ?season=YYYY&week=N to sync a prior week.",
       season: state.season,
       week: 0,
+      seasonType,
       eventsConsidered: 0,
       athleteLines: 0,
       upserted: 0,
@@ -199,9 +212,16 @@ export async function syncEspnLiveScores(options?: {
     throw new Error(`Invalid season for ESPN score sync: ${season}`);
   }
 
+  const espnSeasonType = espnSeasonTypeForNfl(seasonType);
+
   let eventIds = options?.eventIds?.filter(Boolean) ?? [];
   if (eventIds.length === 0) {
-    const board = await getNflScoreboard({ season: seasonYear, week });
+    const board = await getNflScoreboard({
+      season: seasonYear,
+      week,
+      seasonType: espnSeasonType,
+      calendarSeasonTypes: [espnSeasonType],
+    });
     eventIds = board.games
       .filter(
         (game) =>
@@ -217,6 +237,7 @@ export async function syncEspnLiveScores(options?: {
       reason: "No in-progress or finished ESPN games for this week.",
       season,
       week,
+      seasonType,
       eventsConsidered: 0,
       athleteLines: 0,
       upserted: 0,
@@ -236,6 +257,7 @@ export async function syncEspnLiveScores(options?: {
         "No ESPN player id mappings yet. Re-run the Sleeper players seed to populate provider=espn.",
       season,
       week,
+      seasonType,
       eventsConsidered: eventIds.length,
       athleteLines: 0,
       upserted: 0,
@@ -262,6 +284,7 @@ export async function syncEspnLiveScores(options?: {
     espnIdToPlayerId,
     season,
     week,
+    seasonType,
     lines,
   });
 
@@ -269,12 +292,13 @@ export async function syncEspnLiveScores(options?: {
     clearScoreRowsCache();
   }
 
-  const maxUpdated = await maxUpdatedAtForWeek({ season, week });
+  const maxUpdated = await maxUpdatedAtForWeek({ season, week, seasonType });
 
   return {
     ok: true,
     season,
     week,
+    seasonType,
     eventsConsidered: eventIds.length,
     athleteLines: lines.length,
     upserted,

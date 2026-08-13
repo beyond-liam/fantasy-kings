@@ -4,6 +4,11 @@ import { playerExternalIds, playerScores } from "@/db/schema";
 import { db } from "@/lib/db";
 import { clearScoreRowsCache } from "@/lib/queries/players";
 import {
+  isScoreSyncSkip,
+  resolveScoreSyncTarget,
+  type ScoreSyncSeasonType,
+} from "@/lib/scores/sync-calendar";
+import {
   fetchSleeperScores,
   getNflState,
   type SleeperScoreRow,
@@ -22,6 +27,7 @@ export type SyncCurrentWeekScoresResult = {
   ok: true;
   season: string;
   week: number;
+  seasonType: ScoreSyncSeasonType;
   kinds: SyncScoresKind[];
   upserted: number;
   sleeperRows: number;
@@ -109,7 +115,7 @@ export async function upsertSleeperScoresBatch(
   week: number | null,
   seasonType: string = "regular",
 ): Promise<UpsertSleeperScoresResult> {
-  const rows = await fetchSleeperScores(kind, season, week);
+  const rows = await fetchSleeperScores(kind, season, week, { seasonType });
   const values = scoreValuesFromSleeperRows({
     rows,
     sleeperIdToPlayerId,
@@ -175,6 +181,9 @@ async function maxUpdatedAtForWeek(input: {
  *
  * Offseason (Sleeper week 0): skips unless `week` / `season` overrides are
  * passed (e.g. season=2025&week=18 to verify the pipeline).
+ *
+ * Preseason: uses ESPN calendar week (same as NFL Scores) so HOF week 1
+ * does not block Preseason Week 1 live games.
  */
 export async function syncCurrentWeekScores(options?: {
   kinds?: SyncScoresKind[];
@@ -187,33 +196,20 @@ export async function syncCurrentWeekScores(options?: {
   const state = await getNflState({ fresh: true });
   const kinds = options?.kinds ?? ["stats"];
 
-  const hasWeekOverride = options?.week != null;
-  const hasSeasonOverride =
-    options?.season != null && options.season.trim() !== "";
+  const target = await resolveScoreSyncTarget({
+    state,
+    weekOverride: options?.week,
+    seasonOverride: options?.season,
+  });
 
-  let season = hasSeasonOverride ? options.season!.trim() : state.season;
-  const week = hasWeekOverride
-    ? options.week!
-    : (state.display_week ?? state.week);
-  const seasonType =
-    state.season_type === "pre" || state.season_type === "post"
-      ? state.season_type
-      : "regular";
-
-  const sleeperOffseason =
-    !hasWeekOverride &&
-    (state.season_type === "off" ||
-      !Number.isFinite(week) ||
-      week < 1);
-
-  if (sleeperOffseason) {
+  if (isScoreSyncSkip(target)) {
     return {
       ok: true,
       skipped: true,
-      reason:
-        "Sleeper is in offseason (week 0). Pass ?season=YYYY&week=N to sync a prior week.",
-      season: state.season,
-      week: 0,
+      reason: target.reason,
+      season: target.season,
+      week: target.week,
+      seasonType: "regular",
       kinds,
       upserted: 0,
       sleeperRows: 0,
@@ -223,20 +219,7 @@ export async function syncCurrentWeekScores(options?: {
     };
   }
 
-  // Week override during offseason without season → previous season has stats.
-  if (
-    hasWeekOverride &&
-    !hasSeasonOverride &&
-    (state.season_type === "off" ||
-      state.display_week === 0 ||
-      state.week === 0)
-  ) {
-    season = state.previous_season;
-  }
-
-  if (!Number.isFinite(week) || week < 1 || week > 18) {
-    throw new Error(`Invalid fantasy week for score sync: ${week}`);
-  }
+  const { season, week, seasonType } = target;
 
   const sleeperIdToPlayerId = await loadSleeperPlayerIdMap();
   let upserted = 0;
@@ -268,6 +251,7 @@ export async function syncCurrentWeekScores(options?: {
     ok: true,
     season,
     week,
+    seasonType,
     kinds,
     upserted,
     sleeperRows,

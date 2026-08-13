@@ -21,12 +21,14 @@ Syncs player scores from Sleeper, ESPN boxscores, and nflverse. Finalizes matchu
 **Runtime:** `maxDuration: 60` (Sleeper + ESPN + nflverse fetch can be slow).
 
 **Query params:**
-- `week` (optional) — Week number 1–18. Defaults to current week.
+- `week` (optional) — NFL calendar week 1–18 (ESPN numbering). Defaults to current week.
 - `season` (optional) — Four-digit year (e.g., `2024`). Defaults to current season.
 - `projections=1` — Include projected stats (default off).
 - `espn=0` — Skip ESPN boxscore merge (default on for live/final games).
-- `nflverse=1` — Force nflverse official stats even during live games (default: auto after slate completes).
+- `nflverse=1` — Force nflverse official stats even during live games (default: auto after slate completes; auto skipped in preseason).
 - `nflverse=0` — Skip nflverse official stats entirely.
+
+**Preseason:** Sync follows Sleeper `season_type=pre` and ESPN’s current preseason window (same as NFL Scores). Hall of Fame is ESPN week 1; Preseason Week 1 is ESPN week 2. Rows are stored with `season_type=pre`.
 
 **Expected response (200):**
 ```json

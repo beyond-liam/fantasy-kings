@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { assertCronAuthorized } from "@/lib/cron/auth";
 import { getNflScoreboard } from "@/lib/espn/scoreboard";
+import { espnSeasonTypeForNfl } from "@/lib/leagues/schedule/fantasy-week-map";
 import { finalizeDueMatchupsAfterScoreSync } from "@/lib/leagues/matchups/finalize";
 import { shouldFinalizeAfterSync } from "@/lib/leagues/matchups/finalize-gates";
 import { syncEspnLiveScores } from "@/lib/scores/sync-espn-scores";
@@ -78,19 +79,28 @@ async function handle(request: Request) {
         ? await syncEspnLiveScores({
             week: sleeper.week,
             season: sleeper.season,
+            seasonType: sleeper.seasonType,
           })
         : null;
 
     let nflverse: Awaited<ReturnType<typeof syncNflverseWeekScores>> | null =
       null;
-    if (!sleeper.skipped && !skipNflverse) {
+    // nflverse official weeks are regular-season oriented; skip auto during pre/post.
+    if (
+      !sleeper.skipped &&
+      !skipNflverse &&
+      (forceNflverse || sleeper.seasonType === "regular")
+    ) {
       let shouldRun = forceNflverse;
       if (!shouldRun) {
         const seasonYear = Number.parseInt(sleeper.season, 10);
         if (Number.isFinite(seasonYear)) {
+          const espnSeasonType = espnSeasonTypeForNfl(sleeper.seasonType);
           const board = await getNflScoreboard({
             season: seasonYear,
             week: sleeper.week,
+            seasonType: espnSeasonType,
+            calendarSeasonTypes: [espnSeasonType],
           }).catch(() => null);
           const scoreboardOk = board !== null;
           const games = board?.games ?? [];

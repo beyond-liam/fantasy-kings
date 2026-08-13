@@ -86,10 +86,11 @@ function buildScoreUrl(
   kind: "projection" | "stats",
   season: string,
   week: number | null,
+  seasonType: string = "regular",
 ) {
   const path = scorePath(kind, season, week);
   const params = new URLSearchParams({
-    season_type: "regular",
+    season_type: seasonType,
     order_by: "pts_ppr",
   });
 
@@ -108,8 +109,10 @@ export async function fetchSleeperScores(
   kind: "projection" | "stats",
   season: string,
   week: number | null,
+  options?: { seasonType?: string },
 ): Promise<SleeperScoreRow[]> {
-  const url = buildScoreUrl(kind, season, week);
+  const seasonType = options?.seasonType ?? "regular";
+  const url = buildScoreUrl(kind, season, week, seasonType);
   const weekLabel = week === null ? "season" : `w${week}`;
   let lastError: Error | null = null;
 
