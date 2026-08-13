@@ -213,7 +213,7 @@ describe("processSeasonWaivers", () => {
       .from(waiverClaims)
       .where(eq(waiverClaims.playerId, incomingQb!.id));
     assert.equal(claimRow?.status, "failed");
-    assert.equal(claimRow?.failReason, "At max QBs — choose a different drop.");
+    assert.equal(claimRow?.failReason, "Illegal roster.");
 
     // applyAwardedClaim() now validates roster/position caps before writing anything,
     // and commits the drop + add in one transaction — a failed claim must not touch
