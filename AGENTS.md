@@ -28,3 +28,5 @@ Note: CI runs same sequence (`.github/workflows/verify.yml`).
 ## Docs
 
 Keep the project spec checklist and changelog updated when shipping features.
+
+Dynasty work: read [`docs/DYNASTY.md`](docs/DYNASTY.md) and follow its phases (D0–D9); do not leak dynasty UI into redraft leagues.

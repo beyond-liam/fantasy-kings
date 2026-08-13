@@ -76,6 +76,6 @@ Status values: `TODO` | `IN PROGRESS` | `DONE` | `BLOCKED (reason)` | `REJECTED 
 - pnpm audit SSRF advisories GHSA-89xv / GHSA-p9j2 — require custom servers/rewrites; N/A on Vercel.
 - RLS Data-API policies as app auth — Data API unused; access is server-only.
 - TanStack Query / Zustand — deferred in AGENTS.md / PROJECT_SPEC until draft-room needs.
-- Trade Analyzer, friends lobby, branding track, broader email, web push, dynasty — out of scope / deferred per PROJECT_SPEC.
+- Trade Analyzer, friends lobby, branding track, broader email, web push — out of scope / deferred per PROJECT_SPEC. Dynasty: see `docs/DYNASTY.md`.
 - IDP v1 shipped; production gaps in `docs/IDP.md`.
 - Pre-commit husky as mandatory — optional in 017; not a correctness finding.

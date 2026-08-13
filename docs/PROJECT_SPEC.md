@@ -49,6 +49,7 @@ A mobile-first fantasy football web app for a private friend group (4–16 users
 | Item | Notes |
 |---|---|
 | IDP production hardening | See [`docs/IDP.md`](IDP.md) — Overview/leaders, filter density; nflverse IDP keys shipped |
+| Dynasty format | Specced in [`docs/DYNASTY.md`](DYNASTY.md) — keepers, clearance, Start new season, future picks + pick trades; `league_type` already on create |
 
 ### Near-term bugs / fixes (tackle one by one)
 
@@ -71,7 +72,6 @@ A mobile-first fantasy football web app for a private friend group (4–16 users
 
 | Item | Priority | Notes |
 |---|---|---|
-| Dynasty picks + pick trades | Deferred | Come back later with dynasty format |
 | Advanced player filtering | Deferred | Richer filters beyond position / team / rookies / FA — not current phase |
 | Responsive control sizes | Deferred | Dense mobile `sm` controls — polish, not blocking |
 | Matchup insights / win-margins / season rewind | Deferred | Engagement extras after IDP hardens |
@@ -149,7 +149,7 @@ Do not substitute without explicit approval.
 | Topic | Decision |
 |---|---|
 | Default league format | **Standard offense + team DEF**; commissioners can enable **Offense + IDP** (CB/S/DT/DE/LB) |
-| First format to build | **Redraft** (dynasty later) |
+| First format to build | **Redraft** first; **dynasty** next per [`docs/DYNASTY.md`](DYNASTY.md) |
 | Commissioner | **One** per league |
 | Invites | **Shareable league link** (not email-invite flow for now) |
 | Multi-league users | Yes — post-login dashboard / leagues list |
@@ -244,7 +244,7 @@ Two variants via the `Empty` **`size`** prop:
 ### Leagues & formats
 
 - Multi-league, multi-tenant from day one
-- Supports redraft (build first) and dynasty **(dynasty deferred)**
+- Supports redraft (build first) and dynasty — dynasty **specced** in [`docs/DYNASTY.md`](DYNASTY.md); implementation phased there
 - 4–16 users per league
 - Leagues are **private** — accessible only via commissioner invite link/code (no public discovery)
 - Shareable invite: `/join/{inviteCode}` shows recruiting standings; managers **Claim Team** on an open row
@@ -301,7 +301,7 @@ Two variants via the `Empty` **`size`** prop:
 
 - Waivers: FAAB or rolling priority — processing, claims UI, cron + commissioner force-run; optional daily drop processing **(shipped)**
 - Trades: instant / 24h review / commissioner approval — propose, counter, veto, cron complete **(shipped)**
-- Future draft pick trading for dynasty leagues **(deferred)**
+- Future draft pick trading for dynasty leagues — see [`docs/DYNASTY.md`](DYNASTY.md)
 - Lineup lock (first game / individual) enforced on roster writes **(shipped)**
 
 ### Season structure
@@ -507,7 +507,7 @@ Auth → league create/join → season settings → roster mutations → remaini
 | Item | Priority |
 |---|---|
 | IDP scoring + positions | **v1 shipped** — harden per `docs/IDP.md` |
-| Dynasty picks + pick trades | Deferred |
+| Dynasty format (keepers, picks, rollover) | **Specced** — implement per `docs/DYNASTY.md` |
 | Player trend / snap / target share charts | Deferred |
 | Win% σ re-fit from residuals | **Lowest** |
 | TanStack Query / Zustand | **Lowest** (only if draft-room pain) |
@@ -550,7 +550,7 @@ lib/
 | 6 | drafts, draft_picks, draft_settings | Yes — live + email draft shipped |
 | 7 | matchups (+ pts/status on row) | Yes — finalize + playoff ensure |
 | 8 | offense scoring rules (JSON + `lib/leagues/scoring`) | Yes |
-| 9 | waiver_claims, dynasty draft picks | Waivers shipped; dynasty picks defer |
+| 9 | waiver_claims, dynasty draft pick assets | Waivers shipped; dynasty assets per `docs/DYNASTY.md` |
 | 10 | historical archive, trophies | Schema stubs only — Hall of Fame UI planned (§6 Engagement analytics) |
 
 ---
@@ -562,13 +562,13 @@ lib/
 - Franchise continuity pages / owner-change timelines
 - Activity-feed milestones (league anniversaries, Nth win toasts, etc.)
 - Contracts / salary-cap system
-- Dynasty roster construction / draft-pick inventory (come back later)
 - Mock draft **friends lobby**
 - **Trade Analyzer** (removed permanently)
 - Separate branding / rebrand workstream
 - Expanding Brevo beyond locked draft + trade emails
 - Installing TanStack Query / Zustand as a planned near-term slice
 - Broader push/email notification fan-out for waivers, injuries, every draft pick, etc.
+- Converting redraft → dynasty mid-life (v1); see `docs/DYNASTY.md` §11
 
 ---
 
@@ -665,6 +665,7 @@ lib/
 ### Deferred / remaining
 
 **Near-term product**
+- [ ] **Dynasty** — keepers, clearance, Start new season, future picks + pick trades per [`docs/DYNASTY.md`](DYNASTY.md) (phases D0–D9)
 - [ ] **Advanced player filtering** — richer filters beyond position / team / rookies / FA (DEFERRED)
 - [x] **Manager presence** — online (2-min), offline, inactive (14d in-season / 30d offseason); avatar/name badges with tooltips
 - [x] **Empty-state consistency** — use shadcn `Empty` everywhere zero-data is shown; migrate ad-hoc placeholders
@@ -698,8 +699,6 @@ lib/
 **Deferred format / analytics**
 - [ ] **Player strength of schedule** — remaining/season SOS for players (NFL opponent difficulty); revisit later; team SOS already shipped
 - [x] **IDP positions + minimal scoring** — CB/S/DT/DE/LB import, roster preset, default rules, score fetch; harden gaps in [`docs/IDP.md`](IDP.md)
-- [ ] Dynasty picks — deferred (come back later)
-- [ ] **Dynasty draft-pick trades** — deferred with dynasty picks
 - [ ] Player trend charts / snap / target share (DEFERRED)
 
 **Lowest priority (do not schedule ahead of product/engagement)**
@@ -729,6 +728,7 @@ lib/
 
 | Date | Change |
 |---|---|
+| 2026-08-13 | Dynasty format spec: [`docs/DYNASTY.md`](DYNASTY.md); moved from deferred to near-term product |
 | 2026-08-13 | Activity: log `ir_added` / `taxi_added` when FA adds or waiver awards land directly on IR/Taxi |
 | 2026-08-13 | Trade offer expiry presets on confirm dialog; pending offers auto-expire to `expired` status via cron / page process |
 | 2026-08-13 | Enforce roster minimums: shared helper; cuts/claims/waiver awards/trades; UI eligible vs below-min drop groups; settings copy |
