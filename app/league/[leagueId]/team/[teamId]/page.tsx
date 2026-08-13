@@ -48,7 +48,7 @@ import {
 import { getDraftedRosterForTeam } from "@/lib/queries/draft";
 import { getLeagueHomeData } from "@/lib/queries/leagues";
 import { getTeamSchedule } from "@/lib/queries/matchups";
-import { getRankedPlayers } from "@/lib/queries/players";
+import { getRankedPlayers, getWeekProjectedFantasyPoints } from "@/lib/queries/players";
 import { getRosterEvaluationByMode } from "@/lib/queries/roster-evaluation";
 import { getTeamStatsCharts } from "@/lib/queries/team-stats-charts";
 import { getRosterEvaluationByModeMock } from "@/lib/leagues/roster-evaluation/mock";
@@ -227,18 +227,17 @@ export default async function LeagueTeamPage({
   let draftPicksPanel: ReactNode = null;
 
   if (needsRosterPanel) {
-    const [rosterRates, weekProjections, weekStats] = await Promise.all([
+    const [rosterRates, projectedById, weekStats] = await Promise.all([
       getPlayerRosterRatesMap(rosterPlayerIds),
       rosterPlayerIds.length > 0
-        ? getRankedPlayers({
+        ? getWeekProjectedFantasyPoints({
             season: nflSeason,
             week: nflWeek,
             seasonType: nflSeasonType,
-            kind: "projection",
             scoringRules,
             playerIds: rosterPlayerIds,
-          }).catch(() => [])
-        : Promise.resolve([]),
+          })
+        : Promise.resolve(new Map<string, number | null>()),
       rosterPlayerIds.length > 0
         ? getRankedPlayers({
             season: nflSeason,
@@ -251,9 +250,6 @@ export default async function LeagueTeamPage({
         : Promise.resolve([]),
     ]);
 
-    const projectedById = new Map(
-      weekProjections.map((player) => [player.id, player.fantasyPts]),
-    );
     const actualById = new Map(
       weekStats.map((player) => [player.id, player.fantasyPts]),
     );

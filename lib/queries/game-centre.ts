@@ -39,6 +39,11 @@ import {
   fantasyWeekToNfl,
 } from "@/lib/leagues/schedule/fantasy-week-map";
 import {
+  needsPreseasonProjectionFallback,
+  PRESEASON_PROJECTION_FALLBACK_SEASON_TYPE,
+  PRESEASON_PROJECTION_FALLBACK_WEEK,
+} from "@/lib/scores/preseason-projections";
+import {
   buildOpponentByTeam,
   normalizeNflTeamAbbrev,
   resolvePlayerOpponent,
@@ -51,7 +56,12 @@ import {
   getLeagueSeasonByYear,
 } from "@/lib/queries/leagues";
 import { getMatchupByKey, getTeamSchedule } from "@/lib/queries/matchups";
-import { getPlayerFantasyPoints, getRankedPlayers, type RankedPlayerRow } from "@/lib/queries/players";
+import {
+  getPlayerFantasyPoints,
+  getRankedPlayers,
+  getWeekProjectedFantasyPoints,
+  type RankedPlayerRow,
+} from "@/lib/queries/players";
 import {
   getLeaguePlayerOwnershipMap,
 } from "@/lib/queries/roster";
@@ -412,58 +422,84 @@ export async function getGameCentreData(input: {
         .map(([playerId]) => playerId)
     : [];
 
-  const [weekProjectedById, weekStats, faProjections, awaySchedule, seasonProjectedById] =
-    await Promise.all([
-      rosterIds.length
-        ? getPlayerFantasyPoints({
-            season: seasonYear,
-            week: scoringWeek,
-            seasonType: scoringSeasonType,
-            kind: "projection",
-            scoringRules,
-            playerIds: rosterIds,
-          }).catch(() => new Map<string, number | null>())
-        : Promise.resolve(new Map<string, number | null>()),
-      rosterIds.length
-        ? getRankedPlayers({
-            season: seasonYear,
-            week: scoringWeek,
-            seasonType: scoringSeasonType,
-            kind: "stats",
-            scoringRules,
-            playerIds: rosterIds,
-            includePositionRanks: false,
-            preserveStats: false,
-          }).catch(() => [])
-        : Promise.resolve([]),
-      // Waiver tips: exclude rostered/waiver players in SQL; top ~40 free agents.
-      needsFaTips
-        ? getRankedPlayers({
-            season: seasonYear,
-            week: scoringWeek,
-            seasonType: scoringSeasonType,
-            kind: "projection",
-            scoringRules,
-            excludePlayerIds: ownedPlayerIds,
-            limit: 40,
-            pointsOnly: true,
-          }).catch(() => [])
-        : Promise.resolve([]),
-      needsPreview
-        ? getTeamSchedule(season.id, matchup.awayTeamId)
-        : Promise.resolve([]),
-      needsPreview && rosterIds.length
-        ? getPlayerFantasyPoints({
-            season: seasonYear,
-            week: 0,
-            kind: "projection",
-            scoringRules,
-            playerIds: rosterIds,
-          }).catch(() => new Map<string, number | null>())
-        : Promise.resolve(new Map<string, number | null>()),
-    ]);
+  const useProjFallback =
+    needsPreseasonProjectionFallback(scoringSeasonType);
 
-  const projectedById = weekProjectedById;
+  const [
+    projectedById,
+    weekStats,
+    faProjectionsPrimary,
+    awaySchedule,
+    seasonProjectedById,
+    faProjectionsFallback,
+  ] = await Promise.all([
+    rosterIds.length
+      ? getWeekProjectedFantasyPoints({
+          season: seasonYear,
+          week: scoringWeek,
+          seasonType: scoringSeasonType,
+          scoringRules,
+          playerIds: rosterIds,
+        })
+      : Promise.resolve(new Map<string, number | null>()),
+    rosterIds.length
+      ? getRankedPlayers({
+          season: seasonYear,
+          week: scoringWeek,
+          seasonType: scoringSeasonType,
+          kind: "stats",
+          scoringRules,
+          playerIds: rosterIds,
+          includePositionRanks: false,
+          preserveStats: false,
+        }).catch(() => [])
+      : Promise.resolve([]),
+    // Waiver tips: exclude rostered/waiver players in SQL; top ~40 free agents.
+    needsFaTips
+      ? getRankedPlayers({
+          season: seasonYear,
+          week: scoringWeek,
+          seasonType: scoringSeasonType,
+          kind: "projection",
+          scoringRules,
+          excludePlayerIds: ownedPlayerIds,
+          limit: 40,
+          pointsOnly: true,
+        }).catch(() => [])
+      : Promise.resolve([]),
+    needsPreview
+      ? getTeamSchedule(season.id, matchup.awayTeamId)
+      : Promise.resolve([]),
+    needsPreview && rosterIds.length
+      ? getPlayerFantasyPoints({
+          season: seasonYear,
+          week: 0,
+          kind: "projection",
+          scoringRules,
+          playerIds: rosterIds,
+        }).catch(() => new Map<string, number | null>())
+      : Promise.resolve(new Map<string, number | null>()),
+    needsFaTips && useProjFallback
+      ? getRankedPlayers({
+          season: seasonYear,
+          week: PRESEASON_PROJECTION_FALLBACK_WEEK,
+          seasonType: PRESEASON_PROJECTION_FALLBACK_SEASON_TYPE,
+          kind: "projection",
+          scoringRules,
+          excludePlayerIds: ownedPlayerIds,
+          limit: 40,
+          pointsOnly: true,
+        }).catch(() => [])
+      : Promise.resolve([]),
+  ]);
+
+  const faHasPositive = faProjectionsPrimary.some(
+    (row) => row.fantasyPts != null && row.fantasyPts > 0,
+  );
+  const faProjections =
+    useProjFallback && !faHasPositive
+      ? faProjectionsFallback
+      : faProjectionsPrimary;
   const actualById = new Map(weekStats.map((p) => [p.id, p.fantasyPts]));
   const actualStatsById = new Map(weekStats.map((p) => [p.id, p]));
 

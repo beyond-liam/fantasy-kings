@@ -9,6 +9,10 @@ import {
   type ScoreSyncSeasonType,
 } from "@/lib/scores/sync-calendar";
 import {
+  PRESEASON_PROJECTION_FALLBACK_SEASON_TYPE,
+  PRESEASON_PROJECTION_FALLBACK_WEEK,
+} from "@/lib/scores/preseason-projections";
+import {
   fetchSleeperScores,
   getNflState,
   type SleeperScoreRow,
@@ -233,6 +237,21 @@ export async function syncCurrentWeekScores(options?: {
       season,
       week,
       seasonType,
+    );
+    upserted += result.upserted;
+    sleeperRows += result.sleeperRows;
+  }
+
+  // Preseason Sleeper projections are often ADP-only; keep regular W1 projections
+  // fresh so Game Centre / boards can fall back for projected points.
+  if (seasonType === "pre") {
+    const result = await upsertSleeperScoresBatch(
+      db,
+      sleeperIdToPlayerId,
+      "projection",
+      season,
+      PRESEASON_PROJECTION_FALLBACK_WEEK,
+      PRESEASON_PROJECTION_FALLBACK_SEASON_TYPE,
     );
     upserted += result.upserted;
     sleeperRows += result.sleeperRows;

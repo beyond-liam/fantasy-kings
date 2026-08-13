@@ -16,7 +16,10 @@ import {
 } from "@/lib/leagues/team-summary";
 import { hasNflTeamStarted } from "@/lib/leagues/waivers/game-lock";
 import { getTeamSchedule } from "@/lib/queries/matchups";
-import { getRankedPlayers } from "@/lib/queries/players";
+import {
+  getRankedPlayers,
+  getWeekProjectedFantasyPoints,
+} from "@/lib/queries/players";
 import { getPlayerRosterRatesMap } from "@/lib/queries/player-roster-rates";
 import {
   ensureTeamRosterSlotsAssigned,
@@ -96,16 +99,15 @@ export async function MyTeamRosterPanel({
   ]);
 
   const ratePlayerIds = rosterPlayers.map((player) => player.id);
-  const [rosterRates, weekProjections, weekStats] = await Promise.all([
+  const [rosterRates, projectedById, weekStats] = await Promise.all([
     getPlayerRosterRatesMap(ratePlayerIds),
-    getRankedPlayers({
+    getWeekProjectedFantasyPoints({
       season: nflSeason,
       week: nflWeek,
       seasonType: nflSeasonType,
-      kind: "projection",
       scoringRules,
       playerIds: ratePlayerIds,
-    }).catch(() => []),
+    }),
     getRankedPlayers({
       season: nflSeason,
       week: nflWeek,
@@ -116,9 +118,6 @@ export async function MyTeamRosterPanel({
     }).catch(() => []),
   ]);
 
-  const projectedById = new Map(
-    weekProjections.map((player) => [player.id, player.fantasyPts]),
-  );
   const actualById = new Map(
     weekStats.map((player) => [player.id, player.fantasyPts]),
   );

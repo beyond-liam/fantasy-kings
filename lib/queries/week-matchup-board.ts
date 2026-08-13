@@ -20,7 +20,7 @@ import {
 } from "@/lib/leagues/win-probability";
 import { normalizeNflTeamAbbrev } from "@/lib/nfl/matchups";
 import type { LeagueMatchupRow } from "@/lib/queries/matchups";
-import { getPlayerFantasyPoints } from "@/lib/queries/players";
+import { getPlayerFantasyPoints, getWeekProjectedFantasyPoints } from "@/lib/queries/players";
 import { isMatchupResultFinal } from "@/lib/leagues/matchups/week-scoring";
 
 export type MatchupBoardSide = {
@@ -482,14 +482,13 @@ export async function enrichWeekMatchupBoard(
   const scoringSeasonType = input.scoringSeasonType ?? "regular";
 
   const [projectedById, actualById] = await Promise.all([
-    getPlayerFantasyPoints({
+    getWeekProjectedFantasyPoints({
       season: input.seasonYear,
       week: scoringWeek,
       seasonType: scoringSeasonType,
-      kind: "projection",
       scoringRules: input.scoringRules,
       playerIds: allStarterIds,
-    }).catch(() => new Map<string, number | null>()),
+    }),
     input.week <= input.currentWeek
       ? getPlayerFantasyPoints({
           season: input.seasonYear,

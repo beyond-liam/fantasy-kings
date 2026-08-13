@@ -25,6 +25,12 @@ import {
   DEFAULT_SORT_DESC,
 } from "@/lib/rankings/sort-params";
 import { sortRankedPlayers } from "@/lib/rankings/sort-ranked-players";
+import {
+  needsPreseasonProjectionFallback,
+  PRESEASON_PROJECTION_FALLBACK_SEASON_TYPE,
+  PRESEASON_PROJECTION_FALLBACK_WEEK,
+  resolvePreseasonProjectedPoints,
+} from "@/lib/scores/preseason-projections";
 
 export { clearScoreRowsCache };
 
@@ -242,6 +248,49 @@ export async function getPlayerFantasyPoints(filters: {
   });
 
   return new Map(rows.map((row) => [row.id, row.fantasyPts]));
+}
+
+/**
+ * Week projections with preseason fallback to regular W1 when pre rows lack pts.
+ * Shared by Game Centre, matchup board, and My Team surfaces.
+ */
+export async function getWeekProjectedFantasyPoints(filters: {
+  season: string;
+  week: number;
+  seasonType?: string;
+  playerIds: string[];
+  scoringRules: ScoringRuleDefinition[];
+}): Promise<Map<string, number | null>> {
+  const empty = new Map<string, number | null>();
+  if (filters.playerIds.length === 0) {
+    return empty;
+  }
+
+  const useFallback = needsPreseasonProjectionFallback(filters.seasonType);
+  const [primary, fallback] = await Promise.all([
+    getPlayerFantasyPoints({
+      season: filters.season,
+      week: filters.week,
+      seasonType: filters.seasonType,
+      kind: "projection",
+      playerIds: filters.playerIds,
+      scoringRules: filters.scoringRules,
+    }).catch(() => empty),
+    useFallback
+      ? getPlayerFantasyPoints({
+          season: filters.season,
+          week: PRESEASON_PROJECTION_FALLBACK_WEEK,
+          seasonType: PRESEASON_PROJECTION_FALLBACK_SEASON_TYPE,
+          kind: "projection",
+          playerIds: filters.playerIds,
+          scoringRules: filters.scoringRules,
+        }).catch(() => empty)
+      : Promise.resolve(empty),
+  ]);
+
+  return useFallback
+    ? resolvePreseasonProjectedPoints(primary, fallback)
+    : primary;
 }
 
 function applyScoring(
