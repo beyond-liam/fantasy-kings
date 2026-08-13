@@ -40,6 +40,7 @@ export function LeagueSettings({
           seasonStatus={season?.status ?? "setup"}
           freeAgencyOpen={season?.freeAgencyOpen ?? false}
           divisionCount={season?.divisionCount ?? 1}
+          leagueType={season?.leagueType ?? "redraft"}
           regularSeasonFinished={regularSeasonFinished}
           boxScoresEditable={boxScoresEditable}
           owners={owners}

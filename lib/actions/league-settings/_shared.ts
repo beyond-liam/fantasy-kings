@@ -70,6 +70,7 @@ export function revalidateSettingsPaths(slug: string) {
   revalidatePath(`/league/${slug}/settings/waivers`);
   revalidatePath(`/league/${slug}/settings/tiebreakers`);
   revalidatePath(`/league/${slug}/settings/transactions`);
+  revalidatePath(`/league/${slug}/settings/dynasty`);
   revalidatePath(`/league/${slug}/settings/league`);
   revalidatePath(`/league/${slug}/settings/draft`);
   revalidatePath(`/league/${slug}/settings/draft-order`);

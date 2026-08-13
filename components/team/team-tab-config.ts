@@ -4,6 +4,7 @@ import {
   Bookmark02Icon,
   Calendar03Icon,
   ListViewIcon as ListIcon,
+  LoyaltyCardIcon,
   MoneyExchange03Icon,
   Settings01Icon,
   UserAdd01Icon,
@@ -16,6 +17,7 @@ export const MY_TEAM_TABS = [
   { value: "schedule", label: "Schedule", icon: Calendar03Icon },
   { value: "transactions", label: "Transactions", icon: MoneyExchange03Icon },
   { value: "draft-picks", label: "Draft Picks", icon: UserAdd01Icon },
+  { value: "keepers", label: "Keepers", icon: LoyaltyCardIcon },
   { value: "settings", label: "Settings", icon: Settings01Icon },
 ] as const;
 
@@ -29,3 +31,10 @@ export const OTHER_TEAM_TABS = [
 
 export type MyTeamTabValue = (typeof MY_TEAM_TABS)[number]["value"];
 export type OtherTeamTabValue = (typeof OTHER_TEAM_TABS)[number]["value"];
+
+export function myTeamTabsForLeague(leagueType: "redraft" | "dynasty") {
+  if (leagueType === "dynasty") {
+    return MY_TEAM_TABS;
+  }
+  return MY_TEAM_TABS.filter((tab) => tab.value !== "keepers");
+}

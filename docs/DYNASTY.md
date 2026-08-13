@@ -3,7 +3,7 @@
 Canonical product + implementation spec for dynasty format.
 Update this file when dynasty decisions change. Cross-link from [`PROJECT_SPEC.md`](PROJECT_SPEC.md).
 
-**Status:** Specified — not yet implemented (beyond `league_type` enum + create-wizard label).
+**Status:** D0–D2 shipped (settings + manager Keepers tab). D3+ not started.
 
 ---
 
@@ -61,7 +61,7 @@ Surface under league settings (Rules-adjacent). Fields:
 
 | Setting | Type | Notes |
 |---|---|---|
-| `keepersMax` | int ≥ 0 | Hard ceiling on **counting** keepers (see IR/Taxi toggles). |
+| `keepersMax` | int ≥ 0 or null | Hard ceiling on **counting** keepers (see IR/Taxi toggles). Null = not set (empty in settings). Capped by roster spots (± IR/Taxi when those count). |
 | `keepersMin` | int \| null | Optional; when set, `0 ≤ min ≤ max`. |
 | `keeperDeadlineAt` | timestamptz \| null | Interpreted / displayed in **Europe/London**. |
 | `irCountsTowardKeepers` | boolean | Default **false**. |
@@ -244,9 +244,9 @@ Ship in small increments; stop for approval after each.
 
 | Phase | Deliverable |
 |---|---|
-| **D0** | Spec merged; settings shape + zod; no UI yet beyond existing type toggle wiring defaults |
-| **D1** | Dynasty rules settings UI + persistence; redraft isolation |
-| **D2** | Keeper flag + manager Keepers tab + validation (max/min/IR/Taxi counting) |
+| **D0** | ✅ Settings shape + zod + create defaults (`lib/leagues/dynasty-settings.ts`) |
+| **D1** | ✅ Dynasty rules settings UI + persistence; redraft isolation |
+| **D2** | ✅ Keeper flag + manager Keepers tab + validation (max/min/IR/Taxi counting) |
 | **D3** | Commish Set keepers + Clear non-keepers (+ activity) |
 | **D4** | Keeper deadline (UK) + auto-clear job/path |
 | **D5** | Configure draft: rounds cap + pool; clear on draft start |

@@ -9,8 +9,10 @@ type NumberInputProps = Omit<
   React.ComponentProps<"input">,
   "type" | "value" | "onChange" | "inputMode"
 > & {
-  value: number;
+  value: number | null;
   onValueChange: (value: number) => void;
+  /** When set, clearing the field commits empty instead of restoring the prior value. */
+  onClear?: () => void;
   allowDecimal?: boolean;
   allowNegative?: boolean;
 };
@@ -48,13 +50,14 @@ function clampNumber(value: number, min?: string | number, max?: string | number
   return next;
 }
 
-function formatValue(value: number) {
-  return Number.isFinite(value) ? String(value) : "";
+function formatValue(value: number | null) {
+  return value != null && Number.isFinite(value) ? String(value) : "";
 }
 
 function NumberInput({
   value,
   onValueChange,
+  onClear,
   allowDecimal = false,
   allowNegative = false,
   min,
@@ -88,6 +91,7 @@ function NumberInput({
           raw === "." ||
           raw === "-."
         ) {
+          if (onClear) onClear();
           onBlur?.(event);
           return;
         }
@@ -111,6 +115,7 @@ function NumberInput({
           next === "." ||
           next === "-."
         ) {
+          onClear?.();
           return;
         }
 

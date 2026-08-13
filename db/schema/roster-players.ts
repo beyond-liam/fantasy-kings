@@ -47,6 +47,8 @@ export const rosterPlayers = pgTable(
      * Used with `settings.taxiPreventReaddAfterActivation`.
      */
     taxiActivated: boolean("taxi_activated").notNull().default(false),
+    /** Dynasty: marked to carry into the next season (managers/commish). */
+    isKeeper: boolean("is_keeper").notNull().default(false),
     /** When status is waived, player becomes a free agent after this time. */
     waiverClearsAt: timestamp("waiver_clears_at", { withTimezone: true }),
     /** When the player most recently became rostered on this team. */

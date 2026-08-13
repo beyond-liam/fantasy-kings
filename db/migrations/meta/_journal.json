@@ -204,6 +204,13 @@
       "when": 1786617600000,
       "tag": "0028_trade_offer_expiry",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1786704000000,
+      "tag": "0029_roster_keepers",
+      "breakpoints": true
     }
   ]
 }

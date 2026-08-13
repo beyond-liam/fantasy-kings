@@ -5,6 +5,7 @@ import { Suspense, type ReactNode } from "react";
 import { PageSkeleton } from "@/components/layout/page-skeleton";
 import { IrLockAlert } from "@/components/team/ir-lock-alert";
 import { MyTeamDraftPicksPanel } from "@/components/team/panels/my-team-draft-picks";
+import { MyTeamKeepersPanel } from "@/components/team/panels/my-team-keepers";
 import { MyTeamRosterPanel } from "@/components/team/panels/my-team-roster";
 import { MyTeamSchedulePanel } from "@/components/team/panels/my-team-schedule";
 import { MyTeamSettingsPanel } from "@/components/team/panels/my-team-settings";
@@ -13,7 +14,7 @@ import { MyTeamTransactionsPanel } from "@/components/team/panels/my-team-transa
 import { MyTeamWatchlistPanel } from "@/components/team/panels/my-team-watchlist";
 import { TaxiLockAlert } from "@/components/team/taxi-lock-alert";
 import {
-  MY_TEAM_TABS,
+  myTeamTabsForLeague,
   type MyTeamTabValue,
 } from "@/components/team/team-tab-config";
 import { TeamTabs } from "@/components/team/team-tabs";
@@ -69,10 +70,18 @@ export async function generateMetadata({
   return { title: team?.name ?? "My Team" };
 }
 
-const TAB_VALUES = new Set<string>(MY_TEAM_TABS.map((tab) => tab.value));
+const TAB_VALUES = new Set<string>(
+  myTeamTabsForLeague("dynasty").map((tab) => tab.value),
+);
 
-function resolveActiveTab(tab: string | undefined): MyTeamTabValue {
-  if (tab && TAB_VALUES.has(tab)) {
+function resolveActiveTab(
+  tab: string | undefined,
+  leagueType: "redraft" | "dynasty",
+): MyTeamTabValue {
+  const allowed = new Set(
+    myTeamTabsForLeague(leagueType).map((entry) => entry.value),
+  );
+  if (tab && allowed.has(tab as MyTeamTabValue) && TAB_VALUES.has(tab)) {
     return tab as MyTeamTabValue;
   }
   return "roster";
@@ -90,7 +99,6 @@ export default async function MyTeamPage({
   const { tab, mock } = await searchParams;
   const useChartsMock =
     process.env.NODE_ENV === "development" && (mock === "1" || mock === "true");
-  const activeTab = resolveActiveTab(tab);
   const user = await getSessionUser();
 
   if (!user) {
@@ -109,6 +117,8 @@ export default async function MyTeamPage({
   if (!season) {
     redirect("/leagues");
   }
+
+  const activeTab = resolveActiveTab(tab, season.leagueType);
 
   const scoringPreset = season.scoringPreset as ScoringPreset;
   const scoringRules = resolveScoringRuleDefinitions(
@@ -173,6 +183,7 @@ export default async function MyTeamPage({
   })();
 
   let rosterPanel: ReactNode = null;
+  let keepersPanel: ReactNode = null;
   let statsPanel: ReactNode = null;
   let watchlistPanel: ReactNode = null;
   let schedulePanel: ReactNode = null;
@@ -216,6 +227,18 @@ export default async function MyTeamPage({
         actionsEnabled={actionsEnabled}
         lineupEnabled={lineupEnabled}
         tradesEnabled={tradesEnabled}
+      />,
+    );
+  } else if (activeTab === "keepers" && team && season.leagueType === "dynasty") {
+    keepersPanel = wrapActivePanel(
+      <MyTeamKeepersPanel
+        slug={slug}
+        teamId={team.id}
+        dynasty={season.settings.dynasty}
+        rosterSlots={season.settings.rosterSlots}
+        benchSlots={season.benchSlots}
+        irEnabled={season.irEnabled}
+        taxiEnabled={season.taxiEnabled}
       />,
     );
   } else if (activeTab === "stats" && team) {
@@ -339,8 +362,10 @@ export default async function MyTeamPage({
 
       <TeamTabs
         defaultTab={activeTab}
+        leagueType={season.leagueType}
         transactionsBadge={incomingTradeCount}
         roster={rosterPanel}
+        keepers={keepersPanel}
         stats={statsPanel}
         watchlist={watchlistPanel}
         schedule={schedulePanel}

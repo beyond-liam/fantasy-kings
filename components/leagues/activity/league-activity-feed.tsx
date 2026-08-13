@@ -9,6 +9,7 @@ import {
   Settings01Icon,
   StudentCardIcon,
   Tick02Icon,
+  LoyaltyCardIcon,
   UserBlock01Icon,
   UserCheck01Icon,
   UserDollarIcon,
@@ -117,6 +118,7 @@ const ACTIVITY_FILTER_GROUPS = [
       "ir_removed",
       "taxi_added",
       "taxi_removed",
+      "keepers_set",
     ],
   },
   {
@@ -230,6 +232,11 @@ const ACTIVITY_META: Record<
     icon: ArrowTurnBackwardIcon,
     tone: "destructive",
   },
+  keepers_set: {
+    label: "Keepers",
+    icon: LoyaltyCardIcon,
+    tone: "info",
+  },
 };
 
 const ACTIVITY_TONE_CLASS: Record<
@@ -302,6 +309,13 @@ function resolveActivitySummary(item: LeagueActivityRow): string {
       }
       default:
         break;
+    }
+  }
+
+  if (item.type === "keepers_set") {
+    const count = meta?.keeperCount;
+    if (typeof count === "number" && Number.isFinite(count)) {
+      return `${liveName} set ${count} keeper${count === 1 ? "" : "s"}`;
     }
   }
 

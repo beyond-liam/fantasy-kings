@@ -17,8 +17,10 @@ import {
   resolveDraftType,
   toPersistedDraftSettings,
 } from "@/lib/leagues/draft-settings";
+import { defaultDynastySettings } from "@/lib/leagues/dynasty-settings";
 import { DEFAULT_PLAYOFF_SETTINGS } from "@/lib/leagues/playoff-settings";
 import { buildPersistedRosterSlots } from "@/lib/leagues/roster";
+import { getMaxRosterSize } from "@/lib/leagues/roster-capacity";
 import { generateScheduleIfLeagueFull } from "@/lib/leagues/schedule/persist";
 import { DEFAULT_SCHEDULE_SETTINGS } from "@/lib/leagues/schedule/settings";
 import {
@@ -110,6 +112,8 @@ export async function createLeague(input: CreateLeagueWizardValues) {
     taxiPreventReaddAfterActivation: values.taxiPreventReaddAfterActivation,
     customRosterSlots: values.customRosterSlots,
   });
+  const dynastySettings =
+    values.leagueType === "dynasty" ? defaultDynastySettings() : undefined;
 
   const tradeDeadlineWeek =
     values.tradesEnabled && values.tradeDeadlineWeek
@@ -191,6 +195,7 @@ export async function createLeague(input: CreateLeagueWizardValues) {
           }),
           schedule: DEFAULT_SCHEDULE_SETTINGS,
           playoffs: DEFAULT_PLAYOFF_SETTINGS,
+          ...(dynastySettings ? { dynasty: dynastySettings } : {}),
           irEligibleStatuses: values.irEnabled
             ? values.irEligibleStatuses
             : undefined,

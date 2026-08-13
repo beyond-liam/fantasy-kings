@@ -141,6 +141,23 @@ export type PlayoffSettings = {
   twoWeekChampionship: boolean;
 };
 
+/** Dynasty-only rules (omit on redraft). See docs/DYNASTY.md §3.2. */
+export type DynastyDraftPlayerPool = "rookies" | "all";
+
+export type DynastySettings = {
+  /** Hard ceiling on counting keepers (IR/Taxi toggles below). Null = not set. */
+  keepersMax: number | null;
+  /** Optional floor; null = off. When set, 0 ≤ min ≤ max. */
+  keepersMin: number | null;
+  /** ISO timestamptz; display/interpret in Europe/London. */
+  keeperDeadlineAt: string | null;
+  irCountsTowardKeepers: boolean;
+  taxiCountsTowardKeepers: boolean;
+  /** Future draft years beyond the upcoming draft that can be owned/traded. */
+  futurePickTradeYears: number;
+  draftPlayerPool: DynastyDraftPlayerPool;
+};
+
 export type LeagueSeasonSettings = {
   rosterSlots: RosterSlotConfig[];
   scoringRules?: ScoringRuleDefinition[];
@@ -152,6 +169,8 @@ export type LeagueSeasonSettings = {
   draft?: DraftSettings;
   schedule?: ScheduleSettings;
   playoffs?: PlayoffSettings;
+  /** Dynasty rules — present when league_type is dynasty. */
+  dynasty?: DynastySettings;
   /** Public URL for the league logo. */
   logoUrl?: string | null;
   /** Injury designations that qualify a player for an IR slot. */

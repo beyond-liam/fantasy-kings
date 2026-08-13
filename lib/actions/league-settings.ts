@@ -20,6 +20,8 @@ export { updateTiebreakerSettings } from "./league-settings/tiebreakers";
 
 export { updateTransactionRules } from "./league-settings/transactions";
 
+export { updateDynastySettings } from "./league-settings/dynasty";
+
 export { updateLeagueIdentity } from "./league-settings/identity";
 
 export {

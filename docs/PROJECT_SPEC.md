@@ -49,7 +49,7 @@ A mobile-first fantasy football web app for a private friend group (4–16 users
 | Item | Notes |
 |---|---|
 | IDP production hardening | See [`docs/IDP.md`](IDP.md) — Overview/leaders, filter density; nflverse IDP keys shipped |
-| Dynasty format | Specced in [`docs/DYNASTY.md`](DYNASTY.md) — keepers, clearance, Start new season, future picks + pick trades; `league_type` already on create |
+| Dynasty format | Specced in [`docs/DYNASTY.md`](DYNASTY.md) — **D0–D2** shipped (settings + Keepers tab); D3+ pending |
 
 ### Near-term bugs / fixes (tackle one by one)
 
@@ -665,7 +665,7 @@ lib/
 ### Deferred / remaining
 
 **Near-term product**
-- [ ] **Dynasty** — keepers, clearance, Start new season, future picks + pick trades per [`docs/DYNASTY.md`](DYNASTY.md) (phases D0–D9)
+- [ ] **Dynasty** — keepers, clearance, Start new season, future picks + pick trades per [`docs/DYNASTY.md`](DYNASTY.md) (D0–D2 done; D3–D9 pending)
 - [ ] **Advanced player filtering** — richer filters beyond position / team / rookies / FA (DEFERRED)
 - [x] **Manager presence** — online (2-min), offline, inactive (14d in-season / 30d offseason); avatar/name badges with tooltips
 - [x] **Empty-state consistency** — use shadcn `Empty` everywhere zero-data is shown; migrate ad-hoc placeholders
@@ -728,6 +728,9 @@ lib/
 
 | Date | Change |
 |---|---|
+| 2026-08-13 | Dynasty D2: `roster_players.is_keeper` + My Team Keepers tab + validation; `keepers_set` activity |
+| 2026-08-13 | Dynasty D1: Edit Dynasty Rules settings UI + save action; redraft isolation |
+| 2026-08-13 | Dynasty D0: `settings.dynasty` types + zod + create-league defaults (`lib/leagues/dynasty-settings.ts`) |
 | 2026-08-13 | Dynasty format spec: [`docs/DYNASTY.md`](DYNASTY.md); moved from deferred to near-term product |
 | 2026-08-13 | Activity: log `ir_added` / `taxi_added` when FA adds or waiver awards land directly on IR/Taxi |
 | 2026-08-13 | Trade offer expiry presets on confirm dialog; pending offers auto-expire to `expired` status via cron / page process |

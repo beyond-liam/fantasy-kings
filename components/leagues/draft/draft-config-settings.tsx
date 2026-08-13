@@ -362,9 +362,6 @@ export function DraftConfigSettings({
                       patch({ pauseWindowStart })
                     }
                   />
-                  <FieldDescription>
-                    Clock freezes from this time.
-                  </FieldDescription>
                 </Field>
                 <Field>
                   <FieldLabel htmlFor="pauseWindowEnd">
@@ -375,9 +372,6 @@ export function DraftConfigSettings({
                     value={values.pauseWindowEnd}
                     onChange={(pauseWindowEnd) => patch({ pauseWindowEnd })}
                   />
-                  <FieldDescription>
-                    Draft resumes at this time. Overnight windows are allowed.
-                  </FieldDescription>
                 </Field>
               </div>
             ) : null}

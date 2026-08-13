@@ -41,6 +41,7 @@ export const getTeamRosterPlayers = cache(
         sleeperId: playerExternalIds.externalId,
         slotPositionId: rosterPlayers.slotPositionId,
         taxiActivated: rosterPlayers.taxiActivated,
+        isKeeper: rosterPlayers.isKeeper,
       })
       .from(rosterPlayers)
       .innerJoin(players, eq(rosterPlayers.playerId, players.id))

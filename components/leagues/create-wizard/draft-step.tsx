@@ -214,7 +214,7 @@ export function DraftStep({ values, errors, onChange }: DraftStepProps) {
             <div className="grid gap-4 sm:grid-cols-2">
               <Field>
                 <FieldLabel htmlFor="pauseWindowStart">
-                  Pause starts (UK)
+                  Pause starts
                 </FieldLabel>
                 <TimePicker
                   id="pauseWindowStart"
@@ -227,7 +227,7 @@ export function DraftStep({ values, errors, onChange }: DraftStepProps) {
               </Field>
               <Field>
                 <FieldLabel htmlFor="pauseWindowEnd">
-                  Pause ends (UK)
+                  Pause ends
                 </FieldLabel>
                 <TimePicker
                   id="pauseWindowEnd"
@@ -236,11 +236,7 @@ export function DraftStep({ values, errors, onChange }: DraftStepProps) {
                 />
                 {errors.pauseWindowEnd ? (
                   <FieldError>{errors.pauseWindowEnd}</FieldError>
-                ) : (
-                  <FieldDescription>
-                    Overnight windows are allowed.
-                  </FieldDescription>
-                )}
+                ) : null}
               </Field>
             </div>
           ) : null}

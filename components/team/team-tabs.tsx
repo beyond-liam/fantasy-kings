@@ -23,8 +23,8 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs";
 import {
-  MY_TEAM_TABS,
   OTHER_TEAM_TABS,
+  myTeamTabsForLeague,
 } from "@/components/team/team-tab-config";
 
 type BaseTeamTabsProps = {
@@ -37,7 +37,9 @@ type BaseTeamTabsProps = {
 
 type MyTeamTabsProps = BaseTeamTabsProps & {
   variant?: "mine";
+  leagueType?: "redraft" | "dynasty";
   watchlist: ReactNode;
+  keepers?: ReactNode;
   transactions?: ReactNode;
   transactionsBadge?: number;
   settings?: ReactNode;
@@ -46,7 +48,9 @@ type MyTeamTabsProps = BaseTeamTabsProps & {
 
 type OtherTeamTabsProps = BaseTeamTabsProps & {
   variant: "other";
+  leagueType?: never;
   watchlist?: never;
+  keepers?: never;
   transactions?: never;
   transactionsBadge?: never;
   settings?: never;
@@ -87,7 +91,9 @@ export function TeamTabs(props: TeamTabsProps) {
   const router = useRouter();
   const pathname = usePathname();
   const isOther = props.variant === "other";
-  const tabs = isOther ? OTHER_TEAM_TABS : MY_TEAM_TABS;
+  const tabs = isOther
+    ? OTHER_TEAM_TABS
+    : myTeamTabsForLeague(props.leagueType ?? "redraft");
   const activeTab =
     props.defaultTab &&
     tabs.some((tab) => tab.value === props.defaultTab)
@@ -116,6 +122,10 @@ export function TeamTabs(props: TeamTabsProps) {
 
   if (!isOther) {
     content.watchlist = resolvePanel(props.watchlist, <TabLoading />);
+    content.keepers = resolvePanel(
+      props.keepers,
+      <ComingSoon description="Select keepers to carry into next season." />,
+    );
     content.transactions = resolvePanel(
       props.transactions,
       <ComingSoon description="Waiver claims and trades will show up here." />,

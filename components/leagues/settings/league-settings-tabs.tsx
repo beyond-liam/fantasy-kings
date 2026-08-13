@@ -17,6 +17,7 @@ import {
   LockIcon,
   LockKeyIcon,
   LockSync01Icon,
+  LoyaltyCardIcon,
   PowerServiceIcon,
   Settings01Icon,
   ShuffleIcon,
@@ -85,6 +86,7 @@ const SETTINGS_TABS: {
       { label: "Edit Waiver Wire Rules", icon: LockKeyIcon },
       { label: "Edit Tiebreak Rules", icon: ArrowExpandDiagonal01Icon },
       { label: "Edit Transaction Rules", icon: LockSync01Icon },
+      { label: "Edit Dynasty Rules", icon: LoyaltyCardIcon },
     ],
   },
   {
@@ -160,6 +162,9 @@ function getSettingsTabs(slug: string) {
           }
           if (item.label === "Edit Transaction Rules") {
             return { ...item, href: `/league/${slug}/settings/transactions` };
+          }
+          if (item.label === "Edit Dynasty Rules") {
+            return { ...item, href: `/league/${slug}/settings/dynasty` };
           }
           return item;
         }),
@@ -248,6 +253,7 @@ type LeagueSettingsTabsProps = {
   seasonStatus: string;
   freeAgencyOpen: boolean;
   divisionCount: number;
+  leagueType: string;
   regularSeasonFinished: boolean;
   boxScoresEditable: boolean;
   owners: MembershipOwnerOption[];
@@ -259,6 +265,7 @@ export function LeagueSettingsTabs({
   seasonStatus,
   freeAgencyOpen,
   divisionCount,
+  leagueType,
   regularSeasonFinished,
   boxScoresEditable,
   owners,
@@ -320,6 +327,16 @@ export function LeagueSettingsTabs({
         ...tab,
         items: tab.items.filter(
           (item) => item.label !== "Realign Divisions" || divisionCount >= 2,
+        ),
+      };
+    }
+
+    if (tab.value === "rules") {
+      return {
+        ...tab,
+        items: tab.items.filter(
+          (item) =>
+            item.label !== "Edit Dynasty Rules" || leagueType === "dynasty",
         ),
       };
     }

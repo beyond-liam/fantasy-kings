@@ -59,6 +59,8 @@ export type LeagueActivityMetadata = {
   round?: number;
   pickInRound?: number;
   draftSource?: "manual" | "commissioner" | "autopick";
+  keeperCount?: number;
+  keeperPlayerIds?: string[];
 };
 
 export const leagueActivity = pgTable(

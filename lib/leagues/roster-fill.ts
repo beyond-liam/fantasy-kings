@@ -25,6 +25,8 @@ export type TeamRosterPlayer = {
   slotPositionId: string | null;
   /** True after leaving Taxi for the active roster (see league taxi setting). */
   taxiActivated?: boolean;
+  /** Dynasty keeper flag for this season. */
+  isKeeper?: boolean;
   ownedPct?: number | null;
   startPct?: number | null;
   opponent?: PlayerOpponent | null;
