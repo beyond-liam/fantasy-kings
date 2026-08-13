@@ -38,25 +38,20 @@ export function TradeCountdownLabel({
 }: TradeCountdownLabelProps) {
   const target = toDate(at);
   const targetMs = target?.getTime() ?? null;
-  const [label, setLabel] = useState(() =>
-    target ? formatLabel(kind, target) : null,
-  );
+  const [, setTick] = useState(0);
 
   useEffect(() => {
     if (targetMs == null) {
-      setLabel(null);
       return;
     }
 
-    const date = new Date(targetMs);
-    const tick = () => {
-      setLabel(formatLabel(kind, date));
-    };
-
-    tick();
-    const id = window.setInterval(tick, 60_000);
+    const id = window.setInterval(() => {
+      setTick((n) => n + 1);
+    }, 60_000);
     return () => window.clearInterval(id);
-  }, [kind, targetMs]);
+  }, [targetMs]);
+
+  const label = target ? formatLabel(kind, target) : null;
 
   if (!label) {
     return null;

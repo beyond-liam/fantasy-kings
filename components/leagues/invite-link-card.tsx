@@ -15,12 +15,6 @@ import {
   AlertTitle,
 } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 type InviteLinkCardProps = {
@@ -46,41 +40,6 @@ export function InviteLinkCard({ inviteCode }: InviteLinkCardProps) {
     window.setTimeout(() => setCopied(false), 2000);
   };
 
-  const copyButton = (
-    <Button
-      type="button"
-      variant="ghost-success"
-      size="icon-sm"
-      aria-label={copied ? "Copied" : "Copy invite link"}
-      onClick={handleCopy}
-    >
-      <span className="relative flex size-4 items-center justify-center">
-        <span
-          className={cn(
-            "absolute inset-0 flex items-center justify-center transition-[opacity,filter,scale] duration-300 [transition-timing-function:cubic-bezier(0.2,0,0,1)]",
-            copied
-              ? "scale-100 opacity-100 blur-0"
-              : "scale-[0.25] opacity-0 blur-[4px]",
-          )}
-          aria-hidden
-        >
-          <HugeiconsIcon icon={TickDouble02Icon} strokeWidth={2} />
-        </span>
-        <span
-          className={cn(
-            "flex items-center justify-center transition-[opacity,filter,scale] duration-300 [transition-timing-function:cubic-bezier(0.2,0,0,1)]",
-            copied
-              ? "scale-[0.25] opacity-0 blur-[4px]"
-              : "scale-100 opacity-100 blur-0",
-          )}
-          aria-hidden
-        >
-          <HugeiconsIcon icon={Copy01Icon} strokeWidth={2} />
-        </span>
-      </span>
-    </Button>
-  );
-
   return (
     <Alert className="border-success/30 bg-success/10 text-success *:data-[slot=alert-description]:text-success/90">
       <HugeiconsIcon icon={CheckmarkCircle02Icon} strokeWidth={2} />
@@ -92,14 +51,40 @@ export function InviteLinkCard({ inviteCode }: InviteLinkCardProps) {
         </p>
       </AlertDescription>
       <AlertAction>
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger render={copyButton} />
-            <TooltipContent>
-              {copied ? "Copied" : "Copy invite link"}
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+        <Button
+          type="button"
+          variant="ghost-success"
+          size="sm"
+          onClick={handleCopy}
+        >
+          <span
+            className="relative size-4 shrink-0"
+            data-icon="inline-start"
+            aria-hidden
+          >
+            <span
+              className={cn(
+                "absolute inset-0 flex items-center justify-center transition-[opacity,filter,scale] duration-300 [transition-timing-function:cubic-bezier(0.2,0,0,1)]",
+                copied
+                  ? "scale-100 opacity-100 blur-0"
+                  : "scale-[0.25] opacity-0 blur-[4px]",
+              )}
+            >
+              <HugeiconsIcon icon={TickDouble02Icon} strokeWidth={2} />
+            </span>
+            <span
+              className={cn(
+                "absolute inset-0 flex items-center justify-center transition-[opacity,filter,scale] duration-300 [transition-timing-function:cubic-bezier(0.2,0,0,1)]",
+                copied
+                  ? "scale-[0.25] opacity-0 blur-[4px]"
+                  : "scale-100 opacity-100 blur-0",
+              )}
+            >
+              <HugeiconsIcon icon={Copy01Icon} strokeWidth={2} />
+            </span>
+          </span>
+          Copy invite link
+        </Button>
       </AlertAction>
     </Alert>
   );
