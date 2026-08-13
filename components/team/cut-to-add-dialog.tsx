@@ -1,11 +1,13 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Cancel01Icon, UserAdd01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { toast } from "sonner";
 
+import { PlayerAvatar } from "@/components/rankings/player-avatar";
+import { formatPlayerSubtitle } from "@/components/rankings/player-identity";
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -22,6 +24,7 @@ import {
   SelectContent,
   SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
@@ -29,6 +32,7 @@ import {
   cutAndAddPlayer,
   type RosterCutCandidate,
 } from "@/lib/actions/roster";
+import { compareRosterPositions } from "@/lib/leagues/roster-position-order";
 
 export type CutToAddDialogState = {
   open: boolean;
@@ -44,9 +48,39 @@ type CutToAddDialogProps = {
   onOpenChange: (open: boolean) => void;
 };
 
-function playerSubtitle(player: RosterCutCandidate) {
-  const team = player.nflTeam?.trim() || "FA";
-  return `${team} ${player.primaryPositionId}`;
+function CutPlayerOption({ player }: { player: RosterCutCandidate }) {
+  return (
+    <span className="flex min-w-0 items-center gap-2">
+      <PlayerAvatar
+        fullName={player.fullName}
+        sleeperId={player.sleeperId}
+        primaryPositionId={player.primaryPositionId}
+        nflTeam={player.nflTeam}
+        size="sm"
+      />
+      <span className="flex min-w-0 flex-col text-left">
+        <span className="truncate font-medium">{player.fullName}</span>
+        <span className="truncate text-[11px] leading-tight text-muted-foreground">
+          {formatPlayerSubtitle({
+            primaryPositionId: player.primaryPositionId,
+            nflTeam: player.nflTeam,
+            byeWeek: player.byeWeek,
+          })}
+        </span>
+      </span>
+    </span>
+  );
+}
+
+function sortCandidates(rows: RosterCutCandidate[]) {
+  return rows.toSorted((a, b) => {
+    const byPosition = compareRosterPositions(
+      a.primaryPositionId,
+      b.primaryPositionId,
+    );
+    if (byPosition !== 0) return byPosition;
+    return a.fullName.localeCompare(b.fullName);
+  });
 }
 
 export function CutToAddDialog({
@@ -59,7 +93,17 @@ export function CutToAddDialog({
   const [isPending, startTransition] = useTransition();
 
   const open = Boolean(state?.open);
-  const candidates = state?.cutCandidates ?? [];
+  const { eligible, ineligible } = useMemo(() => {
+    const rows = state?.cutCandidates ?? [];
+    return {
+      eligible: sortCandidates(rows.filter((row) => !row.minimumBlocked)),
+      ineligible: sortCandidates(rows.filter((row) => row.minimumBlocked)),
+    };
+  }, [state?.cutCandidates]);
+  const candidates = useMemo(
+    () => [...eligible, ...ineligible],
+    [eligible, ineligible],
+  );
   const selected =
     candidates.find((player) => player.id === cutPlayerId) ?? null;
 
@@ -75,6 +119,13 @@ export function CutToAddDialog({
 
   const handleConfirm = () => {
     if (!state || !cutPlayerId) return;
+    if (selected?.minimumBlocked) {
+      toast.error(
+        selected.minimumBlockReason ??
+          "That cut would leave you under a roster minimum.",
+      );
+      return;
+    }
 
     startTransition(async () => {
       const result = await cutAndAddPlayer(
@@ -108,7 +159,7 @@ export function CutToAddDialog({
       }}
     >
       <AlertDialogContent>
-                <AlertDialogHeader>
+        <AlertDialogHeader>
           <AlertDialogTitle>{title}</AlertDialogTitle>
           <AlertDialogDescription>{description}</AlertDialogDescription>
         </AlertDialogHeader>
@@ -133,26 +184,53 @@ export function CutToAddDialog({
               setCutPlayerId(value ? String(value) : null);
             }}
           >
-            <SelectTrigger className="w-full" aria-label="Player to cut">
+            <SelectTrigger
+              className="h-auto min-h-9 w-full py-1.5"
+              aria-label="Player to cut"
+            >
               <SelectValue placeholder="Select a player to cut">
-                {selected ? selected.fullName : null}
+                {selected ? <CutPlayerOption player={selected} /> : null}
               </SelectValue>
             </SelectTrigger>
             <SelectContent>
-              <SelectGroup>
-                {candidates.map((player) => (
-                  <SelectItem key={player.id} value={player.id}>
-                    <span className="font-medium">{player.fullName}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {playerSubtitle(player)}
-                    </span>
-                  </SelectItem>
-                ))}
-              </SelectGroup>
+              {eligible.length > 0 ? (
+                <SelectGroup>
+                  {ineligible.length > 0 ? (
+                    <SelectLabel>Eligible</SelectLabel>
+                  ) : null}
+                  {eligible.map((player) => (
+                    <SelectItem key={player.id} value={player.id}>
+                      <CutPlayerOption player={player} />
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              ) : null}
+              {ineligible.length > 0 ? (
+                <SelectGroup>
+                  <SelectLabel>Below roster minimum</SelectLabel>
+                  {ineligible.map((player) => (
+                    <SelectItem
+                      key={player.id}
+                      value={player.id}
+                      disabled
+                      className="opacity-60"
+                    >
+                      <span className="flex min-w-0 flex-col gap-0.5">
+                        <CutPlayerOption player={player} />
+                        {player.minimumBlockReason ? (
+                          <span className="text-[10px] text-muted-foreground">
+                            {player.minimumBlockReason}
+                          </span>
+                        ) : null}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              ) : null}
             </SelectContent>
           </Select>
         )}
-        
+
         <AlertDialogFooter>
           <AlertDialogCancel variant="ghost" disabled={isPending}>
             <HugeiconsIcon
@@ -164,7 +242,12 @@ export function CutToAddDialog({
           </AlertDialogCancel>
           <Button
             type="button"
-            disabled={isPending || !cutPlayerId || candidates.length === 0}
+            disabled={
+              isPending ||
+              !cutPlayerId ||
+              eligible.length === 0 ||
+              Boolean(selected?.minimumBlocked)
+            }
             onClick={handleConfirm}
           >
             <HugeiconsIcon

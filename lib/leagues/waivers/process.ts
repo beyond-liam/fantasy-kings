@@ -11,6 +11,7 @@ import {
 } from "@/db/schema";
 import type { LeagueSeasonSettings } from "@/db/schema/league-seasons";
 import { db } from "@/lib/db";
+import { logReservePlacementFromAcquisition } from "@/lib/leagues/activity-log";
 import {
   assertActiveRosterCapacity,
   assertCutAllowedUnderLineupLock,
@@ -24,6 +25,8 @@ import {
   listRosteredPlayers,
   waiveOrDeleteRosterRow,
 } from "@/lib/leagues/roster-writes";
+import { firstRosterMinimumError, wouldBreachRosterMinimums } from "@/lib/leagues/roster-minimums";
+import { resolveTransactionRules } from "@/lib/leagues/transaction-rules";
 import { resolveWaiverWireSettings } from "@/lib/leagues/waiver-wire";
 import {
   adjudicateWaiverClaims,
@@ -415,14 +418,14 @@ export async function processSeasonWaivers(input: {
         .returning({ id: waiverClaims.id });
       if (!awardedClaim) continue;
 
-      const applyError = await applyAwardedClaim({
+      const applied = await applyAwardedClaim({
         season,
         wire,
         claim,
       });
 
-      if (applyError) {
-        const rawReason = applyError.trim() || "Could not apply claim.";
+      if ("error" in applied) {
+        const rawReason = applied.error.trim() || "Could not apply claim.";
         const failReason = isIllegalRosterFailReason(rawReason)
           ? "Illegal roster."
           : rawReason;
@@ -516,7 +519,7 @@ export async function processSeasonWaivers(input: {
         waiverType: season.waiverType,
       });
 
-      // Drop slightly earlier so claim sorts above it (createdAt DESC).
+      // Same timestamp as claim; feed sorts claim above IR/Taxi, drop below.
       if (claim.dropPlayerId && dropPlayerName) {
         await db.insert(leagueActivity).values({
           leagueSeasonId: season.id,
@@ -530,7 +533,7 @@ export async function processSeasonWaivers(input: {
             teamName,
             playerName: dropPlayerName,
           },
-          createdAt: new Date(now.getTime() - 1),
+          createdAt: now,
         });
       }
 
@@ -553,6 +556,18 @@ export async function processSeasonWaivers(input: {
           }),
           claimResolution,
         ),
+        createdAt: now,
+      });
+
+      await logReservePlacementFromAcquisition({
+        leagueSeasonId: season.id,
+        teamId: claim.teamId,
+        actorUserId: teamInfo?.userId ?? null,
+        playerId: claim.playerId,
+        slotPositionId: applied.slotPositionId,
+        teamName,
+        playerName,
+        claimId: claim.id,
         createdAt: now,
       });
 
@@ -631,12 +646,12 @@ async function applyAwardedClaim(input: {
     playerId: string;
     dropPlayerId: string | null;
   };
-}): Promise<string | null> {
+}): Promise<{ error: string } | { slotPositionId: string }> {
   const { season, wire, claim } = input;
 
   const seasonRows = await findSeasonRosterRows(season.id, claim.playerId);
   if (seasonRows.some((row) => row.status === "rostered")) {
-    return "Player was already claimed or rostered by another team.";
+    return { error: "Player was already claimed or rostered by another team." };
   }
 
   const irLock = await assertReserveAcquisitionsAllowed(
@@ -645,7 +660,7 @@ async function applyAwardedClaim(input: {
     season.settings.taxiMaxYearsExp,
   );
   if (irLock) {
-    return irLock.error;
+    return { error: irLock.error };
   }
 
   const [player] = await db
@@ -662,7 +677,7 @@ async function applyAwardedClaim(input: {
     .limit(1);
 
   if (!player) {
-    return "Player not found.";
+    return { error: "Player not found." };
   }
 
   let rosteredOnTeam = await listRosteredPlayers(claim.teamId);
@@ -671,8 +686,42 @@ async function applyAwardedClaim(input: {
   if (claim.dropPlayerId) {
     dropRow = rosteredOnTeam.find((row) => row.id === claim.dropPlayerId) ?? null;
     if (!dropRow) {
-      return "Required drop is no longer on the roster.";
+      return { error: "Required drop is no longer on the roster." };
     }
+
+    const rules = resolveTransactionRules(season.settings.transactionRules);
+    if (
+      wouldBreachRosterMinimums({
+        roster: rosteredOnTeam,
+        removeIds: [claim.dropPlayerId],
+        add: [
+          {
+            id: player.id,
+            primaryPositionId: player.primaryPositionId,
+            slotPositionId: null,
+          },
+        ],
+        rosterSlots: season.settings.rosterSlots,
+        enforce: rules.enforceRosterMinimums,
+      })
+    ) {
+      return {
+        error:
+          firstRosterMinimumError(
+            [
+              ...rosteredOnTeam.filter((row) => row.id !== claim.dropPlayerId),
+              {
+                id: player.id,
+                primaryPositionId: player.primaryPositionId,
+                slotPositionId: null,
+              },
+            ],
+            season.settings.rosterSlots,
+            true,
+          ) ?? "Drop would leave the roster under a position minimum.",
+      };
+    }
+
     rosteredOnTeam = rosteredOnTeam.filter(
       (row) => row.id !== claim.dropPlayerId,
     );
@@ -705,7 +754,7 @@ async function applyAwardedClaim(input: {
     ? pickOpenReserveAcquisitionSlot(reserveArgs)
     : null;
   if (capacityError && !forceReserveSlot) {
-    return capacityError;
+    return { error: capacityError };
   }
 
   if (dropRow) {
@@ -716,7 +765,7 @@ async function applyAwardedClaim(input: {
       previousSlot: dropRow.slotPositionId ?? dropRow.primaryPositionId,
     });
     if (dropBlocked) {
-      return dropBlocked;
+      return { error: dropBlocked };
     }
   }
 
@@ -735,7 +784,7 @@ async function applyAwardedClaim(input: {
     forceReserveSlot: forceReserveSlot ?? undefined,
   });
   if (!slotResolved.ok) {
-    return slotResolved.error;
+    return { error: slotResolved.error };
   }
   const slotPositionId = slotResolved.slotPositionId;
   const dropClearsAt = dropRow
@@ -763,5 +812,5 @@ async function applyAwardedClaim(input: {
     });
   });
 
-  return null;
+  return { slotPositionId };
 }

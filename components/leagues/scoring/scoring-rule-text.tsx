@@ -7,7 +7,7 @@ type ScoringRuleTextProps = {
 
 export function ScoringRuleText({ segments }: ScoringRuleTextProps) {
   return (
-    <p className="text-sm leading-relaxed">
+    <p className="text-sm leading-relaxed text-pretty">
       {segments.map((segment, index) => {
         if (segment.type === "points") {
           return (

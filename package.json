@@ -24,6 +24,7 @@
     "db:backfill:draft-activity": "tsx db/seed/backfill-draft-pick-activity.ts",
     "db:backfill:waiver-drop-activity": "tsx db/seed/backfill-waiver-drop-activity.ts",
     "db:backfill:waiver-claim-resolution": "tsx db/seed/backfill-waiver-claim-resolution.ts",
+    "db:backfill:reserve-acquisition-activity": "tsx db/seed/backfill-reserve-acquisition-activity.ts",
     "db:reset:scoring": "tsx db/seed/reset-scoring-rules.ts",
     "auth:set-passwords": "tsx scripts/set-auth-passwords.ts"
   },

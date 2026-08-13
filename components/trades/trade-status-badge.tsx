@@ -54,6 +54,13 @@ function resolveTradeStatusBadge(status: string) {
         label: "Trade cancelled",
         shortLabel: "Cancelled",
       };
+    case "expired":
+      return {
+        variant: "destructive" as const,
+        icon: CircleXIcon,
+        label: "Trade expired",
+        shortLabel: "Expired",
+      };
     default:
       return {
         variant: "destructive" as const,

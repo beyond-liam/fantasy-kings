@@ -2,7 +2,7 @@ import "server-only";
 
 import { and, eq } from "drizzle-orm";
 
-import { players, rosterPlayers, teams } from "@/db/schema";
+import { playerExternalIds, players, rosterPlayers, teams } from "@/db/schema";
 import type { RosterSlotConfig } from "@/db/schema/league-seasons";
 import { db } from "@/lib/db";
 import {
@@ -32,14 +32,23 @@ export async function listRosteredPlayers(teamId: string) {
       fullName: players.fullName,
       nflTeam: players.nflTeam,
       primaryPositionId: players.primaryPositionId,
+      byeWeek: players.byeWeek,
       injuryStatus: players.injuryStatus,
       yearsExp: players.yearsExp,
+      sleeperId: playerExternalIds.externalId,
       rosterRowId: rosterPlayers.id,
       slotPositionId: rosterPlayers.slotPositionId,
       taxiActivated: rosterPlayers.taxiActivated,
     })
     .from(rosterPlayers)
     .innerJoin(players, eq(rosterPlayers.playerId, players.id))
+    .leftJoin(
+      playerExternalIds,
+      and(
+        eq(playerExternalIds.playerId, players.id),
+        eq(playerExternalIds.provider, "sleeper"),
+      ),
+    )
     .where(
       and(
         eq(rosterPlayers.teamId, teamId),

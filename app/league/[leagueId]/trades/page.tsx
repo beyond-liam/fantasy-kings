@@ -10,6 +10,7 @@ import { TradeHistory } from "@/components/trades/trade-history";
 import { TradeList } from "@/components/trades/trade-list";
 import {
   Empty,
+  EmptyContent,
   EmptyDescription,
   EmptyHeader,
   EmptyMedia,
@@ -18,6 +19,7 @@ import {
 import { processReadyTrades } from "@/lib/actions/trades";
 import { getSessionUser } from "@/lib/auth/session";
 import { canProposeTrades } from "@/lib/leagues/trades/guards";
+import { resolveTradePartners } from "@/lib/leagues/trades/partners";
 import { resolveTransactionRules } from "@/lib/leagues/transaction-rules";
 import { getLeagueHomeData } from "@/lib/queries/leagues";
 import { getLeagueTrades, getTradeVetoSummaries } from "@/lib/queries/trades";
@@ -70,13 +72,11 @@ export default async function TradesPage({ params }: TradesPageProps) {
     (member) => member.userId === user.id && member.role === "commissioner",
   );
   const proposeGate = canProposeTrades(season);
-  const partners = data.members
-    .filter((member) => member.teamId && member.teamId !== team.id)
-    .map((member) => ({
-      id: member.teamId!,
-      name: member.teamName ?? "Team",
-      slug: member.teamSlug ?? member.teamId!,
-    }));
+  const partners = resolveTradePartners({
+    myTeamId: team.id,
+    members: data.members,
+    seasonTeams: data.standingsTeams,
+  });
 
   return (
     <div className="flex flex-1 flex-col gap-5 p-4 sm:gap-6 sm:p-6">
@@ -84,7 +84,7 @@ export default async function TradesPage({ params }: TradesPageProps) {
         <h1 className="text-2xl font-semibold tracking-tight text-balance">
           Trades
         </h1>
-        {proposeGate.ok ? (
+        {proposeGate.ok && trades.length > 0 ? (
           <ProposeTradeDialog leagueSlug={slug} partners={partners} />
         ) : null}
       </div>
@@ -98,6 +98,25 @@ export default async function TradesPage({ params }: TradesPageProps) {
             <EmptyTitle>Trades unavailable</EmptyTitle>
             <EmptyDescription>{proposeGate.error}</EmptyDescription>
           </EmptyHeader>
+        </Empty>
+      ) : trades.length === 0 ? (
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <HugeiconsIcon icon={UserSwitchIcon} strokeWidth={2} />
+            </EmptyMedia>
+            <EmptyTitle>No open trades right now</EmptyTitle>
+            <EmptyDescription>
+              Propose a trade when you are ready to shake up your roster.
+            </EmptyDescription>
+          </EmptyHeader>
+          <EmptyContent>
+            <ProposeTradeDialog
+              leagueSlug={slug}
+              partners={partners}
+              label="Propose Trade"
+            />
+          </EmptyContent>
         </Empty>
       ) : (
         <>

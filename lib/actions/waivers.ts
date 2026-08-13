@@ -19,6 +19,13 @@ import {
   countsTowardRosterMax,
   getMaxRosterSize,
 } from "@/lib/leagues/roster-capacity";
+import { compareRosterPositions } from "@/lib/leagues/roster-position-order";
+import {
+  classifyDropCandidatesForMinimums,
+  firstRosterMinimumError,
+  simulateRosterAfterMutation,
+  wouldBreachRosterMinimums,
+} from "@/lib/leagues/roster-minimums";
 import { pickOpenReserveAcquisitionSlot } from "@/lib/leagues/roster/acquisition";
 import { getAcquisitionKind } from "@/lib/leagues/waivers/acquisition";
 import {
@@ -33,6 +40,7 @@ import {
   findSeasonRosterRows,
   listRosteredPlayers,
 } from "@/lib/leagues/roster-writes";
+import { resolveTransactionRules } from "@/lib/leagues/transaction-rules";
 import { resolveWaiverWireSettings } from "@/lib/leagues/waiver-wire";
 import {
   isWaiverClaimOrderLocked,
@@ -74,6 +82,10 @@ export type ClaimContextResult =
         fullName: string;
         nflTeam: string | null;
         primaryPositionId: string;
+        sleeperId: string | null;
+        byeWeek: number | null;
+        minimumBlocked?: boolean;
+        minimumBlockReason?: string | null;
       }>;
       requiresDrop: boolean;
       waiverType: "priority" | "faab";
@@ -146,7 +158,8 @@ export async function getClaimContext(
     }) != null;
   const requiresDrop = rosterFull && !canPlaceOnReserve;
 
-  const cutCandidates = rosteredOnTeam
+  const rules = resolveTransactionRules(season.settings.transactionRules);
+  const activeCuts = rosteredOnTeam
     .filter((row) =>
       countsTowardRosterMax(row.slotPositionId, row.primaryPositionId),
     )
@@ -155,8 +168,54 @@ export async function getClaimContext(
       fullName: row.fullName,
       nflTeam: row.nflTeam,
       primaryPositionId: row.primaryPositionId,
-    }))
-    .sort((a, b) => a.fullName.localeCompare(b.fullName));
+      sleeperId: row.sleeperId,
+      byeWeek: row.byeWeek,
+      slotPositionId: row.slotPositionId,
+    }));
+
+  const classified = classifyDropCandidatesForMinimums({
+    candidates: activeCuts,
+    roster: rosteredOnTeam,
+    rosterSlots: season.settings.rosterSlots,
+    enforce: rules.enforceRosterMinimums,
+    incoming: [
+      {
+        id: player.id,
+        primaryPositionId: player.primaryPositionId,
+        slotPositionId: null,
+      },
+    ],
+  });
+
+  const cutCandidates = [
+    ...classified.eligible.map((row) => ({
+      id: row.id,
+      fullName: row.fullName,
+      nflTeam: row.nflTeam,
+      primaryPositionId: row.primaryPositionId,
+      sleeperId: row.sleeperId,
+      byeWeek: row.byeWeek,
+      minimumBlocked: false as const,
+      minimumBlockReason: null,
+    })),
+    ...classified.ineligible.map(({ player: row, reason }) => ({
+      id: row.id,
+      fullName: row.fullName,
+      nflTeam: row.nflTeam,
+      primaryPositionId: row.primaryPositionId,
+      sleeperId: row.sleeperId,
+      byeWeek: row.byeWeek,
+      minimumBlocked: true as const,
+      minimumBlockReason: reason,
+    })),
+  ].toSorted((a, b) => {
+    const byPosition = compareRosterPositions(
+      a.primaryPositionId,
+      b.primaryPositionId,
+    );
+    if (byPosition !== 0) return byPosition;
+    return a.fullName.localeCompare(b.fullName);
+  });
 
   const wire = resolveWaiverWireSettings(
     season.settings.waiverWire,
@@ -367,6 +426,44 @@ export async function fileWaiverClaim(
           error: "Choose a player who counts toward roster size to drop.",
         };
       }
+    }
+
+    const rules = resolveTransactionRules(season.settings.transactionRules);
+    if (
+      rules.enforceRosterMinimums &&
+      wouldBreachRosterMinimums({
+        roster: rosteredOnTeam,
+        removeIds: [dropPlayerId],
+        add: [
+          {
+            id: player.id,
+            primaryPositionId: player.primaryPositionId,
+            slotPositionId: null,
+          },
+        ],
+        rosterSlots: season.settings.rosterSlots,
+        enforce: true,
+      })
+    ) {
+      return {
+        success: false,
+        error:
+          firstRosterMinimumError(
+            simulateRosterAfterMutation({
+              roster: rosteredOnTeam,
+              removeIds: [dropPlayerId],
+              add: [
+                {
+                  id: player.id,
+                  primaryPositionId: player.primaryPositionId,
+                  slotPositionId: null,
+                },
+              ],
+            }),
+            season.settings.rosterSlots,
+            true,
+          ) ?? "That drop would leave you under a roster minimum.",
+      };
     }
   }
 

@@ -124,6 +124,7 @@ async function checkPostTradeCapacity(input: {
   rosterByPlayer: Map<string, { primaryPositionId: string }>;
   rosterSlots: RosterSlotConfig[] | null | undefined;
   benchSlots: number;
+  enforceRosterMinimums: boolean;
 }): Promise<string | null> {
   const incomingFor = (offers: { playerId: string }[]) =>
     offers.map((offer) => ({
@@ -147,7 +148,7 @@ async function checkPostTradeCapacity(input: {
     dropIds: input.proposingDrops.map((drop) => drop.playerId),
     rosterSlots: input.rosterSlots,
     benchSlots: input.benchSlots,
-    enforceRosterMinimums: false,
+    enforceRosterMinimums: input.enforceRosterMinimums,
   });
   if (!proposingResult.ok) {
     return proposingResult.error;
@@ -162,7 +163,7 @@ async function checkPostTradeCapacity(input: {
     dropIds: input.receivingDrops.map((drop) => drop.playerId),
     rosterSlots: input.rosterSlots,
     benchSlots: input.benchSlots,
-    enforceRosterMinimums: false,
+    enforceRosterMinimums: input.enforceRosterMinimums,
   });
   if (!receivingResult.ok) {
     return receivingResult.error;
@@ -177,6 +178,7 @@ export async function executeTrade(input: {
   waiverWire: ReturnType<typeof resolveWaiverWireSettings>;
   rosterSlots: RosterSlotConfig[] | null | undefined;
   benchSlots: number;
+  enforceRosterMinimums?: boolean;
 }) {
   const tradeRows = await db
     .select({
@@ -344,6 +346,7 @@ export async function executeTrade(input: {
     rosterByPlayer,
     rosterSlots: input.rosterSlots,
     benchSlots: input.benchSlots,
+    enforceRosterMinimums: input.enforceRosterMinimums ?? false,
   });
   if (capacityError) {
     await invalidate("Trade invalidated — a roster would exceed its size limits.");

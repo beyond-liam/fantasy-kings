@@ -1,11 +1,13 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Cancel01Icon, TickDouble02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { toast } from "sonner";
 
+import { PlayerAvatar } from "@/components/rankings/player-avatar";
+import { formatPlayerSubtitle } from "@/components/rankings/player-identity";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -23,12 +25,15 @@ import {
   SelectContent,
   SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
 import type { RosterCutCandidate } from "@/lib/actions/roster";
 import { fileWaiverClaim } from "@/lib/actions/waivers";
 import type { WaiverActionResult } from "@/lib/actions/waivers";
+import { compareRosterPositions } from "@/lib/leagues/roster-position-order";
+import { cn } from "@/lib/utils";
 
 export type ClaimPlayerDialogState = {
   open: boolean;
@@ -47,9 +52,39 @@ type ClaimPlayerDialogProps = {
   onOpenChange: (open: boolean) => void;
 };
 
-function playerSubtitle(player: RosterCutCandidate) {
-  const team = player.nflTeam?.trim() || "FA";
-  return `${team} ${player.primaryPositionId}`;
+function DropPlayerOption({ player }: { player: RosterCutCandidate }) {
+  return (
+    <span className="flex min-w-0 items-center gap-2">
+      <PlayerAvatar
+        fullName={player.fullName}
+        sleeperId={player.sleeperId}
+        primaryPositionId={player.primaryPositionId}
+        nflTeam={player.nflTeam}
+        size="sm"
+      />
+      <span className="flex min-w-0 flex-col text-left">
+        <span className="truncate font-medium">{player.fullName}</span>
+        <span className="truncate text-[11px] leading-tight text-muted-foreground">
+          {formatPlayerSubtitle({
+            primaryPositionId: player.primaryPositionId,
+            nflTeam: player.nflTeam,
+            byeWeek: player.byeWeek,
+          })}
+        </span>
+      </span>
+    </span>
+  );
+}
+
+function sortCandidates(rows: RosterCutCandidate[]) {
+  return rows.toSorted((a, b) => {
+    const byPosition = compareRosterPositions(
+      a.primaryPositionId,
+      b.primaryPositionId,
+    );
+    if (byPosition !== 0) return byPosition;
+    return a.fullName.localeCompare(b.fullName);
+  });
 }
 
 export function ClaimPlayerDialog({
@@ -63,7 +98,17 @@ export function ClaimPlayerDialog({
   const [isPending, startTransition] = useTransition();
 
   const open = Boolean(state?.open);
-  const candidates = state?.cutCandidates ?? [];
+  const { eligible, ineligible } = useMemo(() => {
+    const rows = state?.cutCandidates ?? [];
+    return {
+      eligible: sortCandidates(rows.filter((row) => !row.minimumBlocked)),
+      ineligible: sortCandidates(rows.filter((row) => row.minimumBlocked)),
+    };
+  }, [state?.cutCandidates]);
+  const candidates = useMemo(
+    () => [...eligible, ...ineligible],
+    [eligible, ineligible],
+  );
   const selected =
     candidates.find((player) => player.id === dropPlayerId) ?? null;
   const isFaab = state?.waiverType === "faab";
@@ -81,6 +126,13 @@ export function ClaimPlayerDialog({
   const handleConfirm = () => {
     if (!state) return;
     if (state.requiresDrop && !dropPlayerId) return;
+    if (selected?.minimumBlocked) {
+      toast.error(
+        selected.minimumBlockReason ??
+          "That drop would leave you under a roster minimum.",
+      );
+      return;
+    }
 
     const parsedBid = isFaab ? Number(bid) : null;
     if (isFaab && (!Number.isFinite(parsedBid) || parsedBid === null)) {
@@ -128,7 +180,7 @@ export function ClaimPlayerDialog({
           </DialogDescription>
         </DialogHeader>
 
-                <div className="grid gap-4">
+        <div className="grid gap-4">
           {isFaab ? (
             <div className="grid gap-2">
               <Label htmlFor="faab-bid">Bid ($)</Label>
@@ -147,9 +199,7 @@ export function ClaimPlayerDialog({
           {state?.requiresDrop || candidates.length > 0 ? (
             <div className="grid gap-2">
               <Label>
-                {state?.requiresDrop
-                  ? "Player to drop"
-                  : "Optional drop"}
+                {state?.requiresDrop ? "Player to drop" : "Optional drop"}
               </Label>
               {candidates.length === 0 ? (
                 <Empty className="border-none" size="sm">
@@ -171,7 +221,10 @@ export function ClaimPlayerDialog({
                     setDropPlayerId(value ? String(value) : null);
                   }}
                 >
-                  <SelectTrigger className="w-full" aria-label="Player to drop">
+                  <SelectTrigger
+                    className="h-auto min-h-9 w-full py-1.5"
+                    aria-label="Player to drop"
+                  >
                     <SelectValue
                       placeholder={
                         state?.requiresDrop
@@ -179,27 +232,56 @@ export function ClaimPlayerDialog({
                           : "Optional — select a player to drop"
                       }
                     >
-                      {selected ? selected.fullName : null}
+                      {selected ? <DropPlayerOption player={selected} /> : null}
                     </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectGroup>
-                      {candidates.map((player) => (
-                        <SelectItem key={player.id} value={player.id}>
-                          <span className="font-medium">{player.fullName}</span>
-                          <span className="text-xs text-muted-foreground">
-                            {playerSubtitle(player)}
-                          </span>
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
+                    {eligible.length > 0 ? (
+                      <SelectGroup>
+                        {ineligible.length > 0 ? (
+                          <SelectLabel>Eligible</SelectLabel>
+                        ) : null}
+                        {eligible.map((player) => (
+                          <SelectItem key={player.id} value={player.id}>
+                            <DropPlayerOption player={player} />
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    ) : null}
+                    {ineligible.length > 0 ? (
+                      <SelectGroup>
+                        <SelectLabel>Below roster minimum</SelectLabel>
+                        {ineligible.map((player) => (
+                          <SelectItem
+                            key={player.id}
+                            value={player.id}
+                            disabled
+                            className="opacity-60"
+                          >
+                            <span className="flex min-w-0 flex-col gap-0.5">
+                              <DropPlayerOption player={player} />
+                              {player.minimumBlockReason ? (
+                                <span className="text-[10px] text-muted-foreground">
+                                  {player.minimumBlockReason}
+                                </span>
+                              ) : null}
+                            </span>
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    ) : null}
                   </SelectContent>
                 </Select>
               )}
+              {eligible.length === 0 && ineligible.length > 0 ? (
+                <p className={cn("text-xs text-muted-foreground")}>
+                  Every drop would leave you under a roster minimum.
+                </p>
+              ) : null}
             </div>
           ) : null}
         </div>
-        
+
         <DialogFooter>
           <Button
             type="button"
@@ -219,7 +301,8 @@ export function ClaimPlayerDialog({
             disabled={
               isPending ||
               Boolean(state?.requiresDrop && !dropPlayerId) ||
-              Boolean(state?.requiresDrop && candidates.length === 0)
+              Boolean(state?.requiresDrop && eligible.length === 0) ||
+              Boolean(selected?.minimumBlocked)
             }
             onClick={handleConfirm}
           >

@@ -30,6 +30,8 @@ export const trades = pgTable(
       .references(() => teams.id, { onDelete: "cascade" }),
     status: tradeStatusEnum("status").notNull().default("pending"),
     comment: text("comment"),
+    /** When set, pending offers auto-cancel after this time. */
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
     /** When review_24h processing applies — trade auto-completes after this time. */
     reviewEndsAt: timestamp("review_ends_at", { withTimezone: true }),
     counterpartyAcceptedAt: timestamp("counterparty_accepted_at", {
@@ -62,6 +64,11 @@ export const trades = pgTable(
     index("trades_receiving_pending_idx")
       .on(table.receivingTeamId)
       .where(sql`${table.status} = 'pending'`),
+    index("trades_expires_pending_idx")
+      .on(table.expiresAt)
+      .where(
+        sql`${table.status} = 'pending' AND ${table.expiresAt} IS NOT NULL`,
+      ),
   ],
 );
 

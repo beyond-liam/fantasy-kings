@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition, type ReactNode } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { move } from "@dnd-kit/helpers";
 import { DragDropProvider } from "@dnd-kit/react";
@@ -12,6 +13,7 @@ import {
   FlashIcon,
   SquareLock02Icon,
   UserAdd01Icon,
+  UserGroupIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { toast } from "sonner";
@@ -25,6 +27,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Empty,
+  EmptyContent,
   EmptyDescription,
   EmptyHeader,
   EmptyMedia,
@@ -364,6 +367,19 @@ export function TeamWaiversSection({
               Claims you file from Players will show up here until processing.
             </EmptyDescription>
           </EmptyHeader>
+          <EmptyContent>
+            <Button
+              nativeButton={false}
+              render={<Link href={`/league/${leagueSlug}/players`} />}
+            >
+              <HugeiconsIcon
+                icon={UserGroupIcon}
+                strokeWidth={2}
+                data-icon="inline-start"
+              />
+              Browse Players
+            </Button>
+          </EmptyContent>
         </Empty>
       ) : (
         <>

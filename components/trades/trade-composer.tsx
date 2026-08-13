@@ -22,6 +22,10 @@ import {
   PopoverTitle,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  classifyDropCandidatesForMinimums,
+  wouldOfferingBreachRosterMinimums,
+} from "@/lib/leagues/roster-minimums";
 import { listDropCandidates } from "@/lib/leagues/trades/validate";
 import { hasUpcomingKickoffWithinHours } from "@/lib/leagues/trades/week-hold";
 import { myTeamPath } from "@/lib/leagues/utils";
@@ -56,6 +60,7 @@ type TradeComposerProps = {
   rosterSlots: RosterSlotConfig[] | null | undefined;
   benchSlots: number;
   tradeProcessing?: string;
+  enforceRosterMinimums?: boolean;
   /** ISO kickoff times keyed by NFL abbreviation (upper). */
   kickoffsByNflTeam?: Record<string, string>;
 };
@@ -193,6 +198,7 @@ export function TradeComposer({
   rosterSlots,
   benchSlots,
   tradeProcessing,
+  enforceRosterMinimums = false,
   kickoffsByNflTeam = {},
 }: TradeComposerProps) {
   const [myOfferIds, setMyOfferIds] = useState(
@@ -213,6 +219,42 @@ export function TradeComposer({
     () => partnerRoster.filter((player) => theirOfferIds.has(player.id)),
     [partnerRoster, theirOfferIds],
   );
+
+  const myMinimumBlockedOfferIds = useMemo(() => {
+    if (!enforceRosterMinimums) return new Set<string>();
+    const receiving = theirOfferPlayers.map((player) => ({
+      id: player.id,
+      slotPositionId: player.slotPositionId,
+      primaryPositionId: player.primaryPositionId,
+    }));
+    const roster = myRoster.map((player) => ({
+      id: player.id,
+      slotPositionId: player.slotPositionId,
+      primaryPositionId: player.primaryPositionId,
+    }));
+    const blocked = new Set<string>();
+    for (const player of myRoster) {
+      if (
+        wouldOfferingBreachRosterMinimums({
+          roster,
+          offeringIds: myOfferIds,
+          receiving,
+          playerId: player.id,
+          rosterSlots,
+          enforce: true,
+        })
+      ) {
+        blocked.add(player.id);
+      }
+    }
+    return blocked;
+  }, [
+    enforceRosterMinimums,
+    myRoster,
+    myOfferIds,
+    theirOfferPlayers,
+    rosterSlots,
+  ]);
 
   const warnWeekEndFromKickoff =
     tradeProcessing === "review_24h" &&
@@ -255,20 +297,35 @@ export function TradeComposer({
       primaryPositionId: player.primaryPositionId,
     }));
 
+    const proposing = listDropCandidates(
+      myRosterSim,
+      [...myOfferIds],
+      myReceiving,
+      rosterSlots,
+      benchSlots,
+    );
+    const receiving = listDropCandidates(
+      theirRosterSim,
+      [...theirOfferIds],
+      theirReceiving,
+      rosterSlots,
+      benchSlots,
+    );
+
+    const proposingMin = classifyDropCandidatesForMinimums({
+      candidates: proposing.candidates,
+      roster: myRosterSim,
+      rosterSlots,
+      enforce: enforceRosterMinimums,
+      incoming: myReceiving,
+      alsoRemovingIds: myOfferIds,
+    });
+
     return {
-      proposing: listDropCandidates(
-        myRosterSim,
-        [...myOfferIds],
-        myReceiving,
-        rosterSlots,
-        benchSlots,
-      ),
-      receiving: listDropCandidates(
-        theirRosterSim,
-        [...theirOfferIds],
-        theirReceiving,
-        rosterSlots,
-        benchSlots,
+      proposing,
+      receiving,
+      proposingMinimumBlockedIds: new Set(
+        proposingMin.ineligible.map((row) => row.player.id),
       ),
     };
   }, [
@@ -280,9 +337,13 @@ export function TradeComposer({
     theirOfferPlayers,
     rosterSlots,
     benchSlots,
+    enforceRosterMinimums,
   ]);
 
-  const handlePropose = (comment: string) => {
+  const handlePropose = (input: {
+    comment: string;
+    expiresAt: Date | null;
+  }) => {
     stashPendingTradePropose({
       leagueSlug,
       receivingTeamId: partner.id,
@@ -290,7 +351,8 @@ export function TradeComposer({
       receivingOfferIds: [...theirOfferIds],
       proposingDropIds,
       receivingDropIds,
-      comment,
+      comment: input.comment,
+      expiresAt: input.expiresAt?.toISOString() ?? null,
       ...(counterOfTradeId ? { counterOfTradeId } : {}),
     });
 
@@ -334,6 +396,7 @@ export function TradeComposer({
           selectedIds={myOfferIds}
           onToggle={(id) => setMyOfferIds((current) => toggleSet(current, id))}
           leagueSlug={leagueSlug}
+          blockedIds={myMinimumBlockedOfferIds}
         />
         <TradeRosterTable
           teamName={partner.name}
@@ -391,6 +454,7 @@ export function TradeComposer({
           .map((player) => myRoster.find((row) => row.id === player.id))
           .filter((row): row is TradePlayerRow => Boolean(row))}
         proposingDropAnalysis={dropPreview.proposing.analysis}
+        proposingMinimumBlockedIds={dropPreview.proposingMinimumBlockedIds}
         receivingDropsNeeded={dropPreview.receiving.needed}
         proposingDropIds={proposingDropIds}
         onProposingDropsChange={setProposingDropIds}

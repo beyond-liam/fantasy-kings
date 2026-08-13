@@ -332,7 +332,7 @@ export function TransactionRulesSettings({
           <YesNoField
             id="enforceRosterMinimums"
             label="Enforce roster minimums"
-            description="Block drops that would leave a team under the roster minimum."
+            description="Block cuts, claims, and trades that would leave a team below a position’s configured minimum. IR and Taxi don’t count toward the minimum."
             value={values.enforceRosterMinimums}
             onChange={(enforceRosterMinimums) =>
               patch({ enforceRosterMinimums })

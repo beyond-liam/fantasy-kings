@@ -77,6 +77,11 @@ function stripTrailingParenthetical(summary: string): string {
   return summary.replace(/\s*\([^)]+\)(?=\.?$)/, "").replace(/\s+\./, ".");
 }
 
+/** Activity headings are sentence fragments — no terminal period. */
+function stripTrailingPeriod(summary: string): string {
+  return summary.replace(/\.+$/, "").trimEnd();
+}
+
 const ALL_TYPES = "all";
 const PAGE_SIZE = 20;
 
@@ -142,7 +147,7 @@ const ACTIVITY_META: Record<
   {
     label: string;
     icon: IconSvgElement;
-    tone: "success" | "destructive" | "info";
+    tone: "success" | "destructive" | "info" | "warning";
   }
 > = {
   player_added: {
@@ -158,7 +163,7 @@ const ACTIVITY_META: Record<
   ir_added: {
     label: "IR added",
     icon: Hospital01Icon,
-    tone: "destructive",
+    tone: "warning",
   },
   ir_removed: {
     label: "IR removed",
@@ -166,12 +171,12 @@ const ACTIVITY_META: Record<
     tone: "success",
   },
   taxi_added: {
-    label: "Taxi added",
+    label: "Taxi squad",
     icon: CarTaxiFrontIcon,
-    tone: "destructive",
+    tone: "warning",
   },
   taxi_removed: {
-    label: "Taxi removed",
+    label: "Active roster",
     icon: CarTaxiFrontIcon,
     tone: "success",
   },
@@ -227,10 +232,14 @@ const ACTIVITY_META: Record<
   },
 };
 
-const ACTIVITY_TONE_CLASS: Record<"success" | "destructive" | "info", string> = {
+const ACTIVITY_TONE_CLASS: Record<
+  "success" | "destructive" | "info" | "warning",
+  string
+> = {
   success: "bg-success/10 text-success",
   destructive: "bg-destructive/10 text-destructive",
   info: "bg-info/10 text-info",
+  warning: "bg-warning/10 text-warning",
 };
 
 function resolveActivitySummary(item: LeagueActivityRow): string {
@@ -238,14 +247,16 @@ function resolveActivitySummary(item: LeagueActivityRow): string {
     const label = formatSettingsActivityLabel(
       item.metadata?.settingsLabel?.trim() || "league settings",
     );
-    return `Commissioner updated ${label}.`;
+    return stripTrailingPeriod(`Commissioner updated ${label}`);
   }
 
   const liveName = item.teamName?.trim();
   if (!liveName) {
-    return TRADE_ACTIVITY_TYPES.has(item.type)
-      ? stripTrailingParenthetical(item.summary)
-      : item.summary;
+    return stripTrailingPeriod(
+      TRADE_ACTIVITY_TYPES.has(item.type)
+        ? stripTrailingParenthetical(item.summary)
+        : item.summary,
+    );
   }
 
   const playerName =
@@ -263,9 +274,9 @@ function resolveActivitySummary(item: LeagueActivityRow): string {
       case "ir_removed":
         return `${liveName} removed ${playerName} from IR`;
       case "taxi_added":
-        return `${liveName} added ${playerName} to taxi`;
+        return `${liveName} moved ${playerName} to their taxi squad`;
       case "taxi_removed":
-        return `${liveName} removed ${playerName} from taxi`;
+        return `${liveName} moved ${playerName} to their active roster`;
       case "waiver_awarded": {
         const bidPart =
           meta?.waiverType === "faab" && meta.bid != null
@@ -275,7 +286,7 @@ function resolveActivitySummary(item: LeagueActivityRow): string {
         const dropPart = meta?.dropPlayerName
           ? ` (dropped ${meta.dropPlayerName})`
           : "";
-        return `${liveName} claimed ${playerName}${bidPart}${dropPart}.`;
+        return `${liveName} claimed ${playerName}${bidPart}${dropPart}`;
       }
       case "draft_pick": {
         const pickPart =
@@ -297,7 +308,7 @@ function resolveActivitySummary(item: LeagueActivityRow): string {
   if (item.type === "member_removed") {
     const removed =
       meta?.removedDisplayName?.trim() || meta?.teamName?.trim() || "A manager";
-    return `${removed} was removed from the league.`;
+    return `${removed} was removed from the league`;
   }
 
   const staleName = meta?.teamName?.trim();
@@ -307,10 +318,10 @@ function resolveActivitySummary(item: LeagueActivityRow): string {
   }
 
   if (TRADE_ACTIVITY_TYPES.has(item.type)) {
-    return stripTrailingParenthetical(summary);
+    return stripTrailingPeriod(stripTrailingParenthetical(summary));
   }
 
-  return summary;
+  return stripTrailingPeriod(summary);
 }
 
 function formatClaimResolutionLine(

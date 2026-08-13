@@ -8,6 +8,7 @@ import {
   type ScoringPreset,
 } from "@/lib/leagues/scoring";
 import { canProposeTrades } from "@/lib/leagues/trades/guards";
+import { resolveTransactionRules } from "@/lib/leagues/transaction-rules";
 import {
   parseTradeComposerIds,
   tradeComposerPath,
@@ -148,6 +149,10 @@ export default async function NewTradePage({
     [...kickoffs.entries()].map(([abbr, date]) => [abbr, date.toISOString()]),
   );
 
+  const transactionRules = resolveTransactionRules(
+    season.settings.transactionRules,
+  );
+
   // Drop IDs that are no longer on the roster (e.g. waived since propose).
   // Still open the composer — especially for counter-offers.
   const initialWantIds = parseTradeComposerIds(query.want).filter((id) =>
@@ -172,6 +177,7 @@ export default async function NewTradePage({
         rosterSlots={season.settings.rosterSlots}
         benchSlots={season.benchSlots}
         tradeProcessing={season.tradeProcessing}
+        enforceRosterMinimums={transactionRules.enforceRosterMinimums}
         kickoffsByNflTeam={kickoffsByNflTeam}
       />
     </div>

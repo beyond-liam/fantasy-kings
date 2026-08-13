@@ -99,7 +99,7 @@ export function formatPlayerSubtitle({
     ? `${nflTeam}${resolvedBye != null ? ` (${resolvedBye})` : ""}`
     : null;
   const base = teamBye
-    ? `${primaryPositionId} - ${teamBye}`
+    ? `${primaryPositionId} ${teamBye}`
     : primaryPositionId;
 
   return record ? `${base} · ${record}` : base;
@@ -150,7 +150,7 @@ export function PlayerIdentity({
         >
           {fullName}
         </span>
-        <span className="truncate text-xs text-muted-foreground">
+        <span className="truncate text-[11px] leading-tight text-muted-foreground">
           {subtitle}
         </span>
       </div>

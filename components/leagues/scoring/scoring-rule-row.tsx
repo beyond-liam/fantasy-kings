@@ -21,14 +21,14 @@ export function ScoringRuleRow({
   const applyLabel = formatScoringPositions(rule.positions);
 
   return (
-    <div className="flex items-center justify-between gap-4 px-4 py-3">
+    <div className="flex flex-col gap-3 px-4 py-3 @min-[28rem]:flex-row @min-[28rem]:items-center @min-[28rem]:justify-between @min-[28rem]:gap-4">
       <div className="min-w-0 flex-1">
         <ScoringRuleText segments={rule.segments} />
       </div>
-      <div className="flex shrink-0 items-center gap-2 self-center">
+      <div className="flex items-center justify-between gap-3 @min-[28rem]:justify-end @min-[28rem]:gap-2">
         <span
           className={cn(
-            "text-xs font-medium uppercase tracking-wide",
+            "min-w-0 text-xs font-medium tracking-wide text-pretty uppercase",
             applyLabel === "None"
               ? "text-muted-foreground"
               : "text-foreground",
@@ -36,28 +36,30 @@ export function ScoringRuleRow({
         >
           {applyLabel}
         </span>
-        <Separator
-          orientation="vertical"
-          className="ml-2 h-4 self-center data-vertical:h-4 data-vertical:self-center"
-        />
-        <Button
-          type="button"
-          variant="secondary"
-          size="icon-sm"
-          aria-label={`Edit ${rule.stat}`}
-          onClick={() => onEdit(rule)}
-        >
-          <HugeiconsIcon icon={PencilEdit02Icon} strokeWidth={2} />
-        </Button>
-        <Button
-          type="button"
-          variant="ghost-destructive"
-          size="icon-sm"
-          aria-label={`Delete ${rule.stat}`}
-          onClick={() => onDelete(rule.id)}
-        >
-          <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} />
-        </Button>
+        <div className="flex shrink-0 items-center gap-2">
+          <Separator
+            orientation="vertical"
+            className="hidden h-4 self-center data-vertical:h-4 data-vertical:self-center @min-[28rem]:ml-2 @min-[28rem]:block"
+          />
+          <Button
+            type="button"
+            variant="secondary"
+            size="icon-sm"
+            aria-label={`Edit ${rule.stat}`}
+            onClick={() => onEdit(rule)}
+          >
+            <HugeiconsIcon icon={PencilEdit02Icon} strokeWidth={2} />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost-destructive"
+            size="icon-sm"
+            aria-label={`Delete ${rule.stat}`}
+            onClick={() => onDelete(rule.id)}
+          >
+            <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} />
+          </Button>
+        </div>
       </div>
     </div>
   );

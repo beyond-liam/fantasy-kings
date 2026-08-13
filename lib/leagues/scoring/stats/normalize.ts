@@ -3,6 +3,7 @@ import type {
   ScoringRuleDefinition,
   ScoringRuleKind,
 } from "@/lib/leagues/scoring/types";
+import { DEFENSE_STATS } from "@/lib/leagues/scoring/stats/defense";
 
 const DISTANCE_KINDS = new Set<ScoringRuleKind>([
   "td_range",
@@ -16,8 +17,9 @@ const DISTANCE_KINDS = new Set<ScoringRuleKind>([
 
 /**
  * Map stored/preset rule labels onto the catalog Stat dropdown labels.
- * Each catalog label is one picker option — once any rule uses it, that option
- * should be disabled so the same rule cannot be added twice.
+ * Each catalog label is one picker option — once any rule uses a given
+ * stat+kind combo, that option is disabled so the same rule cannot be
+ * added twice (except stats marked allowMultiple, e.g. Points Allowed tiers).
  */
 const CATALOG_STAT_BY_CATEGORY: Partial<
   Record<ScoringCategory, Record<string, string>>
@@ -128,6 +130,12 @@ const CATALOG_STAT_BY_CATEGORY: Partial<
     "Conversion Return": "Conversion Returns",
     "Conversion Returns": "Conversion Returns",
     "Points Allowed": "Points Allowed",
+    "Offensive Points Allowed (FG, Pass TD, Rush TD)":
+      "Offensive Points Allowed (FG, Pass TD, Rush TD)",
+    "Special Teams Points Allowed (Return TD, XP, 2-Pt Conv)":
+      "Special Teams Points Allowed (Return TD, XP, 2-Pt Conv)",
+    "Offensive + Special Teams Points Allowed":
+      "Offensive + Special Teams Points Allowed",
   },
   misc: {
     Fumble: "Fumbles",
@@ -301,6 +309,18 @@ export function getCatalogComboKey(
   return `${combo.stat}::${combo.kind}`;
 }
 
+/**
+ * Catalog stats that may appear more than once (tiered bonuses).
+ * Derived from defense stats flagged `allowMultiple`.
+ */
+const ALLOW_MULTIPLE_CATALOG_STATS = new Set(
+  DEFENSE_STATS.filter((stat) => stat.allowMultiple).map((stat) => stat.label),
+);
+
+export function catalogStatAllowsMultiple(stat: string): boolean {
+  return ALLOW_MULTIPLE_CATALOG_STATS.has(stat);
+}
+
 export function getUsedCatalogCombos(
   rules: Pick<ScoringRuleDefinition, "id" | "category" | "stat" | "kind">[],
   options: {
@@ -316,7 +336,11 @@ export function getUsedCatalogCombos(
     if (options.excludeRuleId && rule.id === options.excludeRuleId) {
       continue;
     }
-    used.add(getCatalogComboKey(normalizeRuleToCatalogCombo(rule)));
+    const combo = normalizeRuleToCatalogCombo(rule);
+    if (catalogStatAllowsMultiple(combo.stat)) {
+      continue;
+    }
+    used.add(getCatalogComboKey(combo));
   }
   return used;
 }

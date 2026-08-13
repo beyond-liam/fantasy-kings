@@ -15,6 +15,11 @@ export type ScoringStatDefinition = {
   label: string;
   category: ScoringCategory;
   templateSet: ScoringStatTemplateSet;
+  /**
+   * When true, the same catalog stat+kind can be added multiple times
+   * (e.g. Points Allowed tiers with different thresholds).
+   */
+  allowMultiple?: boolean;
 };
 
 export type ScoringRuleTemplate = {

@@ -192,24 +192,28 @@ export const DEFENSE_STATS: ScoringStatDefinition[] = [
     label: "Points Allowed",
     category: "defense",
     templateSet: "quantity",
+    allowMultiple: true,
   },
   {
     id: "offensive-points-allowed",
     label: "Offensive Points Allowed (FG, Pass TD, Rush TD)",
     category: "defense",
     templateSet: "quantity",
+    allowMultiple: true,
   },
   {
     id: "special-teams-points-allowed",
     label: "Special Teams Points Allowed (Return TD, XP, 2-Pt Conv)",
     category: "defense",
     templateSet: "quantity",
+    allowMultiple: true,
   },
   {
     id: "offensive-special-teams-points-allowed",
     label: "Offensive + Special Teams Points Allowed",
     category: "defense",
     templateSet: "quantity",
+    allowMultiple: true,
   },
   {
     id: "net-yards-allowed",

@@ -16,6 +16,8 @@ export function formatTradeStatusLabel(status: string) {
       return "Rejected";
     case "cancelled":
       return "Cancelled";
+    case "expired":
+      return "Trade expired";
     case "commissioner_rejected":
       return "Commissioner rejected";
     case "vetoed":
@@ -36,6 +38,17 @@ export function formatTradeProcessCountdown(reviewEndsAt: Date | null) {
     return "Processing soon";
   }
   return `Processes in ${formatDistanceToNowStrict(reviewEndsAt)}`;
+}
+
+export function formatTradeOfferExpiryCountdown(expiresAt: Date | null) {
+  if (!expiresAt) {
+    return null;
+  }
+  const now = Date.now();
+  if (expiresAt.getTime() <= now) {
+    return "Expiring soon";
+  }
+  return `Expires in ${formatDistanceToNowStrict(expiresAt)}`;
 }
 
 export function resolveNextStatusOnAccept(

@@ -1,7 +1,7 @@
 # Fantasy Kings — Project Specification
 
 > Living document. Update this file as requirements, decisions, and scope change.
-> Last updated: 2026-08-12
+> Last updated: 2026-08-13
 
 ---
 
@@ -23,8 +23,8 @@ A mobile-first fantasy football web app for a private friend group (4–16 users
 |---|---|
 | Auth / leagues | Email/password auth, create/join, multi-league, settings |
 | Scoring | Offense engine + commissioner scoring UI; **minimal IDP defaults** (CB/S/DT/DE/LB) |
-| Roster | Lineup / IR / taxi (eligibility), FA add/cut, lineup-lock enforce; cut/slot lock after NFL game start |
-| Waivers / trades | FAAB + rolling, claims (grouped by process date), vetoes, limits, crons, alerts; optional daily drop processing; trade week-end hold for started players |
+| Roster | Lineup / IR / taxi (eligibility), FA add/cut, lineup-lock enforce; cut/slot lock after NFL game start; optional enforce position roster minimums on cuts/claims/trades |
+| Waivers / trades | FAAB + rolling, claims (grouped by process date), vetoes, limits, crons, alerts; optional daily drop processing; trade week-end hold for started players; optional trade offer expiry |
 | Draft | Live + email/slow same room; Brevo turn emails; mock draft; timed email daily UK pause window |
 | Matchups | Week board, Game Centre, standings from finals, Live/Final badges |
 | Live scores | Sleeper near-live + ESPN athlete boxscores → `player_scores` |
@@ -729,6 +729,9 @@ lib/
 
 | Date | Change |
 |---|---|
+| 2026-08-13 | Activity: log `ir_added` / `taxi_added` when FA adds or waiver awards land directly on IR/Taxi |
+| 2026-08-13 | Trade offer expiry presets on confirm dialog; pending offers auto-expire to `expired` status via cron / page process |
+| 2026-08-13 | Enforce roster minimums: shared helper; cuts/claims/waiver awards/trades; UI eligible vs below-min drop groups; settings copy |
 | 2026-08-12 | Roster/trades/waivers: cut+slot lock after game start; pending claims grouped by process date; trades with started players held to week end; 24h review kickoff warning |
 | 2026-08-12 | Waiver Wire: daily drops + independent 24/48 clear timer; +2h FCFS only after weekly; hardcoded drops-and-FAs + always-waive-on-drop |
 | 2026-08-12 | Waiver Wire: optional daily drop processing (unplayed drops process daily; already-played / game-day drops wait for the weekly day; default off) |

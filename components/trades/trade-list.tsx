@@ -15,6 +15,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { toast } from "sonner";
 
 import { TradeAcceptDialog } from "@/components/trades/trade-accept-dialog";
+import { TradeCountdownLabel } from "@/components/trades/trade-countdown-label";
 import {
   TradeCardHeader,
   TradeSidesPanel,
@@ -38,7 +39,6 @@ import {
 } from "@/lib/actions/trades";
 import type { TradeAcceptCandidate, TradeActionResult } from "@/lib/actions/trades";
 import {
-  formatTradeProcessCountdown,
   resolveNextStatusOnAccept,
   reviewEndsAtFromNow,
 } from "@/lib/leagues/trades/status";
@@ -235,7 +235,12 @@ export function TradeList({
         const isProposer = trade.proposingTeamId === myTeamId;
         const isReceiver = trade.receivingTeamId === myTeamId;
         const isInvolved = isProposer || isReceiver;
-        const countdown = formatTradeProcessCountdown(trade.reviewEndsAt);
+        const countdown =
+          trade.status === "pending" && trade.expiresAt ? (
+            <TradeCountdownLabel at={trade.expiresAt} kind="expires" />
+          ) : trade.status === "review" && trade.reviewEndsAt ? (
+            <TradeCountdownLabel at={trade.reviewEndsAt} kind="processes" />
+          ) : null;
         const veto = localVetos[trade.id];
         const sides = resolveTradeSideViews(trade, myTeamId);
 

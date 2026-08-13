@@ -8,6 +8,8 @@ export type PendingTradePropose = {
   proposingDropIds: string[];
   receivingDropIds: string[];
   comment: string;
+  /** ISO timestamp; omit / null = never expires. */
+  expiresAt?: string | null;
   /** When set, reject this pending inbound trade after the counter is proposed. */
   counterOfTradeId?: string;
 };

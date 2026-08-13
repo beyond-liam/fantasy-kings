@@ -36,6 +36,7 @@ const CLOSED_STATUSES = [
   "completed",
   "rejected",
   "cancelled",
+  "expired",
   "commissioner_rejected",
   "vetoed",
   "invalidated",

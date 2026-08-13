@@ -35,7 +35,21 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  TRADE_OFFER_EXPIRY_OPTIONS,
+  isTradeOfferExpiryPreset,
+  resolveTradeOfferExpiresAt,
+  type TradeOfferExpiryPreset,
+} from "@/lib/leagues/trades/offer-expiry";
 import {
   areTradeDropsSatisfied,
   formatTradeDropAlert,
@@ -52,6 +66,7 @@ type TradeConfirmDialogProps = {
   offeringPlayers: TradePlayerRow[];
   proposingDropCandidates: TradePlayerRow[];
   proposingDropAnalysis: TradeDropAnalysis;
+  proposingMinimumBlockedIds?: Set<string>;
   receivingDropsNeeded: number;
   proposingDropIds: string[];
   onProposingDropsChange: (playerIds: string[]) => void;
@@ -60,7 +75,10 @@ type TradeConfirmDialogProps = {
   isCounter?: boolean;
   /** 24h review + a traded player kicks off within 24h. */
   warnWeekEndFromKickoff?: boolean;
-  onConfirm: (comment: string) => void;
+  onConfirm: (input: {
+    comment: string;
+    expiresAt: Date | null;
+  }) => void;
 };
 
 function PlayerLine({
@@ -102,12 +120,14 @@ function DropPlayerCombobox({
   selectedIds,
   onChange,
   leagueSlug,
+  minimumBlockedIds,
 }: {
   candidates: TradePlayerRow[];
   analysis: TradeDropAnalysis;
   selectedIds: string[];
   onChange: (playerIds: string[]) => void;
   leagueSlug: string;
+  minimumBlockedIds?: Set<string>;
 }) {
   const anchor = useComboboxAnchor();
   const byId = useMemo(
@@ -118,17 +138,19 @@ function DropPlayerCombobox({
     () =>
       new Set(
         candidates
-          .filter((player) =>
-            isDropPlayerSelectable(
-              analysis,
-              player,
-              selectedIds,
-              candidates,
-            ),
+          .filter(
+            (player) =>
+              !(minimumBlockedIds?.has(player.id) ?? false) &&
+              isDropPlayerSelectable(
+                analysis,
+                player,
+                selectedIds,
+                candidates,
+              ),
           )
           .map((player) => player.id),
       ),
-    [analysis, candidates, selectedIds],
+    [analysis, candidates, selectedIds, minimumBlockedIds],
   );
 
   return (
@@ -184,6 +206,8 @@ function DropPlayerCombobox({
               return null;
             }
             const selectable = selectableIds.has(player.id);
+            const minimumBlocked =
+              minimumBlockedIds?.has(player.id) ?? false;
             return (
               <ComboboxItem
                 key={player.id}
@@ -205,6 +229,11 @@ function DropPlayerCombobox({
                   playerId={player.id}
                   leagueSlug={leagueSlug}
                 />
+                {minimumBlocked ? (
+                  <span className="ml-auto text-[10px] text-muted-foreground">
+                    Below min
+                  </span>
+                ) : null}
               </ComboboxItem>
             );
           }}
@@ -221,6 +250,7 @@ export function TradeConfirmDialog({
   offeringPlayers,
   proposingDropCandidates,
   proposingDropAnalysis,
+  proposingMinimumBlockedIds,
   receivingDropsNeeded,
   proposingDropIds,
   onProposingDropsChange,
@@ -231,6 +261,8 @@ export function TradeConfirmDialog({
   onConfirm,
 }: TradeConfirmDialogProps) {
   const [comment, setComment] = useState("");
+  const [expiryPreset, setExpiryPreset] =
+    useState<TradeOfferExpiryPreset>("never");
 
   const dropsReady = areTradeDropsSatisfied(
     proposingDropAnalysis,
@@ -243,7 +275,15 @@ export function TradeConfirmDialog({
       : null;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) {
+          setExpiryPreset("never");
+        }
+        onOpenChange(next);
+      }}
+    >
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>
@@ -317,6 +357,7 @@ export function TradeConfirmDialog({
                   selectedIds={proposingDropIds}
                   onChange={onProposingDropsChange}
                   leagueSlug={leagueSlug}
+                  minimumBlockedIds={proposingMinimumBlockedIds}
                 />
               </div>
             ) : null}
@@ -327,6 +368,35 @@ export function TradeConfirmDialog({
               </p>
             ) : null}
           </div>
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="trade-offer-expiry">Offer expiry</Label>
+          <Select
+            items={TRADE_OFFER_EXPIRY_OPTIONS.map((option) => ({
+              value: option.value,
+              label: option.label,
+            }))}
+            value={expiryPreset}
+            onValueChange={(value) => {
+              if (value && isTradeOfferExpiryPreset(value)) {
+                setExpiryPreset(value);
+              }
+            }}
+          >
+            <SelectTrigger id="trade-offer-expiry" className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                {TRADE_OFFER_EXPIRY_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
         </div>
 
         <div className="flex flex-col gap-2">
@@ -343,7 +413,7 @@ export function TradeConfirmDialog({
             Transactions tab.
           </p>
         </div>
-        
+
         <DialogFooter>
           <Button
             type="button"
@@ -360,7 +430,12 @@ export function TradeConfirmDialog({
           <Button
             type="button"
             disabled={!dropsReady}
-            onClick={() => onConfirm(comment)}
+            onClick={() =>
+              onConfirm({
+                comment,
+                expiresAt: resolveTradeOfferExpiresAt(expiryPreset),
+              })
+            }
           >
             <HugeiconsIcon
               icon={ArrowLeftRightIcon}

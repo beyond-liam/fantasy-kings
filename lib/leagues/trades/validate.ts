@@ -7,6 +7,7 @@ import {
   getPositionRosterMax,
   validateActiveRosterCaps,
 } from "@/lib/leagues/roster-capacity";
+import { validateRosterMinimums } from "@/lib/leagues/roster-minimums";
 
 export type TradeRosterPlayer = {
   id: string;
@@ -17,50 +18,6 @@ export type TradeRosterPlayer = {
 export type TradeValidationResult =
   | { ok: true; dropsRequired: { teamId: string; count: number }[] }
   | { ok: false; errors: string[] };
-
-function slotMinForPosition(
-  rosterSlots: RosterSlotConfig[] | null | undefined,
-  positionId: string,
-) {
-  const slots = rosterSlots ?? [];
-  let min = 0;
-  for (const slot of slots) {
-    if (slot.positionId === positionId) {
-      min += slot.minSlots ?? 0;
-    }
-  }
-  return min;
-}
-
-function validateRosterMinimums(
-  players: TradeRosterPlayer[],
-  rosterSlots: RosterSlotConfig[] | null | undefined,
-  enforce: boolean,
-) {
-  if (!enforce) {
-    return [] as string[];
-  }
-
-  const errors: string[] = [];
-  const positionIds = new Set(players.map((player) => player.primaryPositionId));
-
-  for (const positionId of positionIds) {
-    const min = slotMinForPosition(rosterSlots, positionId);
-    if (min <= 0) {
-      continue;
-    }
-    const count = players.filter(
-      (player) => player.primaryPositionId === positionId,
-    ).length;
-    if (count < min) {
-      errors.push(
-        `Roster would be below the minimum ${positionId} count (${min}).`,
-      );
-    }
-  }
-
-  return errors;
-}
 
 export function simulatePostTradeRoster(input: {
   roster: TradeRosterPlayer[];

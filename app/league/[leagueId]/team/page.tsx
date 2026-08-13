@@ -25,6 +25,7 @@ import {
   isRosterTransactionsEnabled,
 } from "@/lib/leagues/free-agency";
 import { canProposeTrades } from "@/lib/leagues/trades/guards";
+import { resolveTradePartners } from "@/lib/leagues/trades/partners";
 import {
   formatIrLockMessage,
   getIrLockViolations,
@@ -284,6 +285,11 @@ export default async function MyTeamPage({
         }}
         wire={wire}
         isCommissioner={isCommissioner}
+        partners={resolveTradePartners({
+          myTeamId: team.id,
+          members: data.members,
+          seasonTeams: data.standingsTeams,
+        })}
       />,
     );
   } else if (activeTab === "draft-picks" && team) {

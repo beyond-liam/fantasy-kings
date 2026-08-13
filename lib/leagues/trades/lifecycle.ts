@@ -9,6 +9,7 @@ import {
   announceTradeCancelled,
   announceTradeCommissionerRejected,
   announceTradeCompleted,
+  announceTradeExpired,
   announceTradeProposed,
   announceTradeRejected,
   announceTradeVetoed,
@@ -49,6 +50,7 @@ export async function completeExpiredTrade(input: {
   waiverWire: WaiverWire;
   rosterSlots: RosterSlotConfig[] | null | undefined;
   benchSlots: number;
+  enforceRosterMinimums?: boolean;
 }): Promise<TradeLifecycleResult> {
   const trade = await db
     .select({
@@ -82,6 +84,7 @@ export async function completeExpiredTrade(input: {
     waiverWire: input.waiverWire,
     rosterSlots: input.rosterSlots,
     benchSlots: input.benchSlots,
+    enforceRosterMinimums: input.enforceRosterMinimums ?? false,
   });
   if (!result.success) {
     return { ok: false, error: result.error };
@@ -118,6 +121,7 @@ export async function commitTradeProposal(input: {
   proposingDropIds: string[];
   receivingDropIds: string[];
   comment: string | null;
+  expiresAt?: Date | null;
   counterOfTradeId?: string;
 }): Promise<TradeLifecycleResult> {
   const [trade] = await db
@@ -128,6 +132,7 @@ export async function commitTradeProposal(input: {
       receivingTeamId: input.receivingTeam.id,
       status: "pending",
       comment: input.comment,
+      expiresAt: input.expiresAt ?? null,
       createdByUserId: input.actor.userId,
     })
     .returning({ id: trades.id });
@@ -226,6 +231,7 @@ export async function acceptTradeOffer(input: {
   waiverWire: WaiverWire;
   rosterSlots: RosterSlotConfig[] | null | undefined;
   benchSlots: number;
+  enforceRosterMinimums?: boolean;
 }): Promise<TradeLifecycleResult> {
   if (input.receivingDropIds.length > 0) {
     await db.insert(tradePlayers).values(
@@ -296,6 +302,7 @@ export async function acceptTradeOffer(input: {
       waiverWire: input.waiverWire,
       rosterSlots: input.rosterSlots,
       benchSlots: input.benchSlots,
+      enforceRosterMinimums: input.enforceRosterMinimums ?? false,
     });
     if (!result.success) {
       await cleanupReceivingDrops();
@@ -441,6 +448,47 @@ export async function cancelTradeOffer(input: {
   return { ok: true, tradeId: input.tradeId };
 }
 
+/**
+ * Mark a pending offer expired. Returns false if it was no longer pending
+ * (accepted/cancelled/etc. won the race).
+ */
+export async function expireTradeOffer(input: {
+  tradeId: string;
+  league: TradeLeagueRef;
+}): Promise<TradeLifecycleResult> {
+  const [expired] = await db
+    .update(trades)
+    .set({ status: "expired", updatedAt: new Date() })
+    .where(
+      and(
+        eq(trades.id, input.tradeId),
+        eq(trades.status, "pending"),
+      ),
+    )
+    .returning({
+      id: trades.id,
+      proposingTeamId: trades.proposingTeamId,
+      receivingTeamId: trades.receivingTeamId,
+    });
+
+  if (!expired) {
+    return { ok: false, error: "This trade is no longer pending." };
+  }
+
+  // Pending expirations stay private — not written to the public activity feed.
+
+  await announceTradeExpired({
+    tradeId: expired.id,
+    leagueSeasonId: input.league.leagueSeasonId,
+    leaguePublicId: input.league.leaguePublicId,
+    leagueName: input.league.leagueName,
+    proposingTeamId: expired.proposingTeamId,
+    receivingTeamId: expired.receivingTeamId,
+  });
+
+  return { ok: true, tradeId: input.tradeId };
+}
+
 export async function approveTradeByCommissioner(input: {
   tradeId: string;
   proposingTeamId: string;
@@ -451,6 +499,7 @@ export async function approveTradeByCommissioner(input: {
   waiverWire: WaiverWire;
   rosterSlots: RosterSlotConfig[] | null | undefined;
   benchSlots: number;
+  enforceRosterMinimums?: boolean;
 }): Promise<TradeLifecycleResult> {
   const deferral = await deferTradeExecutionIfWeekHold(input.tradeId);
   if (deferral.deferred) {
@@ -471,6 +520,7 @@ export async function approveTradeByCommissioner(input: {
     waiverWire: input.waiverWire,
     rosterSlots: input.rosterSlots,
     benchSlots: input.benchSlots,
+    enforceRosterMinimums: input.enforceRosterMinimums ?? false,
   });
   if (!result.success) {
     return { ok: false, error: result.error };

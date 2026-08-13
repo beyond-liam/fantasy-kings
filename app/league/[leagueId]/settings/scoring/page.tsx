@@ -64,7 +64,7 @@ export default async function ScoringSettingsPage({
   );
 
   return (
-    <div className="flex flex-1 flex-col gap-6 p-6">
+    <div className="flex flex-1 flex-col gap-6 p-4 sm:p-6">
       <div className="flex flex-col gap-4">
         <Button
           nativeButton={false}

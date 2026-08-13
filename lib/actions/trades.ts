@@ -26,6 +26,7 @@ import {
   completeExpiredTrade,
   commitTradeProposal,
   countSeasonTeams,
+  expireTradeOffer,
   hasTeamVotedVeto,
   rejectTradeByCommissioner,
   rejectTradeOffer,
@@ -42,6 +43,7 @@ import {
   loadNflTeamsForPlayerIds,
 } from "@/lib/leagues/trades/week-hold-server";
 import { loadStartedNflTeamsForLineupLock } from "@/lib/leagues/lineup-lock-started";
+import { classifyDropCandidatesForMinimums } from "@/lib/leagues/roster-minimums";
 import {
   isDropPlayerSelectable,
   listDropCandidates,
@@ -54,6 +56,7 @@ import {
   fantasyWeekFromNflState,
 } from "@/lib/leagues/schedule/fantasy-week-map";
 import {
+  getExpiredPendingTrades,
   getExpiredReviewTrades,
   getTradeById,
   listRosterPlayerRows,
@@ -69,6 +72,8 @@ const tradeProposalSchema = z.object({
   proposingDropIds: z.array(z.string().uuid()).max(20),
   receivingDropIds: z.array(z.string().uuid()).max(20),
   comment: z.string().trim().max(2000).optional(),
+  /** ISO timestamp; omit / null = never expires. */
+  expiresAt: z.string().datetime().nullable().optional(),
   counterOfTradeId: z.string().uuid().optional(),
 });
 
@@ -194,6 +199,8 @@ export type TradeAcceptCandidate = {
   fullName: string;
   primaryPositionId: string;
   nflTeam: string | null;
+  minimumBlocked?: boolean;
+  minimumBlockReason?: string;
 };
 
 export type TradeAcceptPreviewResult =
@@ -211,6 +218,7 @@ export async function getTradeAcceptPreview(
 
   const { context, trade } = loaded;
   const { season, team } = context;
+  const rules = resolveTransactionRules(season.settings.transactionRules);
 
   if (trade.status !== "pending") {
     return { ok: false, error: "This trade is no longer pending." };
@@ -218,6 +226,10 @@ export async function getTradeAcceptPreview(
 
   if (trade.receivingTeamId !== team.id) {
     return { ok: false, error: "Only the receiving team can accept." };
+  }
+
+  if (trade.expiresAt && trade.expiresAt.getTime() <= Date.now()) {
+    return { ok: false, error: "This trade offer has expired." };
   }
 
   const tradePlayerRows = await db
@@ -260,21 +272,51 @@ export async function getTradeAcceptPreview(
           .map((player) => player.id)
       : candidates.map((player) => player.id);
 
-  const rosterRows = await listRosterPlayerRows(
-    team.id,
-    selectableCandidateIds,
+  const classified = classifyDropCandidatesForMinimums({
+    candidates: candidates.filter((player) =>
+      selectableCandidateIds.includes(player.id),
+    ),
+    roster: receivingRoster,
+    rosterSlots: season.settings.rosterSlots,
+    enforce: rules.enforceRosterMinimums,
+    incoming: receivingReceiving,
+    alsoRemovingIds: receivingOfferIds,
+  });
+
+  const reasonById = new Map(
+    classified.ineligible.map((row) => [row.player.id, row.reason]),
   );
+  const orderedIds = [
+    ...classified.eligible.map((player) => player.id),
+    ...classified.ineligible.map((row) => row.player.id),
+  ];
+
+  const rosterRows = await listRosterPlayerRows(team.id, orderedIds);
+  const byId = new Map(rosterRows.map((row) => [row.playerId, row]));
 
   return {
     ok: true,
     preview: {
       dropsNeeded: needed,
-      candidates: rosterRows.map((row) => ({
-        id: row.playerId,
-        fullName: row.fullName,
-        primaryPositionId: row.primaryPositionId,
-        nflTeam: row.nflTeam,
-      })),
+      candidates: orderedIds.flatMap((id) => {
+        const row = byId.get(id);
+        if (!row) return [];
+        const reason = reasonById.get(id);
+        return [
+          {
+            id: row.playerId,
+            fullName: row.fullName,
+            primaryPositionId: row.primaryPositionId,
+            nflTeam: row.nflTeam,
+            ...(reason
+              ? {
+                  minimumBlocked: true as const,
+                  minimumBlockReason: reason,
+                }
+              : { minimumBlocked: false as const }),
+          },
+        ];
+      }),
     },
   };
 }
@@ -285,15 +327,26 @@ export async function processReadyTrades(slug: string) {
     return;
   }
 
-  const expired = await getExpiredReviewTrades(context.season.id);
+  const [reviewDue, offerDue] = await Promise.all([
+    getExpiredReviewTrades(context.season.id),
+    getExpiredPendingTrades(context.season.id),
+  ]);
   const wire = resolveWaiverWireSettings(context.season.settings.waiverWire);
+  const rules = resolveTransactionRules(context.season.settings.transactionRules);
   const league = {
     leagueSeasonId: context.season.id,
     leaguePublicId: context.league.publicId,
     leagueName: context.league.name,
   };
 
-  for (const row of expired) {
+  for (const row of offerDue) {
+    await expireTradeOffer({
+      tradeId: row.id,
+      league,
+    }).catch(() => undefined);
+  }
+
+  for (const row of reviewDue) {
     await completeExpiredTrade({
       tradeId: row.id,
       league,
@@ -301,10 +354,11 @@ export async function processReadyTrades(slug: string) {
       waiverWire: wire,
       rosterSlots: context.season.settings.rosterSlots,
       benchSlots: context.season.benchSlots,
+      enforceRosterMinimums: rules.enforceRosterMinimums,
     }).catch(() => undefined);
   }
 
-  if (expired.length > 0) {
+  if (reviewDue.length > 0 || offerDue.length > 0) {
     revalidateTradePaths(slug);
   }
 }
@@ -318,6 +372,7 @@ export async function proposeTrade(
     proposingDropIds: string[];
     receivingDropIds: string[];
     comment?: string;
+    expiresAt?: string | null;
     counterOfTradeId?: string;
   },
 ): Promise<TradeActionResult> {
@@ -445,6 +500,24 @@ export async function proposeTrade(
     return { success: false, errors: validation.errors };
   }
 
+  let expiresAt: Date | null = null;
+  if (validated.expiresAt) {
+    expiresAt = new Date(validated.expiresAt);
+    if (Number.isNaN(expiresAt.getTime()) || expiresAt.getTime() <= Date.now()) {
+      return {
+        success: false,
+        error: "Offer expiry must be in the future.",
+      };
+    }
+    const maxMs = 14 * 24 * 60 * 60 * 1000 + 60 * 1000;
+    if (expiresAt.getTime() - Date.now() > maxMs) {
+      return {
+        success: false,
+        error: "Offer expiry cannot be more than 14 days away.",
+      };
+    }
+  }
+
   const result = await commitTradeProposal({
     league: {
       leagueSeasonId: season.id,
@@ -462,6 +535,7 @@ export async function proposeTrade(
     proposingDropIds: validated.proposingDropIds,
     receivingDropIds: validated.receivingDropIds,
     comment: validated.comment || null,
+    expiresAt,
     counterOfTradeId,
   });
 
@@ -515,6 +589,18 @@ export async function acceptTrade(
 
   if (trade.receivingTeamId !== team.id) {
     return { success: false, error: "Only the receiving team can accept." };
+  }
+
+  if (trade.expiresAt && trade.expiresAt.getTime() <= Date.now()) {
+    await expireTradeOffer({
+      tradeId,
+      league: {
+        leagueSeasonId: season.id,
+        leaguePublicId: league.publicId,
+        leagueName: league.name,
+      },
+    }).catch(() => undefined);
+    return { success: false, error: "This trade offer has expired." };
   }
 
   const tradePlayerRows = await db
@@ -623,6 +709,7 @@ export async function acceptTrade(
     waiverWire: wire,
     rosterSlots: season.settings.rosterSlots,
     benchSlots: season.benchSlots,
+    enforceRosterMinimums: rules.enforceRosterMinimums,
   });
 
   if (!result.ok) {
@@ -741,6 +828,7 @@ export async function approveTrade(
   }
 
   const wire = resolveWaiverWireSettings(context.season.settings.waiverWire);
+  const rules = resolveTransactionRules(context.season.settings.transactionRules);
   const result = await approveTradeByCommissioner({
     tradeId,
     proposingTeamId: trade.proposingTeamId,
@@ -755,6 +843,7 @@ export async function approveTrade(
     waiverWire: wire,
     rosterSlots: context.season.settings.rosterSlots,
     benchSlots: context.season.benchSlots,
+    enforceRosterMinimums: rules.enforceRosterMinimums,
   });
 
   if (!result.ok) {

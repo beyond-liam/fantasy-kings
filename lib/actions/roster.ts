@@ -6,7 +6,7 @@ import { z } from "zod";
 
 import { players, rosterPlayers, teams } from "@/db/schema";
 import { db } from "@/lib/db";
-import { logLeagueActivity } from "@/lib/leagues/activity-log";
+import { logLeagueActivity, logReservePlacementFromAcquisition } from "@/lib/leagues/activity-log";
 import {
   loadLeagueActionContext,
   loadLeagueMemberTeamContext,
@@ -25,6 +25,13 @@ import {
   getSlotCapacity,
   slotAcceptsPlayer,
 } from "@/lib/leagues/roster-slots";
+import { compareRosterPositions } from "@/lib/leagues/roster-position-order";
+import {
+  classifyDropCandidatesForMinimums,
+  firstRosterMinimumError,
+  simulateRosterAfterMutation,
+  wouldBreachRosterMinimums,
+} from "@/lib/leagues/roster-minimums";
 import {
   assertCutAllowedAfterGameStart,
   assertCutAllowedUnderLineupLock,
@@ -93,7 +100,39 @@ export type RosterCutCandidate = {
   fullName: string;
   nflTeam: string | null;
   primaryPositionId: string;
+  sleeperId?: string | null;
+  byeWeek?: number | null;
+  /** When enforce roster minimums blocks this cut/drop. */
+  minimumBlocked?: boolean;
+  minimumBlockReason?: string | null;
 };
+
+function toCutCandidate(row: {
+  id: string;
+  fullName: string;
+  nflTeam: string | null;
+  primaryPositionId: string;
+  sleeperId?: string | null;
+  byeWeek?: number | null;
+}): RosterCutCandidate {
+  return {
+    id: row.id,
+    fullName: row.fullName,
+    nflTeam: row.nflTeam,
+    primaryPositionId: row.primaryPositionId,
+    sleeperId: row.sleeperId ?? null,
+    byeWeek: row.byeWeek ?? null,
+  };
+}
+
+function sortCutCandidates(a: RosterCutCandidate, b: RosterCutCandidate) {
+  const byPosition = compareRosterPositions(
+    a.primaryPositionId,
+    b.primaryPositionId,
+  );
+  if (byPosition !== 0) return byPosition;
+  return a.fullName.localeCompare(b.fullName);
+}
 
 export type RosterActionResult = {
   success: boolean;
@@ -322,7 +361,8 @@ async function prepareAdd(
     : null;
 
   if ((rosterFull || positionFull) && !forceReserveSlot) {
-    const cutCandidates = (
+    const rules = resolveTransactionRules(season.settings.transactionRules);
+    const activeCuts = (
       positionFull
         ? rosteredOnTeam.filter(
             (row) =>
@@ -332,7 +372,34 @@ async function prepareAdd(
         : rosteredOnTeam.filter((row) =>
             countsTowardRosterMax(row.slotPositionId, row.primaryPositionId),
           )
-    ).sort((a, b) => a.fullName.localeCompare(b.fullName));
+    ).map(toCutCandidate);
+
+    const classified = classifyDropCandidatesForMinimums({
+      candidates: activeCuts,
+      roster: rosteredOnTeam,
+      rosterSlots: season.settings.rosterSlots,
+      enforce: rules.enforceRosterMinimums,
+      incoming: [
+        {
+          id: player.id,
+          primaryPositionId: player.primaryPositionId,
+          slotPositionId: null,
+        },
+      ],
+    });
+
+    const cutCandidates = [
+      ...classified.eligible.map((row) => ({
+        ...row,
+        minimumBlocked: false,
+        minimumBlockReason: null,
+      })),
+      ...classified.ineligible.map(({ player: row, reason }) => ({
+        ...row,
+        minimumBlocked: true,
+        minimumBlockReason: reason,
+      })),
+    ].toSorted(sortCutCandidates);
 
     return {
       ok: false,
@@ -416,6 +483,7 @@ export async function addPlayerToRoster(
     now: prepared.now,
   });
 
+  const activityAt = new Date();
   await logLeagueActivity({
     leagueSeasonId: season.id,
     type: "player_added",
@@ -424,6 +492,17 @@ export async function addPlayerToRoster(
     playerId: prepared.player.id,
     summary: `${team.name} added ${prepared.player.fullName}`,
     metadata: { playerName: prepared.player.fullName, teamName: team.name },
+    createdAt: activityAt,
+  });
+  await logReservePlacementFromAcquisition({
+    leagueSeasonId: season.id,
+    teamId: team.id,
+    actorUserId: user.id,
+    playerId: prepared.player.id,
+    slotPositionId: prepared.slotPositionId,
+    teamName: team.name,
+    playerName: prepared.player.fullName,
+    createdAt: activityAt,
   });
 
   revalidateRosterPaths(league.publicId);
@@ -447,6 +526,10 @@ type PrepareCutResult = PrepareCutSuccess | { error: string };
 async function prepareCut(
   context: LeagueMemberTeamContext,
   playerId: string,
+  opts?: {
+    /** Skip min check when a same-transaction add will be validated separately. */
+    skipRosterMinimumCheck?: boolean;
+  },
 ): Promise<PrepareCutResult> {
   const { season, team } = context;
 
@@ -508,6 +591,26 @@ async function prepareCut(
   });
   if (gameStartCutBlocked) {
     return { error: gameStartCutBlocked };
+  }
+
+  if (!opts?.skipRosterMinimumCheck && rules.enforceRosterMinimums) {
+    const rostered = await listRosteredPlayers(team.id);
+    const breach = wouldBreachRosterMinimums({
+      roster: rostered,
+      removeIds: [playerId],
+      rosterSlots: season.settings.rosterSlots,
+      enforce: true,
+    });
+    if (breach) {
+      return {
+        error:
+          firstRosterMinimumError(
+            rostered.filter((p) => p.id !== playerId),
+            season.settings.rosterSlots,
+            true,
+          ) ?? "This cut would leave you under a roster minimum.",
+      };
+    }
   }
 
   return {
@@ -590,7 +693,9 @@ export async function cutAndAddPlayer(
 
   const { season, team, league, user } = context;
 
-  const cutPrepared = await prepareCut(context, cutId);
+  const cutPrepared = await prepareCut(context, cutId, {
+    skipRosterMinimumCheck: true,
+  });
   if ("error" in cutPrepared) {
     return { success: false, error: cutPrepared.error };
   }
@@ -600,6 +705,46 @@ export async function cutAndAddPlayer(
   });
   if (!addPrepared.ok) {
     return addPrepared.result;
+  }
+
+  const rules = resolveTransactionRules(season.settings.transactionRules);
+  if (rules.enforceRosterMinimums) {
+    const rostered = await listRosteredPlayers(team.id);
+    if (
+      wouldBreachRosterMinimums({
+        roster: rostered,
+        removeIds: [cutId],
+        add: [
+          {
+            id: addId,
+            primaryPositionId: addPrepared.player.primaryPositionId,
+            slotPositionId: null,
+          },
+        ],
+        rosterSlots: season.settings.rosterSlots,
+        enforce: true,
+      })
+    ) {
+      return {
+        success: false,
+        error:
+          firstRosterMinimumError(
+            simulateRosterAfterMutation({
+              roster: rostered,
+              removeIds: [cutId],
+              add: [
+                {
+                  id: addId,
+                  primaryPositionId: addPrepared.player.primaryPositionId,
+                  slotPositionId: null,
+                },
+              ],
+            }),
+            season.settings.rosterSlots,
+            true,
+          ) ?? "This cut would leave you under a roster minimum.",
+      };
+    }
   }
 
   const cutClearsAt = dropWaiverClearsAt(cutPrepared.wire);
@@ -624,6 +769,7 @@ export async function cutAndAddPlayer(
     });
   });
 
+  const activityAt = new Date();
   await logLeagueActivity({
     leagueSeasonId: season.id,
     type: "player_dropped",
@@ -632,6 +778,7 @@ export async function cutAndAddPlayer(
     playerId: cutId,
     summary: `${team.name} dropped ${cutPrepared.row.fullName}`,
     metadata: { playerName: cutPrepared.row.fullName, teamName: team.name },
+    createdAt: activityAt,
   });
   await logLeagueActivity({
     leagueSeasonId: season.id,
@@ -641,6 +788,17 @@ export async function cutAndAddPlayer(
     playerId: addPrepared.player.id,
     summary: `${team.name} added ${addPrepared.player.fullName}`,
     metadata: { playerName: addPrepared.player.fullName, teamName: team.name },
+    createdAt: activityAt,
+  });
+  await logReservePlacementFromAcquisition({
+    leagueSeasonId: season.id,
+    teamId: team.id,
+    actorUserId: user.id,
+    playerId: addPrepared.player.id,
+    slotPositionId: addPrepared.slotPositionId,
+    teamName: team.name,
+    playerName: addPrepared.player.fullName,
+    createdAt: activityAt,
   });
 
   revalidateRosterPaths(league.publicId);
@@ -1134,13 +1292,13 @@ async function persistRosterSlotAssignments(
     if (row.previousSlot !== "TAXI" && row.slotPositionId === "TAXI") {
       events.push({
         type: "taxi_added",
-        summary: `${activity.teamName} added ${row.fullName} to taxi`,
+        summary: `${activity.teamName} moved ${row.fullName} to their taxi squad`,
       });
     }
     if (row.previousSlot === "TAXI" && row.slotPositionId !== "TAXI") {
       events.push({
         type: "taxi_removed",
-        summary: `${activity.teamName} removed ${row.fullName} from taxi`,
+        summary: `${activity.teamName} moved ${row.fullName} to their active roster`,
       });
     }
 

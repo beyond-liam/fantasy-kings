@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 
 import { leagueActivity, players, teams, waiverClaims } from "@/db/schema";
 import type { LeagueActivityMetadata } from "@/db/schema/league-activity";
@@ -7,6 +7,21 @@ import {
   FEED_ACTIVITY_TYPES,
   type FeedActivityType,
 } from "@/lib/leagues/activity-log";
+
+/**
+ * Same-timestamp companion rows: acquisition first, then IR/Taxi placement,
+ * then drops (feed is newest-first by createdAt).
+ */
+const ACTIVITY_FEED_TYPE_PRIORITY = sql`
+  case ${leagueActivity.type}
+    when 'waiver_awarded' then 0
+    when 'player_added' then 0
+    when 'ir_added' then 1
+    when 'taxi_added' then 1
+    when 'player_dropped' then 2
+    else 3
+  end
+`;
 
 export type LeagueActivityRow = {
   id: string;
@@ -47,7 +62,11 @@ export async function getLeagueActivity(
         inArray(leagueActivity.type, [...FEED_ACTIVITY_TYPES]),
       ),
     )
-    .orderBy(desc(leagueActivity.createdAt))
+    .orderBy(
+      desc(leagueActivity.createdAt),
+      asc(ACTIVITY_FEED_TYPE_PRIORITY),
+      desc(leagueActivity.id),
+    )
     .limit(limit);
 
   return rows.map((row) => ({

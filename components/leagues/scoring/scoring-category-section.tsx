@@ -37,8 +37,8 @@ export function ScoringCategorySection({
 
   return (
     <section className="flex flex-col gap-3">
-      <div className="flex items-center justify-between gap-4">
-        <h2 className="text-base font-semibold">{categoryLabel}</h2>
+      <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-4">
+        <h2 className="text-base font-semibold text-balance">{categoryLabel}</h2>
         <Button
           type="button"
           variant="outline"
@@ -51,15 +51,16 @@ export function ScoringCategorySection({
             strokeWidth={2}
             data-icon="inline-start"
           />
-          New {categoryLabel} Rule
+          <span className="sm:hidden">New rule</span>
+          <span className="hidden sm:inline">New {categoryLabel} Rule</span>
         </Button>
       </div>
-      <Card className="gap-0 overflow-hidden py-0">
+      <Card className="@container gap-0 overflow-hidden py-0">
         <CardContent className="p-0">
           {rules.length > 0 ? (
-            <ul className="flex flex-col">
+            <ul className="flex flex-col divide-y">
               {rules.map((rule) => (
-                <li key={rule.id}>
+                <li key={rule.id} className="min-w-0">
                   <ScoringRuleRow
                     rule={rule}
                     onEdit={onEditRule}

@@ -51,6 +51,7 @@ export const tradeStatusEnum = pgEnum("trade_status", [
   "commissioner_rejected",
   "vetoed",
   "invalidated",
+  "expired",
 ]);
 
 export const tradeProcessingEnum = pgEnum("trade_processing", [

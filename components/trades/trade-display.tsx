@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { ArrowLeftRightIcon, CheckmarkCircle01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
@@ -143,7 +144,7 @@ export function TradeCardHeader({
 }: {
   proposingTeamName: string;
   receivingTeamName: string;
-  eyebrow?: string | null;
+  eyebrow?: ReactNode;
   status: string;
   vetoCount?: number;
   vetoThreshold?: number;

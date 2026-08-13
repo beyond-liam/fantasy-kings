@@ -27,6 +27,7 @@ export function PendingTradePropose({ leagueSlug }: PendingTradeProposeProps) {
       proposingDropIds: pending.proposingDropIds,
       receivingDropIds: pending.receivingDropIds,
       comment: pending.comment,
+      expiresAt: pending.expiresAt ?? null,
       counterOfTradeId: pending.counterOfTradeId,
     }).then((result) => {
       if (!result.success) {

@@ -204,6 +204,45 @@ export async function announceTradeCancelled(input: {
   });
 }
 
+/** Pending offer timed out → both sides in-app (no public activity). */
+export async function announceTradeExpired(input: {
+  tradeId: string;
+  leagueSeasonId: string;
+  leaguePublicId: string;
+  leagueName: string;
+  proposingTeamId: string;
+  receivingTeamId: string;
+}) {
+  const owners = await getTeamOwnerUserIds([
+    input.proposingTeamId,
+    input.receivingTeamId,
+  ]);
+  await deliverAlert({
+    userIds: [
+      owners.get(input.proposingTeamId),
+      owners.get(input.receivingTeamId),
+    ],
+    inApp: {
+      leagueSeasonId: input.leagueSeasonId,
+      leaguePublicId: input.leaguePublicId,
+      type: "trade_update",
+      title: "Trade expired",
+      body: "A trade offer expired before it was accepted.",
+      tradeId: input.tradeId,
+    },
+    email: {
+      subject: `${input.leagueName}: Trade expired`,
+      title: "Trade expired",
+      body: `A trade offer expired before it was accepted in ${input.leagueName}.`,
+      ctaLabel: "View trades",
+      ctaUrl: tradesUrl(input.leaguePublicId),
+      dedupeKeyForUser: (userId) =>
+        `trade:expired:${input.tradeId}:${userId}`,
+      tags: ["trade", "trade-expired"],
+    },
+  });
+}
+
 /** Trade completed (review / commissioner) → both sides in-app + email. */
 export async function announceTradeCompleted(input: {
   tradeId: string;

@@ -58,6 +58,8 @@ type LogLeagueActivityInput = {
   claimId?: string | null;
   tradeId?: string | null;
   metadata?: LeagueActivityMetadata;
+  /** Override default now() — used to order companion rows (drop / IR / taxi). */
+  createdAt?: Date;
 };
 
 export async function logLeagueActivity(input: LogLeagueActivityInput) {
@@ -72,5 +74,59 @@ export async function logLeagueActivity(input: LogLeagueActivityInput) {
     claimId: input.claimId ?? null,
     tradeId: input.tradeId ?? null,
     metadata: input.metadata ?? {},
+    ...(input.createdAt ? { createdAt: input.createdAt } : {}),
+  });
+}
+
+/** Activity when an acquisition lands directly on IR or Taxi. */
+export function reservePlacementFromAcquisition(input: {
+  slotPositionId: string | null | undefined;
+  teamName: string;
+  playerName: string;
+}): { type: "ir_added" | "taxi_added"; summary: string } | null {
+  if (input.slotPositionId === "IR") {
+    return {
+      type: "ir_added",
+      summary: `${input.teamName} added ${input.playerName} to IR`,
+    };
+  }
+  if (input.slotPositionId === "TAXI") {
+    return {
+      type: "taxi_added",
+      summary: `${input.teamName} moved ${input.playerName} to their taxi squad`,
+    };
+  }
+  return null;
+}
+
+export async function logReservePlacementFromAcquisition(input: {
+  leagueSeasonId: string;
+  teamId: string;
+  actorUserId?: string | null;
+  playerId: string;
+  slotPositionId: string | null | undefined;
+  teamName: string;
+  playerName: string;
+  claimId?: string | null;
+  createdAt?: Date;
+}) {
+  const event = reservePlacementFromAcquisition(input);
+  if (!event) {
+    return;
+  }
+
+  await logLeagueActivity({
+    leagueSeasonId: input.leagueSeasonId,
+    type: event.type,
+    teamId: input.teamId,
+    actorUserId: input.actorUserId,
+    playerId: input.playerId,
+    claimId: input.claimId,
+    summary: event.summary,
+    metadata: {
+      playerName: input.playerName,
+      teamName: input.teamName,
+    },
+    createdAt: input.createdAt,
   });
 }

@@ -40,6 +40,7 @@ export type MyTeamTransactionsPanelProps = {
   };
   wire: WaiverWireSettings;
   isCommissioner: boolean;
+  partners: Array<{ id: string; name: string; slug: string }>;
 };
 
 export async function MyTeamTransactionsPanel({
@@ -48,6 +49,7 @@ export async function MyTeamTransactionsPanel({
   season,
   wire,
   isCommissioner,
+  partners,
 }: MyTeamTransactionsPanelProps) {
   const teamTradesPromise = getTeamTrades(season.id, team.id);
   const [pendingClaims, pendingSeasonCount, teamTrades, vetoSummaries, kickoffs] =
@@ -113,6 +115,7 @@ export async function MyTeamTransactionsPanel({
       claims={claims}
       trades={teamTrades}
       myTeamId={team.id}
+      partners={partners}
       isCommissioner={isCommissioner}
       tradeProcessing={season.tradeProcessing}
       allowVetoes={transactionRules.allowVetoes}

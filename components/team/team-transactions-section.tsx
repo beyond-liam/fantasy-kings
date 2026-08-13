@@ -1,10 +1,22 @@
 "use client";
 
+import { UserSwitchIcon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
+
+import { ProposeTradeDialog } from "@/components/trades/propose-trade-dialog";
 import { TradeHistory } from "@/components/trades/trade-history";
 import { TradeList } from "@/components/trades/trade-list";
 import { PendingTradePropose } from "@/components/trades/pending-trade-propose";
 import { TeamWaiversSection } from "@/components/team/team-waivers-section";
 import { Badge } from "@/components/ui/badge";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import {
   Tabs,
   TabsContent,
@@ -13,6 +25,7 @@ import {
 } from "@/components/ui/tabs";
 import type { WaiverProcessDay } from "@/db/schema/league-seasons";
 import { OPEN_TRADE_STATUSES } from "@/lib/leagues/trades/guards";
+import type { ProposeTradePartner } from "@/lib/leagues/trades/partners";
 import type { PendingWaiverClaimRow } from "@/lib/queries/waivers";
 import type { TradeListRow, TradeVetoSummary } from "@/lib/queries/trades";
 
@@ -21,6 +34,7 @@ type TeamTransactionsSectionProps = {
   claims: PendingWaiverClaimRow[];
   trades: TradeListRow[];
   myTeamId: string;
+  partners: ProposeTradePartner[];
   isCommissioner: boolean;
   tradeProcessing: string;
   allowVetoes?: boolean;
@@ -50,6 +64,7 @@ export function TeamTransactionsSection({
   claims,
   trades,
   myTeamId,
+  partners,
   isCommissioner,
   tradeProcessing,
   allowVetoes,
@@ -116,26 +131,49 @@ export function TeamTransactionsSection({
         </TabsContent>
 
         <TabsContent value="trades" className="flex flex-col gap-8">
-          <section className="flex flex-col gap-4">
-            <h2 className="text-lg font-semibold tracking-tight text-balance">
-              Open Trades
-            </h2>
-            <TradeList
-              leagueSlug={leagueSlug}
-              trades={myTrades}
-              myTeamId={myTeamId}
-              isCommissioner={isCommissioner}
-              tradeProcessing={tradeProcessing}
-              allowVetoes={allowVetoes}
-              vetoSummaries={vetoSummaries}
-            />
-          </section>
+          {myTrades.length === 0 ? (
+            <Empty>
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <HugeiconsIcon icon={UserSwitchIcon} strokeWidth={2} />
+                </EmptyMedia>
+                <EmptyTitle>No open trades right now</EmptyTitle>
+                <EmptyDescription>
+                  Propose a trade when you are ready to shake up your roster.
+                </EmptyDescription>
+              </EmptyHeader>
+              <EmptyContent>
+                <ProposeTradeDialog
+                  leagueSlug={leagueSlug}
+                  partners={partners}
+                  label="Propose Trade"
+                />
+              </EmptyContent>
+            </Empty>
+          ) : (
+            <>
+              <section className="flex flex-col gap-4">
+                <h2 className="text-lg font-semibold tracking-tight text-balance">
+                  Open Trades
+                </h2>
+                <TradeList
+                  leagueSlug={leagueSlug}
+                  trades={myTrades}
+                  myTeamId={myTeamId}
+                  isCommissioner={isCommissioner}
+                  tradeProcessing={tradeProcessing}
+                  allowVetoes={allowVetoes}
+                  vetoSummaries={vetoSummaries}
+                />
+              </section>
 
-          <TradeHistory
-            trades={myTrades}
-            myTeamId={myTeamId}
-            leagueSlug={leagueSlug}
-          />
+              <TradeHistory
+                trades={myTrades}
+                myTeamId={myTeamId}
+                leagueSlug={leagueSlug}
+              />
+            </>
+          )}
         </TabsContent>
       </Tabs>
     </div>

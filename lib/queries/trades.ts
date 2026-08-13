@@ -75,6 +75,7 @@ export type TradeListRow = {
   id: string;
   status: string;
   comment: string | null;
+  expiresAt: Date | null;
   reviewEndsAt: Date | null;
   createdAt: Date;
   proposingTeamId: string;
@@ -228,6 +229,7 @@ export async function getLeagueTrades(
       id: trades.id,
       status: trades.status,
       comment: trades.comment,
+      expiresAt: trades.expiresAt,
       reviewEndsAt: trades.reviewEndsAt,
       createdAt: trades.createdAt,
       proposingTeamId: trades.proposingTeamId,
@@ -259,6 +261,7 @@ export async function getLeagueTrades(
     id: row.id,
     status: row.status,
     comment: row.comment,
+    expiresAt: row.expiresAt,
     reviewEndsAt: row.reviewEndsAt,
     createdAt: row.createdAt,
     proposingTeamId: row.proposingTeamId,
@@ -282,6 +285,7 @@ export async function getTeamTrades(leagueSeasonId: string, teamId: string) {
       id: trades.id,
       status: trades.status,
       comment: trades.comment,
+      expiresAt: trades.expiresAt,
       reviewEndsAt: trades.reviewEndsAt,
       createdAt: trades.createdAt,
       proposingTeamId: trades.proposingTeamId,
@@ -312,6 +316,7 @@ export async function getTeamTrades(leagueSeasonId: string, teamId: string) {
     id: row.id,
     status: row.status,
     comment: row.comment,
+    expiresAt: row.expiresAt,
     reviewEndsAt: row.reviewEndsAt,
     createdAt: row.createdAt,
     proposingTeamId: row.proposingTeamId,
@@ -410,6 +415,26 @@ export async function getExpiredReviewTrades(leagueSeasonId?: string) {
   const conditions = [
     eq(trades.status, "review"),
     sql`${trades.reviewEndsAt} <= now()`,
+  ];
+  if (leagueSeasonId) {
+    conditions.push(eq(trades.leagueSeasonId, leagueSeasonId));
+  }
+
+  return db
+    .select({
+      id: trades.id,
+      leagueSeasonId: trades.leagueSeasonId,
+    })
+    .from(trades)
+    .where(and(...conditions));
+}
+
+/** Pending offers whose expiresAt has passed. */
+export async function getExpiredPendingTrades(leagueSeasonId?: string) {
+  const conditions = [
+    eq(trades.status, "pending"),
+    sql`${trades.expiresAt} IS NOT NULL`,
+    sql`${trades.expiresAt} <= now()`,
   ];
   if (leagueSeasonId) {
     conditions.push(eq(trades.leagueSeasonId, leagueSeasonId));

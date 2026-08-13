@@ -8,6 +8,7 @@ import {
   Cancel01Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -28,34 +29,46 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { tradeComposerPath } from "@/lib/leagues/utils";
+import type { ProposeTradePartner } from "@/lib/leagues/trades/partners";
 
-export type ProposeTradePartner = {
-  id: string;
-  name: string;
-  slug: string;
-};
+export type { ProposeTradePartner };
 
 type ProposeTradeDialogProps = {
   leagueSlug: string;
   partners: ProposeTradePartner[];
+  /** Defaults to "Propose New Trade". */
+  label?: string;
 };
 
 export function ProposeTradeDialog({
   leagueSlug,
   partners,
+  label = "Propose New Trade",
 }: ProposeTradeDialogProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [partnerId, setPartnerId] = useState<string | null>(null);
 
-  if (partners.length === 0) {
-    return null;
-  }
-
   const items = partners.map((partner) => ({
     value: partner.id,
     label: partner.name,
   }));
+
+  function handleOpen() {
+    if (partners.length === 0) {
+      toast.error("No other teams are available to trade with.");
+      return;
+    }
+    if (partners.length === 1) {
+      router.push(
+        tradeComposerPath(leagueSlug, {
+          with: partners[0]!.slug,
+        }),
+      );
+      return;
+    }
+    setOpen(true);
+  }
 
   function handleContinue() {
     const partner = partners.find((item) => item.id === partnerId);
@@ -80,13 +93,13 @@ export function ProposeTradeDialog({
         }
       }}
     >
-      <Button type="button" onClick={() => setOpen(true)}>
+      <Button type="button" onClick={handleOpen}>
         <HugeiconsIcon
           icon={ArrowLeftRightIcon}
           strokeWidth={2}
           data-icon="inline-start"
         />
-        Propose New Trade
+        {label}
       </Button>
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
@@ -95,7 +108,7 @@ export function ProposeTradeDialog({
             Choose the team you want to propose a trade to.
           </DialogDescription>
         </DialogHeader>
-                <FieldGroup>
+        <FieldGroup>
           <Field>
             <FieldLabel htmlFor="trade-partner">Team</FieldLabel>
             <Select
@@ -118,7 +131,7 @@ export function ProposeTradeDialog({
             </Select>
           </Field>
         </FieldGroup>
-                <DialogFooter>
+        <DialogFooter>
           <Button
             type="button"
             variant="outline"

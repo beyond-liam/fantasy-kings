@@ -10,6 +10,7 @@ import {
   QUANTITY_RULE_TEMPLATES,
 } from "@/lib/leagues/scoring/stats/templates";
 import {
+  catalogStatAllowsMultiple,
   getCatalogComboKey,
   getUsedCatalogCombos,
   normalizeRuleToCatalogCombo,
@@ -142,6 +143,7 @@ export function getFirstAvailableRuleForCategory(
 }
 
 export {
+  catalogStatAllowsMultiple,
   getCatalogComboKey,
   getUsedCatalogCombos,
   normalizeRuleToCatalogCombo,

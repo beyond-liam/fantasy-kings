@@ -31,6 +31,8 @@ type TradeRosterTableProps = {
   leagueSlug?: string | null;
   dropMode?: boolean;
   disabled?: boolean;
+  /** Player ids that cannot be selected (e.g. roster minimums). */
+  blockedIds?: Set<string>;
 };
 
 const PLACEHOLDER = "—";
@@ -43,6 +45,7 @@ export function TradeRosterTable({
   leagueSlug,
   dropMode = false,
   disabled = false,
+  blockedIds,
 }: TradeRosterTableProps) {
   const table = (
     <TooltipProvider>
@@ -81,14 +84,21 @@ export function TradeRosterTable({
           <TableBody>
             {players.map((player) => {
               const checked = selectedIds.has(player.id);
+              const blocked = blockedIds?.has(player.id) ?? false;
               const rowDisabled =
-                disabled || player.locked || (!dropMode && player.locked);
+                disabled ||
+                player.locked ||
+                (!dropMode && player.locked) ||
+                (blocked && !checked);
 
               return (
                 <TableRow
                   key={player.id}
                   data-state={checked ? "selected" : undefined}
-                  className={cn(checked && "bg-muted/50")}
+                  className={cn(
+                    checked && "bg-muted/50",
+                    blocked && !checked && "opacity-60",
+                  )}
                 >
                   <TableCell>
                     <Checkbox
@@ -99,7 +109,11 @@ export function TradeRosterTable({
                           onToggle(player.id);
                         }
                       }}
-                      aria-label={`Select ${player.fullName}`}
+                      aria-label={
+                        blocked && !checked
+                          ? `${player.fullName} (below roster minimum)`
+                          : `Select ${player.fullName}`
+                      }
                     />
                   </TableCell>
                   <TableCell>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Cancel01Icon, TickDouble02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
@@ -16,6 +16,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import type { TradeAcceptCandidate } from "@/lib/actions/trades";
+import { cn } from "@/lib/utils";
 
 type TradeAcceptDialogProps = {
   open: boolean;
@@ -40,9 +41,26 @@ export function TradeAcceptDialog({
 }: TradeAcceptDialogProps) {
   const [dropIds, setDropIds] = useState<Set<string>>(new Set());
 
+  const { eligible, ineligible } = useMemo(() => {
+    const nextEligible: TradeAcceptCandidate[] = [];
+    const nextIneligible: TradeAcceptCandidate[] = [];
+    for (const player of candidates) {
+      if (player.minimumBlocked) {
+        nextIneligible.push(player);
+      } else {
+        nextEligible.push(player);
+      }
+    }
+    return { eligible: nextEligible, ineligible: nextIneligible };
+  }, [candidates]);
+
   const dropsReady = dropIds.size >= dropsNeeded;
 
   function toggleDrop(playerId: string) {
+    const player = candidates.find((row) => row.id === playerId);
+    if (player?.minimumBlocked) {
+      return;
+    }
     setDropIds((current) => {
       const next = new Set(current);
       if (next.has(playerId)) {
@@ -55,6 +73,41 @@ export function TradeAcceptDialog({
       next.add(playerId);
       return next;
     });
+  }
+
+  function renderCandidate(player: TradeAcceptCandidate, blocked: boolean) {
+    return (
+      <li
+        key={player.id}
+        className={cn("flex items-center gap-2", blocked && "opacity-60")}
+      >
+        <Checkbox
+          checked={dropIds.has(player.id)}
+          disabled={blocked}
+          onCheckedChange={() => toggleDrop(player.id)}
+          aria-label={
+            blocked
+              ? `${player.fullName} (below roster minimum)`
+              : `Drop ${player.fullName}`
+          }
+        />
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <PlayerIdentity
+            fullName={player.fullName}
+            primaryPositionId={player.primaryPositionId}
+            nflTeam={player.nflTeam}
+            size="sm"
+            playerId={player.id}
+            leagueSlug={leagueSlug}
+          />
+          {blocked && player.minimumBlockReason ? (
+            <span className="text-[10px] text-muted-foreground">
+              {player.minimumBlockReason}
+            </span>
+          ) : null}
+        </div>
+      </li>
+    );
   }
 
   return (
@@ -77,7 +130,7 @@ export function TradeAcceptDialog({
           </DialogDescription>
         </DialogHeader>
 
-                {loading ? (
+        {loading ? (
           <p className="text-sm text-muted-foreground">Loading roster…</p>
         ) : null}
 
@@ -86,25 +139,26 @@ export function TradeAcceptDialog({
         ) : null}
 
         {!loading && dropsNeeded > 0 ? (
-          <ul className="space-y-2 rounded-lg border p-3">
-            {candidates.map((player) => (
-              <li key={player.id} className="flex items-center gap-2">
-                <Checkbox
-                  checked={dropIds.has(player.id)}
-                  onCheckedChange={() => toggleDrop(player.id)}
-                  aria-label={`Drop ${player.fullName}`}
-                />
-                <PlayerIdentity
-                  fullName={player.fullName}
-                  primaryPositionId={player.primaryPositionId}
-                  nflTeam={player.nflTeam}
-                  size="sm"
-                  playerId={player.id}
-                  leagueSlug={leagueSlug}
-                />
-              </li>
-            ))}
-          </ul>
+          <div className="space-y-3 rounded-lg border p-3">
+            {eligible.length > 0 ? (
+              <ul className="space-y-2">
+                {ineligible.length > 0 ? (
+                  <li className="text-xs font-medium text-muted-foreground">
+                    Eligible
+                  </li>
+                ) : null}
+                {eligible.map((player) => renderCandidate(player, false))}
+              </ul>
+            ) : null}
+            {ineligible.length > 0 ? (
+              <ul className="space-y-2">
+                <li className="text-xs font-medium text-muted-foreground">
+                  Below roster minimum
+                </li>
+                {ineligible.map((player) => renderCandidate(player, true))}
+              </ul>
+            ) : null}
+          </div>
         ) : null}
 
         {!loading && dropsNeeded > 0 ? (
@@ -112,7 +166,7 @@ export function TradeAcceptDialog({
             Selected {dropIds.size} of {dropsNeeded} required.
           </p>
         ) : null}
-        
+
         <DialogFooter>
           <Button
             type="button"
