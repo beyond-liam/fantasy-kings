@@ -83,269 +83,101 @@ const FANTASY_COLUMNS: StatColumn[] = [
   },
 ];
 
+function statColumn(
+  key: string,
+  header: string,
+  tooltip: string,
+  group: string,
+  decimals = 1,
+): StatColumn {
+  return { key, header, tooltip, group, decimals };
+}
+
 const RUSHING_COLUMNS: StatColumn[] = [
-  {
-    key: "rush_att",
-    header: "ATT",
-    tooltip: "Rushing attempts",
-    group: "Rushing",
-    decimals: 1,
-  },
-  {
-    key: "rush_yd",
-    header: "YD",
-    tooltip: "Rushing yards",
-    group: "Rushing",
-    decimals: 1,
-  },
-  {
-    key: "rush_td",
-    header: "TD",
-    tooltip: "Rushing touchdowns",
-    group: "Rushing",
-    decimals: 1,
-  },
+  statColumn("rush_att", "ATT", "Rushing attempts", "Rushing"),
+  statColumn("rush_yd", "YD", "Rushing yards", "Rushing"),
+  statColumn("rush_td", "TD", "Rushing touchdowns", "Rushing"),
 ];
 
 const RECEIVING_COLUMNS: StatColumn[] = [
-  {
-    key: "rec",
-    header: "REC",
-    tooltip: "Receptions",
-    group: "Receiving",
-    decimals: 1,
-  },
-  {
-    key: "rec_tgt",
-    header: "TAR",
-    tooltip: "Targets",
-    group: "Receiving",
-    decimals: 1,
-  },
-  {
-    key: "rec_yd",
-    header: "YD",
-    tooltip: "Receiving yards",
-    group: "Receiving",
-    decimals: 1,
-  },
-  {
-    key: "rec_td",
-    header: "TD",
-    tooltip: "Receiving touchdowns",
-    group: "Receiving",
-    decimals: 1,
-  },
+  statColumn("rec", "REC", "Receptions", "Receiving"),
+  statColumn("rec_tgt", "TAR", "Targets", "Receiving"),
+  statColumn("rec_yd", "YD", "Receiving yards", "Receiving"),
+  statColumn("rec_td", "TD", "Receiving touchdowns", "Receiving"),
 ];
 
 const PASSING_COLUMNS: StatColumn[] = [
-  {
-    key: "pass_cmp",
-    header: "CMP",
-    tooltip: "Completions",
-    group: "Passing",
-    decimals: 1,
-  },
-  {
-    key: "pass_att",
-    header: "ATT",
-    tooltip: "Pass attempts",
-    group: "Passing",
-    decimals: 1,
-  },
-  {
-    key: "pass_yd",
-    header: "YD",
-    tooltip: "Passing yards",
-    group: "Passing",
-    decimals: 1,
-  },
-  {
-    key: "pass_td",
-    header: "TD",
-    tooltip: "Passing touchdowns",
-    group: "Passing",
-    decimals: 1,
-  },
+  statColumn("pass_att", "ATT", "Pass attempts", "Passing"),
+  statColumn("pass_cmp", "CMP", "Completions", "Passing"),
+  statColumn("pass_yd", "YD", "Passing yards", "Passing"),
+  statColumn("pass_td", "TD", "Passing touchdowns", "Passing"),
+  statColumn("pass_int", "INT", "Interceptions thrown", "Passing"),
 ];
 
+const FUMBLE_COLUMNS: StatColumn[] = [
+  statColumn("fum", "FUM", "Fumbles lost", "Fumbles"),
+];
+
+/** Sleeper projections publish 40–49 and 50+; totals are derived. */
 const KICKING_COLUMNS: StatColumn[] = [
-  {
-    key: "fgm",
-    header: "FGM",
-    tooltip: "Field goals made",
-    group: "Kicking",
-    decimals: 1,
-  },
-  {
-    key: "fga",
-    header: "FGA",
-    tooltip: "Field goal attempts",
-    group: "Kicking",
-    decimals: 1,
-  },
-  {
-    key: "xpm",
-    header: "XPM",
-    tooltip: "Extra points made",
-    group: "Kicking",
-    decimals: 1,
-  },
+  statColumn("fga", "FGA", "Field goal attempts", "Kicking"),
+  statColumn("fgm", "FGM", "Field goals made", "Kicking"),
+  statColumn("fgm_40_49", "40-49", "Field goals made from 40–49 yards", "Kicking"),
+  statColumn("fgm_50p", "50+", "Field goals made from 50+ yards", "Kicking"),
+  statColumn("xpa", "XPA", "Extra point attempts", "Kicking"),
+  statColumn("xpm", "XPM", "Extra points made", "Kicking"),
 ];
 
 const DEFENSE_COLUMNS: StatColumn[] = [
-  {
-    key: "fantasy_pts",
-    header: "PTS",
-    tooltip: "Fantasy points",
-    group: "Fantasy",
-    decimals: 2,
-  },
-  {
-    key: "adp",
-    header: "ADP",
-    tooltip: "Average draft position",
-    group: "Fantasy",
-    decimals: 1,
-  },
-  {
-    key: "def_td",
-    header: "DEF TD",
-    tooltip: "Defensive touchdowns",
-    group: "Defense",
-    decimals: 1,
-  },
-  {
-    key: "def_kr_td",
-    header: "KR TD",
-    tooltip: "Kick return touchdowns",
-    group: "Defense",
-    decimals: 1,
-  },
-  {
-    key: "st_td",
-    header: "ST TD",
-    tooltip: "Special teams touchdowns",
-    group: "Defense",
-    decimals: 1,
-  },
-  {
-    key: "ff",
-    header: "FF",
-    tooltip: "Forced fumbles",
-    group: "Defense",
-    decimals: 1,
-  },
-  {
-    key: "int",
-    header: "INT",
-    tooltip: "Interceptions",
-    group: "Defense",
-    decimals: 1,
-  },
-  {
-    key: "pts_allow",
-    header: "PT ALLOW",
-    tooltip: "Points allowed",
-    group: "Defense",
-    decimals: 1,
-  },
-  {
-    key: "tkl_loss",
-    header: "TKL",
-    tooltip: "Tackles for loss",
-    group: "Defense",
-    decimals: 1,
-  },
-  {
-    key: "sack",
-    header: "SACK",
-    tooltip: "Sacks",
-    group: "Defense",
-    decimals: 1,
-  },
-  {
-    key: "fum_rec",
-    header: "FUM REC",
-    tooltip: "Fumble recoveries",
-    group: "Defense",
-    decimals: 1,
-  },
+  ...FANTASY_COLUMNS,
+  statColumn("sack", "SACK", "Sacks", "Defense"),
+  statColumn("tkl_loss", "TFL", "Tackles for loss", "Defense"),
+  statColumn("int", "INT", "Interceptions", "Defense"),
+  statColumn("ff", "FF", "Forced fumbles", "Defense"),
+  statColumn("fum_rec", "FR", "Fumble recoveries", "Defense"),
+  statColumn("def_td", "DEF TD", "Defensive touchdowns", "Defense"),
+  statColumn("st_td", "ST TD", "Special teams touchdowns", "Defense"),
+  statColumn("def_kr_td", "KR TD", "Kick return touchdowns", "Defense"),
+  statColumn("pts_allow", "PA", "Points allowed", "Defense"),
 ];
 
-const IDP_COLUMNS: StatColumn[] = [
+const IDP_DB_COLUMNS: StatColumn[] = [
   ...FANTASY_COLUMNS,
-  {
-    key: "tkl",
-    header: "TKL",
-    tooltip: "Total tackles (solo + assisted)",
-    group: "Defense",
-    decimals: 1,
-  },
-  {
-    key: "tkl_solo",
-    header: "SOLO",
-    tooltip: "Solo tackles",
-    group: "Defense",
-    decimals: 1,
-  },
-  {
-    key: "tkl_ast",
-    header: "AST",
-    tooltip: "Assisted tackles",
-    group: "Defense",
-    decimals: 1,
-  },
-  {
-    key: "tkl_loss",
-    header: "TFL",
-    tooltip: "Tackles for loss",
-    group: "Defense",
-    decimals: 1,
-  },
-  {
-    key: "sack",
-    header: "SACK",
-    tooltip: "Sacks",
-    group: "Defense",
-    decimals: 1,
-  },
-  {
-    key: "int",
-    header: "INT",
-    tooltip: "Interceptions",
-    group: "Defense",
-    decimals: 1,
-  },
-  {
-    key: "ff",
-    header: "FF",
-    tooltip: "Forced fumbles",
-    group: "Defense",
-    decimals: 1,
-  },
-  {
-    key: "fum_rec",
-    header: "FR",
-    tooltip: "Fumble recoveries",
-    group: "Defense",
-    decimals: 1,
-  },
-  {
-    key: "def_td",
-    header: "TD",
-    tooltip: "Defensive touchdowns",
-    group: "Defense",
-    decimals: 1,
-  },
+  statColumn("int", "INT", "Interceptions", "Defense"),
+  statColumn("tkl", "TKL", "Total tackles (solo + assisted)", "Defense"),
+  statColumn("tkl_solo", "SOLO", "Solo tackles", "Defense"),
+  statColumn("tkl_ast", "AST", "Assisted tackles", "Defense"),
+  statColumn("tkl_loss", "TFL", "Tackles for loss", "Defense"),
+  statColumn("sack", "SACK", "Sacks", "Defense"),
+  statColumn("ff", "FF", "Forced fumbles", "Defense"),
+  statColumn("fum_rec", "FR", "Fumble recoveries", "Defense"),
+  statColumn("def_td", "TD", "Defensive touchdowns", "Defense"),
+];
+
+const IDP_FRONT_COLUMNS: StatColumn[] = [
+  ...FANTASY_COLUMNS,
+  statColumn("tkl", "TKL", "Total tackles (solo + assisted)", "Defense"),
+  statColumn("tkl_solo", "SOLO", "Solo tackles", "Defense"),
+  statColumn("tkl_ast", "AST", "Assisted tackles", "Defense"),
+  statColumn("tkl_loss", "TFL", "Tackles for loss", "Defense"),
+  statColumn("sack", "SACK", "Sacks", "Defense"),
+  statColumn("ff", "FF", "Forced fumbles", "Defense"),
+  statColumn("fum_rec", "FR", "Fumble recoveries", "Defense"),
+  statColumn("def_td", "TD", "Defensive touchdowns", "Defense"),
+  statColumn("int", "INT", "Interceptions", "Defense"),
 ];
 
 export function getStatColumns(position: PositionFilter): StatColumn[] {
   switch (position) {
     case "QB":
-      return [...FANTASY_COLUMNS, ...RUSHING_COLUMNS, ...PASSING_COLUMNS];
+      return [...FANTASY_COLUMNS, ...PASSING_COLUMNS, ...RUSHING_COLUMNS];
     case "RB":
-      return [...FANTASY_COLUMNS, ...RUSHING_COLUMNS, ...RECEIVING_COLUMNS];
+      return [
+        ...FANTASY_COLUMNS,
+        ...RUSHING_COLUMNS,
+        ...FUMBLE_COLUMNS,
+        ...RECEIVING_COLUMNS,
+      ];
     case "WR":
     case "TE":
       return [...FANTASY_COLUMNS, ...RECEIVING_COLUMNS, ...RUSHING_COLUMNS];
@@ -355,12 +187,13 @@ export function getStatColumns(position: PositionFilter): StatColumn[] {
       return DEFENSE_COLUMNS;
     case "CB":
     case "S":
+      return IDP_DB_COLUMNS;
     case "DT":
     case "DE":
     case "LB":
-      return IDP_COLUMNS;
+      return IDP_FRONT_COLUMNS;
     default:
-      return [...FANTASY_COLUMNS, ...RUSHING_COLUMNS, ...PASSING_COLUMNS];
+      return [...FANTASY_COLUMNS, ...PASSING_COLUMNS, ...RUSHING_COLUMNS];
   }
 }
 

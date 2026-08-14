@@ -15,6 +15,9 @@ export const SERVER_RANKINGS_PARAMS = new Set([
   "page",
   "fa",
   "q",
+  "sort",
+  "sortDir",
+  "pageSize",
 ]);
 
 export function useRankingsParams() {

@@ -48,6 +48,7 @@ export function isCountingProjectionStat(key: string): boolean {
  */
 const STAT_THRESHOLDS: Record<string, Partial<Record<string, Thresholds>>> = {
   QB: {
+    pass_att: { elite: 580, solid: 520, borderline: 450 },
     pass_yd: { elite: 4200, solid: 3600, borderline: 3000 },
     pass_td: { elite: 32, solid: 24, borderline: 18 },
     pass_cmp: { elite: 380, solid: 340, borderline: 300 },
@@ -96,6 +97,7 @@ const STAT_THRESHOLDS: Record<string, Partial<Record<string, Thresholds>>> = {
     tkl_ast: { elite: 45, solid: 30, borderline: 18 },
     sack: { elite: 8, solid: 4, borderline: 2 },
     tkl_loss: { elite: 12, solid: 8, borderline: 4 },
+    qb_hit: { elite: 12, solid: 7, borderline: 3 },
     int: { elite: 3, solid: 2, borderline: 1 },
     ff: { elite: 3, solid: 2, borderline: 1 },
   },
@@ -106,6 +108,7 @@ const STAT_THRESHOLDS: Record<string, Partial<Record<string, Thresholds>>> = {
     sack: { elite: 3, solid: 1, borderline: 0.5 },
     tkl_loss: { elite: 4, solid: 2, borderline: 1 },
     int: { elite: 4, solid: 2, borderline: 1 },
+    pass_def: { elite: 15, solid: 10, borderline: 6 },
     ff: { elite: 2, solid: 1, borderline: 0.5 },
   },
   S: {
@@ -115,6 +118,7 @@ const STAT_THRESHOLDS: Record<string, Partial<Record<string, Thresholds>>> = {
     sack: { elite: 3, solid: 1, borderline: 0.5 },
     tkl_loss: { elite: 5, solid: 3, borderline: 1 },
     int: { elite: 4, solid: 2, borderline: 1 },
+    pass_def: { elite: 10, solid: 6, borderline: 3 },
     ff: { elite: 2, solid: 1, borderline: 0.5 },
   },
   DE: {
@@ -123,6 +127,7 @@ const STAT_THRESHOLDS: Record<string, Partial<Record<string, Thresholds>>> = {
     tkl_ast: { elite: 20, solid: 12, borderline: 6 },
     sack: { elite: 12, solid: 8, borderline: 4 },
     tkl_loss: { elite: 14, solid: 9, borderline: 5 },
+    qb_hit: { elite: 25, solid: 15, borderline: 8 },
     int: { elite: 2, solid: 1, borderline: 0.5 },
     ff: { elite: 3, solid: 2, borderline: 1 },
   },
@@ -132,6 +137,7 @@ const STAT_THRESHOLDS: Record<string, Partial<Record<string, Thresholds>>> = {
     tkl_ast: { elite: 30, solid: 18, borderline: 10 },
     sack: { elite: 8, solid: 5, borderline: 2 },
     tkl_loss: { elite: 12, solid: 8, borderline: 4 },
+    qb_hit: { elite: 18, solid: 12, borderline: 6 },
     int: { elite: 2, solid: 1, borderline: 0.5 },
     ff: { elite: 2, solid: 1, borderline: 0.5 },
   },
@@ -365,9 +371,9 @@ export function getProjectionHighlightStats(
 
   if (position === "QB") {
     return [
+      tile("pass_att", "ATT", num(stats, "pass_att"), position, counting),
       tile("pass_yd", "PASS YD", num(stats, "pass_yd"), position, counting),
       tile("pass_td", "PASS TD", num(stats, "pass_td"), position, counting),
-      tile("pass_cmp", "CMP", num(stats, "pass_cmp"), position, counting),
       tile("rush_yd", "RUSH YD", num(stats, "rush_yd"), position, counting),
       tile("rush_td", "RUSH TD", num(stats, "rush_td"), position, counting),
       fptsTile,
@@ -376,10 +382,10 @@ export function getProjectionHighlightStats(
 
   if (position === "K") {
     return [
-      tile("fgm", "FGM", num(stats, "fgm"), position, counting),
       tile("fga", "FGA", num(stats, "fga"), position, counting),
-      tile("xpm", "XPM", num(stats, "xpm"), position, counting),
+      tile("fgm", "FGM", num(stats, "fgm"), position, counting),
       tile("xpa", "XPA", num(stats, "xpa"), position, counting),
+      tile("xpm", "XPM", num(stats, "xpm"), position, counting),
       fptsTile,
     ];
   }
@@ -395,13 +401,18 @@ export function getProjectionHighlightStats(
     ];
   }
 
-  if (
-    position === "LB" ||
-    position === "DE" ||
-    position === "DT" ||
-    position === "CB" ||
-    position === "S"
-  ) {
+  if (position === "CB" || position === "S") {
+    return [
+      tile("int", "INT", num(stats, "int"), position, counting),
+      tile("tkl", "TKL", totalTackles(stats), position, counting),
+      tile("tkl_loss", "TFL", num(stats, "tkl_loss"), position, counting),
+      tile("sack", "SACK", num(stats, "sack"), position, counting),
+      tile("ff", "FF", num(stats, "ff"), position, counting),
+      fptsTile,
+    ];
+  }
+
+  if (position === "LB" || position === "DE" || position === "DT") {
     return [
       tile("tkl", "TKL", totalTackles(stats), position, counting),
       tile("tkl_loss", "TFL", num(stats, "tkl_loss"), position, counting),

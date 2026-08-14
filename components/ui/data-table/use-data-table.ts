@@ -81,6 +81,9 @@ export function useDataTable<TData>({
     getFilteredRowModel: getFilteredRowModel(),
     getSortedRowModel: getSortedRowModel(),
     manualPagination,
+    // Server-paged `data` is already a slice. Client sorting would only
+    // reorder that page; the server (or parent) must sort the full set.
+    manualSorting: manualPagination,
     pageCount,
     ...(manualPagination
       ? {}

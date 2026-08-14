@@ -7,7 +7,8 @@ export const PLAYER_STAT_COLUMNS = {
   },
   rank: {
     header: "RANK",
-    tooltip: "League-wide position ranking",
+    tooltip:
+      "Position rank. Stats: positive actuals, then zeros, then negatives. Unplayed zeros follow projection order.",
   },
   fpts: {
     header: "FPTS",

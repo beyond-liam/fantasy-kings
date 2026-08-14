@@ -130,6 +130,7 @@ export default async function LeagueHomePage({
     playoffTeamCount: season?.playoffTeamCount ?? 0,
     championshipWeek: season?.championshipWeek ?? 17,
     playoffs: season?.settings.playoffs,
+    schedule: season?.settings.schedule,
   };
 
   return (

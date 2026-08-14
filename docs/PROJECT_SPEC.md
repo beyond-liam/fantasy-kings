@@ -1,7 +1,7 @@
 # Fantasy Kings — Project Specification
 
 > Living document. Update this file as requirements, decisions, and scope change.
-> Last updated: 2026-08-13
+> Last updated: 2026-08-14
 
 ---
 
@@ -27,7 +27,7 @@ A mobile-first fantasy football web app for a private friend group (4–16 users
 | Waivers / trades | FAAB + rolling, claims (grouped by process date), vetoes, limits, crons, alerts; optional daily drop processing; trade week-end hold for started players; optional trade offer expiry |
 | Draft | Live + email/slow same room; Brevo turn emails; mock draft; timed email daily UK pause window |
 | Matchups | Week board, Game Centre, standings from finals, Live/Final badges |
-| Live scores | Sleeper near-live + ESPN athlete boxscores → `player_scores` |
+| Live scores | Sleeper near-live + ESPN athlete and team DEF boxscores → `player_scores` |
 | Official scores | nflverse post-week replace; optional `applyOfficialStatChanges` |
 | Corrections UX | Activity `score_corrected` + owner notifications; Live freshness only when NFL games are in progress |
 | Win% | Calibrated live chance on schedule/board (literature σ priors; re-fit is lowest-priority later) |
@@ -130,7 +130,7 @@ Do not substitute without explicit approval.
 | Realtime | Supabase Realtime | Live draft room (when built) |
 | ORM | Drizzle | Domain-split schema files — see Section 8 |
 | Historical stats | nflverse (nflreadr / player week CSVs) | Free, open source — **wired** post-week via `sync-scores` |
-| Live stats | ESPN unofficial public API | Free, no key — **wired** (scoreboard + athlete boxscores → `player_scores`) |
+| Live stats | ESPN unofficial public API | Free, no key — **wired** (scoreboard + athlete and team DEF boxscores → `player_scores`) |
 | Live-poll scheduler | cron-job.org (external, free) | Every 2–5 min on game days → `/api/cron/sync-scores` |
 | Player metadata | Sleeper `/v1/players/nfl` | Player pool + external IDs; daily refresh via seed script |
 | Email | Brevo (free: 300/day) | Wired — draft + trade transactional alerts |
@@ -272,7 +272,7 @@ Two variants via the `Empty` **`size`** prop:
   - Score fetch positions include IDP + Sleeper `DL`/`DB` buckets (`lib/sleeper/api.ts`)
   - **Near-live week stats:** `/api/cron/sync-scores` (secured) upserts current-week Sleeper `stats` into `player_scores`; Vercel daily (Hobby) + cron-job.org every 2–5 min on game days
 - nflverse for historical/weekly stats — post-week official import via `/api/cron/sync-scores` (auto when slate has no live games; `nflverse=0` to skip)
-- ESPN unofficial API for live in-game **player** stats — scoreboard/clock for win% progress; athlete boxscores merge into `player_scores` via `/api/cron/sync-scores` (pass `espn=0` to skip)
+- ESPN unofficial API for live in-game **player** stats — scoreboard/clock for win% progress; athlete and team DEF boxscores merge into `player_scores` via `/api/cron/sync-scores` (pass `espn=0` to skip)
 - cron-job.org as external scheduler for live score polling **(in use for sync-scores)**
 - Graceful degradation: when NFL games are **live**, show `Last updated: …` (xs); hide otherwise **(shipped)**
 
@@ -656,7 +656,7 @@ lib/
 - [x] Trade mutations + processing pipeline
 - [x] In-app notifications (bell dropdown; trade + waiver + matchup producers)
 - [x] Near-live Sleeper week stats sync (`/api/cron/sync-scores`)
-- [x] ESPN live athlete boxscores merge on `sync-scores`
+- [x] ESPN live athlete + team DEF boxscores merge on `sync-scores`
 - [x] nflverse post-week official replace + `applyOfficialStatChanges`
 - [x] Matchup result lock + standings from final H2H (`home_pts`/`away_pts`/`status`)
 - [x] Leagues list W/L/Strk/Rank from final matchups
@@ -899,3 +899,16 @@ lib/
 | 2026-08-11 | Pause window auto-resume also runs on draft poll + settings save (not cron-only) |
 | 2026-08-10 | Lineup slot edits allowed during live/paused draft (FA add/cut still locked) |
 | 2026-08-10 | Email CTAs: harden app base URL (skip localhost in prod; APP_URL / Vercel production host); absoluteAppUrl safety net |
+| 2026-08-14 | Team DEF tables: SACK, TFL, INT, FF, FR, DEF TD, ST TD, KR TD, PA |
+| 2026-08-14 | Team Player Stats RANK matches League Players Stats (league-wide); rows stay sorted by points |
+| 2026-08-14 | Player profile keys pre and regular weeks separately (Pre 2 vs Week 2); Overview charts stay on regular season |
+| 2026-08-14 | Player game log uses the NFL preseason schedule during pre (not only weeks with a stats row) |
+| 2026-08-14 | ESPN live sync writes team DEF stats from the game summary (points allowed + sacks/INT/FF/FR/safety/TD), not only athlete boxscores |
+| 2026-08-14 | Player stats follow the live NFL calendar (pre vs regular) per league `includePreseason`; Players/Rankings/search/profiles/overview overlay current-week actuals after games are played |
+| 2026-08-14 | Global Rankings stay on regular season (no pre) |
+| 2026-08-14 | Players / Rankings RANK follows the tab: Projection always uses projected rank (season or that week); Stats ranks positive actuals, then zeros (played then unplayed by projection), then negatives |
+| 2026-08-14 | Players / Rankings default sort is RANK (ascending) |
+| 2026-08-14 | Players / Rankings column sort is table-wide (server re-sorts the full set, not the current page) |
+| 2026-08-14 | Data tables: rows-per-page select (10 / 25 / 50, default 25) |
+| 2026-08-14 | Players / Rankings default to Stats once counting games have started (Projection remains the default before) |
+| 2026-08-14 | Position stat columns follow Sleeper keys: passing-first QBs (incl. INT), rush/FUM/rec RBs, rec-then-rush WR/TE, K FGA/FGM/40–49/50+/XP; team DEF SACK/TFL/INT/FF/FR/DEF TD/ST TD/KR TD/PA; IDP without PD/QBH |

@@ -125,6 +125,43 @@ describe("formatOpponentTick", () => {
 });
 
 describe("buildPlayerOverviewMetrics", () => {
+  it("keeps only regular-season log rows so NFL week numbers stay unique", () => {
+    const overview = buildPlayerOverviewMetrics(
+      baseProfile({
+        gameLog: [
+          {
+            week: 2,
+            seasonType: "pre",
+            opponent: "vs LAC",
+            fantasyPts: 7,
+            result: "L",
+          },
+          {
+            week: 1,
+            seasonType: "regular",
+            opponent: "vs BUF",
+            fantasyPts: null,
+          },
+          {
+            week: 2,
+            seasonType: "regular",
+            opponent: "vs CIN",
+            fantasyPts: null,
+          },
+        ],
+      }),
+      rules,
+    );
+
+    const weekTwos = overview.weeklyPoints.filter((w) => w.week === 2);
+    assert.equal(weekTwos.length, 1);
+    assert.equal(weekTwos[0]?.opponent, "vs CIN");
+    assert.equal(
+      overview.weeklyPoints.some((w) => w.opponent === "vs LAC"),
+      false,
+    );
+  });
+
   it("marks past unscored weeks as DNP when later weeks have scores", () => {
     const overview = buildPlayerOverviewMetrics(
       baseProfile({

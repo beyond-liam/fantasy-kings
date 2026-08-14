@@ -41,10 +41,33 @@ type EspnPlayerSide = {
 };
 
 type EspnSummaryBoxscore = {
+  header?: {
+    competitions?: Array<{
+      competitors?: Array<{
+        homeAway?: string;
+        score?: string | number | null;
+        team?: { abbreviation?: string };
+      }>;
+    }>;
+  };
   boxscore?: {
     players?: EspnPlayerSide[];
+    teams?: Array<{
+      homeAway?: string;
+      team?: { abbreviation?: string };
+      statistics?: Array<{
+        name?: string;
+        displayValue?: string;
+      }>;
+    }>;
   };
+  scoringPlays?: Array<{
+    text?: string;
+    team?: { abbreviation?: string };
+  }>;
 };
+
+export type EspnSummaryPayload = EspnSummaryBoxscore;
 
 export type EspnAthleteStatLine = {
   espnAthleteId: string;
@@ -82,6 +105,19 @@ function setStat(
     return;
   }
   bag[key] = (bag[key] ?? 0) + value;
+}
+
+function firstNumber(
+  byKey: Map<string, string>,
+  keys: readonly string[],
+): number | null {
+  for (const key of keys) {
+    const value = parseNumber(byKey.get(key));
+    if (value != null) {
+      return value;
+    }
+  }
+  return null;
 }
 
 /**
@@ -165,12 +201,36 @@ export function applyEspnCategoryStats(
       break;
     }
     case "defensive": {
-      setStat(bag, "tkl_solo", parseNumber(byKey.get("soloTackles")));
-      setStat(bag, "sack", parseNumber(byKey.get("sacks")));
+      setStat(bag, "tkl_solo", firstNumber(byKey, ["soloTackles"]));
+      setStat(
+        bag,
+        "tkl_ast",
+        firstNumber(byKey, ["assistedTackles", "assists"]),
+      );
+      setStat(bag, "tkl", firstNumber(byKey, ["totalTackles"]));
+      setStat(bag, "sack", firstNumber(byKey, ["sacks"]));
+      setStat(bag, "tkl_loss", firstNumber(byKey, ["tacklesForLoss"]));
+      setStat(
+        bag,
+        "pass_def",
+        firstNumber(byKey, ["passesDefended", "passesBrokenUp"]),
+      );
+      setStat(
+        bag,
+        "qb_hit",
+        firstNumber(byKey, ["QBHits", "quarterbackHits", "qbHits"]),
+      );
+      setStat(bag, "ff", firstNumber(byKey, ["fumblesForced"]));
+      setStat(
+        bag,
+        "fum_rec",
+        firstNumber(byKey, ["fumblesRecovered", "fumbleRecoveries"]),
+      );
+      setStat(bag, "safe", firstNumber(byKey, ["safeties"]));
       setStat(
         bag,
         "def_td",
-        parseNumber(byKey.get("defensiveTouchdowns")),
+        firstNumber(byKey, ["defensiveTouchdowns"]),
       );
       break;
     }
@@ -218,9 +278,9 @@ export function parseEspnPlayerBoxscore(
   );
 }
 
-export async function fetchEspnPlayerBoxscore(
+export async function fetchEspnSummaryPayload(
   eventId: string,
-): Promise<EspnAthleteStatLine[]> {
+): Promise<EspnSummaryPayload> {
   const url = new URL(ESPN_SUMMARY);
   url.searchParams.set("event", eventId);
 
@@ -233,6 +293,11 @@ export async function fetchEspnPlayerBoxscore(
     );
   }
 
-  const payload = (await response.json()) as EspnSummaryBoxscore;
-  return parseEspnPlayerBoxscore(payload);
+  return (await response.json()) as EspnSummaryPayload;
+}
+
+export async function fetchEspnPlayerBoxscore(
+  eventId: string,
+): Promise<EspnAthleteStatLine[]> {
+  return parseEspnPlayerBoxscore(await fetchEspnSummaryPayload(eventId));
 }

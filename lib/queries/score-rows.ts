@@ -128,10 +128,13 @@ function resolveScoreRowsLimit(filters: LoadScoreRowsFilters): number {
   return SCORE_ROWS_HARD_CAP;
 }
 
-function normalizeStats(raw: unknown): Record<string, number | null> {
-  return normalizePlayerStats(
-    (raw ?? {}) as Record<string, number | null>,
-  ) as Record<string, number | null>;
+function normalizeStats(
+  raw: unknown,
+  kind: "projection" | "stats",
+): Record<string, number | null> {
+  return normalizePlayerStats((raw ?? {}) as Record<string, number | null>, {
+    fillOmittedZeros: kind === "stats",
+  }) as Record<string, number | null>;
 }
 
 function projectStatsSelect(statKeys: string[] | undefined) {
@@ -241,7 +244,7 @@ export async function loadScoreRows(
       byeWeek: null,
       injuryStatus: null,
       rookieYear: null,
-      stats: normalizeStats(row.stats),
+      stats: normalizeStats(row.stats, filters.kind),
       ptsPpr: row.ptsPpr,
       ptsStd: row.ptsStd,
     }));
@@ -289,7 +292,7 @@ export async function loadScoreRows(
     mapped = rows.map((row) => ({
       ...row,
       sleeperId: row.sleeperId ?? null,
-      stats: normalizeStats(row.stats),
+      stats: normalizeStats(row.stats, filters.kind),
     }));
   }
 
@@ -309,4 +312,29 @@ export async function loadScoreRows(
   scoreRowsCache.set(key, { rows: mapped, loadedAt: Date.now() });
 
   return mapped;
+}
+
+/** Overlay stats/pts from `overlay` onto a stable player universe (projection pool). */
+export function overlayScoreKind(
+  universe: ScoreRow[],
+  overlay: ScoreRow[],
+): ScoreRow[] {
+  const byId = new Map(overlay.map((row) => [row.id, row]));
+  return universe.map((row) => {
+    const next = byId.get(row.id);
+    if (!next) {
+      return {
+        ...row,
+        stats: {},
+        ptsPpr: null,
+        ptsStd: null,
+      };
+    }
+    return {
+      ...row,
+      stats: next.stats,
+      ptsPpr: next.ptsPpr,
+      ptsStd: next.ptsStd,
+    };
+  });
 }

@@ -8,7 +8,7 @@ Mapped from Sleeper NFL `position` (`NT→DT`, `OLB/ILB/MLB→LB`, `FS/SS→S`).
 - Position seed rows + Sleeper import for active rostered defenders
 - Roster presets: **Standard offense**, **Offense + IDP** (standard offense + DEF + **2 CB, 2 S, 1 DT, 2 DE, 2 LB**), **Custom**
 - Offense + IDP uses a starter summary (no editable positions table); Custom keeps the table
-- Colors, rankings/draft filters, IDP stat columns (CB → S → DT → DE → LB)
+- Player page / rankings / draft / team stats columns follow Sleeper keys: CB/S lead with INT; DT/DE/LB lead with tackles and sacks
 - Position badge palette: QB rose, RB sky, WR emerald, TE violet, K amber, FLEX teal, DEF gray, IDP (CB/S/DT/DE/LB) pink
 - Team Player Stats: Defensive Backs / Defensive Linemen / Linebackers tables; Team DEF only when rostered
 - Points by position + Position Strength include individual IDP slots from roster settings
@@ -18,7 +18,7 @@ Mapped from Sleeper NFL `position` (`NT→DT`, `OLB/ILB/MLB→LB`, `FS/SS→S`).
 - New leagues persist scoring rules filtered to roster positions at create
 - Roster save prunes scoring rules that no longer match roster positions (incl. team-DEF defaults)
 - Sleeper `idp_*` projection keys aliased onto shared keys via `normalizePlayerStats`
-- nflverse official replace maps IDP box-score lines (`def_tackles_solo` / `def_tackle_assists` / `def_tackles_for_loss`, sacks, FF, FR, INT, safety, TD) onto the same keys
+- nflverse official replace maps IDP box-score lines (`def_tackles_solo` / `def_tackle_assists` / `def_tackles_for_loss`, sacks, FF, FR, INT, PD, QB hits, safety, TD) onto the same keys
 - Sleeper score fetch includes IDP NFL positions + `DL`/`DB` buckets
 - Need-aware / mock draft: pad QB/RB/WR/TE/FLEX before IDP needs; K/DEF still last two picks
 - Game Centre box score partitions IDP with defense
@@ -42,6 +42,5 @@ Default create-league format remains **offense-only (standard)**. Commissioners 
 |---|---|---|
 | **IDP FLEX** | Custom slots are exact-match only | Deferred — revisit with offense FLEX redesign |
 | **Free-agent defenders without `team`** | Same gate as offense (`active` + team) — practice-squad / FA without team stay out | Revisit if waiver wire feels thin mid-season |
-| **Player page stats per position** | Overview / game-log / column sets still need position-specific tweaks (CB vs S vs DT vs DE vs LB) | Revisit each IDP position’s stats surface against real usage |
 
 Offense-only leagues are unaffected until a commissioner enables IDP slots.

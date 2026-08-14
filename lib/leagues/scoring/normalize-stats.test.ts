@@ -14,6 +14,8 @@ describe("normalizePlayerStats IDP aliases", () => {
       idp_ff: 3,
       idp_fum_rec: 2,
       idp_int: 1,
+      idp_pass_def: 8,
+      idp_qb_hit: 4,
     });
 
     assert.equal(normalized.tkl_solo, 35);
@@ -23,6 +25,8 @@ describe("normalizePlayerStats IDP aliases", () => {
     assert.equal(normalized.ff, 3);
     assert.equal(normalized.fum_rec, 2);
     assert.equal(normalized.int, 1);
+    assert.equal(normalized.pass_def, 8);
+    assert.equal(normalized.qb_hit, 4);
   });
 
   it("does not overwrite existing non-idp defense keys", () => {
@@ -83,5 +87,32 @@ describe("normalizePlayerStats IDP aliases", () => {
     assert.equal(normalized.rush_yd, 0);
     assert.equal(normalized.rec, 0);
     assert.equal(normalized.rec_yd, 0);
+  });
+
+  it("aliases fumbles lost onto fum when total fumbles are omitted", () => {
+    const normalized = normalizePlayerStats(
+      { gp: 1, rush_att: 12, fum_lost: 2 },
+      { fillOmittedZeros: false },
+    );
+    assert.equal(normalized.fum, 2);
+  });
+
+  it("maps Sleeper 50–59 / 60+ FG makes onto fgm_50p", () => {
+    const normalized = normalizePlayerStats(
+      { fgm_50_59: 3, fgm_60p: 1 },
+      { fillOmittedZeros: false },
+    );
+    assert.equal(normalized.fgm_50p, 4);
+    assert.equal(normalized.fgm, 4);
+  });
+
+  it("does not invent PD zeros on projection bags", () => {
+    const normalized = normalizePlayerStats(
+      { gp: 1, idp_sack: 8, idp_tkl_solo: 40 },
+      { fillOmittedZeros: false },
+    );
+    assert.equal(normalized.sack, 8);
+    assert.equal(normalized.pass_def, undefined);
+    assert.equal(normalized.qb_hit, undefined);
   });
 });

@@ -39,4 +39,30 @@ describe("scoringStatKeysForLoad", () => {
     assert.ok(keys.includes("fgm_50p"));
     assert.ok(keys.includes("xpm"));
   });
+
+  it("includes IDP aliases for passes defended and QB hits", () => {
+    const keys = scoringStatKeysForLoad([
+      {
+        id: "pd",
+        category: "defense",
+        kind: "simple",
+        points: 1,
+        stat: "Passes Defended",
+        positions: ["CB"],
+      },
+      {
+        id: "qbh",
+        category: "defense",
+        kind: "simple",
+        points: 0.5,
+        stat: "QB Hits",
+        positions: ["DE"],
+      },
+    ]);
+
+    assert.ok(keys.includes("pass_def"));
+    assert.ok(keys.includes("idp_pass_def"));
+    assert.ok(keys.includes("qb_hit"));
+    assert.ok(keys.includes("idp_qb_hit"));
+  });
 });

@@ -91,6 +91,8 @@ export function nflverseRowToSleeperStats(
   setIfPositive(bag, "ff", num(row, "def_fumbles_forced"));
   setIfPositive(bag, "fum_rec", num(row, "fumble_recovery_opp"));
   setIfPositive(bag, "int", num(row, "def_interceptions"));
+  setIfPositive(bag, "pass_def", num(row, "def_pass_defended"));
+  setIfPositive(bag, "qb_hit", num(row, "def_qb_hits"));
   setIfPositive(bag, "safe", num(row, "def_safeties"));
   setIfPositive(bag, "def_td", num(row, "def_tds"));
 

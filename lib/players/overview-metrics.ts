@@ -31,6 +31,7 @@ export type PlayerOverviewInput = ProjectionProfileInput & {
     stats?: Record<string, number | null>;
     /** Team game result when the NFL week has been played. */
     result?: "W" | "L" | "T" | null;
+    seasonType?: "pre" | "regular" | "post";
   }[];
   /** Optional seed for sections that need team/league context (mocks or future queries). */
   overviewExtras?: OverviewExtrasSeed | null;
@@ -2679,7 +2680,10 @@ export function buildPlayerOverviewMetrics(
   });
   const cappedProfile: PlayerOverviewInput = {
     ...profile,
-    gameLog: profile.gameLog.filter((row) => row.week <= seasonMaxWeek),
+    gameLog: profile.gameLog.filter(
+      (row) =>
+        row.seasonType !== "pre" && row.week <= seasonMaxWeek,
+    ),
   };
   const weeklyPoints = scoredWeeks(cappedProfile);
   const scoredFpts = weeklyPoints

@@ -76,6 +76,8 @@ const HELPER_STAT_KEYS = [
   "idp_ff",
   "idp_fum_rec",
   "idp_int",
+  "idp_pass_def",
+  "idp_qb_hit",
   "idp_safe",
   "idp_def_td",
   "idp_td",

@@ -23,6 +23,8 @@ import {
 import { loadOverviewWeekHighlights } from "@/lib/queries/league-overview-highlights";
 import { getLeaguePositionStats } from "@/lib/queries/league-stats";
 import { loadOverviewWeeklyRoast } from "@/lib/queries/overview-weekly-roast";
+import { resolvePlayerScorePoint } from "@/lib/leagues/schedule/player-score-point";
+import { nflToFantasyWeek } from "@/lib/leagues/schedule/fantasy-week-map";
 import { getNflState } from "@/lib/sleeper/api";
 
 type LeagueHomeOverviewTabProps = {
@@ -85,21 +87,38 @@ export async function LeagueHomeOverviewTab({
     getLeaguePositionStats(leagueSlug, userId),
   ]);
 
-  const highlightWeek = Math.max(1, Number(nflState?.week) || 1);
+  const scorePoint = nflState
+    ? resolvePlayerScorePoint({
+        selectedWeek: 0,
+        kind: "stats",
+        nfl: nflState,
+        schedule: bundleInput.schedule ?? null,
+        seasonYear: bundleInput.seasonYear,
+      })
+    : { seasonType: "regular" as const, week: 0 };
+  const highlightWeek =
+    scorePoint.week >= 1
+      ? (nflToFantasyWeek(scorePoint, bundleInput.schedule) ?? scorePoint.week)
+      : null;
+
+  const emptyHighlights = {
+    playersOfTheWeek: {
+      passer: null,
+      rusher: null,
+      receiver: null,
+    },
+    week: highlightWeek ?? 1,
+  };
 
   const [weekHighlights, weeklyRoast] = await Promise.all([
-    loadOverviewWeekHighlights({
-      seasonYear: bundleInput.seasonYear,
-      week: highlightWeek,
-      scoringRules,
-    }).catch(() => ({
-      playersOfTheWeek: {
-        passer: null,
-        rusher: null,
-        receiver: null,
-      },
-      week: highlightWeek,
-    })),
+    scorePoint.week >= 1
+      ? loadOverviewWeekHighlights({
+          seasonYear: bundleInput.seasonYear,
+          week: scorePoint.week,
+          seasonType: scorePoint.seasonType,
+          scoringRules,
+        }).catch(() => emptyHighlights)
+      : Promise.resolve(emptyHighlights),
     useOverviewMock
       ? Promise.resolve(getOverviewWeeklyRoastMock())
       : loadOverviewWeeklyRoast({
@@ -157,7 +176,7 @@ export async function LeagueHomeOverviewTab({
       inefficient={inefficient[0] ?? null}
       seasonLeaders={seasonLeaders}
       playersOfTheWeek={weekHighlights.playersOfTheWeek}
-      highlightWeek={weekHighlights.week}
+      highlightWeek={highlightWeek}
       weeklyRoast={weeklyRoast}
     />
   );

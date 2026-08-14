@@ -19,13 +19,22 @@ import {
 import { cn } from "@/lib/utils";
 
 type GameLogRow = {
+  id: string;
   week: number;
+  weekLabel: string;
+  seasonType: "pre" | "regular" | "post";
   opponent: string | null;
   result: "W" | "L" | "T" | null;
   fantasyPts: number | null;
   finish: number | null;
   stats: Record<string, number | null>;
 };
+
+function gameLogSortKey(row: GameLogRow): number {
+  if (row.seasonType === "pre") return row.week;
+  if (row.seasonType === "post") return 200 + row.week;
+  return 100 + row.week;
+}
 
 type PlayerGameLogTableProps = {
   profile: PlayerProfile;
@@ -104,11 +113,17 @@ export function PlayerGameLogTable({ profile }: PlayerGameLogTableProps) {
   const data = useMemo<GameLogRow[]>(
     () =>
       profile.gameLog.map((row) => ({
+        id: `${row.seasonType ?? "regular"}-${row.week}`,
         week: row.week,
+        weekLabel: row.weekLabel ?? String(row.week),
+        seasonType: row.seasonType ?? "regular",
         opponent: row.opponent,
         result: row.result,
         fantasyPts: row.fantasyPts,
-        finish: finishByWeek.get(row.week) ?? null,
+        finish:
+          row.seasonType === "pre"
+            ? null
+            : (finishByWeek.get(row.week) ?? null),
         stats: row.stats,
       })),
     [finishByWeek, profile.gameLog],
@@ -122,7 +137,7 @@ export function PlayerGameLogTable({ profile }: PlayerGameLogTableProps) {
   const totals = useMemo(() => {
     const fantasyPts = sumNullable(scoredRows.map((row) => row.fantasyPts));
     const stats: Record<string, number | null> = {};
-    for (const column of profile.gameLogColumns.slice(0, 8)) {
+    for (const column of profile.gameLogColumns) {
       if (NON_SUMMABLE_STAT_KEYS.has(column.key)) {
         stats[column.key] = null;
         continue;
@@ -135,7 +150,7 @@ export function PlayerGameLogTable({ profile }: PlayerGameLogTableProps) {
   }, [profile.gameLogColumns, scoredRows]);
 
   const statColumns = useMemo(
-    () => profile.gameLogColumns.slice(0, 8),
+    () => profile.gameLogColumns,
     [profile.gameLogColumns],
   );
 
@@ -143,9 +158,10 @@ export function PlayerGameLogTable({ profile }: PlayerGameLogTableProps) {
     const cols: ColumnDef<GameLogRow>[] = [
       {
         id: "week",
-        accessorKey: "week",
+        accessorFn: (row) => gameLogSortKey(row),
         enableSorting: true,
-        sortingFn: (a, b) => a.original.week - b.original.week,
+        sortingFn: (a, b) =>
+          gameLogSortKey(a.original) - gameLogSortKey(b.original),
         header: ({ column }) => (
           <DataTableColumnHeader
             column={column}
@@ -154,11 +170,11 @@ export function PlayerGameLogTable({ profile }: PlayerGameLogTableProps) {
           />
         ),
         cell: ({ row }) => (
-          <span className="tabular-nums">{row.original.week}</span>
+          <span className="tabular-nums">{row.original.weekLabel}</span>
         ),
         footer: () => <span>Total</span>,
         meta: {
-          width: 72,
+          width: 80,
           sticky: "left",
           cellClassName: "tabular-nums",
         },
@@ -348,7 +364,7 @@ export function PlayerGameLogTable({ profile }: PlayerGameLogTableProps) {
     columns,
     sorting,
     onSortingChange: setSorting,
-    getRowId: (row) => String(row.week),
+    getRowId: (row) => row.id,
     pageSize: Math.max(data.length, 1),
   });
 

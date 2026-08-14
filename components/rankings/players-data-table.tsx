@@ -13,12 +13,12 @@ import {
 } from "@/components/rankings/rankings-toolbar";
 import { useRankingsParams } from "@/components/rankings/use-rankings-params";
 import { DataTable, useDataTable } from "@/components/ui/data-table";
+import { dataTablePageSizeQueryValue } from "@/components/ui/data-table/page-size";
 import { useIsMobile } from "@/hooks/use-mobile";
 import type { RankedPlayerRow } from "@/lib/queries/players";
 import { parsePositionFilter, POSITION_FILTERS, type PositionFilter } from "@/lib/rankings/column-config";
 import {
-  DEFAULT_SORT_COLUMN,
-  DEFAULT_SORT_DESC,
+  parseRequestedSort,
   parseSortingFromParams,
   sortingToParams,
 } from "@/lib/rankings/sort-params";
@@ -47,6 +47,8 @@ type PlayersDataTableProps = {
   totalCount?: number;
   /** League roster positions for the filter. Defaults to all. */
   positions?: readonly PositionFilter[];
+  /** Week dropdown items. League Players may include preseason fantasy weeks. */
+  weekItems?: { label: string; value: string }[];
 };
 
 type ClientView = Pick<
@@ -58,19 +60,19 @@ function clientViewFromUrl(
   allowedPositions: readonly PositionFilter[] = POSITION_FILTERS,
 ): ClientView {
   if (typeof window === "undefined") {
+    const defaults = parseRequestedSort();
     return {
       position: allowedPositions[0] ?? "QB",
       team: "ALL",
       rookiesOnly: false,
       freeAgentsOnly: true,
-      sort: DEFAULT_SORT_COLUMN,
-      sortDesc: DEFAULT_SORT_DESC,
+      sort: defaults.sort,
+      sortDesc: defaults.sortDesc,
     };
   }
 
   const params = new URLSearchParams(window.location.search);
-  const sortParam = params.get("sort");
-  const sortDir = params.get("sortDir");
+  const parsedSort = parseRequestedSort(params.get("sort"), params.get("sortDir"));
 
   return {
     // Absent param = default. Do not fall back to previous client state —
@@ -79,11 +81,8 @@ function clientViewFromUrl(
     team: params.get("team") || "ALL",
     rookiesOnly: params.get("rookies") === "1",
     freeAgentsOnly: params.get("fa") !== "0",
-    sort:
-      sortParam === "pts_ppr"
-        ? DEFAULT_SORT_COLUMN
-        : (sortParam ?? DEFAULT_SORT_COLUMN),
-    sortDesc: sortDir ? sortDir !== "asc" : DEFAULT_SORT_DESC,
+    sort: parsedSort.sort,
+    sortDesc: parsedSort.sortDesc,
   };
 }
 
@@ -107,6 +106,7 @@ export function PlayersDataTable({
   pageSize,
   totalCount,
   positions = POSITION_FILTERS,
+  weekItems,
 }: PlayersDataTableProps) {
   const updateParams = useRankingsParams();
   const isMobile = useIsMobile();
@@ -289,6 +289,7 @@ export function PlayersDataTable({
         showTeamFilter={!isLeagueView}
         showFreeAgentsFilter={isLeagueView}
         positions={positionOptions}
+        weekItems={weekItems}
         searchActions={
           leagueSlug
             ? {
@@ -319,6 +320,11 @@ export function PlayersDataTable({
                 onPageChange: (nextPage) => {
                   updateParams({
                     page: nextPage <= 1 ? null : String(nextPage),
+                  });
+                },
+                onPageSizeChange: (nextSize) => {
+                  updateParams({
+                    pageSize: dataTablePageSizeQueryValue(nextSize),
                   });
                 },
               }

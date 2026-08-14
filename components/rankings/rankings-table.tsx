@@ -3,6 +3,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { getNflTeams, getRankedPlayers } from "@/lib/queries/players";
 import type { PositionFilter } from "@/lib/rankings/column-config";
 import type { ScoringPreset } from "@/lib/leagues/scoring/types";
+import type { PositionRankSource } from "@/lib/rankings/position-rank-map";
 import {
   PLAYERS_PAGE_SIZE,
   playersPageOffset,
@@ -16,6 +17,9 @@ type RankingsTableProps = {
   week: number;
   weekParam: string;
   kind: "projection" | "stats";
+  seasonType?: string;
+  positionRanks?: PositionRankSource;
+  seasonStarted: boolean;
   position: PositionFilter;
   team: string;
   rookiesOnly: boolean;
@@ -23,6 +27,7 @@ type RankingsTableProps = {
   sort: string;
   sortDesc: boolean;
   page: number;
+  pageSize?: number;
   search?: string;
 };
 
@@ -35,6 +40,9 @@ export async function RankingsTable({
   week,
   weekParam,
   kind,
+  seasonType,
+  positionRanks,
+  seasonStarted,
   position,
   team,
   rookiesOnly,
@@ -42,17 +50,20 @@ export async function RankingsTable({
   sort,
   sortDesc,
   page,
+  pageSize = PLAYERS_PAGE_SIZE,
   search,
 }: RankingsTableProps) {
-  const offset = playersPageOffset(page);
+  const offset = playersPageOffset(page, pageSize);
   // Fetch one extra row to detect whether another page exists without a count query.
-  const fetchLimit = PLAYERS_PAGE_SIZE + 1;
+  const fetchLimit = pageSize + 1;
 
   const [playersResult, teams] = await Promise.all([
     getRankedPlayers({
       season,
       week,
+      seasonType,
       kind,
+      positionRanks,
       scoringPreset: scoring,
       position,
       team: team !== "ALL" ? team : undefined,
@@ -87,13 +98,13 @@ export async function RankingsTable({
     );
   }
 
-  const hasNext = playersResult.rows.length > PLAYERS_PAGE_SIZE;
+  const hasNext = playersResult.rows.length > pageSize;
   const pageRows = hasNext
-    ? playersResult.rows.slice(0, PLAYERS_PAGE_SIZE)
+    ? playersResult.rows.slice(0, pageSize)
     : playersResult.rows;
   // Approximate total for pagination UI (exact only when on last page).
   const totalCount = hasNext
-    ? offset + PLAYERS_PAGE_SIZE + 1
+    ? offset + pageSize + 1
     : offset + pageRows.length;
 
   return (
@@ -104,7 +115,7 @@ export async function RankingsTable({
       seasons={seasons}
       teams={teams}
       page={page}
-      pageSize={PLAYERS_PAGE_SIZE}
+      pageSize={pageSize}
       totalCount={totalCount}
       view={{
         season,
@@ -118,6 +129,7 @@ export async function RankingsTable({
         sort,
         sortDesc,
         search: search ?? "",
+        seasonStarted,
       }}
     />
   );

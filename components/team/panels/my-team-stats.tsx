@@ -7,9 +7,9 @@ import {
 import { getRosterEvaluationByModeMock } from "@/lib/leagues/roster-evaluation/mock";
 import type { ScoringRuleDefinition } from "@/lib/leagues/scoring";
 import { getTeamStatsChartsMock } from "@/lib/leagues/team-stats-charts-mock";
-import { getRankedPlayers } from "@/lib/queries/players";
 import { getRosterEvaluationByMode } from "@/lib/queries/roster-evaluation";
 import { getTeamRosteredPlayerIds } from "@/lib/queries/roster";
+import { getTeamRosterStatPlayers } from "@/lib/queries/team-player-stats";
 import { getTeamStatsCharts } from "@/lib/queries/team-stats-charts";
 
 export type MyTeamStatsPanelProps = {
@@ -30,21 +30,21 @@ export async function MyTeamStatsPanel({
   useChartsMock,
 }: MyTeamStatsPanelProps) {
   const [
-    { fantasyWeek, nflWeek, nflSeason, nflSeasonType, opponentsByTeam },
+    { fantasyWeek, nflWeek, nflSeason, nflSeasonType, opponentsByTeam, nflState },
     rosterIds,
   ] = await Promise.all([
     loadMyTeamNflContext({ seasonYear, schedule }),
     getTeamRosteredPlayerIds(teamId),
   ]);
 
-  const [seasonProjections, charts, rosterEvaluationByMode] = await Promise.all([
+  const [seasonRows, charts, rosterEvaluationByMode] = await Promise.all([
     rosterIds.length > 0
-      ? getRankedPlayers({
+      ? getTeamRosterStatPlayers({
           season: nflSeason,
-          week: 0,
-          kind: "projection",
-          scoringRules,
           playerIds: rosterIds,
+          scoringRules,
+          nfl: nflState,
+          schedule,
         }).catch(() => [])
       : Promise.resolve([]),
     useChartsMock
@@ -63,7 +63,7 @@ export async function MyTeamStatsPanel({
   ]);
 
   const rosterIdSet = new Set(rosterIds);
-  const scoredPlayers = seasonProjections
+  const scoredPlayers = seasonRows
     .filter((player) => rosterIdSet.has(player.id))
     .map((player) =>
       withPlayerOpponent(player, nflWeek, opponentsByTeam, {

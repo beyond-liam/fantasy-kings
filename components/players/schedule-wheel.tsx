@@ -308,7 +308,7 @@ export function ScheduleWheel({
             labelLine={false}
           >
             {slices.map((slice) => (
-              <Cell key={slice.week} fill={slice.fill} />
+              <Cell key={`wk-${slice.week}`} fill={slice.fill} />
             ))}
             <Label
               content={({ viewBox }) => {

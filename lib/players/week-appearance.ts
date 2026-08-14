@@ -38,6 +38,8 @@ const APPEARANCE_KEYS = [
   "tkl_solo",
   "tkl_ast",
   "tkl_loss",
+  "pass_def",
+  "qb_hit",
   // Raw Sleeper IDP keys (before normalize aliases onto shared defense keys)
   "idp_tkl",
   "idp_tkl_solo",
@@ -47,6 +49,8 @@ const APPEARANCE_KEYS = [
   "idp_ff",
   "idp_fum_rec",
   "idp_int",
+  "idp_pass_def",
+  "idp_qb_hit",
   "idp_safe",
   "idp_def_td",
   "idp_td",

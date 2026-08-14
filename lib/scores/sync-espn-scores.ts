@@ -1,10 +1,15 @@
 import { and, eq, max, sql } from "drizzle-orm";
 
-import { playerExternalIds, playerScores } from "@/db/schema";
+import { playerExternalIds, playerScores, players } from "@/db/schema";
 import { db } from "@/lib/db";
-import { fetchEspnPlayerBoxscore } from "@/lib/espn/player-boxscore";
+import {
+  fetchEspnSummaryPayload,
+  parseEspnPlayerBoxscore,
+} from "@/lib/espn/player-boxscore";
 import { getNflScoreboard } from "@/lib/espn/scoreboard";
+import { parseEspnTeamDefBoxscore } from "@/lib/espn/team-def-boxscore";
 import { espnSeasonTypeForNfl } from "@/lib/leagues/schedule/fantasy-week-map";
+import { normalizeNflTeamAbbrev } from "@/lib/nfl/matchups";
 import { clearScoreRowsCache } from "@/lib/queries/players";
 import type { ScoreSyncSeasonType } from "@/lib/scores/sync-calendar";
 import { getNflState } from "@/lib/sleeper/api";
@@ -20,6 +25,7 @@ export type SyncEspnLiveScoresResult = {
   seasonType: ScoreSyncSeasonType;
   eventsConsidered: number;
   athleteLines: number;
+  defLines: number;
   upserted: number;
   matchedPlayers: number;
   unmappedAthletes: number;
@@ -44,6 +50,29 @@ export async function loadEspnPlayerIdMap(
   return new Map(
     externalIds.map((row) => [row.externalId, row.playerId]),
   );
+}
+
+/** Load NFL team abbrev → internal team DEF player id. */
+export async function loadDefPlayerIdByNflTeam(
+  executor: ScoresDb = db,
+): Promise<Map<string, string>> {
+  const rows = await executor
+    .select({
+      id: players.id,
+      nflTeam: players.nflTeam,
+    })
+    .from(players)
+    .where(eq(players.primaryPositionId, "DEF"));
+
+  const map = new Map<string, string>();
+  for (const row of rows) {
+    const abbrev = normalizeNflTeamAbbrev(row.nflTeam);
+    if (!abbrev) {
+      continue;
+    }
+    map.set(abbrev, row.id);
+  }
+  return map;
 }
 
 async function maxUpdatedAtForWeek(input: {
@@ -71,14 +100,13 @@ async function maxUpdatedAtForWeek(input: {
  * Merges into existing stats JSON so Sleeper-only keys are preserved;
  * ESPN keys win on conflict.
  */
-export async function upsertEspnStatLines(input: {
+async function upsertPlayerStatLines(input: {
   executor?: ScoresDb;
-  espnIdToPlayerId: Map<string, string>;
   season: string;
   week: number;
   seasonType?: ScoreSyncSeasonType;
-  lines: Array<{ espnAthleteId: string; stats: Record<string, number> }>;
-}): Promise<{ upserted: number; unmapped: number }> {
+  lines: Array<{ playerId: string; stats: Record<string, number> }>;
+}): Promise<number> {
   const executor = input.executor ?? db;
   const seasonType = input.seasonType ?? "regular";
   const values: Array<{
@@ -90,19 +118,13 @@ export async function upsertEspnStatLines(input: {
     stats: Record<string, number>;
     gp: number;
   }> = [];
-  let unmapped = 0;
 
   for (const line of input.lines) {
-    const playerId = input.espnIdToPlayerId.get(line.espnAthleteId);
-    if (!playerId) {
-      unmapped++;
-      continue;
-    }
     if (Object.keys(line.stats).length === 0) {
       continue;
     }
     values.push({
-      playerId,
+      playerId: line.playerId,
       season: input.season,
       week: input.week,
       seasonType,
@@ -134,7 +156,43 @@ export async function upsertEspnStatLines(input: {
       });
   }
 
-  return { upserted: values.length, unmapped };
+  return values.length;
+}
+
+/**
+ * Upsert ESPN boxscore lines into `player_scores` (kind=stats).
+ * Merges into existing stats JSON so Sleeper-only keys are preserved;
+ * ESPN keys win on conflict.
+ */
+export async function upsertEspnStatLines(input: {
+  executor?: ScoresDb;
+  espnIdToPlayerId: Map<string, string>;
+  season: string;
+  week: number;
+  seasonType?: ScoreSyncSeasonType;
+  lines: Array<{ espnAthleteId: string; stats: Record<string, number> }>;
+}): Promise<{ upserted: number; unmapped: number }> {
+  const mapped: Array<{ playerId: string; stats: Record<string, number> }> = [];
+  let unmapped = 0;
+
+  for (const line of input.lines) {
+    const playerId = input.espnIdToPlayerId.get(line.espnAthleteId);
+    if (!playerId) {
+      unmapped++;
+      continue;
+    }
+    mapped.push({ playerId, stats: line.stats });
+  }
+
+  const upserted = await upsertPlayerStatLines({
+    executor: input.executor,
+    season: input.season,
+    week: input.week,
+    seasonType: input.seasonType,
+    lines: mapped,
+  });
+
+  return { upserted, unmapped };
 }
 
 /**
@@ -185,6 +243,7 @@ export async function syncEspnLiveScores(options?: {
       seasonType,
       eventsConsidered: 0,
       athleteLines: 0,
+      defLines: 0,
       upserted: 0,
       matchedPlayers: 0,
       unmappedAthletes: 0,
@@ -240,6 +299,7 @@ export async function syncEspnLiveScores(options?: {
       seasonType,
       eventsConsidered: 0,
       athleteLines: 0,
+      defLines: 0,
       upserted: 0,
       matchedPlayers: 0,
       unmappedAthletes: 0,
@@ -248,18 +308,22 @@ export async function syncEspnLiveScores(options?: {
     };
   }
 
-  const espnIdToPlayerId = await loadEspnPlayerIdMap();
-  if (espnIdToPlayerId.size === 0) {
+  const [espnIdToPlayerId, defPlayerIdByTeam] = await Promise.all([
+    loadEspnPlayerIdMap(),
+    loadDefPlayerIdByNflTeam(),
+  ]);
+  if (espnIdToPlayerId.size === 0 && defPlayerIdByTeam.size === 0) {
     return {
       ok: true,
       skipped: true,
       reason:
-        "No ESPN player id mappings yet. Re-run the Sleeper players seed to populate provider=espn.",
+        "No ESPN player id mappings or team DEF players yet. Re-run the Sleeper players seed.",
       season,
       week,
       seasonType,
       eventsConsidered: eventIds.length,
       athleteLines: 0,
+      defLines: 0,
       upserted: 0,
       matchedPlayers: 0,
       unmappedAthletes: 0,
@@ -268,25 +332,45 @@ export async function syncEspnLiveScores(options?: {
     };
   }
 
-  const lines: Array<{ espnAthleteId: string; stats: Record<string, number> }> =
-    [];
+  const athleteLines: Array<{
+    espnAthleteId: string;
+    stats: Record<string, number>;
+  }> = [];
+  const defStatLines: Array<{
+    playerId: string;
+    stats: Record<string, number>;
+  }> = [];
   for (const eventId of eventIds) {
-    const eventLines = await fetchEspnPlayerBoxscore(eventId);
-    for (const line of eventLines) {
-      lines.push({
+    const payload = await fetchEspnSummaryPayload(eventId);
+    for (const line of parseEspnPlayerBoxscore(payload)) {
+      athleteLines.push({
         espnAthleteId: line.espnAthleteId,
         stats: line.stats,
       });
     }
+    for (const line of parseEspnTeamDefBoxscore(payload)) {
+      const playerId = defPlayerIdByTeam.get(line.teamAbbreviation);
+      if (!playerId) {
+        continue;
+      }
+      defStatLines.push({ playerId, stats: line.stats });
+    }
   }
 
-  const { upserted, unmapped } = await upsertEspnStatLines({
+  const { upserted: athleteUpserted, unmapped } = await upsertEspnStatLines({
     espnIdToPlayerId,
     season,
     week,
     seasonType,
-    lines,
+    lines: athleteLines,
   });
+  const defUpserted = await upsertPlayerStatLines({
+    season,
+    week,
+    seasonType,
+    lines: defStatLines,
+  });
+  const upserted = athleteUpserted + defUpserted;
 
   if (upserted > 0) {
     clearScoreRowsCache();
@@ -300,7 +384,8 @@ export async function syncEspnLiveScores(options?: {
     week,
     seasonType,
     eventsConsidered: eventIds.length,
-    athleteLines: lines.length,
+    athleteLines: athleteLines.length,
+    defLines: defStatLines.length,
     upserted,
     matchedPlayers: espnIdToPlayerId.size,
     unmappedAthletes: unmapped,

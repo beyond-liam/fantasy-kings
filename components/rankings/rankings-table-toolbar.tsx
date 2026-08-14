@@ -51,14 +51,7 @@ import {
   FilterHorizontalIcon,
   SearchIcon,
 } from "@hugeicons/core-free-icons";
-
-const WEEK_ITEMS = [
-  { label: "Season", value: "season" },
-  ...Array.from({ length: 18 }, (_, index) => ({
-    label: `Week ${index + 1}`,
-    value: String(index + 1),
-  })),
-];
+import { DEFAULT_PLAYER_WEEK_ITEMS } from "@/lib/rankings/player-week-items";
 
 type PlayerSearchActions = {
   leagueSlug: string;
@@ -85,6 +78,8 @@ type RankingsTableToolbarProps<TData> = {
   showFreeAgentsFilter?: boolean;
   /** Position options (league roster). Defaults to all positions. */
   positions?: readonly PositionFilter[];
+  /** Week dropdown. League Players may include preseason fantasy weeks. */
+  weekItems?: { label: string; value: string }[];
   searchActions?: PlayerSearchActions;
   searchPlaceholder?: string;
 };
@@ -220,6 +215,7 @@ export function RankingsTableToolbar<TData>({
   showTeamFilter = true,
   showFreeAgentsFilter = false,
   positions = POSITION_FILTERS,
+  weekItems = DEFAULT_PLAYER_WEEK_ITEMS,
   searchActions,
   searchPlaceholder = "Search players...",
 }: RankingsTableToolbarProps<TData>) {
@@ -307,7 +303,7 @@ export function RankingsTableToolbar<TData>({
   const weekSelect: ToolbarSelectConfig = {
     id: "week",
     label: "Season / week",
-    items: WEEK_ITEMS,
+    items: weekItems.length > 0 ? weekItems : DEFAULT_PLAYER_WEEK_ITEMS,
     value: view.week,
     width: "w-32",
     onSelect: (value) =>

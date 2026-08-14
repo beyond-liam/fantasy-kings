@@ -24,24 +24,42 @@ import {
   PLAYER_SEARCH_PAGE_SIZE,
   type PlayerSearchRow,
 } from "@/lib/rankings/player-search";
+import type { ScheduleSettings } from "@/db/schema/league-seasons";
+import { resolvePlayerScorePoint } from "@/lib/leagues/schedule/player-score-point";
 import type { SleeperNflState } from "@/lib/sleeper/api";
 import { getNflState } from "@/lib/sleeper/api";
 
 export { PLAYER_SEARCH_PAGE_SIZE, type PlayerSearchRow };
 
 /**
- * Prefer projected season points until regular-season week 1 has started;
- * then sort/search against actual season points.
+ * Prefer projected season points until this context's fantasy season is
+ * underway; then sort/search against current-week actuals. Preseason is
+ * included only when a league schedule counts those weeks — never on global
+ * Rankings / search.
  */
-export function resolvePlayerSearchSource(nfl: SleeperNflState): {
+export function resolvePlayerSearchSource(
+  nfl: SleeperNflState,
+  schedule?: ScheduleSettings | null,
+): {
   kind: "projection" | "stats";
   week: number;
+  seasonType: string;
 } {
-  const week = Math.max(nfl.week || 0, nfl.display_week || 0);
-  if (nfl.season_type === "regular" && week >= 1) {
-    return { kind: "stats", week: 0 };
+  const statsPoint = resolvePlayerScorePoint({
+    selectedWeek: 0,
+    kind: "stats",
+    nfl,
+    schedule,
+    seasonYear: Number(nfl.season),
+  });
+  if (statsPoint.week === 0 && statsPoint.seasonType === "regular") {
+    return { kind: "projection", week: 0, seasonType: "regular" };
   }
-  return { kind: "projection", week: 0 };
+  return {
+    kind: "stats",
+    week: statsPoint.week,
+    seasonType: statsPoint.seasonType,
+  };
 }
 
 function toSearchRow(row: RankedPlayerRow): PlayerSearchRow {
@@ -68,15 +86,21 @@ async function loadSortedPlayers(input: {
   season: string;
   scoringPreset?: ScoringPreset;
   scoringRules?: Parameters<typeof getRankedPlayers>[0]["scoringRules"];
+  schedule?: ScheduleSettings | null;
 }): Promise<RankedPlayerRow[]> {
   const nfl = await getNflState();
-  const source = resolvePlayerSearchSource(nfl);
+  const source = resolvePlayerSearchSource(nfl, input.schedule);
   const season = input.season || nfl.season;
 
-  const load = (kind: "projection" | "stats", week: number) =>
+  const load = (
+    kind: "projection" | "stats",
+    week: number,
+    seasonType: string,
+  ) =>
     getRankedPlayers({
       season,
       week,
+      seasonType,
       kind,
       scoringPreset: input.scoringPreset,
       scoringRules: input.scoringRules,
@@ -84,9 +108,9 @@ async function loadSortedPlayers(input: {
       includePositionRanks: false,
     });
 
-  let rows = await load(source.kind, source.week);
+  let rows = await load(source.kind, source.week, source.seasonType);
   if (source.kind === "stats" && rows.length === 0) {
-    rows = await load("projection", 0);
+    rows = await load("projection", 0, "regular");
   }
   return rows;
 }
@@ -98,6 +122,7 @@ export async function searchPlayersPage(input: {
   limit?: number;
   scoringPreset?: ScoringPreset;
   scoringRules?: Parameters<typeof getRankedPlayers>[0]["scoringRules"];
+  schedule?: ScheduleSettings | null;
 }): Promise<{
   players: PlayerSearchRow[];
   offset: number;
@@ -107,7 +132,7 @@ export async function searchPlayersPage(input: {
   kind: "projection" | "stats";
 }> {
   const nfl = await getNflState();
-  const source = resolvePlayerSearchSource(nfl);
+  const source = resolvePlayerSearchSource(nfl, input.schedule);
   const limit = Math.min(
     Math.max(input.limit ?? PLAYER_SEARCH_PAGE_SIZE, 1),
     100,
@@ -117,6 +142,7 @@ export async function searchPlayersPage(input: {
     season: input.season || nfl.season,
     scoringPreset: input.scoringPreset,
     scoringRules: input.scoringRules,
+    schedule: input.schedule,
   });
 
   const normalized = input.query?.trim().toLowerCase() ?? "";
@@ -187,6 +213,7 @@ export async function searchLeaguePlayersPage(input: {
     limit: input.limit,
     scoringPreset,
     scoringRules,
+    schedule: season.settings.schedule ?? null,
   });
 
   const [ownershipMap, userTeam, draft] = await Promise.all([

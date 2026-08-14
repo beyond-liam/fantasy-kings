@@ -27,10 +27,20 @@ const IDP_STAT_ALIASES: ReadonlyArray<readonly [string, string]> = [
   ["idp_ff", "ff"],
   ["idp_fum_rec", "fum_rec"],
   ["idp_int", "int"],
+  ["idp_pass_def", "pass_def"],
+  ["idp_qb_hit", "qb_hit"],
   ["idp_safe", "safe"],
   ["idp_def_td", "def_td"],
   ["idp_td", "def_td"],
 ];
+
+/** Sleeper projections publish fumbles lost, not total fumbles. */
+const FUMBLE_ALIASES: ReadonlyArray<readonly [string, string]> = [
+  ["fum_lost", "fum"],
+];
+
+const FG_50_MADE_EXTRA = ["fgm_50_59", "fgm_60p"] as const;
+const FG_50_MISS_EXTRA = ["fgmiss_50_59", "fgmiss_60p"] as const;
 
 /**
  * Counting keys shown in player tables/tiles. Providers often omit zeros;
@@ -77,6 +87,8 @@ const COUNTING_STAT_KEYS = [
   "tkl_loss",
   "sack",
   "int",
+  "pass_def",
+  "qb_hit",
   "ff",
   "fum_rec",
   "def_td",
@@ -115,6 +127,15 @@ function hasNumericStat(stats: PlayerStatBag, key: string): boolean {
   return typeof value === "number" && Number.isFinite(value);
 }
 
+export type NormalizePlayerStatsOptions = {
+  /**
+   * When true (default), omitted counting keys become 0 on real appearances.
+   * Pass false for projection bags — Sleeper omits whole stat families
+   * (PD, QB hits, short FG buckets) rather than projecting zero.
+   */
+  fillOmittedZeros?: boolean;
+};
+
 /**
  * Sleeper season kicker projections often omit totals (`fgm` / `fga` / `xpa`)
  * and only publish distance buckets. Derive the missing aggregates so scoring
@@ -126,10 +147,20 @@ function hasNumericStat(stats: PlayerStatBag, key: string): boolean {
  * When the bag is a real fantasy appearance, fill omitted counting keys with
  * `0` so tables/tiles show zero instead of a missing-data dash.
  */
-export function normalizePlayerStats(stats: PlayerStatBag): PlayerStatBag {
+export function normalizePlayerStats(
+  stats: PlayerStatBag,
+  options: NormalizePlayerStatsOptions = {},
+): PlayerStatBag {
+  const fillOmittedZeros = options.fillOmittedZeros !== false;
   const next: PlayerStatBag = { ...stats };
 
   for (const [fromKey, toKey] of IDP_STAT_ALIASES) {
+    if (!hasNumericStat(next, toKey) && hasNumericStat(next, fromKey)) {
+      next[toKey] = next[fromKey];
+    }
+  }
+
+  for (const [fromKey, toKey] of FUMBLE_ALIASES) {
     if (!hasNumericStat(next, toKey) && hasNumericStat(next, fromKey)) {
       next[toKey] = next[fromKey];
     }
@@ -143,6 +174,19 @@ export function normalizePlayerStats(stats: PlayerStatBag): PlayerStatBag {
       next.tkl =
         (hasSolo ? (next.tkl_solo as number) : 0) +
         (hasAst ? (next.tkl_ast as number) : 0);
+    }
+  }
+
+  if (!hasNumericStat(next, "fgm_50p")) {
+    const extra50 = sumStatKeys(next, FG_50_MADE_EXTRA);
+    if (extra50 > 0) {
+      next.fgm_50p = extra50;
+    }
+  }
+  if (!hasNumericStat(next, "fgmiss_50p")) {
+    const extra50Miss = sumStatKeys(next, FG_50_MISS_EXTRA);
+    if (extra50Miss > 0) {
+      next.fgmiss_50p = extra50Miss;
     }
   }
 
@@ -172,7 +216,7 @@ export function normalizePlayerStats(stats: PlayerStatBag): PlayerStatBag {
     }
   }
 
-  if (playerWeekHasFantasyAppearance(next)) {
+  if (fillOmittedZeros && playerWeekHasFantasyAppearance(next)) {
     for (const key of COUNTING_STAT_KEYS) {
       if (!hasNumericStat(next, key)) {
         next[key] = 0;

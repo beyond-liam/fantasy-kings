@@ -182,44 +182,86 @@ const OFFENSE_COLUMNS: StatColumn[] = [
 
 const KICKER_COLUMNS: StatColumn[] = [
   {
-    header: "1-39",
-    tooltip: "Field goals made between 1 – 39 yards",
-    value: (p) =>
-      sumKeys(p.stats, ["fgm_0_19", "fgm_20_29", "fgm_30_39"]),
+    header: "FGA",
+    tooltip: "Field goal attempts",
+    value: (p) => num(p.stats, "fga"),
   },
   {
-    header: "40-49",
-    tooltip: "Field goals made between 40 – 49 yards",
-    value: (p) => num(p.stats, "fgm_40_49"),
-  },
-  {
-    header: "50+",
-    tooltip: "Field goals made over 50 yards",
-    value: (p) => num(p.stats, "fgm_50p"),
-  },
-  {
-    header: "FG",
+    header: "FGM",
     tooltip: "Field goals made",
     value: (p) => num(p.stats, "fgm"),
   },
   {
-    header: "FGM",
-    tooltip: "Field goals missed",
-    value: (p) => num(p.stats, "fgmiss"),
+    header: "40-49",
+    tooltip: "Field goals made from 40–49 yards",
+    value: (p) => num(p.stats, "fgm_40_49"),
   },
   {
-    header: "XP",
-    tooltip: "Extra points made",
-    value: (p) => num(p.stats, "xpm"),
+    header: "50+",
+    tooltip: "Field goals made from 50+ yards",
+    value: (p) => num(p.stats, "fgm_50p"),
+  },
+  {
+    header: "XPA",
+    tooltip: "Extra point attempts",
+    value: (p) => num(p.stats, "xpa"),
   },
   {
     header: "XPM",
-    tooltip: "Extra points missed",
-    value: (p) => num(p.stats, "xpmiss"),
+    tooltip: "Extra points made",
+    value: (p) => num(p.stats, "xpm"),
   },
 ];
 
-const DEFENSE_COLUMNS: StatColumn[] = [
+const TEAM_DEF_COLUMNS: StatColumn[] = [
+  {
+    header: "SACK",
+    tooltip: "Sacks",
+    value: (p) => num(p.stats, "sack"),
+  },
+  {
+    header: "TFL",
+    tooltip: "Tackles for a loss",
+    value: (p) => num(p.stats, "tkl_loss"),
+  },
+  {
+    header: "INT",
+    tooltip: "Interceptions",
+    value: (p) => num(p.stats, "int"),
+  },
+  {
+    header: "FF",
+    tooltip: "Forced fumbles",
+    value: (p) => num(p.stats, "ff"),
+  },
+  {
+    header: "FR",
+    tooltip: "Fumble recoveries",
+    value: (p) => num(p.stats, "fum_rec"),
+  },
+  {
+    header: "DEF TD",
+    tooltip: "Defensive touchdowns",
+    value: (p) => num(p.stats, "def_td"),
+  },
+  {
+    header: "ST TD",
+    tooltip: "Special teams touchdowns",
+    value: (p) => num(p.stats, "st_td"),
+  },
+  {
+    header: "KR TD",
+    tooltip: "Kick return touchdowns",
+    value: (p) => num(p.stats, "def_kr_td"),
+  },
+  {
+    header: "PA",
+    tooltip: "Points allowed",
+    value: (p) => num(p.stats, "pts_allow"),
+  },
+];
+
+const IDP_COLUMNS: StatColumn[] = [
   {
     header: "TCK",
     tooltip: "Tackles",
@@ -250,8 +292,8 @@ const DEFENSE_COLUMNS: StatColumn[] = [
     value: (p) => num(p.stats, "ff"),
   },
   {
-    header: "FMR",
-    tooltip: "Fumbles recovered",
+    header: "FR",
+    tooltip: "Fumble recoveries",
     value: (p) => num(p.stats, "fum_rec"),
   },
   {
@@ -259,58 +301,30 @@ const DEFENSE_COLUMNS: StatColumn[] = [
     tooltip: "Defensive touchdowns",
     value: (p) => num(p.stats, "def_td"),
   },
-  {
-    header: "PB",
-    tooltip: "Punts blocked",
-    value: (p) => num(p.stats, "blk_punt"),
-  },
-  {
-    header: "KB",
-    tooltip: "Kicks blocked",
-    value: (p) => num(p.stats, "blk_kick"),
-  },
-  {
-    header: "SF",
-    tooltip: "Safeties",
-    value: (p) => num(p.stats, "safe"),
-  },
-  {
-    header: "RTD",
-    tooltip: "Return touchdowns",
-    value: (p) => sumKeys(p.stats, ["def_kr_td", "pr_td", "st_td"]),
-  },
-  {
-    header: "RYD",
-    tooltip: "Return yards",
-    value: (p) => {
-      const teamReturn = sumKeys(p.stats, ["def_kr_yd", "def_pr_yd"]);
-      if (teamReturn !== PLACEHOLDER) return teamReturn;
-      return sumKeys(p.stats, ["kr_yd", "pr_yd"]);
-    },
-  },
 ];
 
 function partitionStarters(starters: GameCentrePlayer[]) {
   const kickers: GameCentrePlayer[] = [];
-  const defense: GameCentrePlayer[] = [];
+  const teamDefense: GameCentrePlayer[] = [];
+  const idp: GameCentrePlayer[] = [];
   const offense: GameCentrePlayer[] = [];
 
   for (const player of starters) {
     const pos = player.slotPositionId || player.primaryPositionId;
     if (pos === "K") kickers.push(player);
+    else if (pos === "DEF") teamDefense.push(player);
     else if (
-      pos === "DEF" ||
       pos === "CB" ||
       pos === "S" ||
       pos === "DT" ||
       pos === "DE" ||
       pos === "LB"
     ) {
-      defense.push(player);
+      idp.push(player);
     } else offense.push(player);
   }
 
-  return { offense, kickers, defense };
+  return { offense, kickers, teamDefense, idp };
 }
 
 function BoxSection({
@@ -417,7 +431,9 @@ export function BoxScoreTable({
   onActualClick,
   leagueSlug,
 }: BoxScoreTableProps) {
-  const { offense, kickers, defense } = partitionStarters(team.starters);
+  const { offense, kickers, teamDefense, idp } = partitionStarters(
+    team.starters,
+  );
 
   return (
     <TooltipProvider>
@@ -439,8 +455,15 @@ export function BoxScoreTable({
         />
         <BoxSection
           title="Team Defense"
-          players={defense}
-          columns={DEFENSE_COLUMNS}
+          players={teamDefense}
+          columns={TEAM_DEF_COLUMNS}
+          onActualClick={onActualClick}
+          leagueSlug={leagueSlug}
+        />
+        <BoxSection
+          title="Defense"
+          players={idp}
+          columns={IDP_COLUMNS}
           onActualClick={onActualClick}
           leagueSlug={leagueSlug}
         />

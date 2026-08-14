@@ -50,7 +50,9 @@ export function TeamStatsTable({
   section,
   leagueSlug,
 }: TeamStatsTableProps) {
-  const [sorting, setSorting] = useState<SortingState>([]);
+  const [sorting, setSorting] = useState<SortingState>([
+    { id: "fantasy_pts", desc: true },
+  ]);
   const columnPosition = section.columnPosition;
 
   const columns = useMemo<ColumnDef<RankedPlayerRow>[]>(() => {

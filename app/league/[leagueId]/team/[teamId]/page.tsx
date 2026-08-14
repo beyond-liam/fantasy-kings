@@ -55,11 +55,12 @@ import { getRosterEvaluationByModeMock } from "@/lib/leagues/roster-evaluation/m
 import { getTeamStatsChartsMock } from "@/lib/leagues/team-stats-charts-mock";
 import { getPlayerRosterRatesMap } from "@/lib/queries/player-roster-rates";
 import { enrichScheduleWinChances } from "@/lib/queries/schedule-win-chance";
+import { getLeagueTeamByPublicId } from "@/lib/queries/team";
+import { getTeamRosterStatPlayers } from "@/lib/queries/team-player-stats";
 import {
   ensureTeamRosterSlotsAssigned,
   getTeamRosterPlayers,
 } from "@/lib/queries/team-roster";
-import { getLeagueTeamByPublicId } from "@/lib/queries/team";
 import { getUserTeamForLeague } from "@/lib/queries/watchlist";
 import { teamInitials } from "@/lib/leagues/standings";
 import {
@@ -318,15 +319,20 @@ export default async function LeagueTeamPage({
   }
 
   if (needsStatsPanel) {
-    const [seasonProjections, charts, rosterEvaluationByMode] =
+    const [seasonRows, charts, rosterEvaluationByMode] =
       await Promise.all([
         rosterPlayerIds.length > 0
-          ? getRankedPlayers({
+          ? getTeamRosterStatPlayers({
               season: nflSeason,
-              week: 0,
-              kind: "projection",
-              scoringRules,
               playerIds: rosterPlayerIds,
+              scoringRules,
+              nfl: nflContext?.nflState ?? {
+                season: nflSeason,
+                season_type: nflSeasonType,
+                week: nflWeek,
+                display_week: nflWeek,
+              },
+              schedule: season.settings.schedule,
             }).catch(() => [])
           : Promise.resolve([]),
         useChartsMock
@@ -343,7 +349,7 @@ export default async function LeagueTeamPage({
               upcomingWeek: fantasyWeek,
             }).catch(() => null),
       ]);
-    const scoredPlayers = seasonProjections.map((player) =>
+    const scoredPlayers = seasonRows.map((player) =>
       withOpponent(player),
     );
     statsPanel = (

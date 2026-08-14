@@ -4,6 +4,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useRankingsParams } from "@/components/rankings/use-rankings-params";
 import type { PositionFilter } from "@/lib/rankings/column-config";
 import type { ScoringPreset } from "@/lib/leagues/scoring/types";
+import { playersTableKindQueryValue } from "@/lib/rankings/sort-params";
 
 export type RankingsViewState = {
   season: string;
@@ -18,6 +19,7 @@ export type RankingsViewState = {
   sortDesc: boolean;
   /** Server-driven name search (URL `q`). */
   search?: string;
+  seasonStarted: boolean;
 };
 
 type RankingsToolbarProps = {
@@ -35,7 +37,7 @@ export function RankingsToolbar({ view }: RankingsToolbarProps) {
     }
 
     updateParams({
-      kind: value === "projection" ? null : value,
+      kind: playersTableKindQueryValue(value, view.seasonStarted),
       // Always reset to the current NFL year when switching modes.
       season: null,
     });

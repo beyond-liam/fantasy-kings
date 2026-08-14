@@ -29,5 +29,7 @@ describe("pickClientStats", () => {
     assert.ok(allowlist.size < 200);
     assert.equal(allowlist.has("adp"), true);
     assert.equal(allowlist.has("adp_ppr"), true);
+    assert.equal(allowlist.has("pass_int"), true);
+    assert.equal(allowlist.has("fum"), true);
   });
 });

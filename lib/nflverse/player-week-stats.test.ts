@@ -51,6 +51,8 @@ describe("nflverse player week stats", () => {
       def_fumbles_forced: "1",
       fumble_recovery_opp: "1",
       def_interceptions: "1",
+      def_pass_defended: "4",
+      def_qb_hits: "3",
       def_safeties: "0",
       def_tds: "1",
     });
@@ -63,6 +65,8 @@ describe("nflverse player week stats", () => {
     assert.equal(bag.ff, 1);
     assert.equal(bag.fum_rec, 1);
     assert.equal(bag.int, 1);
+    assert.equal(bag.pass_def, 4);
+    assert.equal(bag.qb_hit, 3);
     assert.equal(bag.safe, undefined);
     assert.equal(bag.def_td, 1);
   });

@@ -4,6 +4,7 @@ import { cache } from "react";
 import {
   type PlayoffSettings,
   type RosterSlotConfig,
+  type ScheduleSettings,
   type TiebreakerSettings,
   matchups,
 } from "@/db/schema";
@@ -65,6 +66,7 @@ export type LeagueHomeStandingsBundleInput = {
   playoffTeamCount: number;
   championshipWeek: number;
   playoffs?: PlayoffSettings | null;
+  schedule?: ScheduleSettings | null;
 };
 
 export type LeagueHomeStandingsBundle = {

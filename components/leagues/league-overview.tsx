@@ -278,6 +278,140 @@ function PlayerSpotlight({
   );
 }
 
+function OverviewStandingsCard({
+  leagueSlug,
+  standingsRows,
+  myTeamId,
+}: {
+  leagueSlug: string;
+  standingsRows: LeagueStandingsRow[];
+  myTeamId: string | null;
+}) {
+  return (
+    <OverviewCard
+      title="Standings"
+      action={
+        <Button
+          nativeButton={false}
+          variant="ghost"
+          size="sm"
+          className="h-7 px-2 text-xs"
+          render={<Link href={`/league/${leagueSlug}?tab=standings`} />}
+        >
+          Full standings
+          <HugeiconsIcon
+            icon={ArrowRight01Icon}
+            strokeWidth={2}
+            data-icon="inline-end"
+          />
+        </Button>
+      }
+    >
+      {standingsRows.length === 0 ? (
+        <Empty size="sm">
+          <EmptyHeader>
+            <EmptyTitle>No standings yet</EmptyTitle>
+            <EmptyDescription>
+              Standings appear after teams are claimed.
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+      ) : (
+        <>
+          <ul className="flex flex-col overflow-hidden rounded-lg border md:hidden">
+            {standingsRows.map((row) => {
+              const isMine = Boolean(myTeamId && row.teamId === myTeamId);
+              return (
+                <li
+                  key={row.id}
+                  className={cn(
+                    "flex items-center gap-2 border-b border-border px-2 py-2 last:border-b-0",
+                    isMine && "bg-muted/50",
+                  )}
+                >
+                  <span className="w-5 shrink-0 text-center text-sm tabular-nums text-muted-foreground">
+                    {row.rank ?? "—"}
+                  </span>
+                  <TeamMark name={row.teamName} logoUrl={row.logoUrl} />
+                  <div className="flex min-w-0 flex-1 flex-col gap-1">
+                    <Link
+                      href={
+                        row.teamPublicId
+                          ? `/league/${leagueSlug}/team/${row.teamPublicId}`
+                          : `/league/${leagueSlug}`
+                      }
+                      className="truncate text-sm font-medium underline-offset-2 hover:underline"
+                    >
+                      {row.teamName}
+                    </Link>
+                    <FormGuide games={row.form} compact />
+                  </div>
+                  <span className="shrink-0 text-sm tabular-nums">
+                    {formatRecord(row.wins, row.losses, row.ties)}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+
+          <TableShell className="max-md:hidden">
+            <Table>
+              <TableHeader>
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className="w-8 px-2" aria-label="Position" />
+                  <TableHead>Team</TableHead>
+                  <TableHead>Record</TableHead>
+                  <TableHead>%</TableHead>
+                  <TableHead>Form</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {standingsRows.map((row) => {
+                  const isMine = Boolean(myTeamId && row.teamId === myTeamId);
+                  return (
+                    <TableRow
+                      key={row.id}
+                      className={cn(isMine && "bg-muted/50")}
+                    >
+                      <TableCell className="w-8 px-2 tabular-nums text-muted-foreground">
+                        {row.rank ?? "—"}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex min-w-0 items-center gap-2">
+                          <TeamMark name={row.teamName} logoUrl={row.logoUrl} />
+                          <Link
+                            href={
+                              row.teamPublicId
+                                ? `/league/${leagueSlug}/team/${row.teamPublicId}`
+                                : `/league/${leagueSlug}`
+                            }
+                            className="truncate font-medium underline-offset-2 hover:underline"
+                          >
+                            {row.teamName}
+                          </Link>
+                        </div>
+                      </TableCell>
+                      <TableCell className="tabular-nums">
+                        {formatRecord(row.wins, row.losses, row.ties)}
+                      </TableCell>
+                      <TableCell className="tabular-nums">
+                        {formatWinPct(row.winPct)}
+                      </TableCell>
+                      <TableCell>
+                        <FormGuide games={row.form} />
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </TableShell>
+        </>
+      )}
+    </OverviewCard>
+  );
+}
+
 export function LeagueOverview({
   leagueSlug,
   standingsRows,
@@ -345,6 +479,13 @@ export function LeagueOverview({
       ) : (
         <h2 className="text-lg font-semibold tracking-tight">Overview</h2>
       )}
+      <div className="lg:hidden">
+        <OverviewStandingsCard
+          leagueSlug={leagueSlug}
+          standingsRows={standingsRows}
+          myTeamId={myTeamId}
+        />
+      </div>
       <div className="grid gap-4 sm:grid-cols-3">
         <OverviewCard title="Top Scorer">
           <TeamSpotlight
@@ -380,132 +521,13 @@ export function LeagueOverview({
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <OverviewCard
-          title="Standings"
-          action={
-            <Button
-              nativeButton={false}
-              variant="ghost"
-              size="sm"
-              className="h-7 px-2 text-xs"
-              render={<Link href={`/league/${leagueSlug}?tab=standings`} />}
-            >
-              Full standings
-              <HugeiconsIcon
-                icon={ArrowRight01Icon}
-                strokeWidth={2}
-                data-icon="inline-end"
-              />
-            </Button>
-          }
-        >
-          {standingsRows.length === 0 ? (
-            <Empty size="sm">
-              <EmptyHeader>
-                <EmptyTitle>No standings yet</EmptyTitle>
-                <EmptyDescription>
-                  Standings appear after teams are claimed.
-                </EmptyDescription>
-              </EmptyHeader>
-            </Empty>
-          ) : (
-            <>
-              <ul className="flex flex-col overflow-hidden rounded-lg border md:hidden">
-                {standingsRows.map((row) => {
-                  const isMine = Boolean(myTeamId && row.teamId === myTeamId);
-                  return (
-                    <li
-                      key={row.id}
-                      className={cn(
-                        "flex items-center gap-2 border-b border-border px-2 py-2 last:border-b-0",
-                        isMine && "bg-muted/50",
-                      )}
-                    >
-                      <span className="w-5 shrink-0 text-center text-sm tabular-nums text-muted-foreground">
-                        {row.rank ?? "—"}
-                      </span>
-                      <TeamMark name={row.teamName} logoUrl={row.logoUrl} />
-                      <div className="flex min-w-0 flex-1 flex-col gap-1">
-                        <Link
-                          href={
-                            row.teamPublicId
-                              ? `/league/${leagueSlug}/team/${row.teamPublicId}`
-                              : `/league/${leagueSlug}`
-                          }
-                          className="truncate text-sm font-medium underline-offset-2 hover:underline"
-                        >
-                          {row.teamName}
-                        </Link>
-                        <FormGuide games={row.form} compact />
-                      </div>
-                      <span className="shrink-0 text-sm tabular-nums">
-                        {formatRecord(row.wins, row.losses, row.ties)}
-                      </span>
-                    </li>
-                  );
-                })}
-              </ul>
-
-              <TableShell className="max-md:hidden">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="hover:bg-transparent">
-                      <TableHead className="w-8 px-2" aria-label="Position" />
-                      <TableHead>Team</TableHead>
-                      <TableHead>Record</TableHead>
-                      <TableHead>%</TableHead>
-                      <TableHead>Form</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {standingsRows.map((row) => {
-                      const isMine = Boolean(
-                        myTeamId && row.teamId === myTeamId,
-                      );
-                      return (
-                        <TableRow
-                          key={row.id}
-                          className={cn(isMine && "bg-muted/50")}
-                        >
-                          <TableCell className="w-8 px-2 tabular-nums text-muted-foreground">
-                            {row.rank ?? "—"}
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex min-w-0 items-center gap-2">
-                              <TeamMark
-                                name={row.teamName}
-                                logoUrl={row.logoUrl}
-                              />
-                              <Link
-                                href={
-                                  row.teamPublicId
-                                    ? `/league/${leagueSlug}/team/${row.teamPublicId}`
-                                    : `/league/${leagueSlug}`
-                                }
-                                className="truncate font-medium underline-offset-2 hover:underline"
-                              >
-                                {row.teamName}
-                              </Link>
-                            </div>
-                          </TableCell>
-                          <TableCell className="tabular-nums">
-                            {formatRecord(row.wins, row.losses, row.ties)}
-                          </TableCell>
-                          <TableCell className="tabular-nums">
-                            {formatWinPct(row.winPct)}
-                          </TableCell>
-                          <TableCell>
-                            <FormGuide games={row.form} />
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </TableShell>
-            </>
-          )}
-        </OverviewCard>
+        <div className="max-lg:hidden">
+          <OverviewStandingsCard
+            leagueSlug={leagueSlug}
+            standingsRows={standingsRows}
+            myTeamId={myTeamId}
+          />
+        </div>
 
         <OverviewCard
           title="Season Leaders"

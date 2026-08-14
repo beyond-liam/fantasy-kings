@@ -8,21 +8,28 @@ import type {
 } from "@/lib/leagues/scoring/types";
 import { NFL_TEAMS } from "@/lib/nfl/teams";
 import type { PlayerOpponent } from "@/lib/nfl/matchups";
-import { playerWeekHasFantasyAppearance } from "@/lib/players/week-appearance";
 import { getLeagueBySlug, getLeagueSeason } from "@/lib/queries/leagues";
 import {
   clearScoreRowsCache,
   loadScoreRows,
+  overlayScoreKind,
 } from "@/lib/queries/score-rows";
 import {
   clientStatAllowlist,
   pickClientStats,
 } from "@/lib/rankings/pick-client-stats";
-import { attachPositionRanks } from "@/lib/rankings/attach-position-ranks";
-import { getFantasyPositionRankMap } from "@/lib/rankings/position-rank-map";
 import {
-  DEFAULT_SORT_COLUMN,
-  DEFAULT_SORT_DESC,
+  attachPositionRanks,
+  hasFantasyProduction,
+} from "@/lib/rankings/attach-position-ranks";
+import {
+  getFantasyPositionRankMap,
+  getTablePositionRankMap,
+  type PositionRankSource,
+} from "@/lib/rankings/position-rank-map";
+import {
+  DEFAULT_POINTS_SORT_COLUMN,
+  DEFAULT_POINTS_SORT_DESC,
 } from "@/lib/rankings/sort-params";
 import { sortRankedPlayers } from "@/lib/rankings/sort-ranked-players";
 import {
@@ -75,6 +82,11 @@ export type RankingsFilters = {
   scoringRules?: ScoringRuleDefinition[];
   /** Keep full normalized stats (skip client allowlist trim). */
   preserveStats?: boolean;
+  /**
+   * RANK source for Rankings / League Players. Projection = that week's
+   * projected rank; Stats = actuals (or season actuals for unplayed weeks).
+   */
+  positionRanks?: PositionRankSource;
 };
 
 export type RankedPlayerRow = {
@@ -124,37 +136,58 @@ export async function getRankedPlayers(
   // other columns) page correctly. SQL limit/offset would slice before sort.
   // pointsOnly top-N (e.g. FA tips) can push limit to SQL — ordered by provider
   // pts, then re-scored / re-sorted in memory on the smaller set.
-  const baseRows = await loadScoreRows(
+  // Unscoped table loads use the projection pool as the player universe so
+  // Projection ↔ Stats show the same people. Overlay stats when requested.
+  // Scoped / pointsOnly paths keep the requested kind (roster, FA tips, etc.).
+  const unscoped = filters.playerIds == null && !pointsOnly;
+  const universeKind =
+    unscoped && filters.kind === "stats" ? "projection" : filters.kind;
+  // Preseason stats overlay the regular projection pool so Projection ↔ Stats
+  // stay the same people (pre projection rows are often ADP-only / sparse).
+  const overlayPreStats =
+    unscoped &&
+    filters.kind === "stats" &&
+    (filters.seasonType ?? "regular") === "pre";
+
+  const sharedLoad = {
+    season: filters.season,
+    week: overlayPreStats ? 0 : filters.week,
+    seasonType: overlayPreStats ? "regular" : filters.seasonType,
+    excludePlayerIds: filters.excludePlayerIds,
+    search: filters.search,
+    columns: pointsOnly ? ("pts" as const) : undefined,
+    statKeys,
+    limit: pointsOnly ? filters.limit : undefined,
+    offset: pointsOnly ? filters.offset : undefined,
+  };
+
+  const universe = await loadScoreRows(
     filters.playerIds != null
       ? {
-          season: filters.season,
-          week: filters.week,
+          ...sharedLoad,
           kind: filters.kind,
-          seasonType: filters.seasonType,
           playerIds: filters.playerIds,
-          excludePlayerIds: filters.excludePlayerIds,
-          search: filters.search,
-          columns: pointsOnly ? "pts" : undefined,
-          statKeys,
-          limit: pointsOnly ? filters.limit : undefined,
-          offset: pointsOnly ? filters.offset : undefined,
         }
       : {
-          season: filters.season,
-          week: filters.week,
-          kind: filters.kind,
-          seasonType: filters.seasonType,
+          ...sharedLoad,
+          kind: universeKind,
           position: filters.position,
           team: filters.team,
           rookiesOnly: filters.rookiesOnly,
-          search: filters.search,
-          excludePlayerIds: filters.excludePlayerIds,
-          columns: pointsOnly ? "pts" : undefined,
-          statKeys,
-          limit: pointsOnly ? filters.limit : undefined,
-          offset: pointsOnly ? filters.offset : undefined,
         },
   );
+
+  let baseRows = universe;
+  if (unscoped && filters.kind === "stats" && universe.length > 0) {
+    const statsRows = await loadScoreRows({
+      ...sharedLoad,
+      week: filters.week,
+      seasonType: filters.seasonType,
+      kind: "stats",
+      playerIds: universe.map((row) => row.id),
+    });
+    baseRows = overlayScoreKind(universe, statsRows);
+  }
 
   const mapped: RankedPlayerRow[] = baseRows.map((row) => ({
     ...row,
@@ -164,19 +197,25 @@ export async function getRankedPlayers(
 
   const scored = applyScoring(mapped, { ...filters, scoringRules: rules });
 
-  // Empty preseason stats: use projection fantasy ranks so RANK stays meaningful.
-  // Historical/current stats with production: RANK follows this season's scored PTS.
+  // Empty stats: use projection fantasy ranks so RANK stays meaningful.
   const lacksProduction =
     !pointsOnly &&
     filters.kind === "stats" &&
     scored.length > 0 &&
-    scored.every((row) => !playerWeekHasFantasyAppearance(row.stats));
+    !hasFantasyProduction(scored);
 
   let fantasyRankByPlayerId: Map<string, number> | undefined;
-  if (lacksProduction) {
+  if (!pointsOnly && filters.positionRanks) {
+    fantasyRankByPlayerId = await getTablePositionRankMap({
+      season: filters.season,
+      scoringRules: rules,
+      source: filters.positionRanks,
+    });
+  } else if (lacksProduction) {
     fantasyRankByPlayerId = await getFantasyPositionRankMap({
       season: filters.season,
-      week: filters.week,
+      week: overlayPreStats ? 0 : filters.week,
+      seasonType: overlayPreStats ? "regular" : filters.seasonType,
       kind: "projection",
       scoringRules: rules,
     });
@@ -188,6 +227,7 @@ export async function getRankedPlayers(
     fantasyRankByPlayerId = await getFantasyPositionRankMap({
       season: filters.season,
       week: filters.week,
+      seasonType: filters.seasonType,
       kind: filters.kind,
       scoringRules: rules,
     });
@@ -196,8 +236,8 @@ export async function getRankedPlayers(
   const ranked = attachPositionRanks(scored, fantasyRankByPlayerId);
   const sorted = sortRankedPlayers(
     ranked,
-    filters.sort ?? DEFAULT_SORT_COLUMN,
-    filters.sortDesc ?? DEFAULT_SORT_DESC,
+    filters.sort ?? DEFAULT_POINTS_SORT_COLUMN,
+    filters.sortDesc ?? DEFAULT_POINTS_SORT_DESC,
   );
 
   const offset = Math.max(0, filters.offset ?? 0);

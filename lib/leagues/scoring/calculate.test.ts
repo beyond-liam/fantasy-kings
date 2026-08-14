@@ -543,6 +543,22 @@ describe("calculatePlayerPoints", () => {
         10,
       );
     });
+
+    it("scores team DEF sacks, INTs, and recoveries from a live boxscore bag", () => {
+      const rules = getDefaultScoringRuleDefinitions("standard");
+      const result = calculatePlayerPoints(
+        {
+          sack: 2,
+          int: 1,
+          fum_rec: 1,
+          pts_allow: 27,
+        },
+        "DEF",
+        rules,
+      );
+      // 2 sacks × 2 + 1 INT × 2 + 1 FR × 1; 27 PA is not a shutout
+      assert.equal(result, 7);
+    });
   });
 
   describe("rounding", () => {

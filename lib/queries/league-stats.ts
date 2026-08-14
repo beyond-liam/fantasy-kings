@@ -20,6 +20,7 @@ import {
 } from "@/lib/leagues/team-week-stats";
 import { getLeagueBySlug, getLeagueMembership, getLeagueSeason } from "@/lib/queries/leagues";
 import { getRankedPlayers } from "@/lib/queries/players";
+import { resolvePlayerScorePoint } from "@/lib/leagues/schedule/player-score-point";
 import { getNflState } from "@/lib/sleeper/api";
 import { formatPersonName } from "@/lib/account/person-name";
 
@@ -156,9 +157,19 @@ export const getLeaguePositionStats = cache(
 
     const nflState = await getNflState().catch(() => ({
       season: String(season.seasonYear),
+      previous_season: String(season.seasonYear - 1),
+      season_type: "regular",
       week: 1,
+      display_week: 1,
     }));
-    const week = Math.max(1, Number(nflState.week) || 1);
+    const scorePoint = resolvePlayerScorePoint({
+      selectedWeek: 0,
+      kind: "stats",
+      nfl: nflState,
+      schedule: season.settings.schedule ?? null,
+      seasonYear: season.seasonYear,
+    });
+    const week = Math.max(1, scorePoint.week);
 
     if (teamRows.length === 0 || positionColumns.length === 0) {
       return {
@@ -238,6 +249,7 @@ export const getLeaguePositionStats = cache(
       ? await getRankedPlayers({
           season: seasonYear,
           week,
+          seasonType: scorePoint.seasonType,
           kind: "stats",
           scoringRules,
           playerIds,

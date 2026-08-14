@@ -2,6 +2,10 @@ import { cache } from "react";
 
 import { ESPN_TEAM_IDS } from "@/lib/espn/rosters";
 import {
+  NFL_PRESEASON_FIRST_WEEK,
+  NFL_PRESEASON_LAST_WEEK,
+} from "@/lib/leagues/schedule/fantasy-week-map";
+import {
   normalizeNflTeamAbbrev,
 } from "@/lib/nfl/matchups";
 
@@ -42,6 +46,13 @@ export type NflTeamScheduleWeek = {
   /** NFL team result when the game is final; null for bye/upcoming. */
   result: NflTeamGameResult | null;
 };
+
+export type NflTeamScheduleSeasonType = "pre" | "regular";
+
+const ESPN_SEASON_TYPE = {
+  pre: 1,
+  regular: 2,
+} as const;
 
 function parseCompetitorScore(
   score: EspnScheduleCompetitor["score"],
@@ -139,21 +150,91 @@ function opponentLabel(
 }
 
 /**
- * Regular-season schedule for an NFL team (weeks 1–18), one ESPN request.
- * Missing weeks are filled as BYE when `byeWeek` is known, or when exactly
- * one week is missing from the ESPN response (inferred bye).
+ * Parse ESPN team-schedule events for one NFL team and season type.
+ * Preseason uses ESPN weeks 2–4 (Hall of Fame week 1 is skipped).
+ */
+export function parseEspnTeamScheduleEvents(
+  events: EspnScheduleEvent[],
+  teamAbbrev: string,
+  seasonType: NflTeamScheduleSeasonType,
+): Map<number, { opponent: string; result: NflTeamGameResult | null }> {
+  const espnType = ESPN_SEASON_TYPE[seasonType];
+  const minWeek =
+    seasonType === "pre" ? NFL_PRESEASON_FIRST_WEEK : 1;
+  const maxWeek =
+    seasonType === "pre" ? NFL_PRESEASON_LAST_WEEK : 18;
+  const byWeek = new Map<
+    number,
+    { opponent: string; result: NflTeamGameResult | null }
+  >();
+
+  for (const event of events) {
+    if (event.seasonType?.type !== espnType) {
+      continue;
+    }
+    const week = event.week?.number;
+    if (!week || week < minWeek || week > maxWeek) {
+      continue;
+    }
+    const competition = event.competitions?.[0];
+    if (!competition) {
+      continue;
+    }
+    const label = opponentLabel(teamAbbrev, competition);
+    if (label) {
+      byWeek.set(week, {
+        opponent: label,
+        result: resolveGameResult(teamAbbrev, competition),
+      });
+    }
+  }
+
+  return byWeek;
+}
+
+function padRegularSeasonWeeks(
+  byWeek: Map<number, { opponent: string; result: NflTeamGameResult | null }>,
+  byeHint: number | null,
+): NflTeamScheduleWeek[] {
+  const missingWeeks: number[] = [];
+  for (let week = 1; week <= 18; week++) {
+    if (!byWeek.has(week)) missingWeeks.push(week);
+  }
+  const inferredBye =
+    missingWeeks.length === 1 ? missingWeeks[0]! : null;
+  const bye = byeHint ?? inferredBye;
+
+  const rows: NflTeamScheduleWeek[] = [];
+  for (let week = 1; week <= 18; week++) {
+    const fromSchedule = byWeek.get(week);
+    const opponent = fromSchedule?.opponent ?? (bye === week ? "BYE" : "—");
+    rows.push({
+      week,
+      opponent,
+      result: fromSchedule?.result ?? null,
+    });
+  }
+  return rows;
+}
+
+/**
+ * NFL team schedule, one ESPN request.
+ * Regular season: weeks 1–18, missing weeks filled as BYE when known.
+ * Preseason: ESPN weeks 2–4 only (no 18-week pad).
  */
 export const getNflTeamSchedule = cache(
   async (input: {
     nflTeam: string | null | undefined;
     season: string | number;
     byeWeek?: number | null;
+    seasonType?: NflTeamScheduleSeasonType;
   }): Promise<NflTeamScheduleWeek[]> => {
     const abbrev = normalizeNflTeamAbbrev(input.nflTeam);
     if (!abbrev) {
       return [];
     }
 
+    const seasonType = input.seasonType ?? "regular";
     const teamId = ESPN_TEAM_IDS[abbrev];
     const season = Number(input.season);
     const byeHint =
@@ -164,7 +245,7 @@ export const getNflTeamSchedule = cache(
         ? input.byeWeek
         : null;
 
-    const byWeek = new Map<
+    let byWeek = new Map<
       number,
       { opponent: string; result: NflTeamGameResult | null }
     >();
@@ -173,6 +254,7 @@ export const getNflTeamSchedule = cache(
       try {
         const url = new URL(`${ESPN_TEAM_SCHEDULE}/${teamId}/schedule`);
         url.searchParams.set("season", String(season));
+        url.searchParams.set("seasontype", String(ESPN_SEASON_TYPE[seasonType]));
 
         const response = await fetch(url, {
           next: { revalidate: 60 * 60 },
@@ -180,52 +262,27 @@ export const getNflTeamSchedule = cache(
 
         if (response.ok) {
           const payload = (await response.json()) as EspnTeamScheduleResponse;
-
-          for (const event of payload.events ?? []) {
-            if (event.seasonType?.type !== 2) {
-              continue;
-            }
-            const week = event.week?.number;
-            if (!week || week < 1 || week > 18) {
-              continue;
-            }
-            const competition = event.competitions?.[0];
-            if (!competition) {
-              continue;
-            }
-            const label = opponentLabel(abbrev, competition);
-            if (label) {
-              byWeek.set(week, {
-                opponent: label,
-                result: resolveGameResult(abbrev, competition),
-              });
-            }
-          }
+          byWeek = parseEspnTeamScheduleEvents(
+            payload.events ?? [],
+            abbrev,
+            seasonType,
+          );
         }
       } catch {
         // Fall through to bye / placeholder rows.
       }
     }
 
-    const missingWeeks: number[] = [];
-    for (let week = 1; week <= 18; week++) {
-      if (!byWeek.has(week)) missingWeeks.push(week);
-    }
-    const inferredBye =
-      missingWeeks.length === 1 ? missingWeeks[0]! : null;
-    const bye = byeHint ?? inferredBye;
-
-    const rows: NflTeamScheduleWeek[] = [];
-    for (let week = 1; week <= 18; week++) {
-      const fromSchedule = byWeek.get(week);
-      const opponent = fromSchedule?.opponent ?? (bye === week ? "BYE" : "—");
-      rows.push({
-        week,
-        opponent,
-        result: fromSchedule?.result ?? null,
-      });
+    if (seasonType === "pre") {
+      return [...byWeek.entries()]
+        .toSorted((a, b) => a[0] - b[0])
+        .map(([week, slot]) => ({
+          week,
+          opponent: slot.opponent,
+          result: slot.result,
+        }));
     }
 
-    return rows;
+    return padRegularSeasonWeeks(byWeek, byeHint);
   },
 );

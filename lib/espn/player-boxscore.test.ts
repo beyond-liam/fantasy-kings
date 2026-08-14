@@ -129,4 +129,39 @@ describe("espn player boxscore", () => {
     assert.equal(ceedee.stats.rec, 7);
     assert.equal(ceedee.stats.rec_tgt, 13);
   });
+
+  it("maps defensive box-score keys", () => {
+    const bag: Record<string, number> = {};
+    applyEspnCategoryStats(
+      bag,
+      "defensive",
+      [
+        "soloTackles",
+        "assistedTackles",
+        "totalTackles",
+        "sacks",
+        "tacklesForLoss",
+        "passesDefended",
+        "QBHits",
+        "fumblesForced",
+        "fumblesRecovered",
+        "safeties",
+        "defensiveTouchdowns",
+      ],
+      ["6", "3", "9", "1", "1.5", "2", "4", "1", "1", "1", "0"],
+    );
+    assert.deepEqual(bag, {
+      tkl_solo: 6,
+      tkl_ast: 3,
+      tkl: 9,
+      sack: 1,
+      tkl_loss: 1.5,
+      pass_def: 2,
+      qb_hit: 4,
+      ff: 1,
+      fum_rec: 1,
+      safe: 1,
+      def_td: 0,
+    });
+  });
 });

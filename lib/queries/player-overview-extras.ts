@@ -937,7 +937,9 @@ export async function loadOverviewExtrasSeed(
 ): Promise<OverviewExtrasSeed> {
   const calendar = input.leagueCalendar ?? defaultLeagueCalendar();
   const seasonMaxWeek = resolveLeagueSeasonMaxWeek(calendar);
-  const cappedGameLog = input.gameLog.filter((row) => row.week <= seasonMaxWeek);
+  const cappedGameLog = input.gameLog.filter(
+    (row) => row.seasonType !== "pre" && row.week <= seasonMaxWeek,
+  );
   const cappedSchedule = input.schedule.filter(
     (row) => row.week <= seasonMaxWeek,
   );

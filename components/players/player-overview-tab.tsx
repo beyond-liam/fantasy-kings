@@ -2490,7 +2490,7 @@ export function PlayerOverviewTab({
               >
                 {chartData.map((entry) => (
                   <Cell
-                    key={entry.week}
+                    key={`${entry.kind}-${entry.week}`}
                     fill={
                       entry.kind === "scored" && entry.fpts != null
                         ? weeklyBarColor(entry.fpts, overview.averageFpts)

@@ -23,10 +23,7 @@ import { isWaiverClaimOrderLocked } from "@/lib/leagues/waivers/calendar";
 import { getStartedNflTeamAbbreviations } from "@/lib/leagues/waivers/game-lock";
 import { resolvePlayerAcquisitionKind } from "@/lib/leagues/waivers/resolve-kind";
 import type { PositionFilter } from "@/lib/rankings/column-config";
-import {
-  PLAYERS_PAGE_SIZE,
-  playersPageOffset,
-} from "@/lib/rankings/players-page";
+import { playersPageOffset } from "@/lib/rankings/players-page";
 import { sortRankedPlayers } from "@/lib/rankings/sort-ranked-players";
 import { getDraftBySeasonId, getDraftRoomData } from "@/lib/queries/draft";
 import { isDraftUnderway } from "@/lib/queries/leagues";
@@ -45,6 +42,8 @@ import {
   getSeasonWatchlistPlayerIds,
   getUserTeamForSeason,
 } from "@/lib/queries/watchlist";
+import { playerTableWeekItems, resolvePlayerScorePoint } from "@/lib/leagues/schedule/player-score-point";
+import { countingGamesHaveStarted, resolveTablePositionRanks } from "@/lib/rankings/table-rank-source";
 import type { SleeperNflState } from "@/lib/sleeper/api";
 
 type LeaguePlayersTableProps = {
@@ -68,6 +67,7 @@ type LeaguePlayersTableProps = {
   sort: string;
   sortDesc: boolean;
   page: number;
+  pageSize: number;
   search?: string;
   currentSeason: string;
   previousSeason: string;
@@ -100,6 +100,7 @@ export async function LeaguePlayersTable({
   sort,
   sortDesc,
   page,
+  pageSize,
   search,
   currentSeason,
   previousSeason,
@@ -118,12 +119,41 @@ export async function LeaguePlayersTable({
   > = new Map();
   let actionsEnabled = false;
 
+  const scorePoint = resolvePlayerScorePoint({
+    selectedWeek: week,
+    kind,
+    nfl: nflState,
+    schedule: seasonSettings.schedule,
+    seasonYear: Number(seasonYear),
+  });
+  const statsPoint = resolvePlayerScorePoint({
+    selectedWeek: week,
+    kind: "stats",
+    nfl: nflState,
+    schedule: seasonSettings.schedule,
+    seasonYear: Number(seasonYear),
+  });
+  const countingStatsPoint = resolvePlayerScorePoint({
+    selectedWeek: 0,
+    kind: "stats",
+    nfl: nflState,
+    schedule: seasonSettings.schedule,
+    seasonYear: Number(seasonYear),
+  });
+
   const [playersResult, teams, watchlistIds, ownershipResult, userTeam, draft] =
     await Promise.all([
       getRankedPlayers({
         season: seasonYear,
-        week,
+        week: scorePoint.week,
+        seasonType: scorePoint.seasonType,
         kind,
+        positionRanks: resolveTablePositionRanks({
+          kind,
+          scorePoint,
+          statsPoint: countingStatsPoint,
+          isCurrentSeason: seasonYear === currentSeason,
+        }),
         scoringRules,
         position,
         team: team !== "ALL" ? team : undefined,
@@ -308,8 +338,8 @@ export async function LeaguePlayersTable({
     sortDesc,
   );
   const totalCount = filteredPlayers.length;
-  const offset = playersPageOffset(page);
-  const pageRows = filteredPlayers.slice(offset, offset + PLAYERS_PAGE_SIZE);
+  const offset = playersPageOffset(page, pageSize);
+  const pageRows = filteredPlayers.slice(offset, offset + pageSize);
 
   return (
     <>
@@ -345,7 +375,7 @@ export async function LeaguePlayersTable({
         waiverProcessingLocked={waiverProcessingLocked}
         draftActions={draftActions}
         page={page}
-        pageSize={PLAYERS_PAGE_SIZE}
+        pageSize={pageSize}
         totalCount={totalCount}
         view={{
           season: seasonYear,
@@ -359,9 +389,11 @@ export async function LeaguePlayersTable({
           sort,
           sortDesc,
           search: search ?? "",
+          seasonStarted: countingGamesHaveStarted(statsPoint),
         }}
         showScoringSelect={false}
         positions={positions}
+        weekItems={playerTableWeekItems(seasonSettings.schedule)}
       />
     </>
   );

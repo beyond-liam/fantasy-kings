@@ -2,13 +2,19 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 
 import { RankingsTable } from "@/components/rankings/rankings-table";
+import { parseDataTablePageSize } from "@/components/ui/data-table/page-size";
 import { parsePositionFilter } from "@/lib/rankings/column-config";
 import { parsePlayersPage } from "@/lib/rankings/players-page";
 import {
-  DEFAULT_SORT_COLUMN,
-  DEFAULT_SORT_DESC,
+  parseRequestedSort,
+  resolvePlayersTableKind,
 } from "@/lib/rankings/sort-params";
 import { parseScoringPreset } from "@/lib/rankings/scoring-preset";
+import {
+  countingGamesHaveStarted,
+  resolveTablePositionRanks,
+} from "@/lib/rankings/table-rank-source";
+import { resolvePlayerScorePoint } from "@/lib/leagues/schedule/player-score-point";
 import { getNflState } from "@/lib/sleeper/api";
 
 type RankingsPageProps = {
@@ -23,6 +29,7 @@ type RankingsPageProps = {
     sort?: string;
     sortDir?: string;
     page?: string;
+    pageSize?: string;
     q?: string;
   }>;
 };
@@ -36,25 +43,42 @@ export default async function RankingsPage({ searchParams }: RankingsPageProps) 
 
   const currentSeason = state.season;
   const previousSeason = state.previous_season;
-  const kind =
-    params.kind === "stats" ? ("stats" as const) : ("projection" as const);
+  const weekParam = params.week ?? "season";
+  const selectedWeek =
+    weekParam === "season" || weekParam === "0" ? 0 : Number(weekParam);
+  const statsPoint = resolvePlayerScorePoint({
+    selectedWeek,
+    kind: "stats",
+    nfl: state,
+    seasonYear: Number(params.season ?? currentSeason),
+  });
+  const seasonStarted = countingGamesHaveStarted(statsPoint);
+  const kind = resolvePlayersTableKind(params.kind, seasonStarted);
   // Prior-year projections are not seeded; keep projection views on the
   // current NFL season so IDP/offense ranks are not empty after a stats browse.
   const season =
     kind === "projection"
       ? currentSeason
       : (params.season ?? currentSeason);
-  const weekParam = params.week ?? "season";
-  const week =
-    weekParam === "season" || weekParam === "0" ? 0 : Number(weekParam);
+  const scorePoint = resolvePlayerScorePoint({
+    selectedWeek,
+    kind,
+    nfl: state,
+    seasonYear: Number(season),
+  });
+  const countingStatsPoint = resolvePlayerScorePoint({
+    selectedWeek: 0,
+    kind: "stats",
+    nfl: state,
+    seasonYear: Number(season),
+  });
   const position = parsePositionFilter(params.position);
   const team = params.team ?? "ALL";
   const rookiesOnly = params.rookies === "1";
   const scoring = parseScoringPreset(params.scoring);
-  const sort =
-    params.sort === "pts_ppr" ? DEFAULT_SORT_COLUMN : (params.sort ?? DEFAULT_SORT_COLUMN);
-  const sortDesc = params.sortDir ? params.sortDir !== "asc" : DEFAULT_SORT_DESC;
+  const { sort, sortDesc } = parseRequestedSort(params.sort, params.sortDir);
   const page = parsePlayersPage(params.page);
+  const pageSize = parseDataTablePageSize(params.pageSize);
   const search = params.q?.trim() || undefined;
   const seasons = Array.from(new Set([currentSeason, previousSeason]));
 
@@ -69,9 +93,17 @@ export default async function RankingsPage({ searchParams }: RankingsPageProps) 
           previousSeason={previousSeason}
           seasons={seasons}
           season={season}
-          week={week}
+          week={scorePoint.week}
           weekParam={weekParam}
           kind={kind}
+          seasonType={scorePoint.seasonType}
+          positionRanks={resolveTablePositionRanks({
+            kind,
+            scorePoint,
+            statsPoint: countingStatsPoint,
+            isCurrentSeason: season === currentSeason,
+          })}
+          seasonStarted={seasonStarted}
           position={position}
           team={team}
           rookiesOnly={rookiesOnly}
@@ -79,6 +111,7 @@ export default async function RankingsPage({ searchParams }: RankingsPageProps) 
           sort={sort}
           sortDesc={sortDesc}
           page={page}
+          pageSize={pageSize}
           search={search}
         />
       </Suspense>

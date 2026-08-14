@@ -167,6 +167,33 @@ describe("getProjectionHighlightStats with gamesPlayed", () => {
     assert.equal(tiles.find((t) => t.key === "tkl")?.value, 55);
     assert.equal(tiles.find((t) => t.key === "sack")?.perGame, 1.1);
   });
+
+  it("builds CB tiles with interceptions first", () => {
+    const tiles = getProjectionHighlightStats(
+      {
+        primaryPositionId: "CB",
+        positionRank: 8,
+        seasonProjection: null,
+        seasonStats: {
+          fantasyPts: 90,
+          stats: {
+            int: 4,
+            tkl_solo: 50,
+            tkl_ast: 10,
+            tkl_loss: 3,
+            sack: 1,
+            ff: 2,
+          },
+        },
+      },
+      { gamesPlayed: 10, usePositionRankForFpts: false },
+    );
+    assert.deepEqual(
+      tiles.map((t) => t.key),
+      ["int", "tkl", "tkl_loss", "sack", "ff", "fpts_weekly"],
+    );
+    assert.equal(tiles.find((t) => t.key === "tkl")?.value, 60);
+  });
 });
 
 describe("formatProjectionPerGame", () => {

@@ -36,6 +36,14 @@ import {
   listPlayoffWeeksFromCalendar,
   resolveLeagueSeasonMaxWeek,
 } from "@/lib/leagues/season-calendar";
+import {
+  espnPreseasonWeekToUser,
+} from "@/lib/leagues/schedule/fantasy-week-map";
+import {
+  playerScoreLogMaxWeek,
+  resolvePlayerScorePoint,
+} from "@/lib/leagues/schedule/player-score-point";
+import type { ScheduleSettings } from "@/db/schema/league-seasons";
 import { resolveWaiverWireSettings } from "@/lib/leagues/waiver-wire";
 import { isWaiverClaimOrderLocked } from "@/lib/leagues/waivers/calendar";
 import { resolvePlayerAcquisitionKind } from "@/lib/leagues/waivers/resolve-kind";
@@ -80,6 +88,9 @@ import {
 
 export type PlayerProfileGameLogRow = {
   week: number;
+  /** "Pre 1" during NFL preseason; otherwise the NFL week number. */
+  weekLabel?: string;
+  seasonType?: "pre" | "regular" | "post";
   opponent: string | null;
   /** NFL team result for that week (final games only). */
   result: "W" | "L" | "T" | null;
@@ -208,6 +219,7 @@ async function computeStatsPositionRank(input: {
   playerId: string;
   positionId: string;
   season: string;
+  seasonType?: string;
   rules: ScoringRuleDefinition[];
 }): Promise<number | null> {
   const rows = await db
@@ -222,7 +234,7 @@ async function computeStatsPositionRank(input: {
         eq(playerScores.season, input.season),
         eq(playerScores.week, 0),
         eq(playerScores.kind, "stats"),
-        eq(playerScores.seasonType, "regular"),
+        eq(playerScores.seasonType, input.seasonType ?? "regular"),
         eq(players.primaryPositionId, input.positionId),
       ),
     );
@@ -329,11 +341,17 @@ async function loadScoreBundle(input: {
   season: string;
   positionId: string;
   rules: ScoringRuleDefinition[];
+  statsSeasonType?: string;
 }) {
+  const statsSeasonType = input.statsSeasonType ?? "regular";
+  const seasonTypes =
+    statsSeasonType === "pre" ? (["pre", "regular"] as const) : [statsSeasonType];
+
   const rows = await db
     .select({
       week: playerScores.week,
       kind: playerScores.kind,
+      seasonType: playerScores.seasonType,
       stats: playerScores.stats,
     })
     .from(playerScores)
@@ -341,7 +359,7 @@ async function loadScoreBundle(input: {
       and(
         eq(playerScores.playerId, input.playerId),
         eq(playerScores.season, input.season),
-        eq(playerScores.seasonType, "regular"),
+        inArray(playerScores.seasonType, [...seasonTypes]),
         inArray(playerScores.kind, ["projection", "stats"]),
       ),
     )
@@ -354,23 +372,42 @@ async function loadScoreBundle(input: {
   for (const row of rows) {
     const stats = normalizePlayerStats(
       (row.stats ?? {}) as Record<string, number | null>,
+      { fillOmittedZeros: row.kind === "stats" },
     ) as Record<string, number | null>;
     const fantasyPts = scoreRow(stats, input.positionId, input.rules);
 
     if (row.kind === "projection" && row.week === 0) {
-      seasonProjection = { fantasyPts, stats };
+      if (row.seasonType === "regular" || seasonProjection == null) {
+        seasonProjection = { fantasyPts, stats };
+      }
       continue;
     }
 
     if (row.kind === "stats" && row.week === 0) {
-      seasonStats = { fantasyPts, stats };
+      if (row.seasonType === statsSeasonType || seasonStats == null) {
+        seasonStats = { fantasyPts, stats };
+      }
       continue;
     }
 
-    if (row.kind === "stats" && row.week >= 1 && row.week <= 18) {
+    if (
+      row.kind === "stats" &&
+      row.week >= 1 &&
+      row.week <= playerScoreLogMaxWeek(
+        row.seasonType === "pre" ? "pre" : "regular",
+      )
+    ) {
       const appeared = playerWeekHasFantasyAppearance(stats);
       gameLog.push({
         week: row.week,
+        seasonType:
+          row.seasonType === "pre" || row.seasonType === "post"
+            ? row.seasonType
+            : "regular",
+        weekLabel:
+          row.seasonType === "pre"
+            ? `Pre ${espnPreseasonWeekToUser(row.week) ?? row.week}`
+            : String(row.week),
         opponent: null,
         result: null,
         stats,
@@ -387,12 +424,17 @@ function mergeGameLogWithSchedule(input: {
   gameLog: PlayerProfileGameLogRow[];
   schedule: Array<{
     week: number;
+    weekLabel: string;
+    seasonType: "pre" | "regular";
     opponent: string;
     result?: "W" | "L" | "T" | null;
   }>;
 }): PlayerProfileGameLogRow[] {
-  const statsByWeek = new Map(
-    input.gameLog.map((row) => [row.week, row] as const),
+  const statsByKey = new Map(
+    input.gameLog.map(
+      (row) =>
+        [`${row.seasonType ?? "regular"}:${row.week}`, row] as const,
+    ),
   );
 
   if (input.schedule.length === 0) {
@@ -400,11 +442,13 @@ function mergeGameLogWithSchedule(input: {
   }
 
   return input.schedule.map((slot) => {
-    const existing = statsByWeek.get(slot.week);
+    const existing = statsByKey.get(`${slot.seasonType}:${slot.week}`);
     return {
       week: slot.week,
+      weekLabel: slot.weekLabel,
+      seasonType: slot.seasonType,
       opponent: slot.opponent,
-      result: slot.result ?? null,
+      result: slot.result ?? existing?.result ?? null,
       stats: existing?.stats ?? {},
       fantasyPts: existing?.fantasyPts ?? null,
     };
@@ -622,7 +666,7 @@ async function playerHasWeeklyStats(
         eq(playerScores.playerId, playerId),
         eq(playerScores.season, season),
         eq(playerScores.kind, "stats"),
-        eq(playerScores.seasonType, "regular"),
+        inArray(playerScores.seasonType, ["regular", "pre"]),
         gte(playerScores.week, 1),
       ),
     )
@@ -642,7 +686,7 @@ async function listAvailablePlayerSeasons(input: {
       and(
         eq(playerScores.playerId, input.playerId),
         eq(playerScores.kind, "stats"),
-        eq(playerScores.seasonType, "regular"),
+        inArray(playerScores.seasonType, ["regular", "pre"]),
         gte(playerScores.week, 1),
       ),
     )
@@ -766,6 +810,7 @@ export const getPlayerProfile = cache(
       };
     })();
     let userTeamId: string | null = null;
+    let leagueSchedule: ScheduleSettings | null | undefined;
 
     const user = await getSessionUser();
 
@@ -788,6 +833,7 @@ export const getPlayerProfile = cache(
               seasonRow.scoringPreset as ScoringPreset,
               seasonRow.settings.scoringRules,
             );
+            leagueSchedule = seasonRow.settings.schedule ?? null;
 
             const [ownershipMap, draft, userTeam] = await Promise.all([
               getLeaguePlayerOwnershipMap(seasonRow.id, user.id),
@@ -875,12 +921,32 @@ export const getPlayerProfile = cache(
     const identitySeason = currentSeason;
     const needsIdentitySeason = season !== identitySeason;
     const seasonMaxWeek = resolveLeagueSeasonMaxWeek(leagueSeasonCalendar);
+    const statsPoint =
+      nflState && season === currentSeason
+        ? resolvePlayerScorePoint({
+            selectedWeek: 0,
+            kind: "stats",
+            nfl: nflState,
+            schedule: leagueSchedule,
+            seasonYear: Number(season),
+          })
+        : { seasonType: "regular" as const, week: 0 };
+    const identityStatsPoint = nflState
+      ? resolvePlayerScorePoint({
+          selectedWeek: 0,
+          kind: "stats",
+          nfl: nflState,
+          schedule: leagueSchedule,
+          seasonYear: Number(identitySeason),
+        })
+      : { seasonType: "regular" as const, week: 0 };
 
     const [
       scoreBundle,
       ratesMap,
       positionRank,
-      schedule,
+      preSchedule,
+      regularSchedule,
       identityScoreBundle,
       identityPositionRank,
     ] = await Promise.all([
@@ -889,12 +955,14 @@ export const getPlayerProfile = cache(
         season,
         positionId: player.primaryPositionId,
         rules: scoringRules,
+        statsSeasonType: statsPoint.seasonType,
       }),
       getPlayerRosterRatesMap([player.id]),
       computeStatsPositionRank({
         playerId: player.id,
         positionId: player.primaryPositionId,
         season,
+        seasonType: statsPoint.seasonType,
         rules: scoringRules,
       }).then(async (statsRank) => {
         if (statsRank != null) return statsRank;
@@ -907,10 +975,18 @@ export const getPlayerProfile = cache(
         if (projectionRank != null) return projectionRank;
         return loadPriorSeasonPosRank({ playerId: player.id, season });
       }),
+      statsPoint.seasonType === "pre"
+        ? getNflTeamSchedule({
+            nflTeam: player.nflTeam,
+            season,
+            seasonType: "pre",
+          })
+        : Promise.resolve([]),
       getNflTeamSchedule({
         nflTeam: player.nflTeam,
         season,
         byeWeek,
+        seasonType: "regular",
       }),
       needsIdentitySeason
         ? loadScoreBundle({
@@ -918,6 +994,7 @@ export const getPlayerProfile = cache(
             season: identitySeason,
             positionId: player.primaryPositionId,
             rules: scoringRules,
+            statsSeasonType: identityStatsPoint.seasonType,
           })
         : Promise.resolve(null),
       needsIdentitySeason
@@ -939,11 +1016,31 @@ export const getPlayerProfile = cache(
     const { seasonProjection, gameLog: scoreGameLog } = scoreBundle;
     let { seasonStats } = scoreBundle;
 
-    const cappedSchedule = schedule.filter((row) => row.week <= seasonMaxWeek);
+    const cappedScoreLog = scoreGameLog.filter((row) =>
+      row.seasonType === "pre" ? true : row.week <= seasonMaxWeek,
+    );
+    const scheduleForLog = [
+      ...preSchedule.map((slot) => ({
+        week: slot.week,
+        weekLabel: `Pre ${espnPreseasonWeekToUser(slot.week) ?? slot.week}`,
+        seasonType: "pre" as const,
+        opponent: slot.opponent,
+        result: slot.result,
+      })),
+      ...regularSchedule
+        .filter((slot) => slot.week <= seasonMaxWeek)
+        .map((slot) => ({
+          week: slot.week,
+          weekLabel: String(slot.week),
+          seasonType: "regular" as const,
+          opponent: slot.opponent,
+          result: slot.result,
+        })),
+    ];
     const gameLog = mergeGameLogWithSchedule({
-      gameLog: scoreGameLog.filter((row) => row.week <= seasonMaxWeek),
-      schedule: cappedSchedule,
-    }).filter((row) => row.week <= seasonMaxWeek);
+      gameLog: cappedScoreLog,
+      schedule: scheduleForLog,
+    });
 
     const cappedSeasonStats = seasonStatsWithoutWeeks({
       gameLog,
@@ -1034,7 +1131,7 @@ export const getPlayerProfile = cache(
         availableSeasons,
         gameLog,
         seasonStats,
-        schedule,
+        schedule: regularSchedule,
         rules: scoringRules,
         leagueCalendar: leagueSeasonCalendar,
         userTeamId,
