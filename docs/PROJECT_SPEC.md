@@ -915,3 +915,6 @@ lib/
 | 2026-08-15 | Player identity card RANK matches Players Stats once counting games have started (hybrid actuals, not season-long projection) |
 | 2026-08-15 | Player profile Back returns to the page that opened it (season changes replace the URL and do not stack history) |
 | 2026-08-15 | Player SoS rank #1 = easiest matchup (most FPts allowed); #32 = hardest. Same for skill, K, and team DEF. Tooltip follows Easy/Hard colors |
+| 2026-08-15 | Matchup win-chance bar is gray only at 50/50; 49/51 (and closer) use red/green |
+| 2026-08-15 | Recommended pickups: only FAs that upgrade still-open starter slots, ranked by the largest projection gap |
+| 2026-08-15 | Select menus size to the widest item (not the trigger), so week labels stay on one line |

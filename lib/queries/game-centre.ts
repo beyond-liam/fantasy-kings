@@ -663,6 +663,7 @@ export async function getGameCentreData(input: {
       ownership,
       lineup: viewerLineup,
       projectedById,
+      startedTeams,
       irEligibleStatuses: season.settings.irEligibleStatuses,
       limit: 3,
     });

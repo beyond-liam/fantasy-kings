@@ -26,5 +26,9 @@ export {
   formatWinChancePct,
   matchupWinChance,
   normalCdf,
+  winChanceFillClass,
+  winChanceTextClass,
+  winChanceTone,
   type MatchupWinChance,
+  type WinChanceTone,
 } from "@/lib/leagues/win-probability/win-chance";

@@ -8,6 +8,7 @@ import {
   normalCdf,
   parseDisplayClockMinutes,
   resolveGameProgress,
+  winChanceTone,
 } from "@/lib/leagues/win-probability";
 
 describe("game progress", () => {
@@ -164,5 +165,20 @@ describe("matchup win chance", () => {
 
   it("normalCdf is ~0.5 at 0", () => {
     assert.ok(Math.abs(normalCdf(0) - 0.5) < 0.001);
+  });
+});
+
+describe("winChanceTone", () => {
+  it("is gray only at a displayed 50%", () => {
+    assert.equal(winChanceTone(0.5), "neutral");
+    assert.equal(winChanceTone(0.495), "neutral");
+    assert.equal(winChanceTone(null), "neutral");
+  });
+
+  it("colors 49/51 and closer non-50 splits", () => {
+    assert.equal(winChanceTone(0.51), "success");
+    assert.equal(winChanceTone(0.49), "destructive");
+    assert.equal(winChanceTone(0.505), "success");
+    assert.equal(winChanceTone(0.494), "destructive");
   });
 });

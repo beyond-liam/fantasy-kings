@@ -14,6 +14,10 @@ import {
 } from "@/components/ui/popover";
 import { formatKickoffDay, formatKickoffTime } from "@/lib/nfl/schedule-week";
 import { formatRecord, teamInitials } from "@/lib/leagues/standings";
+import {
+  winChanceFillClass,
+  winChanceTextClass,
+} from "@/lib/leagues/win-probability";
 import type {
   GameCentreTeamSide,
   GameCentreYetToPlayPlayer,
@@ -156,14 +160,7 @@ function WinChanceMeter({
   const displayPct =
     targetPct == null ? null : Math.round(progress * targetPct);
   const scale = targetPct == null ? 0 : (progress * targetPct) / 100;
-  const fillTone =
-    chance == null
-      ? "bg-muted-foreground/40"
-      : chance >= 0.55
-        ? "bg-success"
-        : chance <= 0.45
-          ? "bg-destructive"
-          : "bg-muted-foreground";
+  const fillTone = winChanceFillClass(chance);
 
   const pctLabel = displayPct == null ? PLACEHOLDER : `${displayPct}%`;
 
@@ -182,12 +179,7 @@ function WinChanceMeter({
       />
       <span
         className={cn(
-          muted ? "text-muted-foreground/70" : null,
-          !muted && chance != null && chance >= 0.55 && "text-success",
-          !muted && chance != null && chance <= 0.45 && "text-destructive",
-          !muted &&
-            (chance == null || (chance > 0.45 && chance < 0.55)) &&
-            "text-muted-foreground",
+          muted ? "text-muted-foreground/70" : winChanceTextClass(chance),
         )}
       >
         {pctLabel}

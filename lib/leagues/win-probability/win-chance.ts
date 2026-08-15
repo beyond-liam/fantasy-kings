@@ -84,3 +84,35 @@ export function formatWinChancePct(probability: number | null | undefined) {
   }
   return `${Math.round(probability * 100)}%`;
 }
+
+export type WinChanceTone = "success" | "destructive" | "neutral";
+
+/** Gray only when the displayed percent is exactly 50 (or chance is missing). */
+export function winChanceTone(
+  chance: number | null | undefined,
+): WinChanceTone {
+  if (chance == null || !Number.isFinite(chance)) {
+    return "neutral";
+  }
+  const pct = Math.round(chance * 100);
+  if (pct > 50) return "success";
+  if (pct < 50) return "destructive";
+  return "neutral";
+}
+
+export function winChanceFillClass(chance: number | null | undefined): string {
+  if (chance == null || !Number.isFinite(chance)) {
+    return "bg-muted-foreground/40";
+  }
+  const tone = winChanceTone(chance);
+  if (tone === "success") return "bg-success";
+  if (tone === "destructive") return "bg-destructive";
+  return "bg-muted-foreground";
+}
+
+export function winChanceTextClass(chance: number | null | undefined): string {
+  const tone = winChanceTone(chance);
+  if (tone === "success") return "text-success";
+  if (tone === "destructive") return "text-destructive";
+  return "text-muted-foreground";
+}

@@ -77,13 +77,13 @@ export function WeekFilter({ weeks, value, seasonType }: WeekFilterProps) {
       >
         <SelectValue />
       </SelectTrigger>
-      <SelectContent>
+      <SelectContent alignItemWithTrigger={false}>
         <SelectGroup>
           {weeks.map((week) => (
             <SelectItem
               key={weekKey(week)}
               value={weekKey(week)}
-              className="h-auto items-start py-2 [&>span]:whitespace-normal"
+              className="h-auto items-start py-2"
             >
               <span className="flex flex-col gap-0.5 text-left">
                 <span>{week.label}</span>

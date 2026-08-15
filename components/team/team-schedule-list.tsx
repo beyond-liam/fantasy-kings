@@ -26,7 +26,10 @@ import {
   leagueTeamPath,
   myTeamPath,
 } from "@/lib/leagues/utils";
-import { formatWinChancePct } from "@/lib/leagues/win-probability";
+import {
+  formatWinChancePct,
+  winChanceTextClass,
+} from "@/lib/leagues/win-probability";
 import { cn } from "@/lib/utils";
 
 export type TeamScheduleDisplayRow = {
@@ -179,16 +182,7 @@ function getColumns(
           return <span className="text-muted-foreground">{PLACEHOLDER}</span>;
         }
         return (
-          <span
-            className={cn(
-              "font-medium",
-              chance >= 0.55
-                ? "text-success"
-                : chance <= 0.45
-                  ? "text-destructive"
-                  : "text-muted-foreground",
-            )}
-          >
+          <span className={cn("font-medium", winChanceTextClass(chance))}>
             {formatWinChancePct(chance)}
           </span>
         );
