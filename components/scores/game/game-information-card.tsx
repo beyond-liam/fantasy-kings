@@ -2,23 +2,18 @@ import {
   Building01Icon,
   Calendar01Icon,
   Location01Icon,
-  ModernTvIcon,
   WhistleIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  MISSING_VALUE,
-  type GameOfficial,
-} from "@/lib/espn/game-summary";
+import type { GameOfficial } from "@/lib/espn/game-summary";
 import type { ScheduleGame } from "@/lib/espn/scoreboard";
 import { formatKickoffDayShort, formatKickoffTime } from "@/lib/nfl/schedule-week";
 import { cn } from "@/lib/utils";
 
 type GameInformationCardProps = {
-  game: Pick<ScheduleGame, "kickoff" | "venue" | "venueLocation" | "network">;
+  game: Pick<ScheduleGame, "kickoff" | "venue" | "venueLocation">;
   attendance?: number | null;
   officials?: GameOfficial[] | null;
   className?: string;
@@ -50,7 +45,6 @@ export function GameInformationCard({
   className,
 }: GameInformationCardProps) {
   const kickoff = new Date(game.kickoff);
-  const network = game.network?.trim() || null;
 
   return (
     <Card size="sm" className={cn("gap-0 py-0", className)}>
@@ -85,21 +79,6 @@ export function GameInformationCard({
               </InfoRow>
             </div>
           ) : null}
-
-          <div className="border-t pt-3">
-            <InfoRow icon={ModernTvIcon}>
-              <p className="text-sm font-medium">Where to Watch</p>
-              {network ? (
-                <Badge variant="secondary" className="mt-1.5">
-                  {network}
-                </Badge>
-              ) : (
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {MISSING_VALUE}
-                </p>
-              )}
-            </InfoRow>
-          </div>
 
           {officials?.length ? (
             <div className="border-t pt-3">

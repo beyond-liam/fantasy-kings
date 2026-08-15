@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { GameScoreboardHeader } from "@/components/scores/game/game-scoreboard-header";
 import { LiveGameDashboard } from "@/components/scores/game/live-game-dashboard";
 import { PreGameDashboard } from "@/components/scores/game/pre-game-dashboard";
+import { LiveRefresh } from "@/components/scores/live-refresh";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { getNflGameSummary } from "@/lib/espn/game-summary";
 import { formatAwayAtHome } from "@/lib/metadata/page-title";
@@ -60,6 +61,7 @@ export default async function NflGamePage({ params }: NflGamePageProps) {
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-6">
+      <LiveRefresh enabled={data.game.status === "in"} />
       <GameScoreboardHeader game={data.game} />
 
       {layout === "pre" ? (

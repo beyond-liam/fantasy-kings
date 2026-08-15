@@ -1,5 +1,11 @@
 import { getSleeperTeamLogoUrl } from "@/lib/sleeper/avatars";
-import type { ScheduleGame, ScheduleTeam } from "@/lib/espn/scoreboard";
+import {
+  findNflScoreboardGame,
+  parseGameSituation,
+  parsePossessionSide,
+  type ScheduleGame,
+  type ScheduleTeam,
+} from "@/lib/espn/scoreboard";
 
 const ESPN_SUMMARY =
   "https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary";
@@ -18,6 +24,7 @@ type EspnTeamRef = {
 };
 
 type EspnCompetitor = {
+  id?: string;
   homeAway?: string;
   score?: string | number | null;
   winner?: boolean | null;
@@ -39,11 +46,26 @@ type EspnHeaderCompetition = {
     displayClock?: string;
     period?: number;
   };
+  situation?: {
+    possession?: string;
+    downDistanceText?: string;
+    shortDownDistanceText?: string;
+    possessionText?: string;
+    homeTimeouts?: number;
+    awayTimeouts?: number;
+  };
   broadcasts?: Array<{
     media?: { shortName?: string };
     names?: string[];
   }>;
   competitors?: EspnCompetitor[];
+};
+
+type EspnPlaySpot = {
+  downDistanceText?: string;
+  shortDownDistanceText?: string;
+  possessionText?: string;
+  team?: { id?: string };
 };
 
 type EspnSummaryResponse = {
@@ -186,6 +208,12 @@ type EspnSummaryResponse = {
     team?: EspnTeamRef;
   }>;
   drives?: {
+    current?: {
+      plays?: Array<{
+        start?: EspnPlaySpot;
+        end?: EspnPlaySpot;
+      }>;
+    };
     previous?: Array<{
       plays?: Array<{
         text?: string;
@@ -237,6 +265,7 @@ export type FormGame = {
 export type StandingRow = {
   abbrev: string;
   name: string;
+  logoUrl: string;
   w: number | string;
   l: number | string;
   t: number | string;
@@ -505,11 +534,83 @@ function parseGame(payload: EspnSummaryResponse, eventId: string): ScheduleGame 
     statusText,
     period,
     displayClock,
+    possession:
+      status === "in"
+        ? parsePossessionSide({
+            possession: competition.situation?.possession,
+            home: {
+              id: homeCompetitor?.id,
+              teamId: homeCompetitor?.team?.id,
+              abbreviation: homeCompetitor?.team?.abbreviation,
+            },
+            away: {
+              id: awayCompetitor?.id,
+              teamId: awayCompetitor?.team?.id,
+              abbreviation: awayCompetitor?.team?.abbreviation,
+            },
+          })
+        : null,
+    situation: parseGameSituation(competition.situation, status === "in"),
     network: parseNetwork(competition),
     odds: null,
     home: parseTeam(homeCompetitor),
     away: parseTeam(awayCompetitor),
   };
+}
+
+function applyLiveSituationFromScoreboard(
+  game: ScheduleGame,
+  live: ScheduleGame | null,
+) {
+  if (game.status !== "in" || live?.status !== "in") return;
+  game.possession = live.possession;
+  game.situation = live.situation;
+  game.period = live.period;
+  game.displayClock = live.displayClock;
+  game.statusText = live.statusText;
+}
+
+function applyLiveSituationFromDrive(
+  game: ScheduleGame,
+  payload: EspnSummaryResponse,
+) {
+  if (game.status !== "in") return;
+  if (game.possession && game.situation) return;
+
+  const last = payload.drives?.current?.plays?.at(-1);
+  const spot = last?.end ?? last?.start;
+  if (!spot) return;
+
+  const competition = payload.header?.competitions?.[0];
+  const home = competition?.competitors?.find((c) => c.homeAway === "home");
+  const away = competition?.competitors?.find((c) => c.homeAway === "away");
+
+  if (!game.possession) {
+    game.possession = parsePossessionSide({
+      possession: spot.team?.id,
+      home: {
+        id: home?.id,
+        teamId: home?.team?.id,
+        abbreviation: home?.team?.abbreviation,
+      },
+      away: {
+        id: away?.id,
+        teamId: away?.team?.id,
+        abbreviation: away?.team?.abbreviation,
+      },
+    });
+  }
+
+  if (!game.situation) {
+    game.situation = parseGameSituation(
+      {
+        shortDownDistanceText: spot.shortDownDistanceText,
+        possessionText: spot.possessionText,
+        downDistanceText: spot.downDistanceText,
+      },
+      true,
+    );
+  }
 }
 
 function parsePredictor(
@@ -774,9 +875,13 @@ function parseStandings(
       const pf = stats.get("pointsFor")?.displayValue ?? "0";
       const pa = stats.get("pointsAgainst")?.displayValue ?? "0";
 
+      const sleeperAbbrev = SLEEPER_ABBREV[abbrev] ?? abbrev;
+
       return {
         abbrev,
         name: teamName,
+        logoUrl:
+          abbrev !== MISSING_VALUE ? getSleeperTeamLogoUrl(sleeperAbbrev) : "",
         w,
         l,
         t,
@@ -1043,6 +1148,7 @@ export async function getNflGameSummary(
 ): Promise<GameDashboardData> {
   const url = new URL(ESPN_SUMMARY);
   url.searchParams.set("event", eventId);
+  const liveGamePromise = findNflScoreboardGame(eventId);
 
   const response = await fetch(url, {
     next: { revalidate: 30 },
@@ -1057,5 +1163,10 @@ export async function getNflGameSummary(
     throw new Error("ESPN game summary missing header competition");
   }
 
-  return buildDashboard(payload, eventId);
+  const data = buildDashboard(payload, eventId);
+  if (data.game.status === "in") {
+    applyLiveSituationFromScoreboard(data.game, await liveGamePromise);
+    applyLiveSituationFromDrive(data.game, payload);
+  }
+  return data;
 }

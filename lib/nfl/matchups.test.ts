@@ -38,6 +38,8 @@ function game(
     statusText: "Scheduled",
     period: null,
     displayClock: null,
+    possession: null,
+    situation: null,
     network: null,
     odds: null,
     home: side(home),

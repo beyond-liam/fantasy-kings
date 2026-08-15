@@ -408,7 +408,16 @@ export function PreGameDashboard({ data }: PreGameDashboardProps) {
                             className={cn(row.highlight && "bg-muted/50")}
                           >
                             <TableCell className="font-medium">
-                              {row.abbrev}
+                              <span className="inline-flex items-center gap-2">
+                                {row.logoUrl ? (
+                                  <ScheduleTeamLogo
+                                    src={row.logoUrl}
+                                    size={20}
+                                    className="size-5"
+                                  />
+                                ) : null}
+                                {row.abbrev}
+                              </span>
                             </TableCell>
                             <TableCell className="text-right tabular-nums">
                               {row.w}

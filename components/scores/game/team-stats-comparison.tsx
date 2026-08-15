@@ -1,3 +1,4 @@
+import { ScheduleTeamLogo } from "@/components/scores/schedule-team-logo";
 import type { TeamStatRow } from "@/lib/espn/game-summary";
 import { MISSING_VALUE } from "@/lib/espn/game-summary";
 import { getNflTeamColors } from "@/lib/nfl/team-colors";
@@ -6,6 +7,8 @@ type TeamStatsComparisonProps = {
   rows: TeamStatRow[];
   awayAbbrev: string;
   homeAbbrev: string;
+  awayLogoUrl?: string;
+  homeLogoUrl?: string;
 };
 
 /** Parse ESPN display values into a magnitude for bar width. */
@@ -52,6 +55,8 @@ export function TeamStatsComparison({
   rows,
   awayAbbrev,
   homeAbbrev,
+  awayLogoUrl,
+  homeLogoUrl,
 }: TeamStatsComparisonProps) {
   const awayColor =
     getNflTeamColors(awayAbbrev)?.primary ?? "var(--muted-foreground)";
@@ -61,8 +66,26 @@ export function TeamStatsComparison({
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between gap-3 text-sm font-semibold tracking-wide text-foreground">
-        <span>{awayAbbrev}</span>
-        <span>{homeAbbrev}</span>
+        <span className="inline-flex items-center gap-1.5">
+          {awayLogoUrl ? (
+            <ScheduleTeamLogo
+              src={awayLogoUrl}
+              size={20}
+              className="size-5"
+            />
+          ) : null}
+          {awayAbbrev}
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          {homeAbbrev}
+          {homeLogoUrl ? (
+            <ScheduleTeamLogo
+              src={homeLogoUrl}
+              size={20}
+              className="size-5"
+            />
+          ) : null}
+        </span>
       </div>
 
       <ul className="flex flex-col gap-4">

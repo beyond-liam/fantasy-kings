@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { HugeiconsIcon } from "@hugeicons/react";
 
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { LivePulseDot } from "@/components/live-pulse-dot";
 import { getLeagueNavItems, type NavItem } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
 
@@ -17,22 +18,6 @@ type LeagueSideNavProps = {
   /** Draft is live or paused — show pulsing live indicator on Draft. */
   draftLive?: boolean;
 };
-
-/** Small solid core + hollow ring that expands and fades out. */
-function LivePulseDot({ className }: { className?: string }) {
-  return (
-    <span
-      className={cn(
-        "relative inline-flex size-1.5 shrink-0 items-center justify-center",
-        className,
-      )}
-      aria-hidden
-    >
-      <span className="animate-live-pulse absolute size-1.5 rounded-full border border-success bg-transparent" />
-      <span className="relative size-1.5 rounded-full bg-success" />
-    </span>
-  );
-}
 
 function NavLink({
   item,

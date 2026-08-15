@@ -21,6 +21,7 @@ type EspnCalendarGroup = {
 };
 
 type EspnCompetitor = {
+  id?: string;
   homeAway?: string;
   score?: string;
   winner?: boolean | null;
@@ -35,6 +36,7 @@ type EspnCompetitor = {
     summary?: string;
   }>;
   team?: {
+    id?: string;
     abbreviation?: string;
     displayName?: string;
     shortDisplayName?: string;
@@ -42,6 +44,15 @@ type EspnCompetitor = {
     location?: string;
     logo?: string;
   };
+};
+
+export type EspnGameSituation = {
+  possession?: string;
+  downDistanceText?: string;
+  shortDownDistanceText?: string;
+  possessionText?: string;
+  homeTimeouts?: number;
+  awayTimeouts?: number;
 };
 
 type EspnEvent = {
@@ -60,6 +71,7 @@ type EspnEvent = {
       displayClock?: string;
       period?: number;
     };
+    situation?: EspnGameSituation;
     venue?: {
       fullName?: string;
       address?: {
@@ -92,6 +104,12 @@ type EspnScoreboardResponse = {
   events?: EspnEvent[];
 };
 
+export type GameSituation = {
+  downDistance: string | null;
+  homeTimeouts: number | null;
+  awayTimeouts: number | null;
+};
+
 export type ScheduleTeam = {
   abbreviation: string;
   displayName: string;
@@ -117,6 +135,10 @@ export type ScheduleGame = {
   period: number | null;
   /** Display clock for the current period, e.g. "7:32". */
   displayClock: string | null;
+  /** Which side has the ball while live. */
+  possession: "home" | "away" | null;
+  /** Down/distance and timeouts while live. */
+  situation: GameSituation | null;
   network: string | null;
   odds: string | null;
   home: ScheduleTeam;
@@ -278,6 +300,123 @@ function parseOdds(
   return details || null;
 }
 
+export function formatPeriodClockLabel(
+  period: number | null | undefined,
+  displayClock: string | null | undefined,
+): string | null {
+  const clock = displayClock?.trim() || null;
+  if (period == null || !Number.isFinite(period) || period < 1) {
+    return clock;
+  }
+  const quarter =
+    period <= 4 ? `Q${period}` : period === 5 ? "OT" : `OT${period - 4}`;
+  return clock ? `${quarter} ${clock}` : quarter;
+}
+
+/** Live clock only, e.g. "Q1 15:00" or "Halftime". */
+export function formatLiveClockLabel(
+  game: Pick<
+    ScheduleGame,
+    "status" | "statusText" | "period" | "displayClock"
+  >,
+): string | null {
+  if (game.status !== "in") return null;
+  const named = game.statusText?.trim() || "";
+  if (/halftime|end of|two.?minute/i.test(named)) {
+    return named;
+  }
+  return formatPeriodClockLabel(game.period, game.displayClock) ?? (named || null);
+}
+
+/** Header copy for a live scoreboard row, e.g. "Live: Q1 15:00". */
+export function formatLiveMatchupLabel(
+  game: Pick<
+    ScheduleGame,
+    "status" | "statusText" | "period" | "displayClock"
+  >,
+): string | null {
+  if (game.status !== "in") return null;
+  const clock = formatLiveClockLabel(game);
+  return clock ? `Live: ${clock}` : "Live";
+}
+
+export function formatDownDistance(situation: {
+  shortDownDistanceText?: string | null;
+  possessionText?: string | null;
+  downDistanceText?: string | null;
+}): string | null {
+  const short = situation.shortDownDistanceText?.trim() || null;
+  const spot = situation.possessionText?.trim() || null;
+  if (short && spot) return `${short} • ${spot}`;
+  const full = situation.downDistanceText?.trim() || null;
+  if (!full) return null;
+  return full.replace(/\s+at\s+/i, " • ");
+}
+
+function clampTimeouts(value: unknown): number | null {
+  if (typeof value !== "number" || !Number.isFinite(value)) return null;
+  return Math.max(0, Math.min(3, Math.round(value)));
+}
+
+export function parseGameSituation(
+  situation: EspnGameSituation | undefined,
+  isLive: boolean,
+): GameSituation | null {
+  if (!isLive || !situation) return null;
+  const downDistance = formatDownDistance(situation);
+  const homeTimeouts = clampTimeouts(situation.homeTimeouts);
+  const awayTimeouts = clampTimeouts(situation.awayTimeouts);
+  if (!downDistance && homeTimeouts == null && awayTimeouts == null) {
+    return null;
+  }
+  return { downDistance, homeTimeouts, awayTimeouts };
+}
+
+export function parsePossessionSide(input: {
+  possession: string | null | undefined;
+  home: { id?: string; teamId?: string; abbreviation?: string };
+  away: { id?: string; teamId?: string; abbreviation?: string };
+}): "home" | "away" | null {
+  const raw = input.possession?.trim();
+  if (!raw) return null;
+  const value = raw.toUpperCase();
+
+  const matches = (
+    side: { id?: string; teamId?: string; abbreviation?: string },
+  ) => {
+    const ids = [side.id, side.teamId, side.abbreviation]
+      .filter(Boolean)
+      .map((id) => id!.toUpperCase());
+    return ids.includes(value);
+  };
+
+  const home = matches(input.home);
+  const away = matches(input.away);
+  if (home && !away) return "home";
+  if (away && !home) return "away";
+  return null;
+}
+
+function possessionFromCompetition(
+  competition: NonNullable<EspnEvent["competitions"]>[number],
+  home: EspnCompetitor | undefined,
+  away: EspnCompetitor | undefined,
+): "home" | "away" | null {
+  return parsePossessionSide({
+    possession: competition.situation?.possession,
+    home: {
+      id: home?.id,
+      teamId: home?.team?.id,
+      abbreviation: home?.team?.abbreviation,
+    },
+    away: {
+      id: away?.id,
+      teamId: away?.team?.id,
+      abbreviation: away?.team?.abbreviation,
+    },
+  });
+}
+
 function parseGame(event: EspnEvent): ScheduleGame | null {
   const competition = event.competitions?.[0];
   if (!event.id || !event.date || !competition) {
@@ -309,6 +448,11 @@ function parseGame(event: EspnEvent): ScheduleGame | null {
     statusText,
     period,
     displayClock,
+    possession:
+      status === "in"
+        ? possessionFromCompetition(competition, homeCompetitor, awayCompetitor)
+        : null,
+    situation: parseGameSituation(competition.situation, status === "in"),
     network: parseNetwork(competition),
     odds: parseOdds(competition),
     home: parseTeam(homeCompetitor),
@@ -405,4 +549,25 @@ export async function getNflScoreboard(options: {
     games,
     hasLiveGames,
   };
+}
+
+/** Current ESPN slate, used to overlay live situation onto a game summary. */
+export async function findNflScoreboardGame(
+  eventId: string,
+): Promise<ScheduleGame | null> {
+  try {
+    const response = await fetch(ESPN_SCOREBOARD, {
+      signal: AbortSignal.timeout(12000),
+      next: { revalidate: 30 },
+    });
+    if (!response.ok) return null;
+    const payload = (await response.json()) as EspnScoreboardResponse;
+    for (const event of payload.events ?? []) {
+      if (event.id !== eventId) continue;
+      return parseGame(event);
+    }
+    return null;
+  } catch {
+    return null;
+  }
 }

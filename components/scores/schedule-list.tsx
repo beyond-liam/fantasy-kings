@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CalendarBlock01Icon } from "@hugeicons/core-free-icons";
+import { AmericanFootballIcon, CalendarBlock01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
 import { ScheduleTeamLogo } from "@/components/scores/schedule-team-logo";
@@ -10,10 +10,11 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import type {
-  EspnSeasonType,
-  ScheduleGame,
-  ScheduleTeam,
+import {
+  formatLiveMatchupLabel,
+  type EspnSeasonType,
+  type ScheduleGame,
+  type ScheduleTeam,
 } from "@/lib/espn/scoreboard";
 import {
   formatKickoffDayShort,
@@ -78,9 +79,11 @@ function periodValue(
 function TeamIdentity({
   team,
   muted,
+  hasPossession,
 }: {
   team: ScheduleTeam;
   muted: boolean;
+  hasPossession: boolean;
 }) {
   return (
     <div className="flex min-w-0 items-center gap-2.5">
@@ -97,11 +100,22 @@ function TeamIdentity({
         </p>
         <p
           className={cn(
-            "truncate text-sm font-semibold leading-tight",
+            "flex min-w-0 items-center gap-1 text-sm font-semibold leading-tight",
             muted ? "text-muted-foreground" : "text-foreground",
           )}
         >
-          {team.nickname}
+          <span className="truncate">{team.nickname}</span>
+          {hasPossession ? (
+            <>
+              <HugeiconsIcon
+                icon={AmericanFootballIcon}
+                strokeWidth={2}
+                className="size-3.5 shrink-0 text-success"
+                aria-hidden
+              />
+              <span className="sr-only">has possession</span>
+            </>
+          ) : null}
         </p>
       </div>
     </div>
@@ -152,6 +166,11 @@ function ScheduleGameCard({
 }) {
   const kickoff = new Date(game.kickoff);
   const labels = periodLabels(game);
+  const liveLabel = formatLiveMatchupLabel(game);
+  const matchupHeader = liveLabel ?? "Matchup";
+  const mobileHeader =
+    liveLabel ??
+    `${formatKickoffDayShort(kickoff)} · ${formatKickoffTime(kickoff)}`;
 
   return (
     <Link
@@ -174,12 +193,19 @@ function ScheduleGameCard({
           className={cn(
             SECTION_HEADER_CLASS,
             "truncate tabular-nums whitespace-nowrap xl:hidden",
+            liveLabel && "text-success",
           )}
         >
-          {formatKickoffDayShort(kickoff)} · {formatKickoffTime(kickoff)}
+          {mobileHeader}
         </span>
-        <span className={cn(SECTION_HEADER_CLASS, "hidden xl:inline")}>
-          Matchup
+        <span
+          className={cn(
+            SECTION_HEADER_CLASS,
+            "hidden xl:inline",
+            liveLabel && "text-success",
+          )}
+        >
+          {matchupHeader}
         </span>
         {labels.map((label) => (
           <span
@@ -193,6 +219,7 @@ function ScheduleGameCard({
         <TeamIdentity
           team={game.away}
           muted={game.away.winner === false}
+          hasPossession={game.possession === "away"}
         />
         <ScoreCells
           team={game.away}
@@ -203,6 +230,7 @@ function ScheduleGameCard({
         <TeamIdentity
           team={game.home}
           muted={game.home.winner === false}
+          hasPossession={game.possession === "home"}
         />
         <ScoreCells
           team={game.home}
