@@ -22,6 +22,10 @@ import {
 } from "@/lib/queries/players";
 import { getPlayerRosterRatesMap } from "@/lib/queries/player-roster-rates";
 import {
+  getRosterTableStatMap,
+  withRosterTableStats,
+} from "@/lib/queries/team-player-stats";
+import {
   ensureTeamRosterSlotsAssigned,
   getTeamRosterPlayers,
 } from "@/lib/queries/team-roster";
@@ -84,7 +88,7 @@ export async function MyTeamRosterPanel({
   });
 
   const [
-    { fantasyWeek, nflWeek, nflSeason, nflSeasonType, opponentsByTeam },
+    { fantasyWeek, nflWeek, nflSeason, nflSeasonType, opponentsByTeam, nflState },
     rosterPlayers,
     teamScheduleRows,
     profile,
@@ -99,7 +103,7 @@ export async function MyTeamRosterPanel({
   ]);
 
   const ratePlayerIds = rosterPlayers.map((player) => player.id);
-  const [rosterRates, projectedById, weekStats] = await Promise.all([
+  const [rosterRates, projectedById, weekStats, tableStats] = await Promise.all([
     getPlayerRosterRatesMap(ratePlayerIds),
     getWeekProjectedFantasyPoints({
       season: nflSeason,
@@ -115,22 +119,37 @@ export async function MyTeamRosterPanel({
       kind: "stats",
       scoringRules,
       playerIds: ratePlayerIds,
+      preserveStats: true,
     }).catch(() => []),
+    getRosterTableStatMap({
+      season: nflSeason,
+      playerIds: ratePlayerIds,
+      scoringRules,
+      nfl: nflState,
+      schedule: season.settings.schedule,
+    }).catch(() => new Map()),
   ]);
 
   const actualById = new Map(
     weekStats.map((player) => [player.id, player.fantasyPts]),
   );
+  const weekStatsById = new Map(
+    weekStats.map((player) => [player.id, player.stats]),
+  );
   const rosterPlayersWithRates = rosterPlayers.map((player) => {
     const rates = rosterRates.get(player.id);
     return withPlayerOpponent(
-      {
-        ...player,
-        actualPts: actualById.get(player.id) ?? null,
-        projectedPts: projectedById.get(player.id) ?? null,
-        ownedPct: rates?.ownedPct ?? null,
-        startPct: rates?.startPct ?? null,
-      },
+      withRosterTableStats(
+        {
+          ...player,
+          actualPts: actualById.get(player.id) ?? null,
+          projectedPts: projectedById.get(player.id) ?? null,
+          weekStats: weekStatsById.get(player.id),
+          ownedPct: rates?.ownedPct ?? null,
+          startPct: rates?.startPct ?? null,
+        },
+        tableStats,
+      ),
       nflWeek,
       opponentsByTeam,
       { seasonYear: season.seasonYear, seasonType: nflSeasonType },
@@ -187,6 +206,8 @@ export async function MyTeamRosterPanel({
       cutActionsEnabled={actionsEnabled}
       tradesEnabled={tradesEnabled}
       gameLockedPlayerIds={gameLockedPlayerIds}
+      scoringRules={scoringRules}
+      scoringWeek={fantasyWeek}
       summary={{
         waiverPriorityLabel: season.waiversEnabled
           ? formatWaiverPriority(team.waiverPriority)

@@ -58,7 +58,6 @@ import {
   projectionAccentTextClass,
 } from "@/lib/players/projection-highlights";
 import {
-  DEF_LEAGUE_PA_PER_WEEK,
   formatOpponentTick,
   type OverviewMatchupBucketOpponent,
   type PlayerOverviewMetrics,
@@ -375,8 +374,6 @@ const weekChartConfig = {
 /** Relative band treated as "around" / "slightly below" vs league average. */
 const EFFICIENCY_AROUND_BAND = 0.05;
 const EFFICIENCY_SLIGHTLY_BELOW_BAND = 0.15;
-/** Typical combined FG + XP makes per game for NFL kickers. */
-const K_LEAGUE_KICKS_PER_WEEK = 4;
 /** Within this share of season average (or at least 3 pts) counts as "just below". */
 const WEEKLY_JUST_BELOW_RATIO = 0.2;
 const WEEKLY_JUST_BELOW_MIN_PTS = 3;
@@ -847,7 +844,7 @@ function efficiencyScaleMax(efficiency: {
 }) {
   if (efficiency.format === "percent") return 100;
   return Math.max(
-    (efficiency.positionAvg ?? 4.2) * 1.6,
+    (efficiency.positionAvg ?? efficiency.value) * 1.6,
     efficiency.value,
     0.1,
   );
@@ -874,36 +871,38 @@ function CombinedKicksLineCard({
   playerName,
   share,
   weekly,
+  positionAvg,
 }: {
   playerName: string;
   share: NonNullable<PlayerOverviewMetrics["share"]>;
   weekly: NonNullable<PlayerOverviewMetrics["kickWeeklyMakes"]>;
+  positionAvg: number | null;
 }) {
   const seasonAvg =
     weekly.length > 0
       ? weekly.reduce((sum, row) => sum + row.made, 0) / weekly.length
       : null;
-  const lineColor = efficiencyLineColor(
-    seasonAvg ?? 0,
-    K_LEAGUE_KICKS_PER_WEEK,
-  );
+  const lineColor = efficiencyLineColor(seasonAvg ?? 0, positionAvg);
   const chartConfig = {
     made: { label: playerName, color: lineColor },
     avg: { label: "Position average", color: "var(--muted-foreground)" },
   } satisfies ChartConfig;
   const yMax = (() => {
     const peak = Math.max(
-      K_LEAGUE_KICKS_PER_WEEK,
+      positionAvg ?? 0,
       ...weekly.map((row) => row.made),
     );
     const padded = Math.max(4, Math.ceil(peak) + 1);
     return padded % 2 === 0 ? padded : padded + 1;
   })();
   const yTicks = Array.from({ length: yMax / 2 + 1 }, (_, i) => i * 2);
-  const chartData = weekly.map((row) => ({
-    ...row,
-    avg: K_LEAGUE_KICKS_PER_WEEK,
-  }));
+  const chartData =
+    positionAvg == null
+      ? weekly
+      : weekly.map((row) => ({
+          ...row,
+          avg: positionAvg,
+        }));
 
   return (
     <div className="flex h-full min-w-0 flex-col gap-3 rounded-xl bg-muted/30 p-3 ring-1 ring-foreground/8">
@@ -952,37 +951,43 @@ function CombinedKicksLineCard({
             domain={[0, yMax]}
           />
           <ChartTooltip content={<KickMakesTooltipContent config={chartConfig} />} />
-          <ChartLegend
-            content={({ payload, verticalAlign }) => {
-              const order = ["made", "avg"] as const;
-              const sorted = [...(payload ?? [])].sort((a, b) => {
-                const ai = order.indexOf(
-                  String(a.dataKey) as (typeof order)[number],
+          {positionAvg != null ? (
+            <ChartLegend
+              content={({ payload, verticalAlign }) => {
+                const order = ["made", "avg"] as const;
+                const sorted = [...(payload ?? [])].sort((a, b) => {
+                  const ai = order.indexOf(
+                    String(a.dataKey) as (typeof order)[number],
+                  );
+                  const bi = order.indexOf(
+                    String(b.dataKey) as (typeof order)[number],
+                  );
+                  return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+                });
+                return (
+                  <ChartLegendContent
+                    payload={sorted}
+                    verticalAlign={verticalAlign}
+                  />
                 );
-                const bi = order.indexOf(
-                  String(b.dataKey) as (typeof order)[number],
-                );
-                return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
-              });
-              return (
-                <ChartLegendContent
-                  payload={sorted}
-                  verticalAlign={verticalAlign}
-                />
-              );
-            }}
-          />
-          <Line
-            type="monotone"
-            dataKey="avg"
-            stroke="var(--color-avg)"
-            strokeWidth={1.5}
-            strokeDasharray="4 4"
-            strokeOpacity={0.85}
-            dot={false}
-            activeDot={false}
-            isAnimationActive={false}
-          />
+              }}
+            />
+          ) : (
+            <ChartLegend content={<ChartLegendContent />} />
+          )}
+          {positionAvg != null ? (
+            <Line
+              type="monotone"
+              dataKey="avg"
+              stroke="var(--color-avg)"
+              strokeWidth={1.5}
+              strokeDasharray="4 4"
+              strokeOpacity={0.85}
+              dot={false}
+              activeDot={false}
+              isAnimationActive={false}
+            />
+          ) : null}
           <Line
             type="monotone"
             dataKey="made"
@@ -1011,7 +1016,7 @@ function ChartSeriesTooltip({
 }) {
   return (
     <div className="grid min-w-40 items-start gap-1.5 rounded-md bg-foreground px-3 py-1.5 text-xs text-background">
-      <div className="font-medium">{label}</div>
+      <div className="font-semibold">{label}</div>
       <div className="grid gap-1.5">
         {rows.map((row) => (
           <div key={row.key} className="flex w-full items-center gap-2">
@@ -1067,28 +1072,31 @@ function KickMakesTooltipContent({
     payload.find((item) => item.dataKey === "avg")?.color ??
     "var(--muted-foreground)";
 
+  const rows = [
+    {
+      key: "made",
+      label: String(config.made?.label ?? "Player"),
+      value: String(row.made ?? 0),
+      color: madeColor,
+    },
+    ...(row.avg != null
+      ? [
+          {
+            key: "avg",
+            label: String(config.avg?.label ?? "Position average"),
+            value: Number.isInteger(row.avg)
+              ? String(row.avg)
+              : row.avg.toFixed(1),
+            color: avgColor,
+          },
+        ]
+      : []),
+  ];
+
   return (
     <ChartSeriesTooltip
       label={weekLabel}
-      rows={[
-        {
-          key: "made",
-          label: String(config.made?.label ?? "Player"),
-          value: String(row.made ?? 0),
-          color: madeColor,
-        },
-        {
-          key: "avg",
-          label: String(config.avg?.label ?? "Position average"),
-          value:
-            row.avg != null
-              ? Number.isInteger(row.avg)
-                ? String(row.avg)
-                : row.avg.toFixed(1)
-              : String(K_LEAGUE_KICKS_PER_WEEK),
-          color: avgColor,
-        },
-      ]}
+      rows={rows}
     />
   );
 }
@@ -1432,34 +1440,36 @@ function PtsAllowRadarTooltipContent({
 function PtsAllowWeeklyCard({
   playerName,
   weekly,
+  positionAvg,
 }: {
   playerName: string;
   weekly: NonNullable<PlayerOverviewMetrics["ptsAllowWeekly"]>;
+  positionAvg: number | null;
 }) {
   const seasonAvg =
     weekly.length > 0
       ? weekly.reduce((sum, row) => sum + row.value, 0) / weekly.length
       : null;
-  const lineColor = pointsAllowedLineColor(
-    seasonAvg ?? 0,
-    DEF_LEAGUE_PA_PER_WEEK,
-  );
+  const lineColor = pointsAllowedLineColor(seasonAvg ?? 0, positionAvg);
   const chartConfig = {
     value: { label: playerName, color: lineColor },
     avg: { label: "Position average", color: "var(--muted-foreground)" },
   } satisfies ChartConfig;
   const yMax = (() => {
     const peak = Math.max(
-      DEF_LEAGUE_PA_PER_WEEK,
+      positionAvg ?? 0,
       ...weekly.map((row) => row.value),
     );
     return Math.max(10, Math.ceil(peak / 5) * 5);
   })();
   const yTicks = Array.from({ length: yMax / 5 + 1 }, (_, i) => i * 5);
-  const chartData = weekly.map((row) => ({
-    ...row,
-    avg: DEF_LEAGUE_PA_PER_WEEK,
-  }));
+  const chartData =
+    positionAvg == null
+      ? weekly
+      : weekly.map((row) => ({
+          ...row,
+          avg: positionAvg,
+        }));
 
   return (
     <div className="flex h-full min-w-0 flex-col gap-3 rounded-xl bg-muted/30 p-3 ring-1 ring-foreground/8">
@@ -1477,7 +1487,7 @@ function PtsAllowWeeklyCard({
           </span>
         </span>
         <span className="text-xs tabular-nums text-muted-foreground">
-          Pos avg {DEF_LEAGUE_PA_PER_WEEK}
+          {positionAvg != null ? `Pos avg ${positionAvg.toFixed(1)}` : null}
         </span>
       </div>
       <ChartContainer
@@ -1510,37 +1520,43 @@ function PtsAllowWeeklyCard({
           <ChartTooltip
             content={<PtsAllowWeeklyTooltipContent config={chartConfig} />}
           />
-          <ChartLegend
-            content={({ payload, verticalAlign }) => {
-              const order = ["value", "avg"] as const;
-              const sorted = [...(payload ?? [])].sort((a, b) => {
-                const ai = order.indexOf(
-                  String(a.dataKey) as (typeof order)[number],
+          {positionAvg != null ? (
+            <ChartLegend
+              content={({ payload, verticalAlign }) => {
+                const order = ["value", "avg"] as const;
+                const sorted = [...(payload ?? [])].sort((a, b) => {
+                  const ai = order.indexOf(
+                    String(a.dataKey) as (typeof order)[number],
+                  );
+                  const bi = order.indexOf(
+                    String(b.dataKey) as (typeof order)[number],
+                  );
+                  return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+                });
+                return (
+                  <ChartLegendContent
+                    payload={sorted}
+                    verticalAlign={verticalAlign}
+                  />
                 );
-                const bi = order.indexOf(
-                  String(b.dataKey) as (typeof order)[number],
-                );
-                return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
-              });
-              return (
-                <ChartLegendContent
-                  payload={sorted}
-                  verticalAlign={verticalAlign}
-                />
-              );
-            }}
-          />
-          <Line
-            type="monotone"
-            dataKey="avg"
-            stroke="var(--color-avg)"
-            strokeWidth={1.5}
-            strokeDasharray="4 4"
-            strokeOpacity={0.85}
-            dot={false}
-            activeDot={false}
-            isAnimationActive={false}
-          />
+              }}
+            />
+          ) : (
+            <ChartLegend content={<ChartLegendContent />} />
+          )}
+          {positionAvg != null ? (
+            <Line
+              type="monotone"
+              dataKey="avg"
+              stroke="var(--color-avg)"
+              strokeWidth={1.5}
+              strokeDasharray="4 4"
+              strokeOpacity={0.85}
+              dot={false}
+              activeDot={false}
+              isAnimationActive={false}
+            />
+          ) : null}
           <Line
             type="monotone"
             dataKey="value"
@@ -1591,29 +1607,26 @@ function PtsAllowWeeklyTooltipContent({
     payload.find((item) => item.dataKey === "avg")?.color ??
     "var(--muted-foreground)";
 
-  return (
-    <ChartSeriesTooltip
-      label={weekLabel}
-      rows={[
-        {
-          key: "value",
-          label: String(config.value?.label ?? "Player"),
-          value:
-            row.value != null ? `${row.value.toFixed(0)} PA` : "—",
-          color: valueColor,
-        },
-        {
-          key: "avg",
-          label: String(config.avg?.label ?? "Position average"),
-          value:
-            row.avg != null
-              ? `${row.avg.toFixed(0)} PA`
-              : String(DEF_LEAGUE_PA_PER_WEEK),
-          color: avgColor,
-        },
-      ]}
-    />
-  );
+  const rows = [
+    {
+      key: "value",
+      label: String(config.value?.label ?? "Player"),
+      value: row.value != null ? `${row.value.toFixed(0)} PA` : "—",
+      color: valueColor,
+    },
+    ...(row.avg != null
+      ? [
+          {
+            key: "avg",
+            label: String(config.avg?.label ?? "Position average"),
+            value: `${row.avg.toFixed(0)} PA`,
+            color: avgColor,
+          },
+        ]
+      : []),
+  ];
+
+  return <ChartSeriesTooltip label={weekLabel} rows={rows} />;
 }
 
 function EfficiencyCard({
@@ -2328,6 +2341,7 @@ export function PlayerOverviewTab({
               <PtsAllowWeeklyCard
                 playerName={overview.playerName}
                 weekly={overview.ptsAllowWeekly}
+                positionAvg={overview.nflPositionAvg}
               />
             ) : null}
           </div>
@@ -2345,6 +2359,7 @@ export function PlayerOverviewTab({
                 playerName={overview.playerName}
                 share={overview.share}
                 weekly={overview.kickWeeklyMakes}
+                positionAvg={overview.nflPositionAvg}
               />
             ) : overview.share && overview.share.kind !== "kick" ? (
               <div className="flex h-full min-w-0 flex-col gap-3 rounded-xl bg-muted/30 p-3 ring-1 ring-foreground/8">

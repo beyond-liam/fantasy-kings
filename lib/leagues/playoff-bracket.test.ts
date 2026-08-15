@@ -37,7 +37,7 @@ describe("buildPlayoffBracket", () => {
     });
     assert.ok(bracket);
     assert.equal(bracket.rounds.length, 2);
-    assert.equal(bracket.rounds[0]?.name, "Semifinals");
+    assert.equal(bracket.rounds[0]?.name, "Semi Finals");
     assert.equal(bracket.rounds[0]?.matchups.length, 2);
     assert.equal(bracket.rounds[1]?.name, "Championship");
     const sf1 = bracket.rounds[0]!.matchups[0]!;
@@ -55,7 +55,7 @@ describe("buildPlayoffBracket", () => {
     assert.ok(bracket);
     assert.equal(bracket.firstRoundByes, 2);
     assert.equal(bracket.rounds[0]?.matchups.length, 2);
-    assert.equal(bracket.rounds[1]?.name, "Semifinals");
+    assert.equal(bracket.rounds[1]?.name, "Semi Finals");
     const sf1 = bracket.rounds[1]!.matchups[0]!;
     assert.equal(sf1.top.type, "bye");
     assert.equal(sf1.top.type === "bye" ? sf1.top.team.seed : null, 1);

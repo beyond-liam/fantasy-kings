@@ -356,6 +356,11 @@ export type OverviewExtrasSeed = {
   playoffWeeks: number[];
   /** Last regular-season week; SOS buckets exclude later weeks. */
   regularSeasonEndWeek?: number;
+  /**
+   * NFL position aggregate for Overview comparison lines (not fantasy).
+   * Completion %, catch rate, YPC, solo %, kicks/g, or PA/g.
+   */
+  positionAvg?: number | null;
   /** Your roster mates at this position (excludes the viewed player). */
   rosterCompare?: OverviewRosterCompareSeedRow[];
   /** @deprecated Prefer rosterCompare — kept for older fixtures. */
@@ -395,6 +400,11 @@ export type PlayerOverviewMetrics = {
   ptsAllowRadar: OverviewPtsAllowBracket[] | null;
   /** Weekly points allowed for the DEF line chart. */
   ptsAllowWeekly: OverviewPtsAllowWeekly[] | null;
+  /**
+   * NFL position aggregate for K / DEF comparison lines (kicks/g or PA/g).
+   * Skill/IDP averages live on `efficiency.positionAvg`.
+   */
+  nflPositionAvg: number | null;
   weeklyPoints: OverviewWeekPoint[];
   averageFpts: number | null;
   floorCeiling: OverviewFloorCeiling | null;
@@ -2181,8 +2191,6 @@ const PTS_ALLOW_BRACKETS = [
   { id: "22p", label: "22+", min: 22, max: Infinity, leagueAvgPct: 21 },
 ] as const;
 
-/** Typical NFL team DEF points allowed per game (benchmark for weekly line). */
-export const DEF_LEAGUE_PA_PER_WEEK = 21;
 
 function ptsAllowBracketId(ptsAllow: number): string {
   for (const bracket of PTS_ALLOW_BRACKETS) {
@@ -2307,6 +2315,7 @@ function numStat(
  */
 function buildEfficiency(
   profile: PlayerOverviewInput,
+  positionAvg: number | null = null,
 ): OverviewEfficiency | null {
   const stats =
     profile.seasonStats?.stats ?? profile.seasonProjection?.stats ?? undefined;
@@ -2341,7 +2350,7 @@ function buildEfficiency(
       format: "percent",
       decimals: 0,
       detail: `${Math.round(rec)} / ${Math.round(tgt)}`,
-      positionAvg: position === "TE" ? 68 : 62,
+      positionAvg,
       positionAvgLabel: `${position} avg`,
       weekly: weeklyFrom((bag) => {
         const wRec = numStat(bag, "rec");
@@ -2363,7 +2372,7 @@ function buildEfficiency(
       format: "decimal",
       decimals: 1,
       detail: `${Math.round(yards)} yds · ${Math.round(att)} att`,
-      positionAvg: 4.2,
+      positionAvg,
       positionAvgLabel: "RB avg",
       weekly: weeklyFrom((bag) => {
         const wYd = numStat(bag, "rush_yd");
@@ -2385,7 +2394,7 @@ function buildEfficiency(
       format: "percent",
       decimals: 1,
       detail: `${Math.round(cmp)} / ${Math.round(att)}`,
-      positionAvg: 64.5,
+      positionAvg,
       positionAvgLabel: "QB avg",
       weekly: weeklyFrom((bag) => {
         const wCmp = numStat(bag, "pass_cmp");
@@ -2408,7 +2417,7 @@ function buildEfficiency(
       format: "percent",
       decimals: 0,
       detail: `${Math.round(solo)} solo · ${Math.round(assist)} ast`,
-      positionAvg: 58,
+      positionAvg,
       positionAvgLabel: `${position} avg`,
       weekly: weeklyFrom((bag) => {
         const wSolo = numStat(bag, "tkl_solo") ?? 0;
@@ -2725,11 +2734,12 @@ export function buildPlayerOverviewMetrics(
     (cappedProfile.primaryPositionId === "K"
       ? buildKickerKickShare(cappedProfile)
       : null);
+  const nflPositionAvg = extras?.positionAvg ?? null;
   const efficiency =
     cappedProfile.primaryPositionId === "K" ||
     cappedProfile.primaryPositionId === "DEF"
       ? null
-      : buildEfficiency(cappedProfile);
+      : buildEfficiency(cappedProfile, nflPositionAvg);
   const fgMakeRadar =
     cappedProfile.primaryPositionId === "K"
       ? buildKickerFgMakeRadar(cappedProfile)
@@ -2820,6 +2830,7 @@ export function buildPlayerOverviewMetrics(
     kickWeeklyMakes,
     ptsAllowRadar,
     ptsAllowWeekly,
+    nflPositionAvg,
     weeklyPoints,
     averageFpts,
     floorCeiling,

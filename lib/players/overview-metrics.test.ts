@@ -314,11 +314,34 @@ describe("buildPlayerOverviewMetrics", () => {
     assert.equal(overview.share, null);
     assert.ok(overview.efficiency);
     assert.equal(overview.efficiency.id, "catch_rate");
+    assert.equal(overview.efficiency.positionAvg, null);
+    assert.equal(overview.nflPositionAvg, null);
     assert.equal(overview.weeklyFinish, null);
     assert.equal(overview.matchupDifficulty, null);
     assert.equal(overview.vsLeaders.length, 0);
     assert.ok(overview.rosterCompare.some((row) => row.isViewed));
     assert.equal(overview.multiYear.length, 0);
+  });
+
+  it("uses the NFL position aggregate from extras", () => {
+    const overview = buildPlayerOverviewMetrics(
+      baseProfile({
+        overviewExtras: {
+          share: null,
+          weeklyFinishesByWeek: {},
+          matchupDifficultyByWeek: {},
+          matchupRanksByWeek: {},
+          ptsAllowedByWeek: {},
+          playoffWeeks: [],
+          multiYear: [],
+          positionAvg: 61.4,
+        },
+      }),
+      rules,
+    );
+
+    assert.equal(overview.efficiency?.positionAvg, 61.4);
+    assert.equal(overview.nflPositionAvg, 61.4);
   });
 
   it("caps weekly charts at the league season max week", () => {

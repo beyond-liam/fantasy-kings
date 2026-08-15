@@ -76,6 +76,9 @@ export function TeamStatsTable({
               injuryStatus={player.injuryStatus}
               playerId={player.id}
               leagueSlug={leagueSlug}
+              hasPossession={player.opponent?.hasPossession}
+              inRedZone={player.opponent?.inRedZone}
+              isLive={player.opponent?.gameStatus === "in"}
             />
           );
         },
@@ -91,7 +94,8 @@ export function TeamStatsTable({
         cell: ({ row }) => <OpponentCell opponent={row.original.opponent} />,
         // Fixed so Opp/Rank line up across QB/RB/WR, K, DEF tables (different
         // stat column counts would otherwise stretch these unequally).
-        meta: { width: 88 },
+        // 144 matches roster Opp (w-36) so live down/distance fits.
+        meta: { width: 144 },
       },
       {
         id: "rank",
@@ -117,7 +121,7 @@ export function TeamStatsTable({
             )}
           </span>
         ),
-        meta: { width: 64 },
+        meta: { width: 88 },
       },
     ];
 

@@ -6,6 +6,10 @@ import {
   type ScheduleGame,
   type ScheduleTeam,
 } from "@/lib/espn/scoreboard";
+import {
+  parseGameBoxScore,
+  type GameBoxScore,
+} from "@/lib/espn/game-box-score";
 
 const ESPN_SUMMARY =
   "https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary";
@@ -53,6 +57,7 @@ type EspnHeaderCompetition = {
     possessionText?: string;
     homeTimeouts?: number;
     awayTimeouts?: number;
+    isRedZone?: boolean;
   };
   broadcasts?: Array<{
     media?: { shortName?: string };
@@ -199,6 +204,24 @@ type EspnSummaryResponse = {
         displayValue?: string;
       }>;
     }>;
+    players?: Array<{
+      team?: EspnTeamRef;
+      statistics?: Array<{
+        name?: string;
+        text?: string;
+        labels?: string[];
+        descriptions?: string[];
+        totals?: string[];
+        athletes?: Array<{
+          athlete?: {
+            id?: string;
+            displayName?: string;
+            jersey?: string;
+          };
+          stats?: string[];
+        }>;
+      }>;
+    }>;
   };
   scoringPlays?: Array<{
     text?: string;
@@ -337,6 +360,7 @@ export type GameDashboardData = {
   scoringPlays: ScoringPlay[] | null;
   allPlays: ScoringPlay[] | null;
   teamStats: TeamStatRow[] | null;
+  playerBoxScore: GameBoxScore | null;
   /** Present once ESPN reports it (typically in-progress / final). */
   attendance: number | null;
   /** Present once ESPN reports it (typically in-progress / final). */
@@ -1138,6 +1162,7 @@ function buildDashboard(payload: EspnSummaryResponse, eventId: string): GameDash
     scoringPlays: parseScoringPlays(payload),
     allPlays: parseAllPlays(payload, away, home),
     teamStats: parseTeamStats(payload, away, home),
+    playerBoxScore: parseGameBoxScore(payload, away, home),
     attendance: parseAttendance(payload),
     officials: parseOfficials(payload),
   };

@@ -141,7 +141,7 @@ export function LeagueHallOfFame({ leagueSlug, data }: LeagueHallOfFameProps) {
         </HofCard>
       </div>
 
-      <HofCard id={HOF_ALL_TIME_TABLE_ID} title="All-Time League Table">
+      <HofCard id={HOF_ALL_TIME_TABLE_ID} title="All Time League Table">
         {data.allTimeTable.length === 0 ? (
           <Empty size="sm">
             <EmptyHeader>

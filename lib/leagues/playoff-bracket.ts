@@ -146,7 +146,7 @@ export function buildPlayoffBracket(input: {
   if (playoffTeamCount === 4) {
     rounds.push({
       id: "semifinals",
-      name: "Semifinals",
+      name: "Semi Finals",
       weekLabel: labels[0]!,
       matchups: [
         {
@@ -164,7 +164,7 @@ export function buildPlayoffBracket(input: {
   } else if (playoffTeamCount === 6) {
     rounds.push({
       id: "quarterfinals",
-      name: "Quarterfinals",
+      name: "Quarter Finals",
       weekLabel: labels[0]!,
       matchups: [
         {
@@ -181,7 +181,7 @@ export function buildPlayoffBracket(input: {
     });
     rounds.push({
       id: "semifinals",
-      name: "Semifinals",
+      name: "Semi Finals",
       weekLabel: labels[1]!,
       matchups: [
         {
@@ -200,7 +200,7 @@ export function buildPlayoffBracket(input: {
     // 8 teams
     rounds.push({
       id: "quarterfinals",
-      name: "Quarterfinals",
+      name: "Quarter Finals",
       weekLabel: labels[0]!,
       matchups: [
         {
@@ -227,7 +227,7 @@ export function buildPlayoffBracket(input: {
     });
     rounds.push({
       id: "semifinals",
-      name: "Semifinals",
+      name: "Semi Finals",
       weekLabel: labels[1]!,
       matchups: [
         {

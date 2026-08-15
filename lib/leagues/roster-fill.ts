@@ -34,6 +34,14 @@ export type TeamRosterPlayer = {
   actualPts?: number | null;
   /** This week's projected points. */
   projectedPts?: number | null;
+  /** This week's counting stats — used for the PTS scoring breakdown. */
+  weekStats?: Record<string, number | null>;
+  /** League-wide position rank (same source as Player Stats). */
+  positionRank?: number | null;
+  /** Season fantasy points scored. */
+  fantasyPts?: number | null;
+  /** Season points per game scored. */
+  avgPts?: number | null;
 };
 
 export type FilledRosterSlot = EmptyRosterSlot & {

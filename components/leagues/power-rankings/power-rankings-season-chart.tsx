@@ -114,40 +114,38 @@ function PowerRankTeamTooltip({
       : undefined);
 
   return (
-    <div className="grid min-w-48 gap-1.5 rounded-lg border border-border/50 bg-background px-2.5 py-2 text-xs shadow-xl">
+    <div className="grid min-w-48 items-start gap-1.5 rounded-md bg-foreground px-3 py-1.5 text-xs text-background">
       <div className="flex items-center gap-2">
         {swatch ? (
           <span
-            className="h-2.5 w-2.5 shrink-0 rounded-[2px]"
+            className="size-2.5 shrink-0 rounded-[2px]"
             style={{ backgroundColor: swatch }}
           />
         ) : null}
-        <span className="font-semibold text-foreground text-balance">
-          {summary.teamName}
-        </span>
+        <span className="font-semibold text-balance">{summary.teamName}</span>
       </div>
-      <div className="grid gap-1 text-muted-foreground">
+      <div className="grid gap-1">
         <div className="flex justify-between gap-6">
-          <span>Draft ranking</span>
-          <span className="font-medium tabular-nums text-foreground">
+          <span className="text-background/70">Draft ranking</span>
+          <span className="font-mono font-medium tabular-nums">
             {formatRank(summary.draftRank)}
           </span>
         </div>
         <div className="flex justify-between gap-6">
-          <span>Current ranking</span>
-          <span className="font-medium tabular-nums text-foreground">
+          <span className="text-background/70">Current ranking</span>
+          <span className="font-mono font-medium tabular-nums">
             {formatRank(summary.currentRank)}
           </span>
         </div>
         <div className="flex justify-between gap-6">
-          <span>Highest ranking</span>
-          <span className="font-medium tabular-nums text-foreground">
+          <span className="text-background/70">Highest ranking</span>
+          <span className="font-mono font-medium tabular-nums">
             {formatRank(summary.highestRank)}
           </span>
         </div>
         <div className="flex justify-between gap-6">
-          <span>Lowest ranking</span>
-          <span className="font-medium tabular-nums text-foreground">
+          <span className="text-background/70">Lowest ranking</span>
+          <span className="font-mono font-medium tabular-nums">
             {formatRank(summary.lowestRank)}
           </span>
         </div>
@@ -190,7 +188,7 @@ export function PowerRankingsSeasonChart({
   return (
     <Card size="sm" className="gap-0 py-0">
       <CardHeader variant="panel">
-        <CardTitle className="text-balance">Season trajectory</CardTitle>
+        <CardTitle className="text-balance">Season Trajectory</CardTitle>
         <CardDescription className="text-pretty">
           Rank from draft through each week of the regular season.
         </CardDescription>

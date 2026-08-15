@@ -211,3 +211,81 @@ export function buildLeaguePositionStatsRows(
     rank: row.claimed ? index + 1 : 0,
   }));
 }
+
+function roundPts(value: number) {
+  return Math.round(value * 10) / 10;
+}
+
+export type SeasonTeamStats = {
+  pointsFor: number;
+  optimumPointsFor: number;
+  byPosition: Record<string, number>;
+};
+
+/** Overlay season totals (summed weekly snapshots) and re-rank by season PF. */
+export function applySeasonPositionStats(
+  rows: LeaguePositionStatsRow[],
+  positionColumns: string[],
+  seasonByTeam: Map<string, number>,
+  seasonStats: Map<string, SeasonTeamStats>,
+): LeaguePositionStatsRow[] {
+  const next = rows.map((row) => {
+    const snap = seasonStats.get(row.teamId);
+    const seasonPf = seasonByTeam.get(row.teamId) ?? null;
+    if (!row.claimed) {
+      return {
+        ...row,
+        byPosition: emptyPositionPoints(positionColumns),
+        pointsFor: null,
+        optimumPointsFor: null,
+        seasonPointsFor: null,
+        seasonOptimumPointsFor: null,
+      };
+    }
+    if (!snap) {
+      return {
+        ...row,
+        seasonPointsFor: seasonPf,
+        seasonOptimumPointsFor: null,
+      };
+    }
+    const byPosition = emptyPositionPoints(positionColumns);
+    for (const col of positionColumns) {
+      byPosition[col] = roundPts(snap.byPosition[col] ?? 0);
+    }
+    const pointsFor = roundPts(snap.pointsFor);
+    const optimum = roundPts(snap.optimumPointsFor);
+    return {
+      ...row,
+      byPosition,
+      pointsFor,
+      optimumPointsFor: optimum,
+      seasonPointsFor: seasonPf ?? pointsFor,
+      seasonOptimumPointsFor: optimum,
+    };
+  });
+
+  next.sort((a, b) => {
+    if (a.claimed !== b.claimed) {
+      return a.claimed ? -1 : 1;
+    }
+    const pfDiff = (b.pointsFor ?? 0) - (a.pointsFor ?? 0);
+    if (pfDiff !== 0) {
+      return pfDiff;
+    }
+    const optDiff = (b.optimumPointsFor ?? 0) - (a.optimumPointsFor ?? 0);
+    if (optDiff !== 0) {
+      return optDiff;
+    }
+    return a.teamName.localeCompare(b.teamName);
+  });
+
+  return next.map((row, index) => ({
+    ...row,
+    rank: row.claimed ? index + 1 : 0,
+  }));
+}
+
+export function leagueStatsHaveScores(rows: LeaguePositionStatsRow[]) {
+  return rows.some((row) => row.claimed && row.pointsFor != null);
+}

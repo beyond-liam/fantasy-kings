@@ -25,7 +25,6 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { ChartHeadlineMetric } from "@/components/team/charts/chart-headline-metric";
-import { formatPoints } from "@/lib/leagues/standings";
 import {
   pickStrongestPosition,
   type PositionMixPoint,
@@ -116,8 +115,7 @@ export function PointsByPositionChart({ data }: PointsByPositionChartProps) {
                         | undefined;
                       return row?.fullLabel ?? "";
                     }}
-                    formatter={(value, name, item) => {
-                      const row = item.payload as PositionMixPoint;
+                    formatter={(value, name) => {
                       const isTeam = name === "teamShare";
                       const pct =
                         typeof value === "number"
@@ -125,13 +123,11 @@ export function PointsByPositionChart({ data }: PointsByPositionChartProps) {
                           : String(value ?? "");
                       return (
                         <div className="flex min-w-0 flex-1 items-center justify-between gap-4 leading-none">
-                          <span className="truncate text-muted-foreground">
+                          <span className="truncate text-background/70">
                             {isTeam ? "You" : "League avg"}
                           </span>
-                          <span className="shrink-0 font-mono font-medium tabular-nums text-foreground">
-                            {isTeam
-                              ? `${pct} · ${formatPoints(row.points)} pts`
-                              : pct}
+                          <span className="shrink-0 font-mono font-medium tabular-nums text-background">
+                            {pct}
                           </span>
                         </div>
                       );

@@ -1,6 +1,7 @@
 import { LeagueSideNav } from "@/components/layout/league-side-nav";
 import { getSessionUser } from "@/lib/auth/session";
 import { hasCommissionerPowers } from "@/lib/leagues/membership";
+import { getActivityNavIndicator } from "@/lib/queries/activity";
 import { getDraftBySeasonId } from "@/lib/queries/draft";
 import {
   getLeagueBySlug,
@@ -51,25 +52,33 @@ export async function LeagueSideNavSlot({ slug }: { slug: string }) {
       ? await getUserTeamForSeason(season.id, user.id)
       : null;
 
-  const [tradeIndicator, messageIndicator, draft] = await Promise.all([
-    season && team
-      ? getTradeNavIndicator({
-          leagueSeasonId: season.id,
-          teamId: team.id,
-          isCommissioner,
-          tradeProcessing: season.tradeProcessing,
-        })
-      : Promise.resolve({ showDot: false }),
-    season
-      ? getMessageNavIndicator({
-          leagueSeasonId: season.id,
-          userId: user.id,
-        })
-      : Promise.resolve({ showDot: false }),
-    season
-      ? getDraftBySeasonId(season.id)
-      : Promise.resolve(null),
-  ]);
+  const [tradeIndicator, messageIndicator, activityIndicator, draft] =
+    await Promise.all([
+      season && team
+        ? getTradeNavIndicator({
+            leagueSeasonId: season.id,
+            teamId: team.id,
+            isCommissioner,
+            tradeProcessing: season.tradeProcessing,
+          })
+        : Promise.resolve({ showDot: false }),
+      season
+        ? getMessageNavIndicator({
+            leagueSeasonId: season.id,
+            userId: user.id,
+          })
+        : Promise.resolve({ showDot: false }),
+      season && membership
+        ? getActivityNavIndicator({
+            leagueId: league.id,
+            leagueSeasonId: season.id,
+            userId: user.id,
+          })
+        : Promise.resolve({ showDot: false }),
+      season
+        ? getDraftBySeasonId(season.id)
+        : Promise.resolve(null),
+    ]);
 
   return (
     <LeagueSideNav
@@ -77,6 +86,7 @@ export async function LeagueSideNavSlot({ slug }: { slug: string }) {
       isCommissioner={isCommissioner}
       tradesAttention={tradeIndicator.showDot}
       messagesAttention={messageIndicator.showDot}
+      activityAttention={activityIndicator.showDot}
       draftLive={isDraftUnderway(draft?.status)}
     />
   );

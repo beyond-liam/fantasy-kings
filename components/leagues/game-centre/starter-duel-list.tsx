@@ -22,18 +22,18 @@ import {
 } from "@/lib/leagues/position-colors";
 import { resolvePlayerByeWeek } from "@/lib/nfl/bye-weeks";
 import { getInjuryIndicator } from "@/lib/players/injury";
+import { formatStatValue } from "@/lib/rankings/column-config";
 import { cn } from "@/lib/utils";
 
 const PLACEHOLDER = "—";
 /** Fixed identity width so opponents line up as a column across rows. */
 const PLAYER_IDENTITY = "w-[10.5rem] shrink-0 sm:w-[12rem]";
-const OPP_COL = "w-[4.5rem] shrink-0 sm:w-[5rem]";
+const OPP_COL = "min-w-0 flex-1";
 const PLAYER_CARD =
-  "flex shrink-0 items-center gap-3 px-4 py-3.5 sm:gap-3.5 sm:px-5 sm:py-4";
+  "flex min-w-0 flex-1 items-center gap-3 px-4 py-3.5 sm:gap-3.5 sm:px-5 sm:py-4";
 
-function formatPts(value: number | null, digits = 2) {
-  if (value == null || !Number.isFinite(value)) return PLACEHOLDER;
-  return value.toFixed(digits);
+function formatPts(value: number | null) {
+  return formatStatValue(value, 2);
 }
 
 /** Sleeper-style compact name: "J. Herbert". */
@@ -41,11 +41,6 @@ function shortName(fullName: string) {
   const parts = fullName.trim().split(/\s+/);
   if (parts.length < 2) return fullName;
   return `${parts[0]![0]}. ${parts.slice(1).join(" ")}`;
-}
-
-function formatPtsCompact(value: number | null) {
-  if (value == null || !Number.isFinite(value)) return PLACEHOLDER;
-  return value.toFixed(2);
 }
 
 function positionTextClass(positionId: string) {
@@ -59,6 +54,22 @@ function shortInjuryLabel(label: string) {
   const compact = label.trim().toUpperCase();
   if (compact.length <= 4) return compact;
   return compact.slice(0, 4);
+}
+
+function DuelAvatar({ player }: { player: GameCentrePlayer }) {
+  return (
+    <PlayerAvatar
+      fullName={player.fullName}
+      sleeperId={player.sleeperId}
+      primaryPositionId={player.primaryPositionId}
+      nflTeam={player.nflTeam}
+      injuryStatus={player.injuryStatus}
+      size="sm"
+      hasPossession={player.opponent?.hasPossession}
+      inRedZone={player.opponent?.inRedZone}
+      isLive={player.opponent?.gameStatus === "in"}
+    />
+  );
 }
 
 function MobilePlayerBlock({
@@ -104,8 +115,17 @@ function MobilePlayerBlock({
       aria-label={`View ${player.fullName}`}
       className={cn("flex min-w-0 flex-1 flex-col gap-0.5", alignCls)}
     >
-      <span className="w-full truncate text-xs font-semibold leading-tight underline-offset-2 group-hover/player-identity:underline group-focus-visible/player-identity:underline">
-        {shortName(player.fullName)}
+      <span
+        className={cn(
+          "inline-flex w-full min-w-0 items-center gap-1.5 text-xs font-semibold leading-tight",
+          !isAway && "justify-end",
+        )}
+      >
+        {isAway ? <DuelAvatar player={player} /> : null}
+        <span className="truncate underline-offset-2 group-hover/player-identity:underline group-focus-visible/player-identity:underline">
+          {shortName(player.fullName)}
+        </span>
+        {!isAway ? <DuelAvatar player={player} /> : null}
       </span>
 
       <div
@@ -146,13 +166,22 @@ function MobilePlayerBlock({
         )}
       >
         {player.opponent?.kickoffLabel ? (
-          <span className="shrink-0 text-muted-foreground">
+          <span
+            className={cn(
+              "min-w-0 truncate whitespace-nowrap",
+              player.opponent.gameStatus === "in"
+                ? "text-success"
+                : "text-muted-foreground",
+            )}
+          >
             {player.opponent.kickoffLabel}
           </span>
         ) : null}
-        <span className="min-w-0 truncate text-foreground">
-          {player.opponent?.label ?? PLACEHOLDER}
-        </span>
+        {player.opponent?.gameStatus === "in" ? null : (
+          <span className="min-w-0 truncate text-foreground">
+            {player.opponent?.label ?? PLACEHOLDER}
+          </span>
+        )}
       </div>
     </PlayerProfileTrigger>
   );
@@ -174,7 +203,7 @@ function MobileScoreCluster({
   return (
     <div
       className={cn(
-        "flex w-9 shrink-0 flex-col justify-center gap-0.5 tabular-nums",
+        "flex w-11 shrink-0 flex-col justify-center gap-0.5 tabular-nums",
         align === "away" ? "items-end" : "items-start",
       )}
     >
@@ -184,15 +213,15 @@ function MobileScoreCluster({
           onClick={() => onActualClick(player)}
           className="text-[11px] font-semibold leading-none underline-offset-2 hover:underline focus-visible:underline focus-visible:outline-none"
         >
-          {formatPts(actual, 1)}
+          {formatPts(actual)}
         </button>
       ) : (
         <span className="text-[11px] font-semibold leading-none">
-          {formatPts(actual, 1)}
+          {formatPts(actual)}
         </span>
       )}
       <span className="text-[10px] leading-none text-muted-foreground">
-        {formatPtsCompact(projected)}
+        {formatPts(projected)}
       </span>
     </div>
   );
@@ -242,14 +271,7 @@ function DuelPlayerCard({
           isAway ? "flex-row" : "flex-row-reverse",
         )}
       >
-        <PlayerAvatar
-          fullName={player.fullName}
-          sleeperId={player.sleeperId}
-          primaryPositionId={player.primaryPositionId}
-          nflTeam={player.nflTeam}
-          injuryStatus={player.injuryStatus}
-          size="sm"
-        />
+        <DuelAvatar player={player} />
         <div
           className={cn(
             "min-w-0 flex-1",
@@ -326,11 +348,11 @@ function ScoreCluster({
           onClick={() => onActualClick(player)}
           className="text-sm font-semibold leading-none underline-offset-2 hover:underline focus-visible:underline focus-visible:outline-none"
         >
-          {formatPts(actual, 1)}
+          {formatPts(actual)}
         </button>
       ) : (
         <span className="text-sm font-semibold leading-none">
-          {formatPts(actual, 1)}
+          {formatPts(actual)}
         </span>
       )}
       <span className="text-xs leading-none text-muted-foreground">
@@ -407,7 +429,7 @@ function DuelRow({
       </div>
 
       {/* Desktop — existing duel layout */}
-      <div className="hidden min-w-[52rem] items-center justify-between sm:min-w-[56rem] md:flex">
+      <div className="hidden items-center md:flex">
         <DuelPlayerCard
           player={row.away}
           align="away"
@@ -481,7 +503,7 @@ export function MatchupRosterList({
       <div className="flex h-10 items-center border-b bg-muted px-4 text-xs font-medium uppercase">
         {title}
       </div>
-      <ul className="md:overflow-x-auto">{rows.map((row, index) => (
+      <ul>{rows.map((row, index) => (
         <DuelRow
           key={`${title}-${row.slotPositionId}-${index}`}
           row={row}

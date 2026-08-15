@@ -45,6 +45,10 @@ export const leagueMembers = pgTable(
     joinedAt: timestamp("joined_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
+    /** Null until the member opens the Activity feed. */
+    lastActivitySeenAt: timestamp("last_activity_seen_at", {
+      withTimezone: true,
+    }),
   },
   (table) => [
     uniqueIndex("league_members_league_user_idx").on(

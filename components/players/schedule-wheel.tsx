@@ -247,7 +247,7 @@ export function ScheduleWheel({
                     : "looks about average";
               return (
                 <div className="flex max-w-[16rem] flex-col rounded-md bg-foreground text-xs text-background">
-                  <p className="px-3 py-1.5 text-pretty font-medium">
+                  <p className="px-3 py-1.5 text-pretty font-semibold">
                     Week {row.week} {formatOpponent(row)} {tone} for{" "}
                     {positionLabel}.
                   </p>

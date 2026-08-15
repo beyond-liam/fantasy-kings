@@ -30,6 +30,9 @@ export type WatchlistPlayer = {
   opponent?: PlayerOpponent | null;
   actualPts?: number | null;
   projectedPts?: number | null;
+  positionRank?: number | null;
+  fantasyPts?: number | null;
+  avgPts?: number | null;
 };
 
 export const getUserTeamForSeason = cache(

@@ -8,7 +8,9 @@ import { getFinalMatchupsForSeason } from "@/lib/leagues/matchups/finals";
 import { computeOptimumLineup } from "@/lib/leagues/game-centre/optimum";
 import {
   buildLeaguePositionStatsRows,
+  applySeasonPositionStats,
   getLeaderPositionColumns,
+  leagueStatsHaveScores,
   type LeaguePositionStatsRow,
 } from "@/lib/leagues/league-position-stats";
 import { buildFilledRosterSections } from "@/lib/leagues/roster-fill";
@@ -63,24 +65,19 @@ function seasonPointsByTeamId(
 
 function withSeasonRollups(
   rows: LeaguePositionStatsRow[],
+  positionColumns: string[],
   seasonByTeam: Map<string, number>,
   seasonOpfByTeam: Map<
     string,
-    { optimumPointsFor: number; byPosition: Record<string, number> }
+    { pointsFor: number; optimumPointsFor: number; byPosition: Record<string, number> }
   >,
 ): LeaguePositionStatsRow[] {
-  return rows.map((row) => {
-    const opf = seasonOpfByTeam.get(row.teamId);
-    return {
-      ...row,
-      seasonPointsFor: seasonByTeam.has(row.teamId)
-        ? seasonByTeam.get(row.teamId)!
-        : null,
-      seasonOptimumPointsFor: opf
-        ? Math.round(opf.optimumPointsFor * 10) / 10
-        : null,
-    };
-  });
+  return applySeasonPositionStats(
+    rows,
+    positionColumns,
+    seasonByTeam,
+    seasonOpfByTeam,
+  );
 }
 
 function teamIdentityRows(
@@ -191,19 +188,21 @@ export const getLeaguePositionStats = cache(
         getFinalMatchupsForSeason(season.id).catch(() => []),
         getSeasonOpfByTeamId(season.id).catch(() => new Map()),
       ]);
+      const rows = withSeasonRollups(
+        buildLeaguePositionStatsRows(identityInputs, positionColumns, {
+          scoresAvailable: false,
+        }),
+        positionColumns,
+        seasonPointsByTeamId(finals),
+        seasonOpf,
+      );
       return {
         leagueSlug: league.publicId,
         seasonYear: season.seasonYear,
         week,
-        scoresAvailable: false,
+        scoresAvailable: leagueStatsHaveScores(rows),
         positionColumns,
-        rows: withSeasonRollups(
-          buildLeaguePositionStatsRows(identityInputs, positionColumns, {
-            scoresAvailable: false,
-          }),
-          seasonPointsByTeamId(finals),
-          seasonOpf,
-        ),
+        rows,
         myTeamPublicId,
       };
     }
@@ -266,19 +265,21 @@ export const getLeaguePositionStats = cache(
         getFinalMatchupsForSeason(season.id).catch(() => []),
         getSeasonOpfByTeamId(season.id).catch(() => new Map()),
       ]);
+      const rows = withSeasonRollups(
+        buildLeaguePositionStatsRows(identityInputs, positionColumns, {
+          scoresAvailable: false,
+        }),
+        positionColumns,
+        seasonPointsByTeamId(finals),
+        seasonOpf,
+      );
       return {
         leagueSlug: league.publicId,
         seasonYear: season.seasonYear,
         week,
-        scoresAvailable: false,
+        scoresAvailable: leagueStatsHaveScores(rows),
         positionColumns,
-        rows: withSeasonRollups(
-          buildLeaguePositionStatsRows(identityInputs, positionColumns, {
-            scoresAvailable: false,
-          }),
-          seasonPointsByTeamId(finals),
-          seasonOpf,
-        ),
+        rows,
         myTeamPublicId,
       };
     }
@@ -375,18 +376,20 @@ export const getLeaguePositionStats = cache(
       getFinalMatchupsForSeason(season.id).catch(() => []),
       getSeasonOpfByTeamId(season.id).catch(() => new Map()),
     ]);
+    const rows = withSeasonRollups(
+      builtRows,
+      positionColumns,
+      seasonPointsByTeamId(finals),
+      seasonOpf,
+    );
 
     return {
       leagueSlug: league.publicId,
       seasonYear: season.seasonYear,
       week,
-      scoresAvailable: true,
+      scoresAvailable: leagueStatsHaveScores(rows),
       positionColumns,
-      rows: withSeasonRollups(
-        builtRows,
-        seasonPointsByTeamId(finals),
-        seasonOpf,
-      ),
+      rows,
       myTeamPublicId,
     };
   },

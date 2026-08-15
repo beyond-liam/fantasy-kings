@@ -3,10 +3,10 @@
 import {
   Calendar03Icon,
   CheckmarkCircle01Icon,
-  Loading03Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
+import { LivePulseDot } from "@/components/live-pulse-dot";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
@@ -17,24 +17,42 @@ type MatchupStatusBadgeProps = {
   className?: string;
 };
 
-function resolveBadge(status: MatchupLockStatus) {
+type BadgeConfig =
+  | {
+      variant: "success";
+      label: "Final";
+      icon: typeof CheckmarkCircle01Icon;
+      pulse?: false;
+    }
+  | {
+      variant: "success";
+      label: "Live";
+      pulse: true;
+    }
+  | {
+      variant: "outline";
+      label: "Scheduled";
+      icon: typeof Calendar03Icon;
+      pulse?: false;
+    };
+
+function resolveBadge(status: MatchupLockStatus): BadgeConfig {
   switch (status) {
     case "final":
       return {
-        variant: "success" as const,
+        variant: "success",
         icon: CheckmarkCircle01Icon,
         label: "Final",
       };
     case "in_progress":
       return {
-        variant: "warning" as const,
-        icon: Loading03Icon,
+        variant: "success",
         label: "Live",
-        iconClassName: "animate-spin",
+        pulse: true,
       };
     default:
       return {
-        variant: "outline" as const,
+        variant: "outline",
         icon: Calendar03Icon,
         label: "Scheduled",
       };
@@ -45,17 +63,23 @@ export function MatchupStatusBadge({
   status,
   className,
 }: MatchupStatusBadgeProps) {
-  const { variant, icon, label, iconClassName } = resolveBadge(status);
+  const config = resolveBadge(status);
 
   return (
-    <Badge variant={variant} className={cn("gap-1", className)}>
-      <HugeiconsIcon
-        icon={icon}
-        strokeWidth={2}
-        className={cn("size-3 shrink-0", iconClassName)}
-        data-icon="inline-start"
-      />
-      {label}
+    <Badge
+      variant={config.variant}
+      className={cn(config.pulse && "overflow-visible", className)}
+    >
+      {config.pulse ? (
+        <LivePulseDot />
+      ) : (
+        <HugeiconsIcon
+          icon={config.icon}
+          strokeWidth={2}
+          data-icon="inline-start"
+        />
+      )}
+      {config.label}
     </Badge>
   );
 }

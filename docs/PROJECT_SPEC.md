@@ -32,7 +32,7 @@ A mobile-first fantasy football web app for a private friend group (4–16 users
 | Corrections UX | Activity `score_corrected` + owner notifications; Live freshness only when NFL games are in progress |
 | Win% | Calibrated live chance on schedule/board (literature σ priors; re-fit is lowest-priority later) |
 | Playoffs | Settings, bracket hydrate, first-round ensure, advance (4/6/8 + re-seed + byes + game TBs), two-week championship rematch + series totals + Champion crowning |
-| Activity | Adds/drops, waivers, trades, IR/taxi, settings diffs, score corrections |
+| Activity | Adds/drops, waivers, trades, IR/taxi, settings diffs, score corrections; nav unseen red dot |
 | Team UX | Roster summary panel, IR/taxi lock alerts, floating roster actions, suggested lineup |
 | Notifications | In-app bell (with league name) + Brevo email v1 (draft + trade only) |
 | Standings | FORM guide (last 5) replaces next-opponent column |
@@ -313,7 +313,7 @@ Two variants via the `Empty` **`size`** prop:
 
 ### Stats & analytics
 
-- League Stats tab: starter points by position (QB/RB/WR/TE/FLEX/K/DEF), PF, and Optimum PF — **week positional breakdown** (column menu uses plain English; DEF not D/ST)
+- League Stats tab: starter points by position (QB/RB/WR/TE/FLEX/K/DEF), PF, and Optimum PF — **season totals** from weekly snapshots (column menu uses plain English; DEF not D/ST)
 - Season PF/OPF available via `team_week_stats` for standings/analytics paths
 - Playoff bracket hydrates from live matchup scores; advance pairs byes correctly; point ties use game tiebreakers then higher seed
 - League Rules tab: read-only key/value summary of season settings (roster, schedule, playoffs, waivers, transactions, draft, tiebreakers)
@@ -634,7 +634,7 @@ lib/
 ### Phase 2 — League-level UI
 
 - [x] League home (membership + invite card)
-- [x] League Stats tab (starter position PF + Optimum PF; current week)
+- [x] League Stats tab (starter position PF + Optimum PF; season totals)
 - [x] League Playoffs tab (seeded standings + cutoff line + bracket path)
 - [x] League Rules tab (settings summary from season config)
 - [x] League Scoring tab (preset + category scoring rules)
@@ -643,7 +643,7 @@ lib/
 - [x] Settings + scoring rules UI
 - [x] Scores (fantasy Matchups) — week matchup board + Live/Final + freshness
 - [x] Trades — composer, transactions tab, processing, vetoes, history
-- [x] Activity — league event log (waivers + trades + settings + score corrections)
+- [x] Activity — league event log (waivers + trades + settings + score corrections); unseen nav red dot
 - [x] Draft Room (league) — live room (mock layout, pick clock, queue→need-aware ADP autopick)
 
 ### Phase 3 — Backend wiring
@@ -920,4 +920,22 @@ lib/
 | 2026-08-15 | Select menus size to the widest item (not the trigger), so week labels stay on one line |
 | 2026-08-15 | NFL game Team Stats header shows team logos next to abbreviations |
 | 2026-08-15 | NFL game page: drop Where to Watch; standings keep original tables with team logos |
-| 2026-08-15 | NFL game page: live refresh, one clock, possession after the team name, timeouts, and down/distance
+| 2026-08-15 | NFL game page: live refresh, one clock, possession after the team name, timeouts, and down/distance |
+| 2026-08-15 | Live NFL scores include down/distance and clock; possession ball sits next to the player name |
+| 2026-08-15 | Live Opp line is down/distance + clock (no NFL score); possession ball sits next to the player name |
+| 2026-08-15 | Game Centre Opp cell fills leftover row space; live down/distance falls back to ESPN down/distance numbers |
+| 2026-08-15 | Live down/distance + clock stay on one line; hide starter ADV checks once any NFL game has started |
+| 2026-08-15 | Matchup Live badge is success + pulsing green dot (same as NFL scores), not the warning spinner |
+| 2026-08-15 | NFL game page: player Box Score under Game Leaders, tabbed by team (ESPN passing through punting) |
+| 2026-08-15 | Roster Opp columns share fixed widths so Bench / IR / Taxi line up |
+| 2026-08-15 | Live possession is an avatar ring (success; destructive in the red zone). Defense rings when they do not have the ball |
+| 2026-08-15 | Activity nav shows a red dot for unseen feed events; opening Activity clears it |
+| 2026-08-15 | Roster and watchlist RANK / FPTS / AVG use league-wide ranks and season scoring |
+| 2026-08-15 | Game Centre player PTS use two decimals (same as roster), not one |
+| 2026-08-15 | Team Player Stats Opp column widened so live down/distance does not overlap RANK |
+| 2026-08-15 | Team Player Stats Rank column widened so it does not sit against PTS |
+| 2026-08-15 | Team Stats chart tooltips use inverted text (same as Players) so values are visible |
+| 2026-08-15 | Chart tooltip headers are semibold; color swatches only when comparing series |
+| 2026-08-15 | Power Rankings season tooltip uses the inverted white chip (same as other charts) |
+| 2026-08-15 | Player Overview position average is NFL counting-stat aggregate (not fantasy, not a typical rate) |
+| 2026-08-15 | League Stats is season totals (not the current week) |

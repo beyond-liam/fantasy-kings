@@ -32,6 +32,9 @@ type PlayerIdentityProps = {
   /** When set, name/avatar open the player profile dialog. */
   playerId?: string | null;
   leagueSlug?: string | null;
+  hasPossession?: boolean;
+  inRedZone?: boolean;
+  isLive?: boolean;
 };
 
 type PlayerProfileTriggerProps = {
@@ -117,6 +120,9 @@ export function PlayerIdentity({
   className,
   playerId,
   leagueSlug,
+  hasPossession = false,
+  inRedZone = false,
+  isLive = false,
 }: PlayerIdentityProps) {
   const subtitle = formatPlayerSubtitle({
     primaryPositionId,
@@ -139,6 +145,9 @@ export function PlayerIdentity({
         nflTeam={nflTeam}
         injuryStatus={injuryStatus}
         size={size}
+        hasPossession={hasPossession}
+        inRedZone={inRedZone}
+        isLive={isLive}
       />
       <div className="flex min-w-0 flex-col">
         <span

@@ -173,7 +173,7 @@ function ChartTooltipContent({
 
     if (labelFormatter) {
       return (
-        <div className={cn("font-medium", labelClassName)}>
+        <div className={cn("font-semibold", labelClassName)}>
           {labelFormatter(value, payload)}
         </div>
       )
@@ -183,7 +183,7 @@ function ChartTooltipContent({
       return null
     }
 
-    return <div className={cn("font-medium", labelClassName)}>{value}</div>
+    return <div className={cn("font-semibold", labelClassName)}>{value}</div>
   }, [
     label,
     labelFormatter,
@@ -199,6 +199,8 @@ function ChartTooltipContent({
   }
 
   const nestLabel = payload.length === 1 && indicator !== "dot"
+  const seriesCount = payload.filter((item) => item.type !== "none").length
+  const showIndicator = !hideIndicator && seriesCount > 1
 
   return (
     <div
@@ -214,7 +216,7 @@ function ChartTooltipContent({
           .map((item, index) => {
             const key = `${nameKey ?? item.name ?? item.dataKey ?? "value"}`
             const itemConfig = getPayloadConfigFromPayload(config, item, key)
-            const indicatorColor = color ?? item.payload?.fill ?? item.color
+            const indicatorColor = color ?? item.color ?? item.payload?.fill
 
             return (
               <div
@@ -223,55 +225,53 @@ function ChartTooltipContent({
                   "flex w-full items-center gap-2 [&>svg]:h-2.5 [&>svg]:w-2.5 [&>svg]:text-background/70"
                 )}
               >
+                {showIndicator ? (
+                  itemConfig?.icon ? (
+                    <itemConfig.icon />
+                  ) : (
+                    <div
+                      className={cn(
+                        "shrink-0 rounded-[2px] border-(--color-border) bg-(--color-bg)",
+                        {
+                          "h-2.5 w-2.5": indicator === "dot",
+                          "w-1": indicator === "line",
+                          "w-0 border-[1.5px] border-dashed bg-transparent":
+                            indicator === "dashed",
+                          "my-0.5": nestLabel && indicator === "dashed",
+                        }
+                      )}
+                      style={
+                        {
+                          "--color-bg": indicatorColor,
+                          "--color-border": indicatorColor,
+                        } as React.CSSProperties
+                      }
+                    />
+                  )
+                ) : null}
                 {formatter && item?.value !== undefined && item.name ? (
                   formatter(item.value, item.name, item, index, item.payload)
                 ) : (
-                  <>
-                    {itemConfig?.icon ? (
-                      <itemConfig.icon />
-                    ) : (
-                      !hideIndicator && (
-                        <div
-                          className={cn(
-                            "shrink-0 rounded-[2px] border-(--color-border) bg-(--color-bg)",
-                            {
-                              "h-2.5 w-2.5": indicator === "dot",
-                              "w-1": indicator === "line",
-                              "w-0 border-[1.5px] border-dashed bg-transparent":
-                                indicator === "dashed",
-                              "my-0.5": nestLabel && indicator === "dashed",
-                            }
-                          )}
-                          style={
-                            {
-                              "--color-bg": indicatorColor,
-                              "--color-border": indicatorColor,
-                            } as React.CSSProperties
-                          }
-                        />
-                      )
+                  <div
+                    className={cn(
+                      "flex min-w-0 flex-1 items-center justify-between gap-4 leading-none",
+                      nestLabel ? "items-end" : "items-center"
                     )}
-                    <div
-                      className={cn(
-                        "flex min-w-0 flex-1 items-center justify-between gap-4 leading-none",
-                        nestLabel ? "items-end" : "items-center"
-                      )}
-                    >
-                      <div className="grid min-w-0 gap-1.5">
-                        {nestLabel ? tooltipLabel : null}
-                        <span className="truncate text-background/70">
-                          {itemConfig?.label ?? item.name}
-                        </span>
-                      </div>
-                      {item.value != null && (
-                        <span className="shrink-0 font-mono font-medium tabular-nums text-background">
-                          {typeof item.value === "number"
-                            ? item.value.toLocaleString()
-                            : String(item.value)}
-                        </span>
-                      )}
+                  >
+                    <div className="grid min-w-0 gap-1.5">
+                      {nestLabel ? tooltipLabel : null}
+                      <span className="truncate text-background/70">
+                        {itemConfig?.label ?? item.name}
+                      </span>
                     </div>
-                  </>
+                    {item.value != null && (
+                      <span className="shrink-0 font-mono font-medium tabular-nums text-background">
+                        {typeof item.value === "number"
+                          ? item.value.toLocaleString()
+                          : String(item.value)}
+                      </span>
+                    )}
+                  </div>
                 )}
               </div>
             )

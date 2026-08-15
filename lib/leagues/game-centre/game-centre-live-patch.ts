@@ -1,4 +1,5 @@
 import type { ScheduleGame } from "@/lib/espn/scoreboard";
+import type { PlayerOpponent } from "@/lib/nfl/matchups";
 import type {
   GameCentreChartPoint,
   GameCentreData,
@@ -14,6 +15,7 @@ export type GameCentreLivePlayerPatch = {
   gameStatus: ScheduleGame["status"] | null;
   locked: boolean;
   stats: Record<string, number | null>;
+  opponent: PlayerOpponent | null;
 };
 
 export type GameCentreLiveSidePatch = {
@@ -48,6 +50,7 @@ function toPlayerPatch(player: GameCentrePlayer): GameCentreLivePlayerPatch {
     gameStatus: player.gameStatus,
     locked: player.locked,
     stats: player.stats,
+    opponent: player.opponent,
   };
 }
 
@@ -77,6 +80,7 @@ function mergePlayer(
     gameStatus: patch.gameStatus,
     locked: patch.locked,
     stats: patch.stats,
+    opponent: patch.opponent,
   };
 }
 

@@ -122,10 +122,10 @@ export function ScoringConcentrationChart({
                           : String(value ?? "");
                       return (
                         <div className="flex min-w-0 flex-1 items-center justify-between gap-4 leading-none">
-                          <span className="truncate text-muted-foreground">
+                          <span className="truncate text-background/70">
                             Starter PF
                           </span>
-                          <span className="shrink-0 font-mono font-medium tabular-nums text-foreground">
+                          <span className="shrink-0 font-mono font-medium tabular-nums text-background">
                             {pct} · {formatPoints(row.points)} pts
                           </span>
                         </div>

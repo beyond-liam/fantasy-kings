@@ -21,6 +21,7 @@ import {
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { GameInformationCard } from "@/components/scores/game/game-information-card";
 import { LeadersList } from "@/components/scores/game/leaders-list";
+import { PlayerBoxScore } from "@/components/scores/game/player-box-score";
 import { ScheduleTeamLogo } from "@/components/scores/schedule-team-logo";
 import { TeamStatsComparison } from "@/components/scores/game/team-stats-comparison";
 import { WinProbabilityChart } from "@/components/scores/game/win-probability-chart";
@@ -185,7 +186,7 @@ export function LiveGameDashboard({ data }: LiveGameDashboardProps) {
           )}
         </SectionCard>
         <GameInformationCard
-          className="order-7 lg:order-0"
+          className="order-8 lg:order-0"
           game={game}
           attendance={data.attendance}
           officials={data.officials}
@@ -193,7 +194,7 @@ export function LiveGameDashboard({ data }: LiveGameDashboardProps) {
       </div>
 
       <div className="contents lg:flex lg:min-w-0 lg:flex-col lg:gap-4">
-        <SectionCard title="Box Score" className="order-2 lg:order-0">
+        <SectionCard title="Line Score" className="order-2 lg:order-0">
           {data.lineScore ? (
             <TableShell>
               <Table>
@@ -338,10 +339,30 @@ export function LiveGameDashboard({ data }: LiveGameDashboardProps) {
             <MissingBlock />
           )}
         </SectionCard>
+
+        <SectionCard title="Box Score" className="order-5 lg:order-0">
+          {data.playerBoxScore ? (
+            <PlayerBoxScore
+              boxScore={data.playerBoxScore}
+              away={{
+                abbreviation: game.away.abbreviation,
+                nickname: game.away.nickname,
+                logoUrl: game.away.logoUrl,
+              }}
+              home={{
+                abbreviation: game.home.abbreviation,
+                nickname: game.home.nickname,
+                logoUrl: game.home.logoUrl,
+              }}
+            />
+          ) : (
+            <MissingBlock />
+          )}
+        </SectionCard>
       </div>
 
       <div className="contents lg:flex lg:min-w-0 lg:flex-col lg:gap-4">
-        <SectionCard title="Win Probability" className="order-5 lg:order-0">
+        <SectionCard title="Win Probability" className="order-6 lg:order-0">
           {data.winProbability ? (
             <WinProbabilityChart
               points={data.winProbability}
@@ -353,7 +374,7 @@ export function LiveGameDashboard({ data }: LiveGameDashboardProps) {
           )}
         </SectionCard>
 
-        <SectionCard title="Standings" className="order-6 lg:order-0">
+        <SectionCard title="Standings" className="order-7 lg:order-0">
           {data.standings ? (
             <div className="flex flex-col gap-4">
               {data.standings.map((division) => (

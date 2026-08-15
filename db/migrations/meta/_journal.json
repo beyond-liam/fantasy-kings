@@ -211,6 +211,13 @@
       "when": 1786704000000,
       "tag": "0029_roster_keepers",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1786809600000,
+      "tag": "0030_activity_nav_seen",
+      "breakpoints": true
     }
   ]
 }

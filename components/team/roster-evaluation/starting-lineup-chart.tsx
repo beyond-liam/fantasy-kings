@@ -193,26 +193,18 @@ export function StartingLineupChart({
               content={
                 <ChartTooltipContent
                   indicator="dot"
-                  labelClassName="font-semibold"
                   labelFormatter={(_, payload) => {
                     const row = payload?.[0]?.payload as ChartSlot | undefined;
                     return row?.playerName ?? "";
                   }}
                   formatter={(_value, _name, item) => {
                     const row = item.payload as ChartSlot;
-                    const color = TONE_FILL[row.tone];
                     return (
-                      <>
-                        <div
-                          className="size-2.5 shrink-0 rounded-xs"
-                          style={{ backgroundColor: color }}
-                        />
-                        <div className="flex min-w-0 flex-1 items-center leading-none">
-                          <span className="truncate text-background/70">
-                            {row.slotLabel} #{row.rank}
-                          </span>
-                        </div>
-                      </>
+                      <div className="flex min-w-0 flex-1 items-center leading-none">
+                        <span className="truncate text-background/70">
+                          {row.slotLabel} #{row.rank}
+                        </span>
+                      </div>
                     );
                   }}
                 />

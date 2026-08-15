@@ -140,23 +140,23 @@ export function MatchupLuckChart({ data }: MatchupLuckChartProps) {
                       return (
                         <div className="flex min-w-0 flex-1 flex-col gap-1 leading-none">
                           <div className="flex items-center justify-between gap-4">
-                            <span className="text-muted-foreground">Luck</span>
-                            <span className="shrink-0 font-mono font-medium tabular-nums text-foreground">
+                            <span className="text-background/70">Luck</span>
+                            <span className="shrink-0 font-mono font-medium tabular-nums text-background">
                               {luck}
                             </span>
                           </div>
                           <div className="flex items-center justify-between gap-4">
-                            <span className="text-muted-foreground">Score</span>
-                            <span className="shrink-0 font-mono tabular-nums text-foreground">
+                            <span className="text-background/70">Score</span>
+                            <span className="shrink-0 font-mono tabular-nums text-background">
                               {formatPoints(row.points)}–
                               {formatPoints(row.opponentPoints)}
                             </span>
                           </div>
                           <div className="flex items-center justify-between gap-4">
-                            <span className="text-muted-foreground">
+                            <span className="text-background/70">
                               vs field
                             </span>
-                            <span className="shrink-0 font-mono tabular-nums text-foreground">
+                            <span className="shrink-0 font-mono tabular-nums text-background">
                               {expected}% expected
                             </span>
                           </div>

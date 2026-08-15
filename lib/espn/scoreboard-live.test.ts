@@ -135,6 +135,17 @@ describe("formatDownDistance", () => {
       "1st & Goal • BUF 3",
     );
   });
+
+  it("uses short text when the yard line is missing", () => {
+    assert.equal(
+      formatDownDistance({ shortDownDistanceText: "1st & 10" }),
+      "1st & 10",
+    );
+  });
+
+  it("builds down/distance from ESPN numeric fields", () => {
+    assert.equal(formatDownDistance({ down: 4, distance: 7 }), "4th & 7");
+  });
 });
 
 describe("parseGameSituation", () => {
@@ -163,7 +174,15 @@ describe("parseGameSituation", () => {
         downDistance: "2nd & 8 • CHI 20",
         homeTimeouts: 3,
         awayTimeouts: 2,
+        isRedZone: false,
       },
+    );
+  });
+
+  it("flags the red zone", () => {
+    assert.equal(
+      parseGameSituation({ isRedZone: true }, true)?.isRedZone,
+      true,
     );
   });
 });

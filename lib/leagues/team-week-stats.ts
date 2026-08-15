@@ -49,11 +49,19 @@ export async function upsertTeamWeekStats(input: {
 }
 
 export async function getSeasonOpfByTeamId(leagueSeasonId: string): Promise<
-  Map<string, { optimumPointsFor: number; byPosition: Record<string, number> }>
+  Map<
+    string,
+    {
+      pointsFor: number;
+      optimumPointsFor: number;
+      byPosition: Record<string, number>;
+    }
+  >
 > {
   const rows = await db
     .select({
       teamId: teamWeekStats.teamId,
+      pointsFor: teamWeekStats.pointsFor,
       optimumPointsFor: teamWeekStats.optimumPointsFor,
       byPosition: teamWeekStats.byPosition,
     })
@@ -62,14 +70,20 @@ export async function getSeasonOpfByTeamId(leagueSeasonId: string): Promise<
 
   const map = new Map<
     string,
-    { optimumPointsFor: number; byPosition: Record<string, number> }
+    {
+      pointsFor: number;
+      optimumPointsFor: number;
+      byPosition: Record<string, number>;
+    }
   >();
 
   for (const row of rows) {
     const existing = map.get(row.teamId) ?? {
+      pointsFor: 0,
       optimumPointsFor: 0,
       byPosition: {},
     };
+    existing.pointsFor += row.pointsFor ?? 0;
     existing.optimumPointsFor += row.optimumPointsFor ?? 0;
     for (const [pos, pts] of Object.entries(row.byPosition ?? {})) {
       existing.byPosition[pos] = (existing.byPosition[pos] ?? 0) + pts;

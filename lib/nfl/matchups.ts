@@ -26,8 +26,10 @@ export type TeamMatchup = {
   isHome: boolean;
   kickoff: string;
   gameStatus: ScheduleGame["status"];
-  /** Secondary Opp line: kickoff time, or live/final score. */
+  /** Secondary Opp line: kickoff time, live down/distance, or final score. */
   detailLabel: string | null;
+  hasPossession: boolean;
+  inRedZone: boolean;
 };
 
 export type PlayerOpponent = {
@@ -35,7 +37,19 @@ export type PlayerOpponent = {
   /** e.g. "Sun 1pm" or "24-17" — null for BYE */
   kickoffLabel: string | null;
   gameStatus: ScheduleGame["status"] | null;
+  hasPossession: boolean;
+  inRedZone: boolean;
 };
+
+function idleOpponent(label: string): PlayerOpponent {
+  return {
+    label,
+    kickoffLabel: null,
+    gameStatus: null,
+    hasPossession: false,
+    inRedZone: false,
+  };
+}
 
 /** Compact kickoff for roster Opp cells: "Sun 1pm" (UK). */
 export function formatMatchupKickoff(kickoffIso: string): string {
@@ -61,9 +75,28 @@ export function formatMatchupKickoff(kickoffIso: string): string {
 }
 
 /** Kickoff before kickoff; score once the game is live/final. */
+function formatLiveClock(game: ScheduleGame): string | null {
+  if (game.status !== "in") return null;
+  const named = game.statusText?.trim() || "";
+  if (/halftime|end of|two.?minute/i.test(named)) return named;
+  const clock = game.displayClock?.trim() || null;
+  const period = game.period;
+  if (period == null || !Number.isFinite(period) || period < 1) {
+    return clock ?? (named || null);
+  }
+  const quarter =
+    period <= 4 ? `Q${period}` : period === 5 ? "OT" : `OT${period - 4}`;
+  return clock ? `${quarter} ${clock}` : quarter;
+}
+
 function formatMatchupDetail(game: ScheduleGame): string {
+  if (game.status === "in") {
+    const down = game.situation?.downDistance?.split(" • ")[0] ?? null;
+    const live = [down, formatLiveClock(game)].filter(Boolean).join(" · ");
+    return live || formatMatchupKickoff(game.kickoff);
+  }
   if (
-    (game.status === "in" || game.status === "post") &&
+    game.status === "post" &&
     game.away.score != null &&
     game.home.score != null
   ) {
@@ -86,6 +119,10 @@ export function buildOpponentByTeam(
     }
 
     const detailLabel = formatMatchupDetail(game);
+    const live = game.status === "in";
+    const redZone = live && game.situation?.isRedZone === true;
+    const homeHasBall = live && game.possession === "home";
+    const awayHasBall = live && game.possession === "away";
 
     map.set(home, {
       label: `vs ${away}`,
@@ -94,6 +131,8 @@ export function buildOpponentByTeam(
       kickoff: game.kickoff,
       gameStatus: game.status,
       detailLabel,
+      hasPossession: homeHasBall,
+      inRedZone: redZone,
     });
     map.set(away, {
       label: `@ ${home}`,
@@ -102,6 +141,8 @@ export function buildOpponentByTeam(
       kickoff: game.kickoff,
       gameStatus: game.status,
       detailLabel,
+      hasPossession: awayHasBall,
+      inRedZone: redZone,
     });
   }
 
@@ -134,14 +175,14 @@ export function resolvePlayerOpponent(input: {
     byeWeek != null &&
     byeWeek === input.week
   ) {
-    return { label: "BYE", kickoffLabel: null, gameStatus: null };
+    return idleOpponent("BYE");
   }
 
   const matchup = input.opponentsByTeam.get(team);
   if (!matchup) {
     // Slate loaded but this team has no game → bye (covers null/stale player byeWeek).
     if (input.opponentsByTeam.size > 0) {
-      return { label: "BYE", kickoffLabel: null, gameStatus: null };
+      return idleOpponent("BYE");
     }
     return null;
   }
@@ -150,5 +191,7 @@ export function resolvePlayerOpponent(input: {
     label: matchup.label,
     kickoffLabel: matchup.detailLabel,
     gameStatus: matchup.gameStatus,
+    hasPossession: matchup.hasPossession,
+    inRedZone: matchup.inRedZone,
   };
 }

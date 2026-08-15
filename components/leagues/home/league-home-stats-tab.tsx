@@ -23,7 +23,6 @@ export async function LeagueHomeStatsTab({
       positionColumns={stats.positionColumns}
       leagueSlug={leagueSlug}
       myTeamPublicId={myTeamPublicId}
-      week={stats.week}
       scoresAvailable={stats.scoresAvailable}
     />
   );

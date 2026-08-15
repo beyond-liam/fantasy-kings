@@ -255,9 +255,9 @@ function PlayerSpotlight({
           primaryPositionId={player.primaryPositionId}
           nflTeam={player.nflTeam}
           size="lg"
-          className="size-16"
+          className="!size-24"
         />
-        <div className="min-w-0 max-w-full">
+        <div className="min-w-0 max-w-full text-center">
           <p className="truncate text-sm font-medium text-balance underline-offset-2 group-hover/player-identity:underline group-focus-visible/player-identity:underline">
             {player.fullName}
           </p>

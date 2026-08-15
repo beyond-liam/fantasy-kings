@@ -37,7 +37,6 @@ type LeagueStatsTableProps = {
   positionColumns: string[];
   leagueSlug: string;
   myTeamPublicId?: string | null;
-  week: number;
   scoresAvailable: boolean;
 };
 
@@ -214,7 +213,6 @@ export function LeagueStatsTable({
   positionColumns,
   leagueSlug,
   myTeamPublicId,
-  week,
   scoresAvailable,
 }: LeagueStatsTableProps) {
   const [sorting, setSorting] = useState<SortingState>(
@@ -273,14 +271,7 @@ export function LeagueStatsTable({
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between gap-3">
-        <div className="flex min-w-0 flex-col gap-0.5">
-          <h2 className="text-lg font-semibold tracking-tight">Stats</h2>
-          {scoresAvailable ? (
-            <p className="text-sm tabular-nums text-muted-foreground">
-              Week {week}
-            </p>
-          ) : null}
-        </div>
+        <h2 className="text-lg font-semibold tracking-tight">Stats</h2>
         <DataTableViewOptions table={table} labels={columnLabels} />
       </div>
       <DataTable

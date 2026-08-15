@@ -78,14 +78,14 @@ export function PowerRankingsCard({
     <div className="flex flex-col gap-6">
       <div className="grid gap-6 sm:grid-cols-2">
         <PowerRankingsTrendCard
-          title="Trending up"
+          title="Trending Up"
           description="Biggest rank gain."
           direction="up"
           teams={trendingUp}
           leagueSlug={leagueSlug}
         />
         <PowerRankingsTrendCard
-          title="Trending down"
+          title="Trending Down"
           description="Biggest rank drop."
           direction="down"
           teams={trendingDown}
@@ -95,13 +95,13 @@ export function PowerRankingsCard({
 
       <div className="grid gap-6 sm:grid-cols-2">
         <PowerRankingsMyRankCard
-          title="Current rank"
+          title="Current Rank"
           description="Your current league power ranking."
           rank={mySummary?.currentRank ?? null}
           teamCount={teamCount}
         />
         <PowerRankingsMyRankCard
-          title="Draft rank"
+          title="Draft Rank"
           description="Where you stood when the draft power rankings landed."
           rank={mySummary?.draftRank ?? null}
           teamCount={teamCount}

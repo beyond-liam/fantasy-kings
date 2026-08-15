@@ -56,7 +56,11 @@ import { getTeamStatsChartsMock } from "@/lib/leagues/team-stats-charts-mock";
 import { getPlayerRosterRatesMap } from "@/lib/queries/player-roster-rates";
 import { enrichScheduleWinChances } from "@/lib/queries/schedule-win-chance";
 import { getLeagueTeamByPublicId } from "@/lib/queries/team";
-import { getTeamRosterStatPlayers } from "@/lib/queries/team-player-stats";
+import {
+  getRosterTableStatMap,
+  getTeamRosterStatPlayers,
+  withRosterTableStats,
+} from "@/lib/queries/team-player-stats";
 import {
   ensureTeamRosterSlotsAssigned,
   getTeamRosterPlayers,
@@ -228,42 +232,62 @@ export default async function LeagueTeamPage({
   let draftPicksPanel: ReactNode = null;
 
   if (needsRosterPanel) {
-    const [rosterRates, projectedById, weekStats] = await Promise.all([
-      getPlayerRosterRatesMap(rosterPlayerIds),
-      rosterPlayerIds.length > 0
-        ? getWeekProjectedFantasyPoints({
-            season: nflSeason,
-            week: nflWeek,
-            seasonType: nflSeasonType,
-            scoringRules,
-            playerIds: rosterPlayerIds,
-          })
-        : Promise.resolve(new Map<string, number | null>()),
-      rosterPlayerIds.length > 0
-        ? getRankedPlayers({
-            season: nflSeason,
-            week: nflWeek,
-            seasonType: nflSeasonType,
-            kind: "stats",
-            scoringRules,
-            playerIds: rosterPlayerIds,
-          }).catch(() => [])
-        : Promise.resolve([]),
-    ]);
+    const [rosterRates, projectedById, weekStats, tableStats] =
+      await Promise.all([
+        getPlayerRosterRatesMap(rosterPlayerIds),
+        rosterPlayerIds.length > 0
+          ? getWeekProjectedFantasyPoints({
+              season: nflSeason,
+              week: nflWeek,
+              seasonType: nflSeasonType,
+              scoringRules,
+              playerIds: rosterPlayerIds,
+            })
+          : Promise.resolve(new Map<string, number | null>()),
+        rosterPlayerIds.length > 0
+          ? getRankedPlayers({
+              season: nflSeason,
+              week: nflWeek,
+              seasonType: nflSeasonType,
+              kind: "stats",
+              scoringRules,
+              playerIds: rosterPlayerIds,
+              preserveStats: true,
+            }).catch(() => [])
+          : Promise.resolve([]),
+        rosterPlayerIds.length > 0 && nflContext
+          ? getRosterTableStatMap({
+              season: nflSeason,
+              playerIds: rosterPlayerIds,
+              scoringRules,
+              nfl: nflContext.nflState,
+              schedule: season.settings.schedule,
+            }).catch(() => new Map())
+          : Promise.resolve(new Map()),
+      ]);
 
     const actualById = new Map(
       weekStats.map((player) => [player.id, player.fantasyPts]),
     );
+    const weekStatsById = new Map(
+      weekStats.map((player) => [player.id, player.stats]),
+    );
 
     const rosterPlayersWithRates = rosterPlayers.map((player) => {
       const rates = rosterRates.get(player.id);
-      return withOpponent({
-        ...player,
-        ownedPct: rates?.ownedPct ?? null,
-        startPct: rates?.startPct ?? null,
-        actualPts: actualById.get(player.id) ?? null,
-        projectedPts: projectedById.get(player.id) ?? null,
-      });
+      return withOpponent(
+        withRosterTableStats(
+          {
+            ...player,
+            ownedPct: rates?.ownedPct ?? null,
+            startPct: rates?.startPct ?? null,
+            actualPts: actualById.get(player.id) ?? null,
+            projectedPts: projectedById.get(player.id) ?? null,
+            weekStats: weekStatsById.get(player.id),
+          },
+          tableStats,
+        ),
+      );
     });
 
     const summarySchedule: TeamSummaryScheduleRow[] = scheduleRows.map(
@@ -304,6 +328,8 @@ export default async function LeagueTeamPage({
         actionsVariant="opponent"
         partnerTeamSlug={team.publicId ?? team.slug}
         tradesEnabled={tradesEnabled}
+        scoringRules={scoringRules}
+        scoringWeek={fantasyWeek}
         summary={{
           waiverPriorityLabel: season.waiversEnabled
             ? formatWaiverPriority(team.waiverPriority)

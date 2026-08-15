@@ -93,6 +93,45 @@ describe("resolvePlayerOpponent", () => {
       seasonYear: 2026,
     });
     assert.equal(result?.label, "@ LV");
+    assert.equal(result?.hasPossession, false);
+    assert.equal(result?.inRedZone, false);
+  });
+
+  it("marks possession and red zone from the live slate", () => {
+    const live = game("BUF", "CAR");
+    live.status = "in";
+    live.possession = "away";
+    live.situation = {
+      downDistance: "1st & Goal • BUF 6",
+      homeTimeouts: 2,
+      awayTimeouts: 3,
+      isRedZone: true,
+    };
+    live.away.score = 7;
+    live.home.score = 13;
+    live.period = 2;
+    live.displayClock = "0:13";
+    live.statusText = "Q2 0:13";
+    const result = resolvePlayerOpponent({
+      nflTeam: "CAR",
+      byeWeek: null,
+      week: 1,
+      opponentsByTeam: buildOpponentByTeam([live]),
+      seasonYear: 2026,
+    });
+    assert.equal(result?.hasPossession, true);
+    assert.equal(result?.inRedZone, true);
+    assert.equal(result?.kickoffLabel, "1st & Goal · Q2 0:13");
+
+    const defending = resolvePlayerOpponent({
+      nflTeam: "BUF",
+      byeWeek: null,
+      week: 1,
+      opponentsByTeam: buildOpponentByTeam([live]),
+      seasonYear: 2026,
+    });
+    assert.equal(defending?.hasPossession, false);
+    assert.equal(defending?.inRedZone, true);
   });
 });
 

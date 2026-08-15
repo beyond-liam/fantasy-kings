@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 
 import {
   aggregateStarterPositionPoints,
+  applySeasonPositionStats,
   buildLeaguePositionStatsRows,
   formatLeaderPositionFullLabel,
   formatLeaderPositionLabel,
@@ -159,5 +160,54 @@ describe("buildLeaguePositionStatsRows", () => {
     assert.equal(rows[0]?.optimumPointsFor, null);
     assert.equal(rows[0]?.byPosition.QB, null);
     assert.equal(rows[0]?.byPosition.RB, null);
+  });
+});
+
+describe("applySeasonPositionStats", () => {
+  it("replaces weekly points with summed season snapshots and re-ranks", () => {
+    const weekly = buildLeaguePositionStatsRows(
+      [
+        {
+          teamId: "a",
+          teamPublicId: "aaaaaa",
+          teamName: "A",
+          ownerName: "Ann",
+          logoUrl: null,
+          claimed: true,
+          starters: [{ slotPositionId: "QB", points: 10 }],
+          optimumPointsFor: 12,
+        },
+        {
+          teamId: "b",
+          teamPublicId: "bbbbbb",
+          teamName: "B",
+          ownerName: "Bob",
+          logoUrl: null,
+          claimed: true,
+          starters: [{ slotPositionId: "QB", points: 30 }],
+          optimumPointsFor: 32,
+        },
+      ],
+      ["QB"],
+    );
+    assert.equal(weekly[0]?.teamId, "b");
+
+    const rows = applySeasonPositionStats(
+      weekly,
+      ["QB"],
+      new Map([["a", 100]]),
+      new Map([
+        ["a", { pointsFor: 40, optimumPointsFor: 50, byPosition: { QB: 40 } }],
+        ["b", { pointsFor: 20, optimumPointsFor: 22, byPosition: { QB: 20 } }],
+      ]),
+    );
+
+    assert.equal(rows[0]?.teamId, "a");
+    assert.equal(rows[0]?.pointsFor, 40);
+    assert.equal(rows[0]?.byPosition.QB, 40);
+    assert.equal(rows[0]?.optimumPointsFor, 50);
+    assert.equal(rows[0]?.rank, 1);
+    assert.equal(rows[1]?.teamId, "b");
+    assert.equal(rows[1]?.pointsFor, 20);
   });
 });

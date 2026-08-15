@@ -11,6 +11,10 @@ import { resolvePlayerAcquisitionKind } from "@/lib/leagues/waivers/resolve-kind
 import { getRankedPlayers, getWeekProjectedFantasyPoints } from "@/lib/queries/players";
 import { getPlayerRosterRatesMap } from "@/lib/queries/player-roster-rates";
 import {
+  getRosterTableStatMap,
+  withRosterTableStats,
+} from "@/lib/queries/team-player-stats";
+import {
   getLeaguePlayerOwnershipMap,
   getTeamRosteredPlayerIds,
   resolvePlayerOwnership,
@@ -85,7 +89,7 @@ export async function MyTeamWatchlistPanel({
       ...watchlistPlayers.map((player) => player.id),
     ]),
   ];
-  const [rosterRates, projectedById, weekStats] = await Promise.all([
+  const [rosterRates, projectedById, weekStats, tableStats] = await Promise.all([
     getPlayerRosterRatesMap(ratePlayerIds),
     getWeekProjectedFantasyPoints({
       season: nflSeason,
@@ -102,6 +106,13 @@ export async function MyTeamWatchlistPanel({
       scoringRules,
       playerIds: ratePlayerIds,
     }).catch(() => []),
+    getRosterTableStatMap({
+      season: nflSeason,
+      playerIds: ratePlayerIds,
+      scoringRules,
+      nfl: nflState,
+      schedule,
+    }).catch(() => new Map()),
   ]);
 
   const actualById = new Map(
@@ -123,19 +134,22 @@ export async function MyTeamWatchlistPanel({
       schedule,
     });
     return withPlayerOpponent(
-      {
-        ...player,
-        fantasyTeamId: ownership.fantasyTeamId,
-        fantasyTeamName: ownership.fantasyTeamName,
-        isOwnedByCurrentUser: ownership.isOwnedByCurrentUser,
-        onWaivers: ownership.onWaivers,
-        acquisitionKind,
-        hasPendingClaim: pendingClaimIdSet.has(player.id),
-        ownedPct: rates?.ownedPct ?? null,
-        startPct: rates?.startPct ?? null,
-        actualPts: actualById.get(player.id) ?? null,
-        projectedPts: projectedById.get(player.id) ?? null,
-      },
+      withRosterTableStats(
+        {
+          ...player,
+          fantasyTeamId: ownership.fantasyTeamId,
+          fantasyTeamName: ownership.fantasyTeamName,
+          isOwnedByCurrentUser: ownership.isOwnedByCurrentUser,
+          onWaivers: ownership.onWaivers,
+          acquisitionKind,
+          hasPendingClaim: pendingClaimIdSet.has(player.id),
+          ownedPct: rates?.ownedPct ?? null,
+          startPct: rates?.startPct ?? null,
+          actualPts: actualById.get(player.id) ?? null,
+          projectedPts: projectedById.get(player.id) ?? null,
+        },
+        tableStats,
+      ),
       nflWeek,
       opponentsByTeam,
       { seasonYear, seasonType: nflSeasonType },

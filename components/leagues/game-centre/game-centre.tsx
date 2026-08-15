@@ -65,6 +65,17 @@ function isScheduled(status: GameCentreData["status"]) {
   return status === "scheduled";
 }
 
+function nflGamesHaveStarted(data: GameCentreData) {
+  if (data.status !== "scheduled") return true;
+  for (const row of [...data.duelRows, ...data.benchRows]) {
+    for (const player of [row.away, row.home]) {
+      const status = player?.gameStatus ?? player?.opponent?.gameStatus;
+      if (status === "in" || status === "post") return true;
+    }
+  }
+  return false;
+}
+
 function parseTab(
   raw: string | null,
   status: GameCentreData["status"],
@@ -239,6 +250,7 @@ export function GameCentre({ data }: GameCentreProps) {
             rows={live.duelRows}
             onActualClick={(player) => setBreakdownPlayerId(player.id)}
             emptyMessage="No starters set for this matchup."
+            showAdv={!nflGamesHaveStarted(live)}
             leagueSlug={live.leagueSlug}
           />
           <MatchupRosterList

@@ -13,6 +13,7 @@ import {
 import { NFL_TEAMS } from "@/lib/nfl/teams";
 import { normalizeNflTeamAbbrev } from "@/lib/nfl/matchups";
 import { resolvePlayerByeWeek } from "@/lib/nfl/bye-weeks";
+import { computeNflPositionAverage } from "@/lib/players/nfl-position-average";
 import {
   buildScoringConsistency,
   parseOpponentMeta,
@@ -444,6 +445,8 @@ async function loadWeeklyFinishesAndSos(input: {
   };
   /** Per-player finishes for roster mates at this position. */
   finishesByPlayerWeek: Map<string, Record<number, number>>;
+  /** NFL counting-stat aggregate at this position (not fantasy). */
+  positionAvg: number | null;
 }> {
   const maxWeek = Math.max(1, Math.min(18, input.seasonMaxWeek));
   const weekNumbers = Array.from({ length: maxWeek }, (_, i) => i + 1);
@@ -633,6 +636,10 @@ async function loadWeeklyFinishesAndSos(input: {
     ptsAllowedByWeek,
     sosByTeam,
     finishesByPlayerWeek,
+    positionAvg: computeNflPositionAverage(
+      input.positionId,
+      weekRows.flatMap((rows) => rows.map((row) => row.stats)),
+    ),
   };
 }
 
@@ -994,5 +1001,6 @@ export async function loadOverviewExtrasSeed(
     regularSeasonEndWeek: calendar.regularSeasonEndWeek,
     rosterCompare,
     multiYear,
+    positionAvg: weeklyAndSos.positionAvg,
   };
 }

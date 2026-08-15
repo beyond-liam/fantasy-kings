@@ -35,7 +35,7 @@ export function DraftClockCard({
   return (
     <Card size="sm" className={cn("min-w-[16rem] gap-0 py-0", className)}>
       <CardHeader variant="panel">
-        <div className="flex items-start justify-between gap-2">
+        <div className="flex items-center justify-between gap-2">
           <div className="flex min-w-0 flex-col gap-0">
             <div className="flex min-w-0 items-center gap-2">
               {showStopwatch ? (

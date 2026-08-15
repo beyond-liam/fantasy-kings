@@ -15,7 +15,13 @@ function normalizeOpponent(
     return null;
   }
   if (typeof opponent === "string") {
-    return { label: opponent, kickoffLabel: null, gameStatus: null };
+    return {
+      label: opponent,
+      kickoffLabel: null,
+      gameStatus: null,
+      hasPossession: false,
+      inRedZone: false,
+    };
   }
   return opponent;
 }
@@ -37,7 +43,14 @@ export function OpponentCell({ opponent, className }: OpponentCellProps) {
         {value.label}
       </span>
       {value.kickoffLabel ? (
-        <span className="text-xs leading-tight text-muted-foreground">
+        <span
+          className={cn(
+            "whitespace-nowrap text-[11px] leading-tight tabular-nums",
+            value.gameStatus === "in"
+              ? "text-success"
+              : "text-muted-foreground",
+          )}
+        >
           {value.kickoffLabel}
         </span>
       ) : null}

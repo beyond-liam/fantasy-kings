@@ -44,7 +44,7 @@ function LeaderSide({
         <p className="truncate text-sm font-medium">
           {side.name}
           {side.position ? (
-            <span className="text-muted-foreground"> {side.position}</span>
+            <span className="text-muted-foreground text-xs"> {side.position}</span>
           ) : null}
         </p>
         <p className="text-xs tabular-nums text-muted-foreground">{side.line}</p>

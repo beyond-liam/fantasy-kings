@@ -17,6 +17,7 @@ import {
   getPlayerAvatarUrl,
   getPlayerInitials,
 } from "@/lib/sleeper/avatars";
+import { possessionRing } from "@/lib/nfl/possession-ring";
 import { cn } from "@/lib/utils";
 
 type PlayerAvatarProps = {
@@ -27,6 +28,9 @@ type PlayerAvatarProps = {
   injuryStatus?: string | null;
   size?: "default" | "sm" | "lg";
   className?: string;
+  hasPossession?: boolean;
+  inRedZone?: boolean;
+  isLive?: boolean;
 };
 
 export function PlayerAvatar({
@@ -37,6 +41,9 @@ export function PlayerAvatar({
   injuryStatus,
   size = "sm",
   className,
+  hasPossession = false,
+  inRedZone = false,
+  isLive = false,
 }: PlayerAvatarProps) {
   const src = getPlayerAvatarUrl({
     sleeperId,
@@ -44,9 +51,19 @@ export function PlayerAvatar({
     nflTeam,
   });
   const injury = getInjuryIndicator(injuryStatus);
+  const ring = possessionRing({
+    primaryPositionId,
+    hasPossession,
+    inRedZone,
+    isLive,
+  });
 
   return (
-    <Avatar size={size} className={cn("bg-muted", className)}>
+    <Avatar
+      size={size}
+      aria-label={ring?.label}
+      className={cn("bg-muted", ring?.className, className)}
+    >
       {src ? <AvatarImage src={src} alt="" /> : null}
       <AvatarFallback>{getPlayerInitials(fullName)}</AvatarFallback>
       {injury ? (

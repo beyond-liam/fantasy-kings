@@ -21,12 +21,13 @@ import type {
   GameCentreBoxTeam,
   GameCentrePlayer,
 } from "@/lib/queries/game-centre";
+import { formatStatValue } from "@/lib/rankings/column-config";
 
 const PLACEHOLDER = "—";
 /** Shared widths so Opp header/cells align within and across tables. */
 const PLAYER_COL = "w-60 min-w-60";
-const OPP_COL = "w-24 min-w-24 whitespace-normal text-left";
-const PTS_COL = "w-14 min-w-14";
+const OPP_COL = "w-36 min-w-36 whitespace-normal text-left";
+const PTS_COL = "w-16 min-w-16";
 
 type StatColumn = {
   header: string;
@@ -57,8 +58,7 @@ function sumKeys(
 }
 
 function formatPts(value: number | null) {
-  if (value == null || !Number.isFinite(value)) return PLACEHOLDER;
-  return value.toFixed(1);
+  return formatStatValue(value, 2);
 }
 
 function StatHead({
@@ -384,6 +384,9 @@ function BoxSection({
                     size="sm"
                     playerId={player.id}
                     leagueSlug={leagueSlug}
+                    hasPossession={player.opponent?.hasPossession}
+                    inRedZone={player.opponent?.inRedZone}
+                    isLive={player.opponent?.gameStatus === "in"}
                   />
                 </TableCell>
                 <TableCell className={OPP_COL}>
@@ -410,7 +413,7 @@ function BoxSection({
                 TOTALS
               </TableCell>
               <TableCell className={`${PTS_COL} tabular-nums font-semibold`}>
-                {hasPts ? ptsTotal.toFixed(1) : PLACEHOLDER}
+                {hasPts ? formatPts(ptsTotal) : PLACEHOLDER}
               </TableCell>
             </TableRow>
           </TableBody>

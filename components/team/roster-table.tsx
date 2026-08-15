@@ -40,7 +40,12 @@ import type {
   TeamRosterPlayer,
 } from "@/lib/leagues/roster-fill";
 import { formatRosterRatePct } from "@/lib/leagues/format-roster-rate";
+import { formatStatValue } from "@/lib/rankings/column-config";
 import { PLAYER_STAT_COLUMNS } from "@/lib/rankings/player-stat-columns";
+import {
+  formatPositionRank,
+  getPositionRankColorClass,
+} from "@/lib/rankings/stat-helpers";
 import { cn } from "@/lib/utils";
 
 type TeamRosterTableProps = {
@@ -63,9 +68,23 @@ type TeamRosterTableProps = {
   gameLockedPlayerIds?: Set<string>;
   onSlotChange?: (playerId: string, slotPositionId: string) => void;
   onSwap?: (playerId: string, otherPlayerId: string) => void;
+  onActualClick?: (player: TeamRosterPlayer) => void;
 };
 
 const PLACEHOLDER = "—";
+/** Shared widths so Opp lines up across Lineup / Bench / IR / Taxi tables. */
+const COL_WIDTH: Record<string, string> = {
+  player: "w-[16rem] min-w-[16rem]",
+  opponent: "w-36 min-w-36",
+  points: "w-16 min-w-16",
+  rank: "w-14 min-w-14",
+  fantasyPoints: "w-16 min-w-16",
+  average: "w-14 min-w-14",
+  owned: "w-14 min-w-14",
+  start: "w-14 min-w-14",
+  slot: "w-[7.5rem] min-w-[7.5rem] max-md:hidden",
+  action: "w-10 min-w-10",
+};
 
 const COLUMNS = [
   { id: "player", header: "Player" },
@@ -206,6 +225,7 @@ export function TeamRosterTable({
   gameLockedPlayerIds,
   onSlotChange,
   onSwap,
+  onActualClick,
 }: TeamRosterTableProps) {
   if (slots.length === 0) {
     return null;
@@ -223,17 +243,16 @@ export function TeamRosterTable({
       <h2 className="text-sm font-medium">{rosterSectionTitle(section)}</h2>
       <TableShell>
         <TooltipProvider>
-          <Table>
+          <Table className="table-fixed min-w-4xl">
             <TableHeader>
               <TableRow className="hover:bg-transparent">
                 {columns.map((column) => (
                   <TableHead
                     key={column.id}
                     className={cn(
+                      COL_WIDTH[column.id],
                       column.id === "player" &&
-                        "min-w-[12rem] max-md:sticky max-md:left-0 max-md:z-30 max-md:shadow-[4px_0_8px_-4px_rgba(0,0,0,0.45)]",
-                      column.id === "slot" && "w-[7.5rem] max-md:hidden",
-                      column.id === "action" && "w-10",
+                        "max-md:sticky max-md:left-0 max-md:z-30 max-md:shadow-[4px_0_8px_-4px_rgba(0,0,0,0.45)]",
                     )}
                   >
                     <TeamTableColumnHeader
@@ -249,13 +268,15 @@ export function TeamRosterTable({
             </TableHeader>
             <TableBody>
               {slots.map((slot) => {
+                const player = slot.player;
                 const playerLocked = Boolean(
-                  slot.player && lockedIds.has(slot.player.id),
+                  player && lockedIds.has(player.id),
                 );
                 return (
                 <TableRow key={slot.key}>
                   <TableCell
                     className={cn(
+                      COL_WIDTH.player,
                       "max-md:sticky max-md:left-0 max-md:z-20 max-md:overflow-hidden max-md:shadow-[4px_0_8px_-4px_rgba(0,0,0,0.45)]",
                       "max-md:bg-background max-md:group-hover/tr:bg-[color-mix(in_oklab,var(--muted)_50%,var(--background))] max-md:group-data-[state=selected]/tr:bg-muted",
                     )}
@@ -285,6 +306,9 @@ export function TeamRosterTable({
                           injuryStatus={slot.player.injuryStatus}
                           playerId={slot.player.id}
                           leagueSlug={leagueSlug}
+                          hasPossession={slot.player.opponent?.hasPossession}
+                          inRedZone={slot.player.opponent?.inRedZone}
+                          isLive={slot.player.opponent?.gameStatus === "in"}
                         />
                       ) : (
                         <EmptyPlayerIdentity
@@ -293,10 +317,10 @@ export function TeamRosterTable({
                       )}
                     </div>
                   </TableCell>
-                  <TableCell>
+                  <TableCell className={COL_WIDTH.opponent}>
                     <OpponentCell opponent={slot.player?.opponent} />
                   </TableCell>
-                  <TableCell>
+                  <TableCell className={COL_WIDTH.points}>
                     {slot.player ? (
                       <PointsCell
                         actualPts={slot.player.actualPts}
@@ -305,6 +329,11 @@ export function TeamRosterTable({
                           slot.player.opponent?.gameStatus === "in" ||
                           slot.player.opponent?.gameStatus === "post"
                         }
+                        onActualClick={
+                          onActualClick && player
+                            ? () => onActualClick(player)
+                            : undefined
+                        }
                       />
                     ) : (
                       <span className="text-muted-foreground">
@@ -312,26 +341,52 @@ export function TeamRosterTable({
                       </span>
                     )}
                   </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {PLACEHOLDER}
+                  <TableCell
+                    className={cn(
+                      COL_WIDTH.rank,
+                      "font-medium tabular-nums",
+                      getPositionRankColorClass(slot.player?.positionRank),
+                    )}
+                  >
+                    {slot.player
+                      ? formatPositionRank(
+                          slot.player.primaryPositionId,
+                          slot.player.positionRank,
+                        )
+                      : PLACEHOLDER}
                   </TableCell>
-                  <TableCell className="tabular-nums text-muted-foreground">
-                    {PLACEHOLDER}
+                  <TableCell
+                    className={cn(
+                      COL_WIDTH.fantasyPoints,
+                      "tabular-nums",
+                    )}
+                  >
+                    {slot.player
+                      ? formatStatValue(slot.player.fantasyPts, 2)
+                      : PLACEHOLDER}
                   </TableCell>
-                  <TableCell className="tabular-nums text-muted-foreground">
-                    {PLACEHOLDER}
+                  <TableCell
+                    className={cn(COL_WIDTH.average, "tabular-nums")}
+                  >
+                    {slot.player
+                      ? formatStatValue(slot.player.avgPts, 2)
+                      : PLACEHOLDER}
                   </TableCell>
-                  <TableCell className="tabular-nums">
+                  <TableCell
+                    className={cn(COL_WIDTH.owned, "tabular-nums")}
+                  >
                     {slot.player
                       ? formatRosterRatePct(slot.player.ownedPct)
                       : PLACEHOLDER}
                   </TableCell>
-                  <TableCell className="tabular-nums">
+                  <TableCell
+                    className={cn(COL_WIDTH.start, "tabular-nums")}
+                  >
                     {slot.player
                       ? formatRosterRatePct(slot.player.startPct)
                       : PLACEHOLDER}
                   </TableCell>
-                  <TableCell className="max-md:hidden">
+                  <TableCell className={COL_WIDTH.slot}>
                     <RosterSlotSelect
                       slot={slot}
                       assignmentOptions={assignmentOptions}
@@ -350,7 +405,7 @@ export function TeamRosterTable({
                     />
                   </TableCell>
                   {showRowActions ? (
-                    <TableCell>
+                    <TableCell className={COL_WIDTH.action}>
                       <RosterRowActions
                         player={slot.player}
                         leagueSlug={leagueSlug}

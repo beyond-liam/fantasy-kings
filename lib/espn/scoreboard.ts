@@ -48,11 +48,14 @@ type EspnCompetitor = {
 
 export type EspnGameSituation = {
   possession?: string;
+  down?: number;
+  distance?: number;
   downDistanceText?: string;
   shortDownDistanceText?: string;
   possessionText?: string;
   homeTimeouts?: number;
   awayTimeouts?: number;
+  isRedZone?: boolean;
 };
 
 type EspnEvent = {
@@ -108,6 +111,7 @@ export type GameSituation = {
   downDistance: string | null;
   homeTimeouts: number | null;
   awayTimeouts: number | null;
+  isRedZone: boolean;
 };
 
 export type ScheduleTeam = {
@@ -340,17 +344,35 @@ export function formatLiveMatchupLabel(
   return clock ? `Live: ${clock}` : "Live";
 }
 
+function formatDownFromNumbers(
+  down?: number | null,
+  distance?: number | null,
+): string | null {
+  if (down == null || !Number.isFinite(down) || down < 1 || down > 4) {
+    return null;
+  }
+  if (distance == null || !Number.isFinite(distance) || distance < 0) {
+    return null;
+  }
+  const ordinal = ["1st", "2nd", "3rd", "4th"][down - 1];
+  const yards = Math.round(distance);
+  return `${ordinal} & ${yards === 0 ? "Goal" : yards}`;
+}
+
 export function formatDownDistance(situation: {
   shortDownDistanceText?: string | null;
   possessionText?: string | null;
   downDistanceText?: string | null;
+  down?: number | null;
+  distance?: number | null;
 }): string | null {
   const short = situation.shortDownDistanceText?.trim() || null;
   const spot = situation.possessionText?.trim() || null;
   if (short && spot) return `${short} • ${spot}`;
+  if (short) return short;
   const full = situation.downDistanceText?.trim() || null;
-  if (!full) return null;
-  return full.replace(/\s+at\s+/i, " • ");
+  if (full) return full.replace(/\s+at\s+/i, " • ");
+  return formatDownFromNumbers(situation.down, situation.distance);
 }
 
 function clampTimeouts(value: unknown): number | null {
@@ -366,10 +388,11 @@ export function parseGameSituation(
   const downDistance = formatDownDistance(situation);
   const homeTimeouts = clampTimeouts(situation.homeTimeouts);
   const awayTimeouts = clampTimeouts(situation.awayTimeouts);
-  if (!downDistance && homeTimeouts == null && awayTimeouts == null) {
+  const isRedZone = situation.isRedZone === true;
+  if (!downDistance && homeTimeouts == null && awayTimeouts == null && !isRedZone) {
     return null;
   }
-  return { downDistance, homeTimeouts, awayTimeouts };
+  return { downDistance, homeTimeouts, awayTimeouts, isRedZone };
 }
 
 export function parsePossessionSide(input: {

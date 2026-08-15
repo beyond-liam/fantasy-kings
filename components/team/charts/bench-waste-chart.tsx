@@ -115,18 +115,18 @@ export function BenchWasteChart({ data }: BenchWasteChartProps) {
                       return (
                         <div className="flex min-w-0 flex-1 flex-col gap-1 leading-none">
                           <div className="flex items-center justify-between gap-4">
-                            <span className="text-muted-foreground">
+                            <span className="text-background/70">
                               Left on bench
                             </span>
-                            <span className="shrink-0 font-mono font-medium tabular-nums text-foreground">
+                            <span className="shrink-0 font-mono font-medium tabular-nums text-background">
                               {left}
                             </span>
                           </div>
                           <div className="flex items-center justify-between gap-4">
-                            <span className="text-muted-foreground">
+                            <span className="text-background/70">
                               Started / optimum
                             </span>
-                            <span className="shrink-0 font-mono tabular-nums text-foreground">
+                            <span className="shrink-0 font-mono tabular-nums text-background">
                               {formatPoints(row.pointsFor)} /{" "}
                               {formatPoints(row.optimumPointsFor)}
                             </span>

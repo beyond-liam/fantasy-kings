@@ -30,8 +30,14 @@ import {
 } from "@/components/ui/empty";
 import type { WatchlistPlayer } from "@/lib/queries/watchlist";
 import { formatRosterRatePct } from "@/lib/leagues/format-roster-rate";
+import { formatStatValue } from "@/lib/rankings/column-config";
 import { PLAYER_STAT_COLUMNS } from "@/lib/rankings/player-stat-columns";
-import { compareNullableNumber } from "@/lib/rankings/stat-helpers";
+import {
+  compareNullableNumber,
+  formatPositionRank,
+  getPositionRankColorClass,
+  sortableRankValue,
+} from "@/lib/rankings/stat-helpers";
 
 type TeamWatchlistSectionProps = {
   players: WatchlistPlayer[];
@@ -41,8 +47,6 @@ type TeamWatchlistSectionProps = {
   acquisitionLockReason?: string;
   waiverProcessingLocked?: boolean;
 };
-
-const PLACEHOLDER = "—";
 
 export function TeamWatchlistSection({
   players,
@@ -79,6 +83,9 @@ export function TeamWatchlistSection({
                 playerId={player.id}
                 leagueSlug={leagueSlug}
                 className="min-w-0 flex-1"
+                hasPossession={player.opponent?.hasPossession}
+                inRedZone={player.opponent?.inRedZone}
+                isLive={player.opponent?.gameStatus === "in"}
               />
             </div>
           );
@@ -126,47 +133,61 @@ export function TeamWatchlistSection({
       },
       {
         id: "rank",
-        accessorFn: () => null,
-        enableSorting: false,
-        header: () => (
-          <TeamTableColumnHeader
+        accessorFn: (row) => sortableRankValue(row.positionRank),
+        enableSorting: true,
+        header: ({ column }) => (
+          <DataTableColumnHeader
+            column={column}
             title={PLAYER_STAT_COLUMNS.rank.header}
             tooltip={PLAYER_STAT_COLUMNS.rank.tooltip}
           />
         ),
-        cell: () => (
-          <span className="text-muted-foreground">{PLACEHOLDER}</span>
+        cell: ({ row }) => (
+          <span
+            className={`font-medium tabular-nums ${getPositionRankColorClass(row.original.positionRank)}`}
+          >
+            {formatPositionRank(
+              row.original.primaryPositionId,
+              row.original.positionRank,
+            )}
+          </span>
         ),
       },
       {
         id: "fantasyPoints",
-        accessorFn: () => null,
-        enableSorting: false,
-        header: () => (
-          <TeamTableColumnHeader
+        accessorFn: (row) => row.fantasyPts,
+        enableSorting: true,
+        sortingFn: (a, b) =>
+          compareNullableNumber(a.original.fantasyPts, b.original.fantasyPts),
+        header: ({ column }) => (
+          <DataTableColumnHeader
+            column={column}
             title={PLAYER_STAT_COLUMNS.fpts.header}
             tooltip={PLAYER_STAT_COLUMNS.fpts.tooltip}
           />
         ),
-        cell: () => (
-          <span className="tabular-nums text-muted-foreground">
-            {PLACEHOLDER}
+        cell: ({ row }) => (
+          <span className="tabular-nums">
+            {formatStatValue(row.original.fantasyPts, 2)}
           </span>
         ),
       },
       {
         id: "average",
-        accessorFn: () => null,
-        enableSorting: false,
-        header: () => (
-          <TeamTableColumnHeader
+        accessorFn: (row) => row.avgPts,
+        enableSorting: true,
+        sortingFn: (a, b) =>
+          compareNullableNumber(a.original.avgPts, b.original.avgPts),
+        header: ({ column }) => (
+          <DataTableColumnHeader
+            column={column}
             title={PLAYER_STAT_COLUMNS.avg.header}
             tooltip={PLAYER_STAT_COLUMNS.avg.tooltip}
           />
         ),
-        cell: () => (
-          <span className="tabular-nums text-muted-foreground">
-            {PLACEHOLDER}
+        cell: ({ row }) => (
+          <span className="tabular-nums">
+            {formatStatValue(row.original.avgPts, 2)}
           </span>
         ),
       },

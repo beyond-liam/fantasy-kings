@@ -2,11 +2,12 @@
 
 import { useEffect, useRef } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { HugeiconsIcon } from "@hugeicons/react";
 
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { LivePulseDot } from "@/components/live-pulse-dot";
+import { markLeagueActivitySeen } from "@/lib/actions/activity";
 import { getLeagueNavItems, type NavItem } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
 
@@ -15,6 +16,7 @@ type LeagueSideNavProps = {
   isCommissioner: boolean;
   tradesAttention?: boolean;
   messagesAttention?: boolean;
+  activityAttention?: boolean;
   /** Draft is live or paused — show pulsing live indicator on Draft. */
   draftLive?: boolean;
 };
@@ -89,13 +91,27 @@ export function LeagueSideNav({
   isCommissioner,
   tradesAttention = false,
   messagesAttention = false,
+  activityAttention = false,
   draftLive = false,
 }: LeagueSideNavProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const pillScrollerRef = useRef<HTMLDivElement>(null);
   const navItems = getLeagueNavItems(slug).filter(
     (item) => !item.commissionerOnly || isCommissioner,
   );
+
+  useEffect(() => {
+    if (!pathname.startsWith(`/league/${slug}/activity`)) return;
+    let cancelled = false;
+    void markLeagueActivitySeen(slug).then((result) => {
+      if (cancelled || !result.success) return;
+      router.refresh();
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [pathname, router, slug]);
 
   // Pill scroll resets to 0 on each navigation — recentre the active pill.
   useEffect(() => {
@@ -121,7 +137,9 @@ export function LeagueSideNav({
         ? tradesAttention
         : item.href.endsWith("/messages")
           ? messagesAttention
-          : false;
+          : item.href.endsWith("/activity")
+            ? activityAttention && !item.isActive(pathname)
+            : false;
       const showLive = item.href.endsWith("/draft") ? draftLive : false;
 
       return (

@@ -1,6 +1,12 @@
-import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, sql } from "drizzle-orm";
 
-import { leagueActivity, players, teams, waiverClaims } from "@/db/schema";
+import {
+  leagueActivity,
+  leagueMembers,
+  players,
+  teams,
+  waiverClaims,
+} from "@/db/schema";
 import type { LeagueActivityMetadata } from "@/db/schema/league-activity";
 import { db } from "@/lib/db";
 import {
@@ -165,4 +171,57 @@ export async function getUnseenTeamWaiverResults(input: {
     failReason: row.failReason,
     processedAt: row.processedAt,
   }));
+}
+
+export async function getActivityNavIndicator(input: {
+  leagueId: string;
+  leagueSeasonId: string;
+  userId: string;
+}): Promise<{ showDot: boolean }> {
+  const [member] = await db
+    .select({ lastActivitySeenAt: leagueMembers.lastActivitySeenAt })
+    .from(leagueMembers)
+    .where(
+      and(
+        eq(leagueMembers.leagueId, input.leagueId),
+        eq(leagueMembers.userId, input.userId),
+      ),
+    )
+    .limit(1);
+
+  if (!member) {
+    return { showDot: false };
+  }
+
+  const unseen = [
+    eq(leagueActivity.leagueSeasonId, input.leagueSeasonId),
+    inArray(leagueActivity.type, [...FEED_ACTIVITY_TYPES]),
+    ...(member.lastActivitySeenAt
+      ? [gt(leagueActivity.createdAt, member.lastActivitySeenAt)]
+      : []),
+  ];
+
+  const [row] = await db
+    .select({ id: leagueActivity.id })
+    .from(leagueActivity)
+    .where(and(...unseen))
+    .limit(1);
+
+  return { showDot: Boolean(row) };
+}
+
+export async function markLeagueActivitySeen(input: {
+  leagueId: string;
+  userId: string;
+  seenAt?: Date;
+}) {
+  await db
+    .update(leagueMembers)
+    .set({ lastActivitySeenAt: input.seenAt ?? new Date() })
+    .where(
+      and(
+        eq(leagueMembers.leagueId, input.leagueId),
+        eq(leagueMembers.userId, input.userId),
+      ),
+    );
 }

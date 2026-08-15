@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import dynamic from "next/dynamic";
+import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   IterationCwIcon,
@@ -25,10 +26,20 @@ import {
   applyLocalSlotAssignment,
   applyLocalSlotSwap,
 } from "@/lib/leagues/roster-slots";
+import { explainPlayerPoints } from "@/lib/leagues/scoring/calculate";
+import type { ScoringRuleDefinition } from "@/lib/leagues/scoring/types";
 import {
   buildTeamSummaryRosterBreakdown,
   type TeamSummaryMatchupRef,
 } from "@/lib/leagues/team-summary";
+
+const ScoringBreakdownDialog = dynamic(
+  () =>
+    import("@/components/leagues/game-centre/scoring-breakdown-dialog").then(
+      (m) => m.ScoringBreakdownDialog,
+    ),
+  { ssr: false },
+);
 
 type TeamRosterSectionsProps = {
   rosterSlots: RosterSlotConfig[];
@@ -63,6 +74,8 @@ type TeamRosterSectionsProps = {
     current: TeamSummaryMatchupRef | null;
     myTeamSlug?: string | null;
   };
+  scoringRules?: ScoringRuleDefinition[];
+  scoringWeek?: number;
 };
 
 function slotsFingerprint(players: TeamRosterPlayer[]) {
@@ -93,10 +106,15 @@ export function TeamRosterSections({
   commissionerTeamId,
   gameLockedPlayerIds = [],
   summary,
+  scoringRules,
+  scoringWeek,
 }: TeamRosterSectionsProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [draftPlayers, setDraftPlayers] = useState(players);
+  const [breakdownPlayerId, setBreakdownPlayerId] = useState<string | null>(
+    null,
+  );
   const serverKey = slotsFingerprint(players);
   const resolvedIrEligible = resolveIrEligibleStatuses(irEligibleStatuses);
   const showRowActions = rowActionsEnabled ?? actionsEnabled;
@@ -235,7 +253,38 @@ export function TeamRosterSections({
     gameLockedPlayerIds: gameLockedIdSet,
     onSlotChange: handleSlotChange,
     onSwap: handleSwap,
+    onActualClick:
+      scoringRules && scoringWeek != null
+        ? (player: TeamRosterPlayer) => setBreakdownPlayerId(player.id)
+        : undefined,
   } as const;
+
+  const breakdownPlayer = breakdownPlayerId
+    ? (draftPlayers.find((player) => player.id === breakdownPlayerId) ?? null)
+    : null;
+  const breakdownExplanation = useMemo(() => {
+    if (!breakdownPlayer || !scoringRules || breakdownPlayer.actualPts == null) {
+      return null;
+    }
+    return explainPlayerPoints(
+      breakdownPlayer.weekStats ?? {},
+      breakdownPlayer.primaryPositionId,
+      scoringRules,
+    );
+  }, [breakdownPlayer, scoringRules]);
+
+  const breakdownDialog =
+    scoringRules && scoringWeek != null ? (
+      <ScoringBreakdownDialog
+        open={breakdownPlayer != null}
+        onOpenChange={(open) => {
+          if (!open) setBreakdownPlayerId(null);
+        }}
+        playerName={breakdownPlayer?.fullName ?? ""}
+        week={scoringWeek}
+        explanation={breakdownExplanation}
+      />
+    ) : null;
 
   const rosterColumn = (
     <div className="flex min-w-0 flex-1 flex-col gap-8">
@@ -280,22 +329,30 @@ export function TeamRosterSections({
   );
 
   if (!summary || !rosterBreakdown) {
-    return rosterColumn;
+    return (
+      <>
+        {rosterColumn}
+        {breakdownDialog}
+      </>
+    );
   }
 
   return (
-    <div className="flex flex-col gap-8 lg:flex-row lg:items-start">
-      {rosterColumn}
-      <TeamSummaryPanel
-        className="lg:sticky lg:top-20 lg:w-64 lg:shrink-0"
-        leagueSlug={leagueSlug}
-        waiverPriorityLabel={summary.waiverPriorityLabel}
-        ownerName={summary.ownerName}
-        ownerUserId={summary.ownerUserId}
-        previous={summary.previous}
-        current={summary.current}
-        breakdown={rosterBreakdown}
-      />
-    </div>
+    <>
+      <div className="flex flex-col gap-8 lg:flex-row lg:items-start">
+        {rosterColumn}
+        <TeamSummaryPanel
+          className="lg:sticky lg:top-20 lg:w-64 lg:shrink-0"
+          leagueSlug={leagueSlug}
+          waiverPriorityLabel={summary.waiverPriorityLabel}
+          ownerName={summary.ownerName}
+          ownerUserId={summary.ownerUserId}
+          previous={summary.previous}
+          current={summary.current}
+          breakdown={rosterBreakdown}
+        />
+      </div>
+      {breakdownDialog}
+    </>
   );
 }
