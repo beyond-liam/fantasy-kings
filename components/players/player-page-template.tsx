@@ -12,7 +12,10 @@ export function PlayerPageTemplate({ profile }: PlayerPageTemplateProps) {
     <div className="flex min-w-0 flex-1 flex-col">
       {/* Clip hero full-bleed only — not the overlapping avatar */}
       <div className="overflow-x-hidden">
-        <PlayerPageHero nflTeam={profile.nflTeam} />
+        <PlayerPageHero
+          nflTeam={profile.nflTeam}
+          leagueSlug={profile.leagueSlug}
+        />
       </div>
 
       {/* Container queries so side-by-side tracks content width (league sidebar), not viewport */}

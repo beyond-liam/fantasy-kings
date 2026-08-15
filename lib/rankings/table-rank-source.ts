@@ -43,6 +43,8 @@ export function statsWeekHasOccurred(
  * then zeros (played 0s, then unplayed in projection order), then negatives.
  * Weeks that have not been played yet use the latest counting week's hybrid
  * ranks. Before counting games start, Stats still uses season-long projected rank.
+ *
+ * Player identity card uses this Stats source for the current NFL season.
  */
 export function resolveTablePositionRanks(input: {
   kind: "projection" | "stats";

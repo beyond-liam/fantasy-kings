@@ -369,7 +369,7 @@ export function RosterCompareTable({
         id: "remainingSosRank",
         title: "rSOS",
         tooltip:
-          "Remaining strength of schedule (avg matchup rank; 1 = hardest)",
+          "Remaining strength of schedule (avg matchup rank; 1 = easiest)",
         higherIsBetter: false,
         deltaKind: "int",
         format: (v) => formatSos(v),

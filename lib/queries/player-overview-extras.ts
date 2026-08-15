@@ -26,7 +26,7 @@ import {
   difficultyFromPositionSosRank,
   rankTeamsBySosRate,
   sosBlendWeights,
-  sosHigherRateIsHarder,
+  sosHigherRateIsEasier,
   sosTopNForPosition,
   sosWeeklyAllowedRate,
 } from "@/lib/players/sos-thresholds";
@@ -352,18 +352,11 @@ function pushAllowedScore(
 }
 
 /**
- * Skill positions: top fantasy scorer vs that defense.
- * DEF: NFL points the offense scored (pts_allow on the facing DEF bag).
+ * Top fantasy scorer vs that opponent at this position (higher = easier).
  */
 function sosWeekRateFromRow(input: {
-  positionId: string;
   fantasyPts: number | null;
-  stats: Record<string, number | null>;
 }): number | null {
-  if (input.positionId === "DEF") {
-    const ptsAllow = numStat(input.stats, "pts_allow");
-    return ptsAllow != null && Number.isFinite(ptsAllow) ? ptsAllow : null;
-  }
   return input.fantasyPts != null && Number.isFinite(input.fantasyPts)
     ? input.fantasyPts
     : null;
@@ -414,9 +407,7 @@ async function loadPtsAllowedWeekTotals(input: {
         input.rules,
       );
       const rate = sosWeekRateFromRow({
-        positionId: input.positionId,
         fantasyPts,
-        stats: row.stats,
       });
       if (rate == null) continue;
       const team = normalizeNflTeamAbbrev(row.nflTeam);
@@ -517,9 +508,7 @@ async function loadWeeklyFinishesAndSos(input: {
 
     for (const row of scored) {
       const rate = sosWeekRateFromRow({
-        positionId: input.positionId,
         fantasyPts: row.fantasyPts,
-        stats: row.stats,
       });
       if (rate == null) continue;
       const team = normalizeNflTeamAbbrev(row.nflTeam);
@@ -611,7 +600,7 @@ async function loadWeeklyFinishesAndSos(input: {
 
   const sosByTeam = rankTeamsBySosRate(
     blendedAvg,
-    sosHigherRateIsHarder(input.positionId),
+    sosHigherRateIsEasier(input.positionId),
   );
   const teamCount = sosByTeam.rankByTeam.size;
   const matchupRanksByWeek: Record<number, number> = {};

@@ -264,11 +264,10 @@ export type OverviewSosWeek = {
   difficulty: OverviewMatchupBucketId | null;
   /** 1 = easy … 3 = hard (legacy bucket axis). */
   rating: number | null;
-  /** 1 = hardest … 32 = easiest. */
+  /** 1 = easiest … 32 = hardest. */
   matchupRank: number | null;
   /**
-   * Skill: FPts allowed to this position / game.
-   * DEF: opponent offense NFL points scored / game.
+   * FPts allowed to this position / game.
    */
   ptsAllowed: number | null;
   fpts: number | null;
@@ -319,7 +318,7 @@ export type OverviewRosterCompareSeedRow = {
   avgWeeklyFinish: number | null;
   /** 0–100 share of scored weeks at/above the position startable barometer. */
   startablePct: number | null;
-  /** Mean remaining matchup rank (1 = hardest). */
+  /** Mean remaining matchup rank (1 = easiest). */
   remainingSosRank: number | null;
 };
 
@@ -351,7 +350,7 @@ export type OverviewExtrasSeed = {
    */
   scoresThroughWeek?: number;
   matchupDifficultyByWeek: Record<number, OverviewMatchupBucketId>;
-  /** 1 = hardest … 32 = easiest. */
+  /** 1 = easiest … 32 = hardest. */
   matchupRanksByWeek: Record<number, number>;
   ptsAllowedByWeek: Record<number, number>;
   playoffWeeks: number[];
@@ -2587,7 +2586,7 @@ function buildMatchupDifficulty(
       id,
       label: BUCKET_LABELS[id],
       games: matched.length,
-      /** Mean rate for opponents in this bucket (allowed/G or opp PPG for DEF). */
+      /** Mean FPts allowed / game for opponents in this bucket. */
       fptsPerGame: mean(allowedValues),
       opponents,
     };

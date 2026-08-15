@@ -72,6 +72,18 @@ describe("resolveTablePositionRanks", () => {
     );
   });
 
+  it("uses current-week hybrid ranks for the identity card once counting games exist", () => {
+    assert.deepEqual(
+      resolveTablePositionRanks({
+        kind: "stats",
+        scorePoint: { week: 2, seasonType: "pre" },
+        statsPoint: { week: 2, seasonType: "pre" },
+        isCurrentSeason: true,
+      }),
+      { kind: "stats", week: 2, seasonType: "pre" },
+    );
+  });
+
   it("uses season actual ranks for stats weeks that have not been played yet", () => {
     assert.deepEqual(
       resolveTablePositionRanks({

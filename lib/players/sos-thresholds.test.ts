@@ -9,7 +9,7 @@ import {
   difficultyFromSosRank,
   rankTeamsBySosRate,
   sosBlendWeights,
-  sosHigherRateIsHarder,
+  sosHigherRateIsEasier,
   sosRateUnitLabel,
   sosTopNForPosition,
   sosWeeklyAllowedRate,
@@ -75,37 +75,37 @@ describe("sosWeeklyAllowedRate", () => {
   });
 });
 
-describe("sosHigherRateIsHarder / sosRateUnitLabel", () => {
-  it("ranks high rates first for DEF and K", () => {
-    assert.equal(sosHigherRateIsHarder("DEF"), true);
-    assert.equal(sosHigherRateIsHarder("K"), true);
-    assert.equal(sosHigherRateIsHarder("WR"), false);
-    assert.equal(sosRateUnitLabel("DEF"), "opp PPG");
+describe("sosHigherRateIsEasier / sosRateUnitLabel", () => {
+  it("ranks high allowed rates first for every position", () => {
+    assert.equal(sosHigherRateIsEasier("WR"), true);
+    assert.equal(sosHigherRateIsEasier("K"), true);
+    assert.equal(sosHigherRateIsEasier("DEF"), true);
+    assert.equal(sosRateUnitLabel("DEF"), "allowed/G");
     assert.equal(sosRateUnitLabel("WR"), "allowed/G");
   });
 });
 
 describe("rankTeamsBySosRate", () => {
-  it("ranks low rates as hard for skill positions", () => {
+  it("ranks high allowed rates as easy for skill positions", () => {
     const ranked = rankTeamsBySosRate(
       new Map([
         ["HOU", 8],
         ["TEN", 20],
         ["IND", 14],
       ]),
-      false,
+      true,
     );
-    assert.equal(ranked.rankByTeam.get("HOU"), 1);
+    assert.equal(ranked.rankByTeam.get("TEN"), 1);
     assert.equal(ranked.rankByTeam.get("IND"), 2);
-    assert.equal(ranked.rankByTeam.get("TEN"), 3);
+    assert.equal(ranked.rankByTeam.get("HOU"), 3);
   });
 
-  it("ranks high offense PPG as hard for DEF", () => {
+  it("ranks high DEF fantasy allowed as easy", () => {
     const ranked = rankTeamsBySosRate(
       new Map([
-        ["KC", 28],
-        ["CAR", 14],
-        ["BUF", 24],
+        ["KC", 18],
+        ["CAR", 6],
+        ["BUF", 12],
       ]),
       true,
     );
@@ -116,16 +116,12 @@ describe("rankTeamsBySosRate", () => {
 });
 
 describe("summarizeSosSchedule", () => {
-  it("labels skill/DEF schedules from mean rank", () => {
-    assert.equal(summarizeSosSchedule(5, "WR")?.headline, "Typically difficult");
+  it("labels schedules from mean rank (#1 = easiest)", () => {
+    assert.equal(summarizeSosSchedule(5, "WR")?.headline, "Typically easy");
     assert.equal(summarizeSosSchedule(16, "WR")?.headline, "Typically average");
-    assert.equal(summarizeSosSchedule(28, "TE")?.headline, "Typically easy");
-    assert.equal(summarizeSosSchedule(4, "DEF")?.headline, "Typically difficult");
-  });
-
-  it("inverts bands for kickers", () => {
+    assert.equal(summarizeSosSchedule(28, "TE")?.headline, "Typically difficult");
+    assert.equal(summarizeSosSchedule(4, "DEF")?.headline, "Typically easy");
     assert.equal(summarizeSosSchedule(3, "K")?.headline, "Typically easy");
-    assert.equal(summarizeSosSchedule(16, "K")?.headline, "Typically average");
     assert.equal(summarizeSosSchedule(28, "K")?.headline, "Typically difficult");
   });
 });
@@ -142,33 +138,34 @@ describe("difficultyFromKickerDefenseRank", () => {
 });
 
 describe("difficultyFromPositionSosRank", () => {
-  it("routes DEF / K / skill to the right bands", () => {
-    assert.equal(difficultyFromPositionSosRank("DEF", 1), "hard");
+  it("treats #1 as easiest for DEF, K, and skill", () => {
+    assert.equal(difficultyFromPositionSosRank("DEF", 1), "easy");
     assert.equal(difficultyFromPositionSosRank("K", 1), "easy");
-    assert.equal(difficultyFromPositionSosRank("WR", 1), "hard");
+    assert.equal(difficultyFromPositionSosRank("WR", 1), "easy");
+    assert.equal(difficultyFromPositionSosRank("QB", 32), "hard");
   });
 });
 
 describe("difficultyFromDefOffenseRank", () => {
-  it("buckets top / middle / bottom scoring offenses on a 32-team slate", () => {
-    assert.equal(difficultyFromDefOffenseRank(1, 32), "hard");
-    assert.equal(difficultyFromDefOffenseRank(8, 32), "hard");
+  it("uses the same easy-first bands as skill SoS", () => {
+    assert.equal(difficultyFromDefOffenseRank(1, 32), "easy");
+    assert.equal(difficultyFromDefOffenseRank(8, 32), "easy");
     assert.equal(difficultyFromDefOffenseRank(9, 32), "mid");
     assert.equal(difficultyFromDefOffenseRank(23, 32), "mid");
-    assert.equal(difficultyFromDefOffenseRank(24, 32), "easy");
-    assert.equal(difficultyFromDefOffenseRank(32, 32), "easy");
+    assert.equal(difficultyFromDefOffenseRank(24, 32), "hard");
+    assert.equal(difficultyFromDefOffenseRank(32, 32), "hard");
     assert.equal(difficultyFromDefOffenseRank(null), null);
   });
 });
 
 describe("difficultyFromSosRank", () => {
-  it("buckets 32 defenses ~8 Hard / 16 Avg / 8 Easy (1 = stingiest)", () => {
-    assert.equal(difficultyFromSosRank(1, 32), "hard");
-    assert.equal(difficultyFromSosRank(8, 32), "hard");
+  it("buckets 32 defenses ~8 Easy / 16 Avg / 8 Hard (1 = easiest)", () => {
+    assert.equal(difficultyFromSosRank(1, 32), "easy");
+    assert.equal(difficultyFromSosRank(8, 32), "easy");
     assert.equal(difficultyFromSosRank(9, 32), "mid");
-    assert.equal(difficultyFromSosRank(24, 32), "mid");
-    assert.equal(difficultyFromSosRank(25, 32), "easy");
-    assert.equal(difficultyFromSosRank(32, 32), "easy");
+    assert.equal(difficultyFromSosRank(23, 32), "mid");
+    assert.equal(difficultyFromSosRank(24, 32), "hard");
+    assert.equal(difficultyFromSosRank(32, 32), "hard");
   });
 
   it("returns null without a rank", () => {

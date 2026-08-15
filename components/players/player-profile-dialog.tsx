@@ -261,8 +261,8 @@ function PlayerProfileHeader({
             <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-sm tabular-nums">
               <span>
                 <span className="font-semibold">
-                  {profile.positionRank != null
-                    ? `#${profile.positionRank}`
+                  {profile.identity.positionRank != null
+                    ? `#${profile.identity.positionRank}`
                     : "—"}
                 </span>{" "}
                 <span style={{ color: muted }}>

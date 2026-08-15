@@ -138,25 +138,25 @@ const REGULAR_SEASON_END_WEEK = getRegularSeasonEndWeek(
   WIZARD_DEFAULTS.playoffTeamCount,
 );
 
-/** Matchup ranks 1 = hardest … 32 = easiest (bye omitted). */
+/** Matchup ranks 1 = easiest … 32 = hardest (bye omitted). */
 const SHARED_RANKS: Record<number, number> = {
-  1: 29,
-  2: 24,
-  3: 27,
-  4: 6,
-  5: 22,
-  6: 8,
-  7: 4,
-  9: 18,
-  10: 26,
-  11: 5,
-  12: 3,
-  13: 16,
-  14: 20,
-  15: 14,
-  16: 7,
-  17: 25,
-  18: 28,
+  1: 4,
+  2: 9,
+  3: 6,
+  4: 27,
+  5: 11,
+  6: 25,
+  7: 29,
+  9: 15,
+  10: 7,
+  11: 28,
+  12: 30,
+  13: 17,
+  14: 13,
+  15: 19,
+  16: 26,
+  17: 8,
+  18: 5,
 };
 
 const SHARED_PTS_ALLOWED: Record<number, number> = {

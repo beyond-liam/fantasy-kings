@@ -1,7 +1,7 @@
 # Fantasy Kings — Project Specification
 
 > Living document. Update this file as requirements, decisions, and scope change.
-> Last updated: 2026-08-14
+> Last updated: 2026-08-15
 
 ---
 
@@ -912,3 +912,6 @@ lib/
 | 2026-08-14 | Data tables: rows-per-page select (10 / 25 / 50, default 25) |
 | 2026-08-14 | Players / Rankings default to Stats once counting games have started (Projection remains the default before) |
 | 2026-08-14 | Position stat columns follow Sleeper keys: passing-first QBs (incl. INT), rush/FUM/rec RBs, rec-then-rush WR/TE, K FGA/FGM/40–49/50+/XP; team DEF SACK/TFL/INT/FF/FR/DEF TD/ST TD/KR TD/PA; IDP without PD/QBH |
+| 2026-08-15 | Player identity card RANK matches Players Stats once counting games have started (hybrid actuals, not season-long projection) |
+| 2026-08-15 | Player profile Back returns to the page that opened it (season changes replace the URL and do not stack history) |
+| 2026-08-15 | Player SoS rank #1 = easiest matchup (most FPts allowed); #32 = hardest. Same for skill, K, and team DEF. Tooltip follows Easy/Hard colors |

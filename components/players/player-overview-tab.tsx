@@ -677,21 +677,11 @@ function SosOpponentBadge({
   opponent: OverviewMatchupBucketOpponent;
   positionId: string;
 }) {
-  const isDef = positionId === "DEF";
-  const isK = positionId === "K";
   const rateUnit = sosRateUnitLabel(positionId);
   const rankLabel =
     opponent.matchupRank != null
-      ? isDef
-        ? `#${opponent.matchupRank} scoring offense`
-        : isK
-          ? `#${opponent.matchupRank} against opposing kickers`
-          : `#${opponent.matchupRank} vs opposing ${positionId}`
-      : isDef
-        ? "— offense rank"
-        : isK
-          ? "— vs opposing kickers"
-          : `— vs opposing ${positionId}`;
+      ? `#${opponent.matchupRank} vs opposing ${positionId}`
+      : `— vs opposing ${positionId}`;
   const allowedLabel =
     opponent.ptsAllowed != null
       ? `${formatPts(opponent.ptsAllowed)} ${rateUnit}`
@@ -2854,13 +2844,7 @@ export function PlayerOverviewTab({
 
       <Section
         title="Strength of Schedule"
-        description={
-          overview.primaryPositionId === "DEF"
-            ? "Buckets by opposing offense scoring rank (1–8 Hard · 9–23 Average · 24–32 Easy); gold arc marks fantasy playoffs."
-            : overview.primaryPositionId === "K"
-              ? "Buckets by FPts defenses allow to kickers (1–8 Easy · 9–23 Average · 24–32 Hard); gold arc marks fantasy playoffs."
-              : "Buckets by FPts defenses allow to fantasy-relevant players at this position; gold arc marks fantasy playoffs."
-        }
+        description="Buckets by FPts allowed to this position (1–8 Easy · 9–23 Average · 24–32 Hard); gold arc marks fantasy playoffs."
       >
         {matchupDifficulty ? (
           <div className="grid items-center gap-6 lg:grid-cols-2">

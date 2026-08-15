@@ -1,16 +1,11 @@
 /**
- * Player SoS: opponents ranked by a positional rate / game, then bucketed
- * by percentile (~25% Easy / ~50% Average / ~25% Hard).
+ * Player SoS: opponents ranked by FPts allowed to this position / game,
+ * then bucketed by percentile (~25% Easy / ~50% Average / ~25% Hard).
  *
- * Skill positions (QB/RB/WR/TE/K): top fantasy scorer vs that defense
- * (higher allowed = easier). Rank 1 = stingiest defense.
+ * Rank 1 = easiest matchup (most FPts allowed), rank 32 = hardest.
+ * Same for skill, K, and team DEF.
  *
- * Team DEF: opponent offense NFL points scored (pts_allow on the DEF bag)
- * (higher PPG = harder). Rank 1 = highest-scoring offense.
- * Buckets by rank: top 8 Hard · middle Average · bottom 9 Easy (on 32 teams).
- *
- * Kickers: FPts allowed to K (higher = easier). Rank 1 = most generous DEF.
- * Buckets by rank: top 8 Easy · middle Average · bottom 9 Hard (on 32 teams).
+ * Buckets by rank (32-team slate): 1–8 Easy · 9–23 Average · 24–32 Hard.
  *
  * Early-season rates may blend prior + current season (see sosBlendWeights).
  * Bye weeks are never part of the sample.
@@ -23,34 +18,17 @@ export type SosBlendWeights = {
   current: number;
 };
 
-/** DEF/K rank high rates as #1; skill positions rank low allowed as #1 (hard). */
-export function sosHigherRateIsHarder(positionId: string): boolean {
-  return positionId === "DEF" || positionId === "K";
+/** Higher FPts allowed = easier matchup (#1) for every position. */
+export function sosHigherRateIsEasier(positionId: string): boolean {
+  void positionId;
+  return true;
 }
 
 /**
- * Team DEF SoS by offense scoring rank (1 = highest PPG).
- * On a 32-team slate: 1–8 Hard · 9–23 Average · 24–32 Easy.
- */
-export function difficultyFromDefOffenseRank(
-  rank: number | null | undefined,
-  teamCount = 32,
-): SosMatchupBucketId | null {
-  if (rank == null || !Number.isFinite(rank) || rank < 1 || teamCount < 1) {
-    return null;
-  }
-  const hardMax = Math.max(1, Math.round((teamCount * 8) / 32));
-  const easyStart = Math.max(hardMax + 1, Math.round((teamCount * 24) / 32));
-  if (rank <= hardMax) return "hard";
-  if (rank >= easyStart) return "easy";
-  return "mid";
-}
-
-/**
- * Kicker SoS by FPts allowed to K (1 = most generous defense).
+ * Rank 1 = easiest matchup.
  * On a 32-team slate: 1–8 Easy · 9–23 Average · 24–32 Hard.
  */
-export function difficultyFromKickerDefenseRank(
+export function difficultyFromSosRank(
   rank: number | null | undefined,
   teamCount = 32,
 ): SosMatchupBucketId | null {
@@ -64,18 +42,29 @@ export function difficultyFromKickerDefenseRank(
   return "mid";
 }
 
+/** Team DEF SoS uses the same #1 = easiest bands as skill/K. */
+export function difficultyFromDefOffenseRank(
+  rank: number | null | undefined,
+  teamCount = 32,
+): SosMatchupBucketId | null {
+  return difficultyFromSosRank(rank, teamCount);
+}
+
+/** Kicker SoS: 1 = most generous defense. Same bands as skill/DEF. */
+export function difficultyFromKickerDefenseRank(
+  rank: number | null | undefined,
+  teamCount = 32,
+): SosMatchupBucketId | null {
+  return difficultyFromSosRank(rank, teamCount);
+}
+
 /** Resolve Easy/Mid/Hard for a position from SoS rank. */
 export function difficultyFromPositionSosRank(
   positionId: string,
   rank: number | null | undefined,
   teamCount = 32,
 ): SosMatchupBucketId | null {
-  if (positionId === "DEF") {
-    return difficultyFromDefOffenseRank(rank, teamCount);
-  }
-  if (positionId === "K") {
-    return difficultyFromKickerDefenseRank(rank, teamCount);
-  }
+  void positionId;
   return difficultyFromSosRank(rank, teamCount);
 }
 
@@ -89,13 +78,14 @@ export type SosScheduleSummary = {
 
 /**
  * Overall slate read from mean matchup rank.
- * Skill/DEF: low rank = harder. K: low rank = easier (most K pts allowed).
+ * Low rank = easier (#1 = best matchup) for every position.
  */
 export function summarizeSosSchedule(
   averageMatchupRank: number | null | undefined,
   positionId: string,
   teamCount = 32,
 ): SosScheduleSummary | null {
+  void positionId;
   if (
     averageMatchupRank == null ||
     !Number.isFinite(averageMatchupRank) ||
@@ -103,22 +93,9 @@ export function summarizeSosSchedule(
   ) {
     return null;
   }
-  const easyMax = Math.max(1, Math.round((teamCount * 8) / 32));
-  const hardStart = Math.max(easyMax + 1, Math.round((teamCount * 24) / 32));
-  const avg = averageMatchupRank;
-  const inverted = positionId === "K";
-
-  let id: SosMatchupBucketId;
-  if (inverted) {
-    if (avg <= easyMax) id = "easy";
-    else if (avg >= hardStart) id = "hard";
-    else id = "mid";
-  } else if (avg <= easyMax) {
-    id = "hard";
-  } else if (avg >= hardStart) {
-    id = "easy";
-  } else {
-    id = "mid";
+  const id = difficultyFromSosRank(averageMatchupRank, teamCount);
+  if (!id) {
+    return null;
   }
 
   const adjective =
@@ -132,7 +109,8 @@ export function summarizeSosSchedule(
 
 /** Legend unit next to bucket rates. */
 export function sosRateUnitLabel(positionId: string): string {
-  return positionId === "DEF" ? "opp PPG" : "allowed/G";
+  void positionId;
+  return "allowed/G";
 }
 
 /**
@@ -207,12 +185,11 @@ export function blendSosRate(
 }
 
 /**
- * Rank 1 = hardest matchup.
- * Skill: fewest FPts allowed. DEF: highest opponent PPG.
+ * Rank 1 = easiest matchup (highest FPts allowed first).
  */
 export function rankTeamsBySosRate(
   avgByTeam: Map<string, number>,
-  higherIsHarder: boolean,
+  higherIsEasier: boolean,
 ): {
   rankByTeam: Map<string, number>;
   avgByTeam: Map<string, number>;
@@ -221,7 +198,7 @@ export function rankTeamsBySosRate(
     .map(([team, avg]) => ({ team, avg }))
     .filter((row) => Number.isFinite(row.avg))
     .toSorted((a, b) => {
-      const byRate = higherIsHarder ? b.avg - a.avg : a.avg - b.avg;
+      const byRate = higherIsEasier ? b.avg - a.avg : a.avg - b.avg;
       return byRate || a.team.localeCompare(b.team);
     });
 
@@ -232,23 +209,4 @@ export function rankTeamsBySosRate(
     rankedAvg.set(row.team, row.avg);
   });
   return { rankByTeam, avgByTeam: rankedAvg };
-}
-
-/**
- * Rank 1 = hardest matchup.
- * ~top 25% Hard, ~bottom 25% Easy, middle Average.
- */
-export function difficultyFromSosRank(
-  rank: number | null | undefined,
-  teamCount = 32,
-): SosMatchupBucketId | null {
-  if (rank == null || !Number.isFinite(rank) || rank < 1 || teamCount < 1) {
-    return null;
-  }
-  const hardCount = Math.max(1, Math.round(teamCount * 0.25));
-  const easyCount = Math.max(1, Math.round(teamCount * 0.25));
-  const easyStart = teamCount - easyCount + 1;
-  if (rank <= hardCount) return "hard";
-  if (rank >= easyStart) return "easy";
-  return "mid";
 }

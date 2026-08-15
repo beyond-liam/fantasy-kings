@@ -9,7 +9,10 @@ import {
   ChartTooltip,
   type ChartConfig,
 } from "@/components/ui/chart";
-import type { OverviewMatchupDifficulty } from "@/lib/players/overview-metrics";
+import type {
+  OverviewMatchupBucketId,
+  OverviewMatchupDifficulty,
+} from "@/lib/players/overview-metrics";
 import { formatOpponentTick } from "@/lib/players/overview-metrics";
 import { cn } from "@/lib/utils";
 
@@ -42,6 +45,7 @@ type WheelSlice = {
   fill: string;
   isBye: boolean;
   isPlayoff: boolean;
+  difficulty: OverviewMatchupBucketId | null;
   matchupRank: number | null;
   ptsAllowed: number | null;
   opponent: string | null;
@@ -173,6 +177,7 @@ export function ScheduleWheel({
           : base,
       isBye: w.isBye,
       isPlayoff: w.isPlayoff,
+      difficulty: w.difficulty,
       matchupRank: w.matchupRank,
       ptsAllowed: w.ptsAllowed,
       opponent: w.opponent,
@@ -187,6 +192,7 @@ export function ScheduleWheel({
     fill: w.isPlayoff ? "var(--warning)" : "transparent",
     isBye: w.isBye,
     isPlayoff: w.isPlayoff,
+    difficulty: w.difficulty,
     matchupRank: w.matchupRank,
     ptsAllowed: w.ptsAllowed,
     opponent: w.opponent,
@@ -234,9 +240,9 @@ export function ScheduleWheel({
               }
               const rank = row.matchupRank;
               const tone =
-                rank != null && rank >= 23
+                row.difficulty === "hard"
                   ? "looks like one to avoid"
-                  : rank != null && rank <= 10
+                  : row.difficulty === "easy"
                     ? "looks friendly"
                     : "looks about average";
               return (

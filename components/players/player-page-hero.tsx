@@ -8,10 +8,15 @@ import { cn } from "@/lib/utils";
 
 type PlayerPageHeroProps = {
   nflTeam: string | null;
+  leagueSlug?: string | null;
   className?: string;
 };
 
-export function PlayerPageHero({ nflTeam, className }: PlayerPageHeroProps) {
+export function PlayerPageHero({
+  nflTeam,
+  leagueSlug,
+  className,
+}: PlayerPageHeroProps) {
   const team = getNflTeamColors(nflTeam);
   const headerBg = team?.header ?? undefined;
   const stadiumUrl = getNflTeamStadiumUrl(nflTeam);
@@ -53,7 +58,7 @@ export function PlayerPageHero({ nflTeam, className }: PlayerPageHeroProps) {
       />
 
       <div className="absolute inset-x-0 top-0 z-10 px-4 pt-3 sm:px-6 sm:pt-4">
-        <PlayerPageBackButton />
+        <PlayerPageBackButton leagueSlug={leagueSlug} />
       </div>
     </div>
   );

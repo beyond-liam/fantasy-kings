@@ -66,6 +66,8 @@ import {
   parsePositionFilter,
   type StatColumn,
 } from "@/lib/rankings/column-config";
+import { getTablePositionRankMap } from "@/lib/rankings/position-rank-map";
+import { resolveTablePositionRanks } from "@/lib/rankings/table-rank-source";
 import { getPlayerRosterRatesMap } from "@/lib/queries/player-roster-rates";
 import { getNflTeamSchedule } from "@/lib/espn/team-schedule";
 import {
@@ -136,6 +138,8 @@ export type PlayerProfile = {
   availableSeasons: string[];
   /**
    * Identity card always uses the NFL current season (projections, rank, bye).
+   * Rank matches Players Stats: hybrid actuals once counting games have
+   * started, otherwise season-long projected rank.
    * Panel tabs follow `season` from the year toggle.
    */
   identity: {
@@ -212,6 +216,60 @@ function pickPositionRank(stats: Record<string, number | null>): number | null {
     return Math.round(sleeperRank);
   }
   return null;
+}
+
+/** Current-season card rank — same source as League Players Stats. */
+async function loadCurrentSeasonPositionRank(input: {
+  playerId: string;
+  season: string;
+  statsPoint: { week: number; seasonType?: string };
+  rules: ScoringRuleDefinition[];
+}): Promise<number | null> {
+  const source = resolveTablePositionRanks({
+    kind: "stats",
+    scorePoint: input.statsPoint,
+    statsPoint: input.statsPoint,
+    isCurrentSeason: true,
+  });
+  const ranks = await getTablePositionRankMap({
+    season: input.season,
+    scoringRules: input.rules,
+    source,
+  });
+  const rank = ranks.get(input.playerId);
+  if (rank != null) {
+    return rank;
+  }
+  return loadPriorSeasonPosRank({
+    playerId: input.playerId,
+    season: input.season,
+  });
+}
+
+async function loadSeasonPositionRank(input: {
+  playerId: string;
+  positionId: string;
+  season: string;
+  seasonType?: string;
+  rules: ScoringRuleDefinition[];
+}): Promise<number | null> {
+  const statsRank = await computeStatsPositionRank(input);
+  if (statsRank != null) {
+    return statsRank;
+  }
+  const projectionRank = await computeProjectionPositionRank({
+    playerId: input.playerId,
+    positionId: input.positionId,
+    season: input.season,
+    rules: input.rules,
+  });
+  if (projectionRank != null) {
+    return projectionRank;
+  }
+  return loadPriorSeasonPosRank({
+    playerId: input.playerId,
+    season: input.season,
+  });
 }
 
 /** Rank player among season actuals at their position (league scoring). */
@@ -941,6 +999,13 @@ export const getPlayerProfile = cache(
         })
       : { seasonType: "regular" as const, week: 0 };
 
+    const currentSeasonRankPromise = loadCurrentSeasonPositionRank({
+      playerId: player.id,
+      season: identitySeason,
+      statsPoint: identityStatsPoint,
+      rules: scoringRules,
+    });
+
     const [
       scoreBundle,
       ratesMap,
@@ -958,23 +1023,15 @@ export const getPlayerProfile = cache(
         statsSeasonType: statsPoint.seasonType,
       }),
       getPlayerRosterRatesMap([player.id]),
-      computeStatsPositionRank({
-        playerId: player.id,
-        positionId: player.primaryPositionId,
-        season,
-        seasonType: statsPoint.seasonType,
-        rules: scoringRules,
-      }).then(async (statsRank) => {
-        if (statsRank != null) return statsRank;
-        const projectionRank = await computeProjectionPositionRank({
-          playerId: player.id,
-          positionId: player.primaryPositionId,
-          season,
-          rules: scoringRules,
-        });
-        if (projectionRank != null) return projectionRank;
-        return loadPriorSeasonPosRank({ playerId: player.id, season });
-      }),
+      season === currentSeason
+        ? currentSeasonRankPromise
+        : loadSeasonPositionRank({
+            playerId: player.id,
+            positionId: player.primaryPositionId,
+            season,
+            seasonType: statsPoint.seasonType,
+            rules: scoringRules,
+          }),
       statsPoint.seasonType === "pre"
         ? getNflTeamSchedule({
             nflTeam: player.nflTeam,
@@ -997,20 +1054,7 @@ export const getPlayerProfile = cache(
             statsSeasonType: identityStatsPoint.seasonType,
           })
         : Promise.resolve(null),
-      needsIdentitySeason
-        ? computeProjectionPositionRank({
-            playerId: player.id,
-            positionId: player.primaryPositionId,
-            season: identitySeason,
-            rules: scoringRules,
-          }).then(async (rank) => {
-            if (rank != null) return rank;
-            return loadPriorSeasonPosRank({
-              playerId: player.id,
-              season: identitySeason,
-            });
-          })
-        : Promise.resolve(null),
+      currentSeasonRankPromise,
     ]);
 
     const { seasonProjection, gameLog: scoreGameLog } = scoreBundle;
@@ -1082,7 +1126,7 @@ export const getPlayerProfile = cache(
       : {
           season: identitySeason,
           byeWeek,
-          positionRank,
+          positionRank: identityPositionRank,
           seasonProjection,
           seasonStats,
         };

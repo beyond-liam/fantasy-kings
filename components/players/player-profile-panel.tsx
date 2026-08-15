@@ -60,7 +60,7 @@ export function PlayerProfilePanel({ profile }: PlayerProfilePanelProps) {
             onSeasonChange={(nextSeason) => {
               setWithoutActive(false);
               startTransition(() => {
-                router.push(
+                router.replace(
                   playerProfileHref({
                     playerId: profile.publicId,
                     leagueSlug: profile.leagueSlug,
