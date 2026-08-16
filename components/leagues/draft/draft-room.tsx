@@ -255,12 +255,22 @@ export function DraftRoom({
     ? (teams.find((team) => team.id === onTheClockLive.teamId) ?? null)
     : null;
   const onClockIsOpenSlot = Boolean(onClockTeam && onClockTeam.userId == null);
-  const autopickAllowed = clockEnabled || onClockIsOpenSlot;
 
   const queuedPlayerIds = useMemo(
     () => queuedItems.map((item) => item.playerId),
     [queuedItems],
   );
+
+  const onClockAllowsAutopick =
+    onClockIsOpenSlot || Boolean(onClockTeam?.autoPickEnabled);
+  const myQueueReady =
+    !myTeamId ||
+    onClockTeam?.id !== myTeamId ||
+    queuedPlayerIds.length > 0;
+  const autopickAllowed =
+    (clockEnabled || onClockIsOpenSlot) &&
+    onClockAllowsAutopick &&
+    (onClockIsOpenSlot || myQueueReady);
 
   const picksUntilUser = useMemo(() => {
     if (

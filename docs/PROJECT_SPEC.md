@@ -282,8 +282,9 @@ Two variants via the `Empty` **`size`** prop:
 - Mock draft room at app level (practice) — **solo vs need-aware ADP bots only**; no friends lobby
 - Fully customizable: snake vs linear, manual order edits **(snake/linear + pick clock + autopick honored in live room)**
 - Auto-start at scheduled `draftStartAt` **(cron + draft-room client trigger)**
-- Autopick on pick-clock expiry **(`/api/cron/process-draft-picks` + draft-room fallback)** — always, whenever a pick timer is on
+- Autopick on pick-clock expiry **(`/api/cron/process-draft-picks` + draft-room fallback)** — per-team toggle; queue only (empty queue waits). Open seats still queue→BPA
 - Open/unclaimed slots autodraft even with no pick clock
+- Per-manager Autopick on My Team settings (queue on expiry; no best-available fallback)
 - Pause preserves remaining pick-clock time (`turnExpiresAt` / `pausedSecondsRemaining`)
 - **Email alerts (Brevo):** see Notifications; draft-specific:
   - Live draft: tomorrow + 15 minutes before start (`/api/cron/draft-reminders`)
@@ -728,6 +729,7 @@ lib/
 
 | Date | Change |
 |---|---|
+| 2026-08-16 | Per-team Autopick restored: on clock expiry pick from queue only; empty queue waits (no BPA). League autopick toggle stays removed |
 | 2026-08-16 | Activity: commissioner-on-behalf draft picks show “Drafted by Commissioner” |
 | 2026-08-16 | Timed drafts always autodraft on clock expiry (queue, then best available); removed league/team autopick toggles |
 | 2026-08-16 | Overview: season Passing/Rushing/Receiving sum weekly stats (preseason has no week-0 totals); Underachiever OPF lookup maps fantasy week → NFL week |

@@ -28,7 +28,7 @@ export type RunDraftAutopickResult =
       teamName: string;
       isComplete: boolean;
     }
-  | { ok: false; error: string; reason?: "not_due" | "other" };
+  | { ok: false; error: string; reason?: "not_due" | "disabled" | "no_queue" | "other" };
 
 /**
  * Autopick the current on-clock seat when due.
@@ -125,6 +125,16 @@ export async function runDraftAutopick(input: {
     }
   }
 
+  // Claimed seats only autopick when the manager opted in (queue-only).
+  // Open/unclaimed seats always autodraft (queue, then best available).
+  if (!isOpenSlot && !onClockTeam?.autoPickEnabled) {
+    return {
+      ok: false,
+      error: "Autopick is off for this team.",
+      reason: "disabled",
+    };
+  }
+
   const playerId = await selectAutopickPlayerId({
     draftId: draft.id,
     currentPickIndex: draft.currentPickIndex,
@@ -133,9 +143,17 @@ export async function runDraftAutopick(input: {
     settings: season.settings,
     benchSlots: season.benchSlots,
     scoringPreset: season.scoringPreset,
+    queueOnly: !isOpenSlot,
   });
 
   if (!playerId) {
+    if (!isOpenSlot) {
+      return {
+        ok: false,
+        error: "Queue is empty — waiting for a manual pick.",
+        reason: "no_queue",
+      };
+    }
     return {
       ok: false,
       error: "No players left to autopick.",
@@ -287,7 +305,11 @@ export async function processExpiredDraftPicks(
       });
 
       if (!outcome.ok) {
-        if (outcome.reason === "not_due") {
+        if (
+          outcome.reason === "not_due" ||
+          outcome.reason === "disabled" ||
+          outcome.reason === "no_queue"
+        ) {
           result.skipped += 1;
         } else {
           result.errors.push({

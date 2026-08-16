@@ -315,8 +315,8 @@ export async function makeDraftPick(
 }
 
 /**
- * Clock expiry / autopick: queue-first, then need-aware ADP (BPA fallback)
- * with same-position bye avoidance.
+ * Clock expiry / autopick: claimed seats with autopick on take the queue only
+ * (empty queue waits for a manual pick). Open seats still use queue → BPA.
  * Idempotent if the pick already advanced. Always enforces clock expiry so a
  * stale draft-room tab cannot fire early (cron is the authoritative path).
  */

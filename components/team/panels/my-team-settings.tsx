@@ -5,6 +5,7 @@ export type MyTeamSettingsPanelProps = {
   team: {
     name: string;
     logoUrl: string | null;
+    autoPickEnabled: boolean;
   };
 };
 
@@ -16,6 +17,7 @@ export async function MyTeamSettingsPanel({
     <TeamSettingsSection
       leagueSlug={slug}
       initialLogoUrl={team.logoUrl ?? null}
+      initialAutoPickEnabled={team.autoPickEnabled}
       initialValues={{
         name: team.name,
         logoMode: "keep",

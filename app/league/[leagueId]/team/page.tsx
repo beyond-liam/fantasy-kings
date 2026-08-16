@@ -326,6 +326,7 @@ export default async function MyTeamPage({
         team={{
           name: team.name,
           logoUrl: team.logoUrl,
+          autoPickEnabled: team.autoPickEnabled,
         }}
       />,
     );

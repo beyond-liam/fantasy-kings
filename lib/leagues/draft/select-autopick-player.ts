@@ -19,7 +19,9 @@ type AutopickSeasonTeam = {
 };
 
 /**
- * Queue-first, then need-aware ADP. Returns null when nobody is left to pick.
+ * Queue-first autopick. When `queueOnly` is true, never falls back to BPA
+ * (claimed seats with the manager autopick toggle). Open seats omit that flag
+ * so they still take need-aware ADP when the queue is empty.
  */
 export async function selectAutopickPlayerId(input: {
   draftId: string;
@@ -29,6 +31,8 @@ export async function selectAutopickPlayerId(input: {
   settings: LeagueSeasonSettings;
   benchSlots: number;
   scoringPreset: string;
+  /** When true, return null if the team queue has no available player. */
+  queueOnly?: boolean;
 }): Promise<string | null> {
   const draftSettings = resolveDraftSettings(input.settings.draft);
   const teamsWithSlots = input.seasonTeams
@@ -74,6 +78,10 @@ export async function selectAutopickPlayerId(input: {
     queueRows.find((row) => !drafted.has(row.playerId))?.playerId ?? null;
   if (queued) {
     return queued;
+  }
+
+  if (input.queueOnly) {
+    return null;
   }
 
   const { pickNeedAwarePlayer } = await import("@/lib/draft/need-aware-pick");
