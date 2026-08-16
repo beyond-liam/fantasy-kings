@@ -249,6 +249,16 @@ const ACTIVITY_TONE_CLASS: Record<
   warning: "bg-warning/10 text-warning",
 };
 
+function resolveActivityTypeLabel(item: LeagueActivityRow): string {
+  if (
+    item.type === "draft_pick" &&
+    item.metadata?.draftSource === "commissioner"
+  ) {
+    return "Drafted by Commissioner";
+  }
+  return ACTIVITY_META[item.type as FeedActivityType]?.label ?? "Activity";
+}
+
 function resolveActivitySummary(item: LeagueActivityRow): string {
   if (item.type === "settings_updated") {
     const label = formatSettingsActivityLabel(
@@ -581,7 +591,8 @@ export function LeagueActivityFeed({
                       {resolveActivitySummary(item)}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {formatActivityTime(item.createdAt)} UTC · {meta.label}
+                      {formatActivityTime(item.createdAt)} UTC ·{" "}
+                      {resolveActivityTypeLabel(item)}
                       {item.type === "waiver_awarded" ? (
                         <ClaimResolutionMeta item={item} />
                       ) : null}

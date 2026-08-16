@@ -728,6 +728,7 @@ lib/
 
 | Date | Change |
 |---|---|
+| 2026-08-16 | Activity: commissioner-on-behalf draft picks show “Drafted by Commissioner” |
 | 2026-08-16 | Timed drafts always autodraft on clock expiry (queue, then best available); removed league/team autopick toggles |
 | 2026-08-16 | Overview: season Passing/Rushing/Receiving sum weekly stats (preseason has no week-0 totals); Underachiever OPF lookup maps fantasy week → NFL week |
 | 2026-08-16 | Overview: weekly Passing/Rushing/Receiving leaders sit in This Week; Season Overview has the same three as season-to-date |
