@@ -128,7 +128,7 @@ export function DraftStep({ values, errors, onChange }: DraftStepProps) {
         <SwitchField
           id="pickTimeLimitEnabled"
           label="Pick time limit"
-          description="Limit how long each manager has on the clock."
+          description="Limit how long each manager has on the clock. Expired picks autodraft from the queue, then best available."
           checked={values.pickTimeLimitEnabled}
           onCheckedChange={(pickTimeLimitEnabled) =>
             onChange({
@@ -154,6 +154,9 @@ export function DraftStep({ values, errors, onChange }: DraftStepProps) {
               value={values.pickTimeLimit}
               onValueChange={(pickTimeLimit) => onChange({ pickTimeLimit })}
             />
+            <FieldDescription>
+              Expired picks autodraft from the queue, then best available.
+            </FieldDescription>
             {errors.pickTimeLimit ? (
               <FieldError>{errors.pickTimeLimit}</FieldError>
             ) : null}

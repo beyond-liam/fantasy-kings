@@ -501,7 +501,7 @@ export function LeagueOverview({
             This Week
             <span className="text-muted-foreground">
               {" "}
-              · W{thisWeekNumber}
+              · Week {thisWeekNumber}
             </span>
           </h2>
           {weeklyRoast ? (

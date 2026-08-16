@@ -282,8 +282,8 @@ Two variants via the `Empty` **`size`** prop:
 - Mock draft room at app level (practice) — **solo vs need-aware ADP bots only**; no friends lobby
 - Fully customizable: snake vs linear, manual order edits **(snake/linear + pick clock + autopick honored in live room)**
 - Auto-start at scheduled `draftStartAt` **(cron + draft-room client trigger)**
-- Autopick on pick-clock expiry **(`/api/cron/process-draft-picks` + draft-room fallback)**
-- Per-team autopick toggle (My Team → Settings); open/unclaimed slots forced onto autopick
+- Autopick on pick-clock expiry **(`/api/cron/process-draft-picks` + draft-room fallback)** — always, whenever a pick timer is on
+- Open/unclaimed slots autodraft even with no pick clock
 - Pause preserves remaining pick-clock time (`turnExpiresAt` / `pausedSecondsRemaining`)
 - **Email alerts (Brevo):** see Notifications; draft-specific:
   - Live draft: tomorrow + 15 minutes before start (`/api/cron/draft-reminders`)
@@ -728,6 +728,7 @@ lib/
 
 | Date | Change |
 |---|---|
+| 2026-08-16 | Timed drafts always autodraft on clock expiry (queue, then best available); removed league/team autopick toggles |
 | 2026-08-16 | Overview: season Passing/Rushing/Receiving sum weekly stats (preseason has no week-0 totals); Underachiever OPF lookup maps fantasy week → NFL week |
 | 2026-08-16 | Overview: weekly Passing/Rushing/Receiving leaders sit in This Week; Season Overview has the same three as season-to-date |
 | 2026-08-16 | FCFS instant-add only for cleared unplayed players; claim after kickoff or once the slate is complete until the next weekly process; waiver game-lock uses the league's pre/regular NFL board |

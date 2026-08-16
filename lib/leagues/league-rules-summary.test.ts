@@ -117,6 +117,10 @@ describe("buildLeagueRulesSummary", () => {
       byTitle.Draft.find((row) => row.label === "Draft Style")?.value,
       "Snake",
     );
+    assert.equal(
+      byTitle.Draft.find((row) => row.label === "Time Per Pick")?.value,
+      "1 minutes · autodraft on expiry",
+    );
     assert.match(
       byTitle.Tiebreakers.find(
         (row) => row.label === "Individual Game Tiebreakers",
@@ -210,6 +214,10 @@ describe("buildLeagueRulesSummary", () => {
     });
 
     const draft = sections.find((section) => section.title === "Draft");
+    assert.equal(
+      draft?.rows.find((row) => row.label === "Time Per Pick")?.value,
+      "8 hours · autodraft on expiry",
+    );
     assert.equal(
       draft?.rows.find((row) => row.label === "Daily Pause Window")?.value,
       "22:00–08:00 UK",

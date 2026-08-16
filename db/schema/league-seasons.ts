@@ -103,7 +103,7 @@ export type DraftStyle = "snake" | "linear";
 
 export type DraftSettings = {
   style: DraftStyle;
-  /** League-wide default for whether managers draft with autopick on. */
+  /** Timed seats autodraft on clock expiry. Mirrors pickTimeLimitEnabled. */
   autoPickEnabled: boolean;
   /**
    * Slow/email drafts only: when false, managers have unlimited time on the clock.

@@ -37,10 +37,8 @@ import {
   FieldLabel,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { SwitchField } from "@/components/ui/switch-field";
 import {
   dropOutOfLeague,
-  updateTeamAutoPick,
   updateTeamIdentity,
 } from "@/lib/actions/team-settings";
 import type { TeamIdentityFormValues } from "@/lib/leagues/team-identity";
@@ -49,7 +47,6 @@ type TeamSettingsSectionProps = {
   leagueSlug: string;
   initialValues: TeamIdentityFormValues;
   initialLogoUrl: string | null;
-  initialAutoPickEnabled: boolean;
 };
 
 function valuesEqual(a: TeamIdentityFormValues, b: TeamIdentityFormValues) {
@@ -60,13 +57,9 @@ export function TeamSettingsSection({
   leagueSlug,
   initialValues,
   initialLogoUrl,
-  initialAutoPickEnabled,
 }: TeamSettingsSectionProps) {
   const router = useRouter();
   const [values, setValues] = useState(initialValues);
-  const [autoPickEnabled, setAutoPickEnabled] = useState(
-    initialAutoPickEnabled,
-  );
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<
     Partial<Record<"name" | "logoUrl", string>>
@@ -100,21 +93,6 @@ export function TeamSettingsSection({
         return;
       }
       toast.success("Team settings saved");
-      router.refresh();
-    });
-  };
-
-  const handleAutoPickChange = (next: boolean) => {
-    const previous = autoPickEnabled;
-    setAutoPickEnabled(next);
-    startTransition(async () => {
-      const result = await updateTeamAutoPick(leagueSlug, next);
-      if (!result.success) {
-        setAutoPickEnabled(previous);
-        toast.error(result.error ?? "Could not update autopick.");
-        return;
-      }
-      toast.success(next ? "Autopick enabled" : "Autopick disabled");
       router.refresh();
     });
   };
@@ -192,22 +170,6 @@ export function TeamSettingsSection({
             Save
           </Button>
         </CardFooter>
-      </Card>
-
-      <Card size="sm" className="gap-0 py-0">
-        <CardHeader variant="panel">
-          <CardTitle className="text-base text-balance">Draft</CardTitle>
-        </CardHeader>
-        <CardContent className="py-4">
-          <SwitchField
-            id="teamAutoPick"
-            label="Autopick"
-            description="When on, your team drafts from your queue (then best available) if the pick clock expires."
-            checked={autoPickEnabled}
-            disabled={isPending}
-            onCheckedChange={handleAutoPickChange}
-          />
-        </CardContent>
       </Card>
 
       <Card size="sm" className="gap-0 py-0">

@@ -57,7 +57,6 @@ export async function updateDraftConfig(
     pickTimeLimitSeconds: season.pickTimeLimitSeconds,
     draftStyle: beforeDraft.style,
     pickTimeLimitEnabled: beforeDraft.pickTimeLimitEnabled ?? true,
-    autoPickEnabled: beforeDraft.autoPickEnabled,
     pauseWindowEnabled: beforeDraft.pauseWindowEnabled ?? false,
     pauseWindowStart: beforeDraft.pauseWindowStart ?? null,
     pauseWindowEnd: beforeDraft.pauseWindowEnd ?? null,
@@ -69,7 +68,6 @@ export async function updateDraftConfig(
     pickTimeLimitSeconds: draftConfigPickTimeSeconds(next),
     draftStyle: afterSettings.style,
     pickTimeLimitEnabled: afterSettings.pickTimeLimitEnabled ?? true,
-    autoPickEnabled: afterSettings.autoPickEnabled,
     pauseWindowEnabled: afterSettings.pauseWindowEnabled ?? false,
     pauseWindowStart: afterSettings.pauseWindowEnabled
       ? (afterSettings.pauseWindowStart ?? null)
@@ -112,12 +110,6 @@ export async function updateDraftConfig(
   // Honor the new pause window immediately (e.g. resume if end time already passed).
   await syncDraftPauseWindowForSeason(season.id);
 
-  // Apply league autopick default to all teams.
-  await db
-    .update(teams)
-    .set({ autoPickEnabled: afterSettings.autoPickEnabled })
-    .where(eq(teams.leagueSeasonId, season.id));
-
   await logSettingsUpdated({
     leagueSeasonId: season.id,
     actorUserId: user.id,
@@ -129,7 +121,6 @@ export async function updateDraftConfig(
       { path: "draftStyle", label: "Draft style" },
       { path: "pickTimeLimitEnabled", label: "Pick time limit enabled" },
       { path: "pickTimeLimitSeconds", label: "Pick time (seconds)" },
-      { path: "autoPickEnabled", label: "Auto-pick default" },
       { path: "pauseWindowEnabled", label: "Pause window enabled" },
       { path: "pauseWindowStart", label: "Pause window start (UK)" },
       { path: "pauseWindowEnd", label: "Pause window end (UK)" },

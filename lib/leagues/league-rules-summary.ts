@@ -149,7 +149,7 @@ function pickClockLabel(input: {
     return "Unlimited";
   }
   const pickTime = secondsToPickTime(input.pickTimeLimitSeconds);
-  return `${pickTime.value} ${pickTime.unit}`;
+  return `${pickTime.value} ${pickTime.unit} · autodraft on expiry`;
 }
 
 export function buildLeagueRulesSummary(input: {
@@ -426,10 +426,6 @@ export function buildLeagueRulesSummary(input: {
             },
           ]
         : []),
-      {
-        label: "Autopick Default",
-        value: draft.autoPickEnabled ? "On" : "Off",
-      },
     ],
   });
 

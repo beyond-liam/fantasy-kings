@@ -72,8 +72,6 @@ type DraftRoomProps = {
   draftType: "live" | "email";
   pickTimeLimitSeconds: number;
   pickTimeLimitEnabled: boolean;
-  autoPickEnabled: boolean;
-  onTheClockTeamAutoPick: boolean;
   /** ISO scheduled start from league settings. */
   draftStartAt: string | null;
   /** ISO absolute deadline for the current pick clock. */
@@ -169,8 +167,6 @@ export function DraftRoom({
   draftType,
   pickTimeLimitSeconds,
   pickTimeLimitEnabled,
-  autoPickEnabled,
-  onTheClockTeamAutoPick,
   draftStartAt,
   turnExpiresAt,
   pausedSecondsRemaining,
@@ -259,11 +255,7 @@ export function DraftRoom({
     ? (teams.find((team) => team.id === onTheClockLive.teamId) ?? null)
     : null;
   const onClockIsOpenSlot = Boolean(onClockTeam && onClockTeam.userId == null);
-  const autopickAllowed =
-    autoPickEnabled ||
-    onTheClockTeamAutoPick ||
-    onClockIsOpenSlot ||
-    Boolean(onClockTeam?.autoPickEnabled);
+  const autopickAllowed = clockEnabled || onClockIsOpenSlot;
 
   const queuedPlayerIds = useMemo(
     () => queuedItems.map((item) => item.playerId),

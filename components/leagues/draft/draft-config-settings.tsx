@@ -254,15 +254,15 @@ export function DraftConfigSettings({
           <SwitchField
             id="pickTimeLimitEnabled"
             label="Pick time limit"
-            description="Limit how long each manager has on the clock."
+            description="Limit how long each manager has on the clock. Expired picks autodraft from the queue, then best available."
             checked={values.pickTimeLimitEnabled}
             onCheckedChange={(pickTimeLimitEnabled) =>
               patch({
                 pickTimeLimitEnabled,
+                autoPickEnabled: pickTimeLimitEnabled,
                 ...(pickTimeLimitEnabled
                   ? {}
                   : {
-                      autoPickEnabled: false,
                       pauseWindowEnabled: false,
                     }),
               })
@@ -286,7 +286,8 @@ export function DraftConfigSettings({
                 onValueChange={(pickTimeLimit) => patch({ pickTimeLimit })}
               />
               <FieldDescription>
-                How long each manager has on the clock.
+                How long each manager has on the clock. Expired picks autodraft
+                from the queue, then best available.
               </FieldDescription>
             </Field>
             <Field>
@@ -315,16 +316,6 @@ export function DraftConfigSettings({
               </Select>
             </Field>
           </div>
-        ) : null}
-
-        {values.draftType === "live" || values.pickTimeLimitEnabled ? (
-          <SwitchField
-            id="autoPickEnabled"
-            label="Enable auto pick"
-            description="When on, teams default to autopick (queue first, then best available). Managers can still change this later per team."
-            checked={values.autoPickEnabled}
-            onCheckedChange={(autoPickEnabled) => patch({ autoPickEnabled })}
-          />
         ) : null}
 
         {values.draftType === "email" && values.pickTimeLimitEnabled ? (

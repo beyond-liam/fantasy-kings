@@ -125,9 +125,6 @@ export default async function LeagueDraftRoomPage({
     }
   }
 
-  const onTheClockTeam =
-    room.teams.find((team) => team.id === room.onTheClock?.teamId) ?? null;
-
   return (
     <div className="flex flex-1 flex-col gap-6 p-6">
       <Suspense fallback={null}>
@@ -163,8 +160,6 @@ export default async function LeagueDraftRoomPage({
             : Boolean(draftSettings.pickTimeLimitEnabled) &&
               season.pickTimeLimitSeconds > 0
         }
-        autoPickEnabled={draftSettings.autoPickEnabled}
-        onTheClockTeamAutoPick={Boolean(onTheClockTeam?.autoPickEnabled)}
         draftStartAt={toIso(season.draftStartAt)}
         turnExpiresAt={toIso(room.draft?.turnExpiresAt)}
         pausedSecondsRemaining={room.draft?.pausedSecondsRemaining ?? null}

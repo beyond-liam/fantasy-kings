@@ -50,7 +50,7 @@ export function coerceSupportedDraftType(
 
 export const DEFAULT_DRAFT_SETTINGS: DraftSettings = {
   style: "snake",
-  autoPickEnabled: false,
+  autoPickEnabled: true,
   pickTimeLimitEnabled: true,
   pauseWindowEnabled: false,
   pauseWindowStart: DEFAULT_PAUSE_WINDOW_START,
@@ -103,13 +103,11 @@ export const draftConfigFormSchema = z
 export function resolveDraftSettings(
   stored?: DraftSettings | null,
 ): DraftSettings {
+  const pickTimeLimitEnabled = stored?.pickTimeLimitEnabled ?? true;
   return {
     style: stored?.style ?? DEFAULT_DRAFT_SETTINGS.style,
-    autoPickEnabled:
-      stored?.autoPickEnabled ?? DEFAULT_DRAFT_SETTINGS.autoPickEnabled,
-    pickTimeLimitEnabled:
-      stored?.pickTimeLimitEnabled ??
-      DEFAULT_DRAFT_SETTINGS.pickTimeLimitEnabled,
+    autoPickEnabled: pickTimeLimitEnabled,
+    pickTimeLimitEnabled,
     pauseWindowEnabled: Boolean(stored?.pauseWindowEnabled),
     pauseWindowStart:
       stored?.pauseWindowStart && HH_MM_REGEX.test(stored.pauseWindowStart)
@@ -151,7 +149,7 @@ export function toDraftConfigFormValues(input: {
     pickTimeLimitEnabled,
     pickTimeLimit: pickTime.value || WIZARD_DEFAULTS.pickTimeLimit,
     pickTimeUnit: pickTime.unit,
-    autoPickEnabled: draft.autoPickEnabled,
+    autoPickEnabled: pickTimeLimitEnabled,
     pauseWindowEnabled: pauseAllowed ? Boolean(draft.pauseWindowEnabled) : false,
     pauseWindowStart: draft.pauseWindowStart ?? DEFAULT_PAUSE_WINDOW_START,
     pauseWindowEnd: draft.pauseWindowEnd ?? DEFAULT_PAUSE_WINDOW_END,
@@ -171,8 +169,8 @@ export function toPersistedDraftSettings(
 
   return {
     style: values.draftStyle,
-    // Auto-pick only applies when there is a pick clock.
-    autoPickEnabled: pickTimeLimitEnabled ? values.autoPickEnabled : false,
+    // Timed seats autodraft when the clock expires — not a separate setting.
+    autoPickEnabled: pickTimeLimitEnabled,
     pickTimeLimitEnabled,
     pauseWindowEnabled,
     pauseWindowStart: pauseWindowEnabled

@@ -28,7 +28,7 @@ export type RunDraftAutopickResult =
       teamName: string;
       isComplete: boolean;
     }
-  | { ok: false; error: string; reason?: "not_due" | "disabled" | "other" };
+  | { ok: false; error: string; reason?: "not_due" | "other" };
 
 /**
  * Autopick the current on-clock seat when due.
@@ -123,18 +123,6 @@ export async function runDraftAutopick(input: {
         reason: "not_due",
       };
     }
-  }
-
-  const autopickAllowed =
-    draftSettings.autoPickEnabled ||
-    Boolean(onClockTeam?.autoPickEnabled) ||
-    isOpenSlot;
-  if (!autopickAllowed) {
-    return {
-      ok: false,
-      error: "Autopick is not enabled for this pick.",
-      reason: "disabled",
-    };
   }
 
   const playerId = await selectAutopickPlayerId({
@@ -299,7 +287,7 @@ export async function processExpiredDraftPicks(
       });
 
       if (!outcome.ok) {
-        if (outcome.reason === "not_due" || outcome.reason === "disabled") {
+        if (outcome.reason === "not_due") {
           result.skipped += 1;
         } else {
           result.errors.push({
