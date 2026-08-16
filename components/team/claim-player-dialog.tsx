@@ -222,7 +222,7 @@ export function ClaimPlayerDialog({
                   }}
                 >
                   <SelectTrigger
-                    className="h-auto min-h-9 w-full py-1.5"
+                    className="w-full"
                     aria-label="Player to drop"
                   >
                     <SelectValue
@@ -232,7 +232,7 @@ export function ClaimPlayerDialog({
                           : "Optional — select a player to drop"
                       }
                     >
-                      {selected ? <DropPlayerOption player={selected} /> : null}
+                      {selected ? selected.fullName : null}
                     </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
