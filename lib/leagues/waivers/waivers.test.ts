@@ -11,6 +11,7 @@ import {
   getNextEligibleProcessInstantUtc,
   getWaiverProcessDays,
   isClaimEligibleForProcess,
+  isFcfsBlockedUntilWeeklyProcess,
   isFcfsWindowOpen,
   isWaiverClaimOrderLocked,
   isWaiverProcessDue,
@@ -64,6 +65,25 @@ describe("waiver calendar", () => {
     assert.equal(
       isFcfsWindowOpen(wire, new Date(Date.UTC(2026, 6, 16, 11, 0, 0))),
       true,
+    );
+  });
+
+  it("blocks FCFS after the slate is complete until the next weekly process", () => {
+    const wire = { processDays: ["wed"] as WaiverProcessDay[] };
+    const sunday = new Date(Date.UTC(2026, 6, 19, 23, 0, 0));
+    const lastKickoff = new Date(Date.UTC(2026, 6, 20, 0, 20, 0));
+    assert.equal(
+      isFcfsBlockedUntilWeeklyProcess(wire, true, sunday, lastKickoff),
+      true,
+    );
+    const afterWeekly = new Date(Date.UTC(2026, 6, 22, 12, 0, 0));
+    assert.equal(
+      isFcfsBlockedUntilWeeklyProcess(wire, true, afterWeekly, lastKickoff),
+      false,
+    );
+    assert.equal(
+      isFcfsBlockedUntilWeeklyProcess(wire, false, sunday, lastKickoff),
+      false,
     );
   });
 
@@ -320,14 +340,14 @@ describe("getAcquisitionKind", () => {
     );
   });
 
-  it("hard-locks players whose NFL game has already started this week", () => {
+  it("requires a claim after the player's NFL game has started this week", () => {
     assert.equal(
       getAcquisitionKind({
         ...base,
         gameStartedThisWeek: true,
         ownership: { fantasyTeamId: null, onWaivers: false },
       }),
-      "unavailable",
+      "claim",
     );
     assert.equal(
       getAcquisitionKind({
@@ -335,11 +355,11 @@ describe("getAcquisitionKind", () => {
         gameStartedThisWeek: true,
         ownership: { fantasyTeamId: null, onWaivers: true },
       }),
-      "unavailable",
+      "claim",
     );
   });
 
-  it("keeps started players claimable when daily drop processing is on", () => {
+  it("still requires a claim for started players when daily drop processing is on", () => {
     assert.equal(
       getAcquisitionKind({
         ...base,
@@ -348,13 +368,13 @@ describe("getAcquisitionKind", () => {
           ...DEFAULT_WAIVER_WIRE_SETTINGS,
           dailyDropProcessing: true,
         },
-        ownership: { fantasyTeamId: null, onWaivers: true },
+        ownership: { fantasyTeamId: null, onWaivers: false },
       }),
       "claim",
     );
   });
 
-  it("allows cleared free agents midweek when daily processing is on", () => {
+  it("allows cleared unplayed free agents midweek when daily processing is on", () => {
     assert.equal(
       getAcquisitionKind({
         ...base,
@@ -363,6 +383,32 @@ describe("getAcquisitionKind", () => {
           ...DEFAULT_WAIVER_WIRE_SETTINGS,
           dailyDropProcessing: true,
         },
+        ownership: { fantasyTeamId: null, onWaivers: false },
+      }),
+      "add",
+    );
+  });
+
+  it("requires a claim after the slate is complete until weekly process", () => {
+    assert.equal(
+      getAcquisitionKind({
+        ...base,
+        now: new Date(Date.UTC(2026, 6, 19, 23, 0, 0)), // Sun night, FCFS calendar still open
+        slateComplete: true,
+        lastKickoff: new Date(Date.UTC(2026, 6, 20, 0, 20, 0)),
+        ownership: { fantasyTeamId: null, onWaivers: false },
+      }),
+      "claim",
+    );
+  });
+
+  it("allows cleared unplayed adds after weekly process even if the slate is stale", () => {
+    assert.equal(
+      getAcquisitionKind({
+        ...base,
+        now: new Date(Date.UTC(2026, 6, 22, 13, 0, 0)), // next Wed after process +2h
+        slateComplete: true,
+        lastKickoff: new Date(Date.UTC(2026, 6, 20, 0, 20, 0)),
         ownership: { fantasyTeamId: null, onWaivers: false },
       }),
       "add",

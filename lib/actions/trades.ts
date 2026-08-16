@@ -668,7 +668,9 @@ export async function acceptTrade(
   let reviewEndsAt =
     nextStatus === "review" ? reviewEndsAtFromNow(24) : null;
 
-  const startedTeams = await loadStartedNflTeamsForLineupLock();
+  const startedTeams = await loadStartedNflTeamsForLineupLock(
+    season.settings.schedule,
+  );
   if (startedTeams) {
     const nflTeams = await loadNflTeamsForPlayerIds([
       ...proposingOfferIds,

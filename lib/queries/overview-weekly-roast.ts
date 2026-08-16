@@ -6,7 +6,8 @@ import {
   weeklyResultsFromFinals,
   type OverviewWeeklyRoast,
 } from "@/lib/leagues/league-overview";
-import { getFinalMatchupsForSeason } from "@/lib/leagues/matchups/finals";
+import { getLeagueRollupMatchups } from "@/lib/leagues/matchups/finals";
+import type { ScheduleSettings } from "@/db/schema/league-seasons";
 import { db } from "@/lib/db";
 import { teamWeekStats } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
@@ -26,14 +27,16 @@ export type OverviewWeeklyRoastTeam = {
 export async function loadOverviewWeeklyRoast(input: {
   leagueSeasonId: string;
   regularSeasonEndWeek: number;
+  schedule?: ScheduleSettings | null;
   teams: OverviewWeeklyRoastTeam[];
 }): Promise<OverviewWeeklyRoast | null> {
   const claimed = input.teams.filter((team) => Boolean(team.teamId));
   if (claimed.length === 0) return null;
 
-  const finals = await getFinalMatchupsForSeason(input.leagueSeasonId).catch(
-    () => [],
-  );
+  const finals = await getLeagueRollupMatchups(
+    input.leagueSeasonId,
+    input.schedule,
+  ).catch(() => []);
   const regularFinals = finals.filter(
     (m) => m.week <= input.regularSeasonEndWeek,
   );

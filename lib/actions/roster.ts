@@ -66,12 +66,9 @@ import {
 } from "@/lib/leagues/waivers/calendar";
 import { resolveChurnCut } from "@/lib/leagues/waivers/churn";
 import { isFantasyLeaguePreseason } from "@/lib/leagues/season-calendar";
-import {
-  getStartedNflTeamAbbreviations,
-  hasNflTeamStarted,
-} from "@/lib/leagues/waivers/game-lock";
+import { hasNflTeamStarted } from "@/lib/leagues/waivers/game-lock";
 import { resolveWaiverWireSettings } from "@/lib/leagues/waiver-wire";
-import { getNflScoreboard } from "@/lib/espn/scoreboard";
+import { getGameWeekCloseState } from "@/lib/nfl/current-week-board";
 import { getNflState } from "@/lib/sleeper/api";
 
 const playerIdSchema = z.string().uuid();
@@ -265,6 +262,8 @@ async function prepareAdd(
     };
   }
   let gameStartedThisWeek = false;
+  let slateComplete = false;
+  let lastKickoff: Date | null = null;
   let isFantasyPreseason = false;
   try {
     const nflState = await getNflState();
@@ -278,17 +277,18 @@ async function prepareAdd(
       wire.waiverPool === "drops_and_free_agents" &&
       player.nflTeam
     ) {
-      const board = await getNflScoreboard({
-        season: Number(nflState.season) || new Date().getUTCFullYear(),
-        week: Math.max(1, Number(nflState.week) || 1),
-      });
+      const close = await getGameWeekCloseState(season.settings.schedule);
       gameStartedThisWeek = hasNflTeamStarted(
         player.nflTeam,
-        getStartedNflTeamAbbreviations(board.games),
+        close.startedNflTeams,
       );
+      slateComplete = close.slateComplete;
+      lastKickoff = close.lastKickoff;
     }
   } catch {
     gameStartedThisWeek = false;
+    slateComplete = false;
+    lastKickoff = null;
   }
   const acquisitionKind = getAcquisitionKind({
     waiversEnabled: season.waiversEnabled,
@@ -297,6 +297,8 @@ async function prepareAdd(
     isFantasyPreseason,
     ownership: { fantasyTeamId: null, onWaivers },
     gameStartedThisWeek,
+    slateComplete,
+    lastKickoff,
   });
   if (acquisitionKind === "claim") {
     return {
@@ -962,6 +964,7 @@ async function assertLineupLockAllowsChanges(input: {
   seasonSettings: {
     lineupLockMode?: string | null;
     transactionRules?: Parameters<typeof resolveTransactionRules>[0];
+    schedule?: Parameters<typeof loadStartedNflTeamsForLineupLock>[0];
   };
   current: Array<{
     id: string;
@@ -1000,7 +1003,9 @@ async function assertLineupLockAllowsChanges(input: {
     return null;
   }
 
-  const startedTeams = await loadStartedNflTeamsForLineupLock();
+  const startedTeams = await loadStartedNflTeamsForLineupLock(
+    input.seasonSettings.schedule,
+  );
   if (!startedTeams) {
     // Fail open if scoreboard is unavailable — same posture as acquisition locks.
     return null;

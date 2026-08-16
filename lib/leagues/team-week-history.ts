@@ -1,9 +1,10 @@
 import "server-only";
 
 import {
-  getFinalMatchupsForSeason,
+  getLeagueRollupMatchups,
   type FinalMatchupRow,
 } from "@/lib/leagues/matchups/finals";
+import type { ScheduleSettings } from "@/db/schema/league-seasons";
 import type { StarterPlayerSeasonPoints } from "@/lib/leagues/team-stats-charts";
 import { getTeamSeasonStarterPoints } from "@/lib/leagues/team-stats-starter-points";
 import {
@@ -11,6 +12,8 @@ import {
   getTeamWeeklyScoreSnapshots,
 } from "@/lib/leagues/team-week-stats";
 import type { ScoringPreset } from "@/lib/leagues/scoring/types";
+import { getGameWeekCloseState } from "@/lib/nfl/current-week-board";
+import { excludeUnfinalizedGameWeek } from "@/lib/nfl/game-week";
 
 export type TeamWeekHistory = {
   finals: FinalMatchupRow[];
@@ -30,20 +33,33 @@ export async function loadTeamWeekHistory(input: {
   seasonYear: number;
   scoringPreset: string;
   scoringRules?: unknown;
+  schedule?: ScheduleSettings | null;
 }): Promise<TeamWeekHistory> {
+  const closePromise = getGameWeekCloseState(input.schedule);
   const [finals, seasonOpf, weekSnapshots, starterPoints] = await Promise.all([
-    getFinalMatchupsForSeason(input.leagueSeasonId).catch(
+    getLeagueRollupMatchups(input.leagueSeasonId, input.schedule).catch(
       (): FinalMatchupRow[] => [],
     ),
-    getSeasonOpfByTeamId(input.leagueSeasonId).catch(
-      (): Awaited<ReturnType<typeof getSeasonOpfByTeamId>> => new Map(),
+    closePromise.then((close) =>
+      getSeasonOpfByTeamId(input.leagueSeasonId, {
+        excludeWeek: close.weekFinalized ? null : close.fantasyWeek,
+      }).catch(
+        (): Awaited<ReturnType<typeof getSeasonOpfByTeamId>> => new Map(),
+      ),
     ),
-    getTeamWeeklyScoreSnapshots({
-      leagueSeasonId: input.leagueSeasonId,
-      teamId: input.teamId,
-    }).catch(
-      (): Awaited<ReturnType<typeof getTeamWeeklyScoreSnapshots>> => [],
-    ),
+    closePromise.then(async (close) => {
+      const rows = await getTeamWeeklyScoreSnapshots({
+        leagueSeasonId: input.leagueSeasonId,
+        teamId: input.teamId,
+      }).catch(
+        (): Awaited<ReturnType<typeof getTeamWeeklyScoreSnapshots>> => [],
+      );
+      return excludeUnfinalizedGameWeek(
+        rows,
+        close.fantasyWeek,
+        close.weekFinalized,
+      );
+    }),
     getTeamSeasonStarterPoints({
       leagueSeasonId: input.leagueSeasonId,
       teamId: input.teamId,

@@ -1,7 +1,7 @@
 # Fantasy Kings — Project Specification
 
 > Living document. Update this file as requirements, decisions, and scope change.
-> Last updated: 2026-08-15
+> Last updated: 2026-08-16
 
 ---
 
@@ -24,9 +24,9 @@ A mobile-first fantasy football web app for a private friend group (4–16 users
 | Auth / leagues | Email/password auth, create/join, multi-league, settings |
 | Scoring | Offense engine + commissioner scoring UI; **minimal IDP defaults** (CB/S/DT/DE/LB) |
 | Roster | Lineup / IR / taxi (eligibility), FA add/cut, lineup-lock enforce; cut/slot lock after NFL game start; optional enforce position roster minimums on cuts/claims/trades |
-| Waivers / trades | FAAB + rolling, claims (grouped by process date), vetoes, limits, crons, alerts; optional daily drop processing; trade week-end hold for started players; optional trade offer expiry |
+| Waivers / trades | FAAB + rolling, claims (grouped by process date), vetoes, limits, crons, alerts; optional daily drop processing; FCFS only for cleared unplayed FAs (claim after kickoff or slate-complete until weekly process); trade week-end hold for started players; optional trade offer expiry |
 | Draft | Live + email/slow same room; Brevo turn emails; mock draft; timed email daily UK pause window |
-| Matchups | Week board, Game Centre, standings from finals, Live/Final badges |
+| Matchups | Week board, Game Centre, standings from finals (held until 2h after last NFL game of the week), Live/Final badges |
 | Live scores | Sleeper near-live + ESPN athlete and team DEF boxscores → `player_scores` |
 | Official scores | nflverse post-week replace; optional `applyOfficialStatChanges` |
 | Corrections UX | Activity `score_corrected` + owner notifications; Live freshness only when NFL games are in progress |
@@ -346,7 +346,7 @@ Two variants via the `Empty` **`size`** prop:
 - Include “would have won” style alternate views where data allows
 
 **League Overview**
-- Standings glance, season spotlights, season leaders, POTW (shipped)
+- Standings glance, season spotlights, season leaders, weekly + season passing/rushing/receiving player leaders, POTW roast (shipped)
 - Weekly roast row (updates each scored week): **Top Scorer** (highest PF that week), **Luckiest Winner** (lowest PF among winners), **Underachiever** (most bench points left + lost)
 
 **Team page — Stats**
@@ -682,7 +682,7 @@ lib/
 - [x] **Playoff chance %** — Odds column (Monte Carlo on remaining schedule)
 - [x] **Playoff picture** — Status badges (In / Bubble / Out) on playoffs table
 - [x] **Matchup Preview (scheduled)** — Preview + Matchup tabs; predictor, season leaders, injury report, rivalry history, last 5
-- [x] **League Overview** — standings glance (±2 neighbors); top scorer / worst D / inefficiency %; passing/rushing/receiving leaders (yards+TD fantasy pts); season leaders; POTW spotlights
+- [x] **League Overview** — standings glance (±2 neighbors); top scorer / worst D / inefficiency %; weekly + season passing/rushing/receiving leaders; season leaders; POTW roast
 - [ ] **Matchup insights (remaining)** — positional edges, median/luck, bench/optimal delta, would-have-won (DEFERRED)
 - [ ] **Would have won** — alternate outcomes on matchup + H2H views (DEFERRED)
 - [x] **Team Head-to-Head tab** — viewer vs other team series on other-team page
@@ -728,6 +728,8 @@ lib/
 
 | Date | Change |
 |---|---|
+| 2026-08-16 | Overview: weekly Passing/Rushing/Receiving leaders sit in This Week; Season Overview has the same three as season-to-date |
+| 2026-08-16 | FCFS instant-add only for cleared unplayed players; claim after kickoff or once the slate is complete until the next weekly process; waiver game-lock uses the league's pre/regular NFL board |
 | 2026-08-13 | Dynasty D2: `roster_players.is_keeper` + My Team Keepers tab + validation; `keepers_set` activity |
 | 2026-08-13 | Dynasty D1: Edit Dynasty Rules settings UI + save action; redraft isolation |
 | 2026-08-13 | Dynasty D0: `settings.dynasty` types + zod + create-league defaults (`lib/leagues/dynasty-settings.ts`) |

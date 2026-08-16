@@ -16,6 +16,7 @@ import { getDraftBySeasonId } from "@/lib/queries/draft";
 import type { LeagueStandingsMember } from "@/lib/leagues/standings";
 import { buildLeagueStandings } from "@/lib/leagues/standings-from-matchups";
 import { getFinalMatchupsForSeasons } from "@/lib/leagues/matchups/finals";
+import { excludeUnfinalizedGameWeek } from "@/lib/nfl/game-week";
 
 export type DraftUnderwayStatus = "live" | "paused";
 
@@ -232,6 +233,25 @@ export const getUserLeagues = cache(async function getUserLeagues(
       settingsBySeason.set(row.seasonId, row.settings);
     }
   }
+
+  await Promise.all(
+    seasonIds.map(async (seasonId) => {
+      const { getGameWeekCloseState } = await import(
+        "@/lib/nfl/current-week-board"
+      );
+      const close = await getGameWeekCloseState(
+        settingsBySeason.get(seasonId)?.schedule,
+      );
+      finalsBySeason.set(
+        seasonId,
+        excludeUnfinalizedGameWeek(
+          finalsBySeason.get(seasonId) ?? [],
+          close.fantasyWeek,
+          close.weekFinalized,
+        ),
+      );
+    }),
+  );
 
   const standingByTeamId = new Map<
     string,

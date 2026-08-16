@@ -216,7 +216,10 @@ export async function searchLeaguePlayersPage(input: {
     schedule: season.settings.schedule ?? null,
   });
 
-  const [ownershipMap, userTeam, draft] = await Promise.all([
+  const [close, ownershipMap, userTeam, draft] = await Promise.all([
+    import("@/lib/nfl/current-week-board").then((mod) =>
+      mod.getGameWeekCloseState(season.settings.schedule),
+    ),
     getLeaguePlayerOwnershipMap(season.id, input.userId),
     getUserTeamForSeason(season.id, input.userId),
     getDraftBySeasonId(season.id),
@@ -253,6 +256,9 @@ export async function searchLeaguePlayersPage(input: {
         fantasyTeamId: ownership.fantasyTeamId,
         onWaivers: ownership.onWaivers,
         nflTeam: row.nflTeam,
+        startedNflTeams: close.startedNflTeams,
+        slateComplete: close.slateComplete,
+        lastKickoff: close.lastKickoff,
         seasonYear: season.seasonYear,
         nfl,
         schedule: season.settings.schedule,

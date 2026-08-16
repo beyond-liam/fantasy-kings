@@ -177,7 +177,7 @@ export async function MyTeamRosterPanel({
     season.settings.transactionRules,
   ).preventCutsAfterGameStart;
   const startedTeams = preventCutsAfterGameStart
-    ? await loadStartedNflTeamsForLineupLock()
+    ? await loadStartedNflTeamsForLineupLock(season.settings.schedule)
     : null;
   const gameLockedPlayerIds =
     startedTeams != null

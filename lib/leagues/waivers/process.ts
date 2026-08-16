@@ -213,7 +213,7 @@ export async function processSeasonWaivers(input: {
 
   const kickoffs =
     wire.dailyDropProcessing && deadlineEligible.length > 0
-      ? await loadNflKickoffsThisWeek()
+      ? await loadNflKickoffsThisWeek(season.settings.schedule)
       : new Map<string, Date>();
   const weeklyRun = isWeeklyProcessInstant(wire, processInstant);
   let pending = deadlineEligible;

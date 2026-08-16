@@ -47,6 +47,7 @@ import type { ScheduleSettings } from "@/db/schema/league-seasons";
 import { resolveWaiverWireSettings } from "@/lib/leagues/waiver-wire";
 import { isWaiverClaimOrderLocked } from "@/lib/leagues/waivers/calendar";
 import { resolvePlayerAcquisitionKind } from "@/lib/leagues/waivers/resolve-kind";
+import { getGameWeekCloseState } from "@/lib/nfl/current-week-board";
 import {
   getLeagueBySlug,
   getLeagueMembership,
@@ -893,10 +894,11 @@ export const getPlayerProfile = cache(
             );
             leagueSchedule = seasonRow.settings.schedule ?? null;
 
-            const [ownershipMap, draft, userTeam] = await Promise.all([
+            const [ownershipMap, draft, userTeam, close] = await Promise.all([
               getLeaguePlayerOwnershipMap(seasonRow.id, user.id),
               getDraftBySeasonId(seasonRow.id),
               getUserTeamForSeason(seasonRow.id, user.id),
+              getGameWeekCloseState(seasonRow.settings.schedule),
             ]);
             const owned = resolvePlayerOwnership(ownershipMap, player.id);
             const wire = resolveWaiverWireSettings(
@@ -914,6 +916,9 @@ export const getPlayerProfile = cache(
               fantasyTeamId: owned.fantasyTeamId,
               onWaivers: owned.onWaivers,
               nflTeam: player.nflTeam,
+              startedNflTeams: close.startedNflTeams,
+              slateComplete: close.slateComplete,
+              lastKickoff: close.lastKickoff,
               seasonYear: seasonRow.seasonYear,
               nfl: nflState,
               schedule: seasonRow.settings.schedule,

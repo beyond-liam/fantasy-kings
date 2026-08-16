@@ -7,6 +7,7 @@ import {
 } from "@/components/team/panels/load-my-team-nfl-context";
 import type { ScoringRuleDefinition } from "@/lib/leagues/scoring";
 import { getStartedNflTeamAbbreviations } from "@/lib/leagues/waivers/game-lock";
+import { lastKickoffAt, isNflSlateComplete } from "@/lib/nfl/game-week";
 import { resolvePlayerAcquisitionKind } from "@/lib/leagues/waivers/resolve-kind";
 import { getRankedPlayers, getWeekProjectedFantasyPoints } from "@/lib/queries/players";
 import { getPlayerRosterRatesMap } from "@/lib/queries/player-roster-rates";
@@ -73,6 +74,8 @@ export async function MyTeamWatchlistPanel({
   ]);
 
   let startedNflTeams = new Set<string>();
+  let slateComplete = false;
+  let lastKickoff: Date | null = null;
   if (
     scoreboard &&
     waiversEnabled &&
@@ -80,6 +83,8 @@ export async function MyTeamWatchlistPanel({
     actionsEnabled
   ) {
     startedNflTeams = getStartedNflTeamAbbreviations(scoreboard.games);
+    slateComplete = isNflSlateComplete(scoreboard.games);
+    lastKickoff = lastKickoffAt(scoreboard.games);
   }
 
   const pendingClaimIdSet = new Set(pendingClaimPlayerIds);
@@ -129,6 +134,8 @@ export async function MyTeamWatchlistPanel({
       onWaivers: ownership.onWaivers,
       nflTeam: player.nflTeam,
       startedNflTeams,
+      slateComplete,
+      lastKickoff,
       seasonYear,
       nfl: nflState,
       schedule,

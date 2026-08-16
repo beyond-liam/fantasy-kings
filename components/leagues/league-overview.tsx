@@ -60,6 +60,11 @@ export type LeagueOverviewProps = {
     rusher: OverviewPlayerHighlight | null;
     receiver: OverviewPlayerHighlight | null;
   };
+  playersOfTheSeason: {
+    passer: OverviewPlayerHighlight | null;
+    rusher: OverviewPlayerHighlight | null;
+    receiver: OverviewPlayerHighlight | null;
+  };
   highlightWeek: number | null;
   /** Latest scored week roast; null before any finalized week. */
   weeklyRoast: OverviewWeeklyRoast | null;
@@ -412,6 +417,53 @@ function OverviewStandingsCard({
   );
 }
 
+function PlayerLeaderRow({
+  leagueSlug,
+  passer,
+  rusher,
+  receiver,
+  emptyScope,
+}: {
+  leagueSlug: string;
+  passer: OverviewPlayerHighlight | null;
+  rusher: OverviewPlayerHighlight | null;
+  receiver: OverviewPlayerHighlight | null;
+  emptyScope: "week" | "season";
+}) {
+  const after =
+    emptyScope === "week"
+      ? "after weekly scores land."
+      : "after scores land.";
+  return (
+    <div className="grid gap-4 sm:grid-cols-3">
+      <OverviewCard title="Passing Leader">
+        <PlayerSpotlight
+          player={passer}
+          leagueSlug={leagueSlug}
+          emptyTitle="No QB scores yet"
+          empty={`Top passers appear ${after}`}
+        />
+      </OverviewCard>
+      <OverviewCard title="Rushing Leader">
+        <PlayerSpotlight
+          player={rusher}
+          leagueSlug={leagueSlug}
+          emptyTitle="No RB scores yet"
+          empty={`Top rushers appear ${after}`}
+        />
+      </OverviewCard>
+      <OverviewCard title="Receiving Leader">
+        <PlayerSpotlight
+          player={receiver}
+          leagueSlug={leagueSlug}
+          emptyTitle="No WR/TE scores yet"
+          empty={`Top receivers appear ${after}`}
+        />
+      </OverviewCard>
+    </div>
+  );
+}
+
 export function LeagueOverview({
   leagueSlug,
   standingsRows,
@@ -421,12 +473,12 @@ export function LeagueOverview({
   inefficient,
   seasonLeaders,
   playersOfTheWeek,
+  playersOfTheSeason,
   highlightWeek,
   weeklyRoast,
 }: LeagueOverviewProps) {
-  const weekLabel =
-    highlightWeek != null ? ` · W${highlightWeek}` : "";
-  const showThisWeek = weeklyRoast != null;
+  const thisWeekNumber = highlightWeek ?? weeklyRoast?.week ?? null;
+  const showThisWeek = thisWeekNumber != null;
 
   return (
     <div className="flex flex-col gap-4">
@@ -436,42 +488,51 @@ export function LeagueOverview({
             This Week
             <span className="text-muted-foreground">
               {" "}
-              · W{weeklyRoast.week}
+              · W{thisWeekNumber}
             </span>
           </h2>
-          <div className="grid gap-4 sm:grid-cols-3">
-            <OverviewCard title="Top Scorer">
-              <TeamSpotlight
-                row={weeklyRoast.biggestScorer}
-                leagueSlug={leagueSlug}
-                emptyTitle="No scores yet"
-                empty="Scores appear after this week's games finish."
-                formatValue={(value) => formatPoints(value)}
-                valueHint="points for"
-              />
-            </OverviewCard>
-            <OverviewCard title="Luckiest Winner">
-              <TeamSpotlight
-                row={weeklyRoast.luckiestWinner}
-                leagueSlug={leagueSlug}
-                emptyTitle="No winners yet"
-                empty="Winners appear after this week's scores land."
-                formatValue={(value) => formatPoints(value)}
-                valueHint="winning score"
-              />
-            </OverviewCard>
-            <OverviewCard title="Underachiever">
-              <TeamSpotlight
-                row={weeklyRoast.underachiever}
-                leagueSlug={leagueSlug}
-                emptyTitle="No underachievers yet"
-                empty="Bench bombs appear among losing teams after scores land."
-                formatValue={(value) => formatPoints(value)}
-                valueClassName="text-destructive"
-                valueHint="left on bench"
-              />
-            </OverviewCard>
-          </div>
+          {weeklyRoast ? (
+            <div className="grid gap-4 sm:grid-cols-3">
+              <OverviewCard title="Top Scorer">
+                <TeamSpotlight
+                  row={weeklyRoast.biggestScorer}
+                  leagueSlug={leagueSlug}
+                  emptyTitle="No scores yet"
+                  empty="Scores appear after this week's games finish."
+                  formatValue={(value) => formatPoints(value)}
+                  valueHint="points for"
+                />
+              </OverviewCard>
+              <OverviewCard title="Luckiest Winner">
+                <TeamSpotlight
+                  row={weeklyRoast.luckiestWinner}
+                  leagueSlug={leagueSlug}
+                  emptyTitle="No winners yet"
+                  empty="Winners appear after this week's scores land."
+                  formatValue={(value) => formatPoints(value)}
+                  valueHint="winning score"
+                />
+              </OverviewCard>
+              <OverviewCard title="Underachiever">
+                <TeamSpotlight
+                  row={weeklyRoast.underachiever}
+                  leagueSlug={leagueSlug}
+                  emptyTitle="No underachievers yet"
+                  empty="Bench bombs appear among losing teams after scores land."
+                  formatValue={(value) => formatPoints(value)}
+                  valueClassName="text-destructive"
+                  valueHint="left on bench"
+                />
+              </OverviewCard>
+            </div>
+          ) : null}
+          <PlayerLeaderRow
+            leagueSlug={leagueSlug}
+            passer={playersOfTheWeek.passer}
+            rusher={playersOfTheWeek.rusher}
+            receiver={playersOfTheWeek.receiver}
+            emptyScope="week"
+          />
           <h2 className="mt-6 text-lg font-semibold tracking-tight">
             Season Overview
           </h2>
@@ -595,32 +656,13 @@ export function LeagueOverview({
         </OverviewCard>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        <OverviewCard title={`Passing Leader${weekLabel}`}>
-          <PlayerSpotlight
-            player={playersOfTheWeek.passer}
-            leagueSlug={leagueSlug}
-            emptyTitle="No QB scores yet"
-            empty="Top passers appear after weekly scores land."
-          />
-        </OverviewCard>
-        <OverviewCard title={`Rushing Leader${weekLabel}`}>
-          <PlayerSpotlight
-            player={playersOfTheWeek.rusher}
-            leagueSlug={leagueSlug}
-            emptyTitle="No RB scores yet"
-            empty="Top rushers appear after weekly scores land."
-          />
-        </OverviewCard>
-        <OverviewCard title={`Receiving Leader${weekLabel}`}>
-          <PlayerSpotlight
-            player={playersOfTheWeek.receiver}
-            leagueSlug={leagueSlug}
-            emptyTitle="No WR/TE scores yet"
-            empty="Top receivers appear after weekly scores land."
-          />
-        </OverviewCard>
-      </div>
+      <PlayerLeaderRow
+        leagueSlug={leagueSlug}
+        passer={playersOfTheSeason.passer}
+        rusher={playersOfTheSeason.rusher}
+        receiver={playersOfTheSeason.receiver}
+        emptyScope="season"
+      />
     </div>
   );
 }

@@ -8,7 +8,7 @@ import {
   countStarterSlots,
   toDraftGradePickInputs,
 } from "@/lib/leagues/draft/grade-picks";
-import { getFinalMatchupsForSeason } from "@/lib/leagues/matchups/finals";
+import { getLeagueRollupMatchups } from "@/lib/leagues/matchups/finals";
 import {
   buildDraftPowerRankingRows,
   buildEmptyDraftPowerRankingRows,
@@ -162,7 +162,10 @@ export const getPowerRankingsOverview = cache(
 
     const [draftRows, finals, playerIdsByTeamId] = await Promise.all([
       getDraftPowerRankingRows(input),
-      getFinalMatchupsForSeason(input.leagueSeasonId).catch(() => []),
+      getLeagueRollupMatchups(
+        input.leagueSeasonId,
+        input.settings.schedule,
+      ).catch(() => []),
       loadRosterPlayerIdsByTeam(input.standingsTeams),
     ]);
 

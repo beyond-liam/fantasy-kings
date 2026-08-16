@@ -1,8 +1,10 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { cache } from "react";
 
+import type { ScheduleSettings } from "@/db/schema/league-seasons";
 import { matchups } from "@/db/schema";
 import { db } from "@/lib/db";
+import { excludeUnfinalizedGameWeek } from "@/lib/nfl/game-week";
 
 /** Final Matchup rows for one League Season (standings, HOF, Team Stats). */
 export const getFinalMatchupsForSeason = cache(
@@ -30,6 +32,28 @@ export const getFinalMatchupsForSeason = cache(
 export type FinalMatchupRow = Awaited<
   ReturnType<typeof getFinalMatchupsForSeason>
 >[number];
+
+/**
+ * Finals for standings / HoF / Stats / power rankings.
+ * Holds the current fantasy week until 2h after the last NFL game ends.
+ * Matchup pages still use {@link getFinalMatchupsForSeason} unfiltered.
+ */
+export async function getLeagueRollupMatchups(
+  leagueSeasonId: string,
+  schedule?: ScheduleSettings | null,
+): Promise<FinalMatchupRow[]> {
+  const [rows, close] = await Promise.all([
+    getFinalMatchupsForSeason(leagueSeasonId),
+    import("@/lib/nfl/current-week-board").then((mod) =>
+      mod.getGameWeekCloseState(schedule),
+    ),
+  ]);
+  return excludeUnfinalizedGameWeek(
+    rows,
+    close.fantasyWeek,
+    close.weekFinalized,
+  );
+}
 
 /** Batch finals for many seasons (leagues list). */
 export async function getFinalMatchupsForSeasons(

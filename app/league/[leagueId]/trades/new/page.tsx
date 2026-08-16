@@ -142,7 +142,7 @@ export default async function NewTradePage({
       seasonYear: nflState.season,
       scoringRules,
     }),
-    loadNflKickoffsThisWeek(),
+    loadNflKickoffsThisWeek(season.settings.schedule),
   ]);
 
   const kickoffsByNflTeam = Object.fromEntries(

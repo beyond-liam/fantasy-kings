@@ -12,7 +12,8 @@ import {
   type HofTeamIdentity,
   type LeagueHallOfFameData,
 } from "@/lib/leagues/hall-of-fame";
-import { getFinalMatchupsForSeason } from "@/lib/leagues/matchups/finals";
+import { getLeagueRollupMatchups } from "@/lib/leagues/matchups/finals";
+import type { ScheduleSettings } from "@/db/schema/league-seasons";
 import type { ScoringPreset } from "@/lib/leagues/scoring";
 import { loadHofLateGameSwingCounts } from "@/lib/queries/hof-late-game-swings";
 import { db } from "@/lib/db";
@@ -59,6 +60,7 @@ export async function loadLeagueHallOfFame(input: {
   teams: HofTeamIdentity[];
   divisionCount: number;
   regularSeasonEndWeek: number;
+  schedule?: ScheduleSettings | null;
   /** Championship team id if the current bracket is crowned. */
   championTeamId?: string | null;
 }): Promise<LeagueHallOfFameData> {
@@ -67,9 +69,10 @@ export async function loadLeagueHallOfFame(input: {
     return emptyLeagueHallOfFame();
   }
 
-  const finals = await getFinalMatchupsForSeason(input.leagueSeasonId).catch(
-    () => [],
-  );
+  const finals = await getLeagueRollupMatchups(
+    input.leagueSeasonId,
+    input.schedule,
+  ).catch(() => []);
   const regularFinals = finals.filter(
     (m) => m.week <= input.regularSeasonEndWeek,
   );

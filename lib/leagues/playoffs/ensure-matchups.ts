@@ -5,7 +5,8 @@ import { and, asc, eq, gte } from "drizzle-orm";
 import { leagueSeasons, matchups, teams } from "@/db/schema";
 import { db } from "@/lib/db";
 import { allocateMatchupPublicIds } from "@/lib/leagues/ensure-public-ids";
-import { getFinalMatchupsForSeason } from "@/lib/leagues/matchups/finals";
+import { getLeagueRollupMatchups } from "@/lib/leagues/matchups/finals";
+import { getGameWeekCloseState } from "@/lib/nfl/current-week-board";
 import { resolvePlayoffSettings } from "@/lib/leagues/playoff-settings";
 import {
   championshipLegs,
@@ -88,6 +89,11 @@ export async function ensurePlayoffMatchupsAdvanced(input: {
     return { inserted: 0 };
   }
 
+  const close = await getGameWeekCloseState(season.settings.schedule);
+  if (currentFantasyWeek === fantasyRsEnd && !close.weekFinalized) {
+    return { inserted: 0 };
+  }
+
   const existingPlayoff = await db
     .select({
       id: matchups.id,
@@ -135,7 +141,10 @@ export async function ensurePlayoffMatchupsAdvanced(input: {
       displayName: null,
     }));
 
-    const finals = await getFinalMatchupsForSeason(season.id);
+    const finals = await getLeagueRollupMatchups(
+      season.id,
+      season.settings.schedule,
+    );
     const standings = buildLeagueStandings(
       members,
       { teamCount: season.teamCount, faabBudget: null },
@@ -231,6 +240,7 @@ export async function ensurePlayoffMatchupsAdvanced(input: {
     }
 
     if (!weekRows.every((row) => row.status === "final")) continue;
+    if (close.fantasyWeek === week && !close.weekFinalized) continue;
 
     const teamIds = [
       ...new Set(

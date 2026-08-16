@@ -43,6 +43,8 @@ import type {
 } from "@/lib/leagues/standings";
 import { getSeasonMatchups, type LeagueMatchupRow } from "@/lib/queries/matchups";
 import { getTeamProjectedWeeklyPf } from "@/lib/queries/team-projected-strength";
+import { getGameWeekCloseState } from "@/lib/nfl/current-week-board";
+import { excludeUnfinalizedGameWeek } from "@/lib/nfl/game-week";
 import { getNflState } from "@/lib/sleeper/api";
 
 export type LeagueHomeStandingsBundleInput = {
@@ -90,31 +92,39 @@ export const getLeagueHomeStandingsBundle = cache(
       input.leagueSeasonId != null
         ? await getSeasonMatchups(input.leagueSeasonId).catch(() => [])
         : [];
+    const close = await getGameWeekCloseState(input.schedule);
 
     const regularSeasonEndWeek = input.regularSeasonEndWeek;
-    const finals = seasonMatchups
-      .filter(
+    const weekIsPlayed = (week: number, status: string) =>
+      status === "final" &&
+      (close.weekFinalized ||
+        close.fantasyWeek == null ||
+        week < close.fantasyWeek);
+    const finals = excludeUnfinalizedGameWeek(
+      seasonMatchups.filter(
         (row) =>
           row.status === "final" &&
           row.week <= regularSeasonEndWeek &&
           row.homePts != null &&
           row.awayPts != null,
-      )
-      .map((row) => ({
-        id: row.id,
-        week: row.week,
-        homeTeamId: row.homeTeamId,
-        awayTeamId: row.awayTeamId,
-        homePts: row.homePts,
-        awayPts: row.awayPts,
-      }));
+      ),
+      close.fantasyWeek,
+      close.weekFinalized,
+    ).map((row) => ({
+      id: row.id,
+      week: row.week,
+      homeTeamId: row.homeTeamId,
+      awayTeamId: row.awayTeamId,
+      homePts: row.homePts,
+      awayPts: row.awayPts,
+    }));
     const sosMatchups = seasonMatchups
       .filter((row) => row.week <= regularSeasonEndWeek)
       .map((row) => ({
         week: row.week,
         homeTeamId: row.homeTeamId,
         awayTeamId: row.awayTeamId,
-        played: row.status === "final",
+        played: weekIsPlayed(row.week, row.status),
       }));
     const remainingMatchups = sosMatchups
       .filter((row) => !row.played)

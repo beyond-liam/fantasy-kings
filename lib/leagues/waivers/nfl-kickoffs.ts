@@ -1,17 +1,15 @@
 import "server-only";
 
-import { getNflScoreboard } from "@/lib/espn/scoreboard";
-import { getNflState } from "@/lib/sleeper/api";
+import type { ScheduleSettings } from "@/db/schema/league-seasons";
+import { getGameWeekCloseState } from "@/lib/nfl/current-week-board";
 
-export async function loadNflKickoffsThisWeek(): Promise<Map<string, Date>> {
+export async function loadNflKickoffsThisWeek(
+  schedule?: ScheduleSettings | null,
+): Promise<Map<string, Date>> {
   try {
-    const nfl = await getNflState();
-    const board = await getNflScoreboard({
-      season: Number(nfl.season) || new Date().getUTCFullYear(),
-      week: Math.max(1, Number(nfl.week) || 1),
-    });
+    const close = await getGameWeekCloseState(schedule);
     const map = new Map<string, Date>();
-    for (const game of board.games) {
+    for (const game of close.games) {
       const kickoff = new Date(game.kickoff);
       if (!Number.isFinite(kickoff.getTime())) continue;
       const home = game.home.abbreviation.trim().toUpperCase();

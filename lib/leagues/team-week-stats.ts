@@ -48,7 +48,10 @@ export async function upsertTeamWeekStats(input: {
     });
 }
 
-export async function getSeasonOpfByTeamId(leagueSeasonId: string): Promise<
+export async function getSeasonOpfByTeamId(
+  leagueSeasonId: string,
+  options?: { excludeWeek?: number | null },
+): Promise<
   Map<
     string,
     {
@@ -61,6 +64,7 @@ export async function getSeasonOpfByTeamId(leagueSeasonId: string): Promise<
   const rows = await db
     .select({
       teamId: teamWeekStats.teamId,
+      week: teamWeekStats.week,
       pointsFor: teamWeekStats.pointsFor,
       optimumPointsFor: teamWeekStats.optimumPointsFor,
       byPosition: teamWeekStats.byPosition,
@@ -77,7 +81,10 @@ export async function getSeasonOpfByTeamId(leagueSeasonId: string): Promise<
     }
   >();
 
+  const excludeWeek = options?.excludeWeek ?? null;
+
   for (const row of rows) {
+    if (excludeWeek != null && row.week === excludeWeek) continue;
     const existing = map.get(row.teamId) ?? {
       pointsFor: 0,
       optimumPointsFor: 0,

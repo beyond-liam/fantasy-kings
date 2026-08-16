@@ -245,6 +245,33 @@ export function isFcfsWindowOpen(
 }
 
 /**
+ * After the NFL slate is complete, FCFS stays closed until the next
+ * weekly process instant (then +2h via {@link isFcfsWindowOpen}).
+ * If that weekly run already happened after the slate's last kickoff,
+ * the new week's FCFS window owns adds even if the scoreboard is stale.
+ */
+export function isFcfsBlockedUntilWeeklyProcess(
+  wire: Pick<WaiverWireSettings, "processDays">,
+  slateComplete: boolean,
+  now: Date = new Date(),
+  lastKickoff: Date | null = null,
+): boolean {
+  if (!slateComplete) return false;
+  const weeklyDays: WaiverProcessDay[] = [getWeeklyProcessDay(wire)];
+  const lastWeekly = getLastProcessInstantUtc(weeklyDays, now);
+  if (
+    lastKickoff &&
+    lastWeekly &&
+    lastWeekly.getTime() > lastKickoff.getTime()
+  ) {
+    return false;
+  }
+  const nextWeekly = getNextProcessInstantUtc(weeklyDays, now);
+  if (!nextWeekly) return true;
+  return now < nextWeekly;
+}
+
+/**
  * True during a processing lock window.
  * - Every run (daily or weekly): claim deadline → process
  * - Weekly run only: process → +2h (FCFS opens)

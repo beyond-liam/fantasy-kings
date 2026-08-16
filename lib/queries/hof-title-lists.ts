@@ -15,7 +15,7 @@ import {
   type HofDivisionTitleSeason,
   type HofRegularSeasonTitle,
 } from "@/lib/leagues/hof-title-history";
-import { getFinalMatchupsForSeason } from "@/lib/leagues/matchups/finals";
+import { getLeagueRollupMatchups } from "@/lib/leagues/matchups/finals";
 import {
   bracketTeamsFromStandings,
   buildPlayoffBracket,
@@ -91,7 +91,10 @@ export async function loadHofTitleLists(input: {
   const multiDivision =
     season.divisionCount > 1 && seasonDivisions.length > 1;
 
-  const allFinals = await getFinalMatchupsForSeason(season.id).catch(() => []);
+  const allFinals = await getLeagueRollupMatchups(
+    season.id,
+    season.settings.schedule,
+  ).catch(() => []);
   const regularFinals = allFinals.filter(
     (m) => m.week <= season.regularSeasonEndWeek,
   );

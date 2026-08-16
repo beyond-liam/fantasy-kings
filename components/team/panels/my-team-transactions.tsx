@@ -1,5 +1,5 @@
 import { TeamTransactionsSection } from "@/components/team/team-transactions-section";
-import type { WaiverWireSettings } from "@/db/schema/league-seasons";
+import type { ScheduleSettings, WaiverWireSettings } from "@/db/schema/league-seasons";
 import { resolveTransactionRules } from "@/lib/leagues/transaction-rules";
 import { resolveFaabRemaining } from "@/lib/leagues/waivers/faab";
 import {
@@ -36,6 +36,7 @@ export type MyTeamTransactionsPanelProps = {
     tradeProcessing: string;
     settings: {
       transactionRules: Parameters<typeof resolveTransactionRules>[0];
+      schedule?: ScheduleSettings | null;
     };
   };
   wire: WaiverWireSettings;
@@ -70,7 +71,7 @@ export async function MyTeamTransactionsPanel({
         );
       }),
       wire.dailyDropProcessing
-        ? loadNflKickoffsThisWeek()
+        ? loadNflKickoffsThisWeek(season.settings.schedule)
         : Promise.resolve(new Map<string, Date>()),
     ]);
 

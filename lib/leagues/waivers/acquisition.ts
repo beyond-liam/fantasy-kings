@@ -1,5 +1,8 @@
 import type { WaiverWireSettings } from "@/db/schema/league-seasons";
-import { isFcfsWindowOpen } from "@/lib/leagues/waivers/calendar";
+import {
+  isFcfsBlockedUntilWeeklyProcess,
+  isFcfsWindowOpen,
+} from "@/lib/leagues/waivers/calendar";
 
 export type AcquisitionKind = "owned" | "add" | "claim" | "unavailable";
 
@@ -17,6 +20,10 @@ export type AcquisitionInput = {
   };
   /** True when this player's NFL team has started its game this fantasy week. */
   gameStartedThisWeek?: boolean;
+  /** True when every NFL game on this fantasy week's board is final. */
+  slateComplete?: boolean;
+  /** Last kickoff on this fantasy week's board — used with slateComplete. */
+  lastKickoff?: Date | null;
 };
 
 /**
@@ -33,12 +40,6 @@ export function getAcquisitionKind(input: AcquisitionInput): AcquisitionKind {
   }
 
   const wire = input.waiverWire;
-
-  // Already played this fantasy week → locked until the next week,
-  // unless daily drop processing holds them for the weekly claim pool.
-  if (input.gameStartedThisWeek && !wire.dailyDropProcessing) {
-    return "unavailable";
-  }
 
   if (!input.waiversEnabled) {
     return "add";
@@ -60,6 +61,19 @@ export function getAcquisitionKind(input: AcquisitionInput): AcquisitionKind {
     return "claim";
   }
 
-  // Cleared free agents: add only during the weekly FCFS window.
+  // Played this week, or slate done until weekly process → claim only.
+  if (
+    input.gameStartedThisWeek ||
+    isFcfsBlockedUntilWeeklyProcess(
+      wire,
+      Boolean(input.slateComplete),
+      now,
+      input.lastKickoff ?? null,
+    )
+  ) {
+    return "claim";
+  }
+
+  // Cleared, unplayed free agents: add during the weekly FCFS window.
   return isFcfsWindowOpen(wire, now) ? "add" : "claim";
 }

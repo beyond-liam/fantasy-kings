@@ -4,7 +4,6 @@ import { IrLockAlert } from "@/components/team/ir-lock-alert";
 import { TaxiLockAlert } from "@/components/team/taxi-lock-alert";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import type { LeagueSeasonSettings } from "@/db/schema/league-seasons";
-import { getNflScoreboard } from "@/lib/espn/scoreboard";
 import { isRosterTransactionsEnabled } from "@/lib/leagues/free-agency";
 import {
   formatIrLockMessage,
@@ -20,8 +19,8 @@ import type { ScoringPreset } from "@/lib/leagues/scoring";
 import type { ScoringRuleDefinition } from "@/lib/leagues/scoring/types";
 import { resolveWaiverWireSettings } from "@/lib/leagues/waiver-wire";
 import { isWaiverClaimOrderLocked } from "@/lib/leagues/waivers/calendar";
-import { getStartedNflTeamAbbreviations } from "@/lib/leagues/waivers/game-lock";
 import { resolvePlayerAcquisitionKind } from "@/lib/leagues/waivers/resolve-kind";
+import { getGameWeekCloseState } from "@/lib/nfl/current-week-board";
 import type { PositionFilter } from "@/lib/rankings/column-config";
 import { playersPageOffset } from "@/lib/rankings/players-page";
 import { sortRankedPlayers } from "@/lib/rankings/sort-ranked-players";
@@ -260,21 +259,17 @@ export async function LeaguePlayersTable({
   const waiverProcessingLocked =
     waiversEnabled && isWaiverClaimOrderLocked(wire);
   let startedNflTeams = new Set<string>();
+  let slateComplete = false;
+  let lastKickoff: Date | null = null;
   if (
     waiversEnabled &&
     wire.waiverPool === "drops_and_free_agents" &&
     actionsEnabled
   ) {
-    try {
-      const nflWeek = Math.max(1, Number(nflState.week) || 1);
-      const board = await getNflScoreboard({
-        season: Number(nflState.season) || new Date().getUTCFullYear(),
-        week: nflWeek,
-      });
-      startedNflTeams = getStartedNflTeamAbbreviations(board.games);
-    } catch {
-      startedNflTeams = new Set();
-    }
+    const close = await getGameWeekCloseState(seasonSettings.schedule);
+    startedNflTeams = close.startedNflTeams;
+    slateComplete = close.slateComplete;
+    lastKickoff = close.lastKickoff;
   }
 
   if (playersResult.ok) {
@@ -288,6 +283,8 @@ export async function LeaguePlayersTable({
         onWaivers: ownership.onWaivers,
         nflTeam: row.nflTeam,
         startedNflTeams,
+        slateComplete,
+        lastKickoff,
         seasonYear: Number(seasonYear) || new Date().getUTCFullYear(),
         nfl: nflState,
         schedule: seasonSettings.schedule,

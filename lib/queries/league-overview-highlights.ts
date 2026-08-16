@@ -63,3 +63,17 @@ export async function loadOverviewWeekHighlights(input: {
     week,
   };
 }
+
+export async function loadOverviewSeasonHighlights(input: {
+  seasonYear: number;
+  seasonType?: string;
+  scoringRules: ScoringRuleDefinition[];
+}): Promise<ReturnType<typeof pickPlayersOfTheWeek>> {
+  const players = await loadWeekPlayers({
+    seasonYear: input.seasonYear,
+    week: 0,
+    seasonType: input.seasonType,
+    scoringRules: input.scoringRules,
+  });
+  return pickPlayersOfTheWeek(players);
+}

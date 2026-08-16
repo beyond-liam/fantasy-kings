@@ -28,10 +28,7 @@ import {
 } from "@/lib/leagues/roster-minimums";
 import { pickOpenReserveAcquisitionSlot } from "@/lib/leagues/roster/acquisition";
 import { getAcquisitionKind } from "@/lib/leagues/waivers/acquisition";
-import {
-  getStartedNflTeamAbbreviations,
-  hasNflTeamStarted,
-} from "@/lib/leagues/waivers/game-lock";
+import { hasNflTeamStarted } from "@/lib/leagues/waivers/game-lock";
 import { processSeasonWaivers } from "@/lib/leagues/waivers/process";
 import { isFantasyLeaguePreseason } from "@/lib/leagues/season-calendar";
 import {
@@ -46,7 +43,7 @@ import {
   isWaiverClaimOrderLocked,
   WAIVER_PROCESSING_WINDOW_LOCK_REASON,
 } from "@/lib/leagues/waivers/calendar";
-import { getNflScoreboard } from "@/lib/espn/scoreboard";
+import { getGameWeekCloseState } from "@/lib/nfl/current-week-board";
 import { getNflState } from "@/lib/sleeper/api";
 
 const waiverClaimSchema = z.object({
@@ -329,6 +326,8 @@ export async function fileWaiverClaim(
   );
 
   let gameStartedThisWeek = false;
+  let slateComplete = false;
+  let lastKickoff: Date | null = null;
   let isFantasyPreseason = false;
   try {
     const nflState = await getNflState();
@@ -338,17 +337,18 @@ export async function fileWaiverClaim(
       season.settings.schedule,
     );
     if (wire.waiverPool === "drops_and_free_agents" && player.nflTeam) {
-      const board = await getNflScoreboard({
-        season: Number(nflState.season) || new Date().getUTCFullYear(),
-        week: Math.max(1, Number(nflState.week) || 1),
-      });
+      const close = await getGameWeekCloseState(season.settings.schedule);
       gameStartedThisWeek = hasNflTeamStarted(
         player.nflTeam,
-        getStartedNflTeamAbbreviations(board.games),
+        close.startedNflTeams,
       );
+      slateComplete = close.slateComplete;
+      lastKickoff = close.lastKickoff;
     }
   } catch {
     gameStartedThisWeek = false;
+    slateComplete = false;
+    lastKickoff = null;
   }
 
   const kind = getAcquisitionKind({
@@ -358,6 +358,8 @@ export async function fileWaiverClaim(
     isFantasyPreseason,
     ownership: { fantasyTeamId: null, onWaivers },
     gameStartedThisWeek,
+    slateComplete,
+    lastKickoff,
   });
 
   if (kind !== "claim") {

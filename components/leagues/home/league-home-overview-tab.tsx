@@ -12,6 +12,7 @@ import {
   type ScoringPreset,
 } from "@/lib/leagues/scoring";
 import { getSeasonOpfByTeamId } from "@/lib/leagues/team-week-stats";
+import { getGameWeekCloseState } from "@/lib/nfl/current-week-board";
 import {
   standingsOwnerName,
   type LeagueStandingsMember,
@@ -20,12 +21,18 @@ import {
   getLeagueHomeStandingsBundle,
   type LeagueHomeStandingsBundleInput,
 } from "@/lib/queries/league-home-standings";
-import { loadOverviewWeekHighlights } from "@/lib/queries/league-overview-highlights";
+import { loadOverviewSeasonHighlights, loadOverviewWeekHighlights } from "@/lib/queries/league-overview-highlights";
 import { getLeaguePositionStats } from "@/lib/queries/league-stats";
 import { loadOverviewWeeklyRoast } from "@/lib/queries/overview-weekly-roast";
 import { resolvePlayerScorePoint } from "@/lib/leagues/schedule/player-score-point";
 import { nflToFantasyWeek } from "@/lib/leagues/schedule/fantasy-week-map";
 import { getNflState } from "@/lib/sleeper/api";
+
+const EMPTY_PLAYER_LEADERS = {
+  passer: null,
+  rusher: null,
+  receiver: null,
+};
 
 type LeagueHomeOverviewTabProps = {
   bundleInput: LeagueHomeStandingsBundleInput;
@@ -65,11 +72,8 @@ export async function LeagueHomeOverviewTab({
         worstDefense={rankByPointsAgainst(standings)[0] ?? null}
         inefficient={null}
         seasonLeaders={[]}
-        playersOfTheWeek={{
-          passer: null,
-          rusher: null,
-          receiver: null,
-        }}
+        playersOfTheWeek={EMPTY_PLAYER_LEADERS}
+        playersOfTheSeason={EMPTY_PLAYER_LEADERS}
         highlightWeek={null}
         weeklyRoast={null}
       />
@@ -81,10 +85,16 @@ export async function LeagueHomeOverviewTab({
     bundleInput.scoringRules,
   );
 
-  const [nflState, seasonOpf, stats] = await Promise.all([
+  const leagueSeasonId = bundleInput.leagueSeasonId;
+  const closePromise = getGameWeekCloseState(bundleInput.schedule);
+  const [nflState, stats, seasonOpf] = await Promise.all([
     getNflState().catch(() => null),
-    getSeasonOpfByTeamId(bundleInput.leagueSeasonId).catch(() => new Map()),
     getLeaguePositionStats(leagueSlug, userId),
+    closePromise.then((state) =>
+      getSeasonOpfByTeamId(leagueSeasonId, {
+        excludeWeek: state.weekFinalized ? null : state.fantasyWeek,
+      }).catch(() => new Map()),
+    ),
   ]);
 
   const scorePoint = nflState
@@ -102,15 +112,11 @@ export async function LeagueHomeOverviewTab({
       : null;
 
   const emptyHighlights = {
-    playersOfTheWeek: {
-      passer: null,
-      rusher: null,
-      receiver: null,
-    },
+    playersOfTheWeek: EMPTY_PLAYER_LEADERS,
     week: highlightWeek ?? 1,
   };
 
-  const [weekHighlights, weeklyRoast] = await Promise.all([
+  const [weekHighlights, seasonHighlights, weeklyRoast] = await Promise.all([
     scorePoint.week >= 1
       ? loadOverviewWeekHighlights({
           seasonYear: bundleInput.seasonYear,
@@ -119,11 +125,17 @@ export async function LeagueHomeOverviewTab({
           scoringRules,
         }).catch(() => emptyHighlights)
       : Promise.resolve(emptyHighlights),
+    loadOverviewSeasonHighlights({
+      seasonYear: bundleInput.seasonYear,
+      seasonType: scorePoint.seasonType,
+      scoringRules,
+    }).catch(() => EMPTY_PLAYER_LEADERS),
     useOverviewMock
       ? Promise.resolve(getOverviewWeeklyRoastMock())
       : loadOverviewWeeklyRoast({
-          leagueSeasonId: bundleInput.leagueSeasonId,
+          leagueSeasonId,
           regularSeasonEndWeek: bundleInput.regularSeasonEndWeek,
+          schedule: bundleInput.schedule,
           teams: standingsTeams
             .filter((t) => t.userId && t.teamId)
             .map((t) => ({
@@ -176,6 +188,7 @@ export async function LeagueHomeOverviewTab({
       inefficient={inefficient[0] ?? null}
       seasonLeaders={seasonLeaders}
       playersOfTheWeek={weekHighlights.playersOfTheWeek}
+      playersOfTheSeason={seasonHighlights}
       highlightWeek={highlightWeek}
       weeklyRoast={weeklyRoast}
     />

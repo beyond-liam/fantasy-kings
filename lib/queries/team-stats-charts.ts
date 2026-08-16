@@ -50,6 +50,7 @@ export async function getTeamStatsCharts(input: {
       seasonYear: season.seasonYear,
       scoringPreset: season.scoringPreset,
       scoringRules: season.settings.scoringRules,
+      schedule: season.settings.schedule,
     });
 
   const weeklyPoints = buildWeeklyPointsBand({

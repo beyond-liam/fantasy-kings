@@ -4,7 +4,7 @@ import { cache } from "react";
 import { playerExternalIds, players, rosterPlayers, teams } from "@/db/schema";
 import { profiles } from "@/db/schema/users";
 import { db } from "@/lib/db";
-import { getFinalMatchupsForSeason } from "@/lib/leagues/matchups/finals";
+import { getLeagueRollupMatchups } from "@/lib/leagues/matchups/finals";
 import { computeOptimumLineup } from "@/lib/leagues/game-centre/optimum";
 import {
   buildLeaguePositionStatsRows,
@@ -24,6 +24,7 @@ import { getLeagueBySlug, getLeagueMembership, getLeagueSeason } from "@/lib/que
 import { getRankedPlayers } from "@/lib/queries/players";
 import { resolvePlayerScorePoint } from "@/lib/leagues/schedule/player-score-point";
 import { getNflState } from "@/lib/sleeper/api";
+import { getGameWeekCloseState } from "@/lib/nfl/current-week-board";
 import { formatPersonName } from "@/lib/account/person-name";
 
 export type LeaguePositionStatsData = {
@@ -181,12 +182,16 @@ export const getLeaguePositionStats = cache(
     }
 
     const identityInputs = teamIdentityRows(teamRows);
+    const close = await getGameWeekCloseState(season.settings.schedule);
+    const excludeWeek = close.weekFinalized ? null : close.fantasyWeek;
 
     // Stats never use projections — only real scored points after the season starts.
     if (season.status !== "active") {
       const [finals, seasonOpf] = await Promise.all([
-        getFinalMatchupsForSeason(season.id).catch(() => []),
-        getSeasonOpfByTeamId(season.id).catch(() => new Map()),
+        getLeagueRollupMatchups(season.id, season.settings.schedule).catch(
+          () => [],
+        ),
+        getSeasonOpfByTeamId(season.id, { excludeWeek }).catch(() => new Map()),
       ]);
       const rows = withSeasonRollups(
         buildLeaguePositionStatsRows(identityInputs, positionColumns, {
@@ -262,8 +267,10 @@ export const getLeaguePositionStats = cache(
 
     if (!scoresAvailable) {
       const [finals, seasonOpf] = await Promise.all([
-        getFinalMatchupsForSeason(season.id).catch(() => []),
-        getSeasonOpfByTeamId(season.id).catch(() => new Map()),
+        getLeagueRollupMatchups(season.id, season.settings.schedule).catch(
+          () => [],
+        ),
+        getSeasonOpfByTeamId(season.id, { excludeWeek }).catch(() => new Map()),
       ]);
       const rows = withSeasonRollups(
         buildLeaguePositionStatsRows(identityInputs, positionColumns, {
@@ -373,8 +380,10 @@ export const getLeaguePositionStats = cache(
     }).catch(() => undefined);
 
     const [finals, seasonOpf] = await Promise.all([
-      getFinalMatchupsForSeason(season.id).catch(() => []),
-      getSeasonOpfByTeamId(season.id).catch(() => new Map()),
+      getLeagueRollupMatchups(season.id, season.settings.schedule).catch(
+        () => [],
+      ),
+      getSeasonOpfByTeamId(season.id, { excludeWeek }).catch(() => new Map()),
     ]);
     const rows = withSeasonRollups(
       builtRows,

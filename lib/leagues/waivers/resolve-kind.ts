@@ -14,6 +14,8 @@ export function resolvePlayerAcquisitionKind(input: {
   onWaivers: boolean;
   nflTeam?: string | null;
   startedNflTeams?: Set<string>;
+  slateComplete?: boolean;
+  lastKickoff?: Date | null;
   /** When set with seasonYear, derives fantasy-league preseason from the calendar. */
   seasonYear?: number;
   nfl?: {
@@ -51,5 +53,7 @@ export function resolvePlayerAcquisitionKind(input: {
       input.nflTeam,
       input.startedNflTeams ?? new Set(),
     ),
+    slateComplete: input.slateComplete,
+    lastKickoff: input.lastKickoff,
   });
 }

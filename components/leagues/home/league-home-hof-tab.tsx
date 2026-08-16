@@ -64,6 +64,7 @@ export async function LeagueHomeHofTab({
     teams: hofTeams.filter((t) => Boolean(t.teamId)),
     divisionCount,
     regularSeasonEndWeek: bundleInput.regularSeasonEndWeek,
+    schedule: bundleInput.schedule,
     championTeamId: bracket?.champion?.teamId ?? null,
   }).catch(() => emptyLeagueHallOfFame());
 
