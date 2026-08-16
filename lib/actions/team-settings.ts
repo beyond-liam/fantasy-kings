@@ -122,7 +122,7 @@ export async function updateTeamIdentity(
   return { success: true };
 }
 
-/** Toggle this team's draft autopick preference (queue-only on clock expiry). */
+/** Toggle this team's draft autopick preference (queue picks immediately on turn). */
 export async function updateTeamAutoPick(
   slug: string,
   autoPickEnabled: boolean,
@@ -143,10 +143,23 @@ export async function updateTeamAutoPick(
     return { success: false, error: "Team not found." };
   }
 
+  const enabled = Boolean(autoPickEnabled);
   await db
     .update(teams)
-    .set({ autoPickEnabled: Boolean(autoPickEnabled) })
+    .set({ autoPickEnabled: enabled })
     .where(eq(teams.id, team.id));
+
+  if (enabled) {
+    const { drainDraftAutopick } = await import(
+      "@/lib/leagues/draft/process-expired-picks"
+    );
+    await drainDraftAutopick({
+      leagueSeasonId: season.id,
+      leaguePublicId: league.publicId,
+      leagueName: league.name,
+      madeByUserId: user.id,
+    });
+  }
 
   revalidateTeamSettingsPaths(league.publicId);
   revalidatePath(`/league/${league.publicId}/draft`);

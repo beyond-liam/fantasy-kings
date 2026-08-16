@@ -124,10 +124,11 @@ curl -X POST "https://<your-app>/api/cron/start-drafts" \
 
 ### `/api/cron/process-draft-picks` (GET or POST)
 
-Autopicks seats whose pick clock has expired (and open seats with no clock).
+Autopicks live draft seats that are due: claimed teams with Autopick + a queue
+pick immediately; open seats (and expired clocks) still queue→BPA.
 Also applies timed-email daily pause windows (auto-pause / auto-resume).
-This is the authoritative unattended path — draft poll + settings save also
-sync pause windows when someone is in the app.
+This is the authoritative unattended path — draft start/pick/queue/autopick
+toggle and the draft room also kick the same drain when someone is in the app.
 
 Run every **1–5 minutes** while any draft is live or in email/slow mode with a pick clock (Vercel Hobby daily is only a backup).
 

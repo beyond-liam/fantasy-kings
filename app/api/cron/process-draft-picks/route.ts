@@ -27,7 +27,7 @@ async function handle(request: Request) {
   }
 }
 
-/** Autopick expired pick clocks. Run every 1–5 minutes via cron-job.org. */
+/** Autopick due draft seats (immediate queue + expired open). Cron every 1–5m. */
 export async function GET(request: Request) {
   return handle(request);
 }

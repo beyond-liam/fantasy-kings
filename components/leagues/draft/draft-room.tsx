@@ -255,22 +255,14 @@ export function DraftRoom({
     ? (teams.find((team) => team.id === onTheClockLive.teamId) ?? null)
     : null;
   const onClockIsOpenSlot = Boolean(onClockTeam && onClockTeam.userId == null);
+  // Always attempt on expiry / open seats — server reads live autoPickEnabled +
+  // queue. Do not gate on SSR team flags (stale after My Team toggle).
+  const pickClockExpired = secondsLeft != null && secondsLeft <= 0;
 
   const queuedPlayerIds = useMemo(
     () => queuedItems.map((item) => item.playerId),
     [queuedItems],
   );
-
-  const onClockAllowsAutopick =
-    onClockIsOpenSlot || Boolean(onClockTeam?.autoPickEnabled);
-  const myQueueReady =
-    !myTeamId ||
-    onClockTeam?.id !== myTeamId ||
-    queuedPlayerIds.length > 0;
-  const autopickAllowed =
-    (clockEnabled || onClockIsOpenSlot) &&
-    onClockAllowsAutopick &&
-    (onClockIsOpenSlot || myQueueReady);
 
   const picksUntilUser = useMemo(() => {
     if (
@@ -428,16 +420,10 @@ export function DraftRoom({
     onTheClockLive?.overall,
   ]);
 
-  // Autopick when the clock hits zero; retry while it stays expired.
+  // Autopick on turn start (queue fires immediately) and again when the clock
+  // hits zero (open seats / expiry). Server decides eligibility.
   useEffect(() => {
-    if (!draftLive || !clockEnabled || !autopickAllowed) {
-      autopickRef.current = false;
-      return;
-    }
-    if (secondsLeft == null || secondsLeft > 0) {
-      if (secondsLeft != null && secondsLeft > 0) {
-        autopickRef.current = false;
-      }
+    if (!draftLive) {
       return;
     }
 
@@ -458,6 +444,9 @@ export function DraftRoom({
       if (result.success) {
         return;
       }
+      if (result.retry === false) {
+        return;
+      }
       retryId = window.setTimeout(() => {
         void attempt();
       }, 5_000);
@@ -470,13 +459,12 @@ export function DraftRoom({
       window.clearTimeout(retryId);
     };
   }, [
-    autopickAllowed,
-    clockEnabled,
     draftLive,
-    secondsLeft,
     slug,
     livePickIndex,
     liveTurnExpiresAt,
+    onTheClockLive?.overall,
+    pickClockExpired,
   ]);
 
   // Auto-start when the scheduled draft time is reached (also covered by cron).

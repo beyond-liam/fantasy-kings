@@ -34,6 +34,8 @@ type MakeDraftPickResult = ActionResult & {
   overall?: number;
   playerFullName?: string;
   teamName?: string;
+  /** When false, draft-room client should not keep retrying this pick. */
+  retry?: boolean;
 };
 
 function revalidateDraftPaths(slug: string) {
@@ -80,6 +82,15 @@ export async function startDraft(slug: string): Promise<ActionResult> {
       resumed: false,
     });
   }
+
+  const { drainDraftAutopick } = await import(
+    "@/lib/leagues/draft/process-expired-picks"
+  );
+  await drainDraftAutopick({
+    leagueSeasonId: season.id,
+    leaguePublicId: league.publicId,
+    leagueName: league.name,
+  });
 
   revalidateDraftPaths(league.publicId);
   return { success: true };
@@ -136,6 +147,15 @@ export async function tryAutoStartDraft(slug: string): Promise<ActionResult> {
     leaguePublicId: league.publicId,
     leagueName: league.name,
     resumed: false,
+  });
+
+  const { drainDraftAutopick } = await import(
+    "@/lib/leagues/draft/process-expired-picks"
+  );
+  await drainDraftAutopick({
+    leagueSeasonId: season.id,
+    leaguePublicId: league.publicId,
+    leagueName: league.name,
   });
 
   revalidateDraftPaths(league.publicId);
@@ -305,6 +325,18 @@ export async function makeDraftPick(
     seasonTeams,
   });
 
+  if (!committed.isComplete) {
+    const { drainDraftAutopick } = await import(
+      "@/lib/leagues/draft/process-expired-picks"
+    );
+    await drainDraftAutopick({
+      leagueSeasonId: season.id,
+      leaguePublicId: league.publicId,
+      leagueName: league.name,
+      madeByUserId: user.id,
+    });
+  }
+
   revalidateDraftPaths(league.publicId);
   return {
     success: true,
@@ -315,10 +347,9 @@ export async function makeDraftPick(
 }
 
 /**
- * Clock expiry / autopick: claimed seats with autopick on take the queue only
- * (empty queue waits for a manual pick). Open seats still use queue → BPA.
- * Idempotent if the pick already advanced. Always enforces clock expiry so a
- * stale draft-room tab cannot fire early (cron is the authoritative path).
+ * Autopick for the current seat when eligible.
+ * Claimed + autopick on: queue pick as soon as the team is on the clock.
+ * Open seats: queue → BPA after clock expiry (or untimed).
  */
 export async function autoDraftCurrentPick(
   slug: string,
@@ -348,7 +379,11 @@ export async function autoDraftCurrentPick(
   });
 
   if (!outcome.ok) {
-    return { success: false, error: outcome.error };
+    const retry =
+      outcome.reason !== "disabled" &&
+      outcome.reason !== "no_queue" &&
+      outcome.reason !== "not_due";
+    return { success: false, error: outcome.error, retry };
   }
 
   return {
@@ -533,6 +568,17 @@ export async function toggleDraftQueue(
     playerId,
     sortOrder: Number(maxOrder) + 1,
   });
+
+  if (userTeam.autoPickEnabled) {
+    const { drainDraftAutopick } = await import(
+      "@/lib/leagues/draft/process-expired-picks"
+    );
+    await drainDraftAutopick({
+      leagueSeasonId: season.id,
+      leaguePublicId: league.publicId,
+      leagueName: league.name,
+    });
+  }
 
   revalidateDraftPaths(league.publicId);
   return { success: true, queued: true };

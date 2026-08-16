@@ -32,13 +32,18 @@ export type RunDraftAutopickResult =
 
 /**
  * Autopick the current on-clock seat when due.
- * Callers own auth; this enforces expiry / open-slot rules.
+ *
+ * Claimed seats with autopick on: pick from the queue immediately when the
+ * team is on the clock (do not wait for expiry). Empty queue waits for a
+ * manual pick.
+ * Open seats: queue then BPA, still subject to expiry / untimed rules.
  */
 export async function runDraftAutopick(input: {
   leagueSeasonId: string;
   leaguePublicId: string;
   leagueName: string;
-  /** When true, only proceed if the clock expired (or open seat with no clock). */
+  /** When true, only proceed if the clock expired (or open seat with no clock).
+   *  Claimed queue autopicks ignore this and fire as soon as a queue player is available. */
   enforceExpiry: boolean;
   madeByUserId: string | null;
   /** Cron path should set sync so emails send inline. */
@@ -106,6 +111,46 @@ export async function runDraftAutopick(input: {
   const clockExpired =
     draft.turnExpiresAt != null && draft.turnExpiresAt.getTime() <= now;
 
+  // Claimed + autopick on: draft from queue as soon as this seat is on the clock.
+  if (!isOpenSlot && onClockTeam?.autoPickEnabled) {
+    const queuedPlayerId = await selectAutopickPlayerId({
+      draftId: draft.id,
+      currentPickIndex: draft.currentPickIndex,
+      teamId: slot.teamId,
+      seasonTeams: teamsWithSlots,
+      settings: season.settings,
+      benchSlots: season.benchSlots,
+      scoringPreset: season.scoringPreset,
+      queueOnly: true,
+    });
+
+    if (queuedPlayerId) {
+      return commitAutopickPlayer({
+        input,
+        season,
+        draft,
+        seasonTeams,
+        playerId: queuedPlayerId,
+      });
+    }
+
+    // Queue empty — never BPA; wait for a manual pick (even after expiry).
+    return {
+      ok: false,
+      error: "Queue is empty — waiting for a manual pick.",
+      reason: "no_queue",
+    };
+  }
+
+  if (!isOpenSlot && !onClockTeam?.autoPickEnabled) {
+    return {
+      ok: false,
+      error: "Autopick is off for this team.",
+      reason: "disabled",
+    };
+  }
+
+  // Open / unclaimed seats — honour clock rules, then queue → BPA.
   if (input.enforceExpiry) {
     if (draft.turnExpiresAt != null) {
       if (!clockExpired) {
@@ -116,23 +161,12 @@ export async function runDraftAutopick(input: {
         };
       }
     } else if (!isOpenSlot) {
-      // Untimed claimed seat — wait for a human (or an explicit force path).
       return {
         ok: false,
         error: "No pick clock and seat is claimed.",
         reason: "not_due",
       };
     }
-  }
-
-  // Claimed seats only autopick when the manager opted in (queue-only).
-  // Open/unclaimed seats always autodraft (queue, then best available).
-  if (!isOpenSlot && !onClockTeam?.autoPickEnabled) {
-    return {
-      ok: false,
-      error: "Autopick is off for this team.",
-      reason: "disabled",
-    };
   }
 
   const playerId = await selectAutopickPlayerId({
@@ -143,23 +177,50 @@ export async function runDraftAutopick(input: {
     settings: season.settings,
     benchSlots: season.benchSlots,
     scoringPreset: season.scoringPreset,
-    queueOnly: !isOpenSlot,
+    queueOnly: false,
   });
 
   if (!playerId) {
-    if (!isOpenSlot) {
-      return {
-        ok: false,
-        error: "Queue is empty — waiting for a manual pick.",
-        reason: "no_queue",
-      };
-    }
     return {
       ok: false,
       error: "No players left to autopick.",
       reason: "other",
     };
   }
+
+  return commitAutopickPlayer({
+    input,
+    season,
+    draft,
+    seasonTeams,
+    playerId,
+  });
+}
+
+async function commitAutopickPlayer(args: {
+  input: {
+    leagueSeasonId: string;
+    leaguePublicId: string;
+    leagueName: string;
+    madeByUserId: string | null;
+    syncAlerts?: boolean;
+  };
+  season: {
+    id: string;
+    settings: (typeof leagueSeasons.$inferSelect)["settings"];
+    benchSlots: number;
+    irEnabled: boolean;
+    taxiEnabled: boolean;
+    pickTimeLimitSeconds: number;
+    scoringPreset: string;
+    regularSeasonEndWeek: number;
+    playoffTeamCount: number;
+  };
+  draft: NonNullable<Awaited<ReturnType<typeof getDraftBySeasonId>>>;
+  seasonTeams: Awaited<ReturnType<typeof getSeasonDraftTeams>>;
+  playerId: string;
+}): Promise<RunDraftAutopickResult> {
+  const { input, season, draft, seasonTeams, playerId } = args;
 
   const committed = await commitDraftPick({
     leagueSeasonId: season.id,
@@ -242,8 +303,57 @@ export type ProcessExpiredDraftPicksResult = {
 const MAX_PICKS_PER_DRAFT = 32;
 
 /**
- * Autopick every live draft whose clock has expired (or open seat with no clock).
- * Safe to run frequently via cron — does not need a browser tab open.
+ * Drain eligible autopicks for one live draft (immediate queue seats, then
+ * open/expired seats). Stops on not_due / disabled / no_queue / error.
+ */
+export async function drainDraftAutopick(input: {
+  leagueSeasonId: string;
+  leaguePublicId: string;
+  leagueName: string;
+  madeByUserId?: string | null;
+  syncAlerts?: boolean;
+}): Promise<{ picked: number; skipped: boolean; error?: string }> {
+  let picked = 0;
+  while (picked < MAX_PICKS_PER_DRAFT) {
+    const draft = await getDraftBySeasonId(input.leagueSeasonId);
+    if (!draft || draft.status !== "live") {
+      break;
+    }
+
+    const outcome = await runDraftAutopick({
+      leagueSeasonId: input.leagueSeasonId,
+      leaguePublicId: input.leaguePublicId,
+      leagueName: input.leagueName,
+      enforceExpiry: true,
+      madeByUserId: input.madeByUserId ?? null,
+      syncAlerts: input.syncAlerts,
+    });
+
+    if (!outcome.ok) {
+      if (
+        outcome.reason === "not_due" ||
+        outcome.reason === "disabled" ||
+        outcome.reason === "no_queue"
+      ) {
+        return { picked, skipped: true };
+      }
+      return { picked, skipped: false, error: outcome.error };
+    }
+
+    picked += 1;
+    if (outcome.isComplete) {
+      break;
+    }
+  }
+
+  return { picked, skipped: false };
+}
+
+/**
+ * Autopick live draft seats:
+ * - Claimed + autopick on + queue → pick immediately (even mid-clock)
+ * - Open seats with expired/untimed clock → queue then BPA
+ * Drains consecutive immediate queue picks in one pass.
  */
 export async function processExpiredDraftPicks(
   now = new Date(),
@@ -277,59 +387,22 @@ export async function processExpiredDraftPicks(
   };
 
   for (const row of live) {
-    let picksThisDraft = 0;
-    // Keep draining open/expired seats in one pass (e.g. chained open slots).
-    while (picksThisDraft < MAX_PICKS_PER_DRAFT) {
-      const draft = await getDraftBySeasonId(row.seasonId);
-      if (!draft || draft.status !== "live") {
-        break;
-      }
-
-      const expired =
-        draft.turnExpiresAt != null &&
-        draft.turnExpiresAt.getTime() <= now.getTime();
-      const untimed = draft.turnExpiresAt == null;
-
-      if (!expired && !untimed) {
-        result.skipped += 1;
-        break;
-      }
-
-      const outcome = await runDraftAutopick({
-        leagueSeasonId: row.seasonId,
-        leaguePublicId: row.leaguePublicId,
-        leagueName: row.leagueName,
-        enforceExpiry: true,
-        madeByUserId: null,
-        syncAlerts: true,
+    const drained = await drainDraftAutopick({
+      leagueSeasonId: row.seasonId,
+      leaguePublicId: row.leaguePublicId,
+      leagueName: row.leagueName,
+      madeByUserId: null,
+      syncAlerts: true,
+    });
+    result.picked += drained.picked;
+    if (drained.skipped) {
+      result.skipped += 1;
+    }
+    if (drained.error) {
+      result.errors.push({
+        seasonId: row.seasonId,
+        error: drained.error,
       });
-
-      if (!outcome.ok) {
-        if (
-          outcome.reason === "not_due" ||
-          outcome.reason === "disabled" ||
-          outcome.reason === "no_queue"
-        ) {
-          result.skipped += 1;
-        } else {
-          result.errors.push({
-            seasonId: row.seasonId,
-            error: outcome.error,
-          });
-        }
-        break;
-      }
-
-      result.picked += 1;
-      picksThisDraft += 1;
-      if (outcome.isComplete) {
-        break;
-      }
-
-      // Timed drafts get a fresh full window after each pick — stop this draft.
-      if (!untimed) {
-        break;
-      }
     }
   }
 
