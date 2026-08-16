@@ -28,7 +28,7 @@ export function PointsCell({
   const clickable = Boolean(showValue && onActualClick);
 
   return (
-    <div className={cn("flex flex-col gap-0.5 tabular-nums", className)}>
+    <div className={cn("flex flex-col gap-1 tabular-nums", className)}>
       {clickable ? (
         <button
           type="button"

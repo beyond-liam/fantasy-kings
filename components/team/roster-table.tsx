@@ -1,5 +1,6 @@
 "use client";
 
+import type { CSSProperties } from "react";
 import {
   EmptyPlayerIdentity,
   PlayerIdentity,
@@ -72,18 +73,40 @@ type TeamRosterTableProps = {
 };
 
 const PLACEHOLDER = "—";
-/** Shared widths so Opp lines up across Lineup / Bench / IR / Taxi tables. */
-const COL_WIDTH: Record<string, string> = {
-  player: "w-[16rem] min-w-[16rem]",
-  opponent: "w-36 min-w-36",
-  points: "w-16 min-w-16",
-  rank: "w-14 min-w-14",
-  fantasyPoints: "w-16 min-w-16",
-  average: "w-14 min-w-14",
-  owned: "w-14 min-w-14",
-  start: "w-14 min-w-14",
-  slot: "w-[7.5rem] min-w-[7.5rem] max-md:hidden",
-  action: "w-10 min-w-10",
+
+/**
+ * Only these cols get an explicit width. Other cols stay unset so they absorb
+ * leftover table width — same pattern as DataTable `layout="fixed"` / stats.
+ * (If every col has a width, `table-fixed` + `w-full` stretches Player too.)
+ */
+const FIXED_COL_PX = {
+  player: 224, // matches stats / watchlist Player
+  opponent: 144, // fits live down/distance
+  slot: 120, // 7.5rem select
+  action: 48, // icon-sm (32) + cell px-2 (16)
+} as const;
+
+type FixedColId = keyof typeof FIXED_COL_PX;
+
+function fixedColStyle(id: string): CSSProperties | undefined {
+  if (id in FIXED_COL_PX) {
+    const width = FIXED_COL_PX[id as FixedColId];
+    return { width, minWidth: width, maxWidth: width };
+  }
+  return undefined;
+}
+
+const COL_CLASS: Record<string, string> = {
+  player: "overflow-hidden",
+  opponent: "overflow-hidden",
+  points: "",
+  rank: "",
+  fantasyPoints: "",
+  average: "",
+  owned: "",
+  start: "",
+  slot: "max-md:hidden",
+  action: "",
 };
 
 const COLUMNS = [
@@ -244,16 +267,31 @@ export function TeamRosterTable({
       <TableShell>
         <TooltipProvider>
           <Table className="table-fixed min-w-4xl">
+            <colgroup>
+              {columns.map((column) => {
+                const width =
+                  column.id in FIXED_COL_PX
+                    ? FIXED_COL_PX[column.id as FixedColId]
+                    : undefined;
+                return (
+                  <col
+                    key={column.id}
+                    style={width != null ? { width } : undefined}
+                  />
+                );
+              })}
+            </colgroup>
             <TableHeader>
               <TableRow className="hover:bg-transparent">
                 {columns.map((column) => (
                   <TableHead
                     key={column.id}
                     className={cn(
-                      COL_WIDTH[column.id],
+                      COL_CLASS[column.id],
                       column.id === "player" &&
                         "max-md:sticky max-md:left-0 max-md:z-30 max-md:shadow-[4px_0_8px_-4px_rgba(0,0,0,0.45)]",
                     )}
+                    style={fixedColStyle(column.id)}
                   >
                     <TeamTableColumnHeader
                       title={column.header}
@@ -276,10 +314,11 @@ export function TeamRosterTable({
                 <TableRow key={slot.key}>
                   <TableCell
                     className={cn(
-                      COL_WIDTH.player,
+                      COL_CLASS.player,
                       "max-md:sticky max-md:left-0 max-md:z-20 max-md:overflow-hidden max-md:shadow-[4px_0_8px_-4px_rgba(0,0,0,0.45)]",
                       "max-md:bg-background max-md:group-hover/tr:bg-[color-mix(in_oklab,var(--muted)_50%,var(--background))] max-md:group-data-[state=selected]/tr:bg-muted",
                     )}
+                    style={fixedColStyle("player")}
                   >
                     <div className="flex min-w-0 items-center gap-2">
                       <RosterSlotSwap
@@ -306,6 +345,7 @@ export function TeamRosterTable({
                           injuryStatus={slot.player.injuryStatus}
                           playerId={slot.player.id}
                           leagueSlug={leagueSlug}
+                          className="min-w-0 flex-1"
                           hasPossession={slot.player.opponent?.hasPossession}
                           inRedZone={slot.player.opponent?.inRedZone}
                           isLive={slot.player.opponent?.gameStatus === "in"}
@@ -317,10 +357,13 @@ export function TeamRosterTable({
                       )}
                     </div>
                   </TableCell>
-                  <TableCell className={COL_WIDTH.opponent}>
+                  <TableCell
+                    className={COL_CLASS.opponent}
+                    style={fixedColStyle("opponent")}
+                  >
                     <OpponentCell opponent={slot.player?.opponent} />
                   </TableCell>
-                  <TableCell className={COL_WIDTH.points}>
+                  <TableCell className={COL_CLASS.points}>
                     {slot.player ? (
                       <PointsCell
                         actualPts={slot.player.actualPts}
@@ -343,7 +386,7 @@ export function TeamRosterTable({
                   </TableCell>
                   <TableCell
                     className={cn(
-                      COL_WIDTH.rank,
+                      COL_CLASS.rank,
                       "font-medium tabular-nums",
                       getPositionRankColorClass(slot.player?.positionRank),
                     )}
@@ -356,37 +399,37 @@ export function TeamRosterTable({
                       : PLACEHOLDER}
                   </TableCell>
                   <TableCell
-                    className={cn(
-                      COL_WIDTH.fantasyPoints,
-                      "tabular-nums",
-                    )}
+                    className={cn(COL_CLASS.fantasyPoints, "tabular-nums")}
                   >
                     {slot.player
                       ? formatStatValue(slot.player.fantasyPts, 2)
                       : PLACEHOLDER}
                   </TableCell>
                   <TableCell
-                    className={cn(COL_WIDTH.average, "tabular-nums")}
+                    className={cn(COL_CLASS.average, "tabular-nums")}
                   >
                     {slot.player
                       ? formatStatValue(slot.player.avgPts, 2)
                       : PLACEHOLDER}
                   </TableCell>
                   <TableCell
-                    className={cn(COL_WIDTH.owned, "tabular-nums")}
+                    className={cn(COL_CLASS.owned, "tabular-nums")}
                   >
                     {slot.player
                       ? formatRosterRatePct(slot.player.ownedPct)
                       : PLACEHOLDER}
                   </TableCell>
                   <TableCell
-                    className={cn(COL_WIDTH.start, "tabular-nums")}
+                    className={cn(COL_CLASS.start, "tabular-nums")}
                   >
                     {slot.player
                       ? formatRosterRatePct(slot.player.startPct)
                       : PLACEHOLDER}
                   </TableCell>
-                  <TableCell className={COL_WIDTH.slot}>
+                  <TableCell
+                    className={COL_CLASS.slot}
+                    style={fixedColStyle("slot")}
+                  >
                     <RosterSlotSelect
                       slot={slot}
                       assignmentOptions={assignmentOptions}
@@ -405,7 +448,10 @@ export function TeamRosterTable({
                     />
                   </TableCell>
                   {showRowActions ? (
-                    <TableCell className={COL_WIDTH.action}>
+                    <TableCell
+                      className={COL_CLASS.action}
+                      style={fixedColStyle("action")}
+                    >
                       <RosterRowActions
                         player={slot.player}
                         leagueSlug={leagueSlug}

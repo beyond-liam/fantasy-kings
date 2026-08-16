@@ -38,7 +38,7 @@ export function OpponentCell({ opponent, className }: OpponentCellProps) {
   }
 
   return (
-    <div className={cn("flex flex-col gap-0.5", className)}>
+    <div className={cn("flex flex-col gap-1", className)}>
       <span className="leading-tight text-foreground tabular-nums">
         {value.label}
       </span>
