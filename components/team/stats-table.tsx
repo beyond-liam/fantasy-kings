@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import type { ColumnDef, SortingState } from "@tanstack/react-table";
 
-import { PlayerIdentity } from "@/components/rankings/player-identity";
+import { createStickyPlayerColumns } from "@/components/rankings/sticky-player-columns";
 import { OpponentCell } from "@/components/team/opponent-cell";
 import { TeamTableColumnHeader } from "@/components/team/team-table-column-header";
 import {
@@ -59,31 +59,21 @@ export function TeamStatsTable({
     const statColumns = getStatColumns(columnPosition);
 
     const cols: ColumnDef<RankedPlayerRow>[] = [
-      {
-        id: "player",
-        accessorFn: (row) => row.fullName,
-        enableSorting: false,
-        header: () => <TeamTableColumnHeader title="Player" />,
-        cell: ({ row }) => {
-          const player = row.original;
-          return (
-            <PlayerIdentity
-              fullName={player.fullName}
-              sleeperId={player.sleeperId}
-              primaryPositionId={player.primaryPositionId}
-              nflTeam={player.nflTeam}
-              byeWeek={player.byeWeek}
-              injuryStatus={player.injuryStatus}
-              playerId={player.id}
-              leagueSlug={leagueSlug}
-              hasPossession={player.opponent?.hasPossession}
-              inRedZone={player.opponent?.inRedZone}
-              isLive={player.opponent?.gameStatus === "in"}
-            />
-          );
-        },
-        meta: { width: 224, sticky: "left", cellClassName: "min-w-[14rem]" },
-      },
+      ...createStickyPlayerColumns<RankedPlayerRow>({
+        leagueSlug,
+        getPlayer: (row) => ({
+          id: row.id,
+          fullName: row.fullName,
+          sleeperId: row.sleeperId,
+          primaryPositionId: row.primaryPositionId,
+          nflTeam: row.nflTeam,
+          byeWeek: row.byeWeek,
+          injuryStatus: row.injuryStatus,
+          hasPossession: row.opponent?.hasPossession,
+          inRedZone: row.opponent?.inRedZone,
+          isLive: row.opponent?.gameStatus === "in",
+        }),
+      }),
       {
         id: "opp",
         accessorFn: (row) => row.opponent?.label ?? "",

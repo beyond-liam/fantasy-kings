@@ -180,6 +180,36 @@ export function RosterCompareTable({
     const startableTitle = `T${startableThreshold}%`;
     const cols: ColumnDef<OverviewRosterCompareRow>[] = [
       {
+        id: "playerAvatar",
+        enableSorting: false,
+        header: () => <span className="sr-only">Player</span>,
+        cell: ({ row }) => {
+          const player = row.original;
+          return (
+            <PlayerProfileTrigger
+              playerId={player.id}
+              leagueSlug={leagueSlug}
+              aria-label={`View ${player.name}`}
+              className="flex shrink-0"
+            >
+              <PlayerAvatar
+                fullName={player.name}
+                sleeperId={player.sleeperId}
+                primaryPositionId={player.primaryPositionId}
+                nflTeam={player.nflTeam}
+                size="sm"
+              />
+            </PlayerProfileTrigger>
+          );
+        },
+        meta: {
+          width: 42,
+          sticky: "left",
+          cellClassName: "align-top pl-2 pr-2.5",
+          headerClassName: "pl-2 pr-2.5",
+        },
+      },
+      {
         id: "player",
         accessorFn: (row) => row.name,
         enableSorting: true,
@@ -193,38 +223,29 @@ export function RosterCompareTable({
               playerId={player.id}
               leagueSlug={leagueSlug}
               aria-label={`View ${player.name}`}
-              className="flex min-w-0 items-start gap-2"
+              className="flex min-w-0 flex-col gap-0.5 leading-tight"
             >
-              <PlayerAvatar
-                fullName={player.name}
-                sleeperId={player.sleeperId}
-                primaryPositionId={player.primaryPositionId}
-                nflTeam={player.nflTeam}
-                size="sm"
-              />
-              <div className="flex min-w-0 flex-col gap-0.5 leading-tight">
-                <span
-                  className={cn(
-                    "truncate text-pretty font-medium underline-offset-2 group-hover/player-identity:underline group-focus-visible/player-identity:underline",
-                    player.isViewed && "text-foreground",
-                  )}
-                >
-                  {player.name}
-                </span>
-                <span className="truncate text-[10px] text-muted-foreground">
-                  {[player.slotLabel, player.nflTeam]
-                    .filter(Boolean)
-                    .join(" · ") ||
-                    (player.isViewed ? "This player" : PLACEHOLDER)}
-                </span>
-              </div>
+              <span
+                className={cn(
+                  "truncate text-pretty font-medium underline-offset-2 group-hover/player-identity:underline group-focus-visible/player-identity:underline",
+                  player.isViewed && "text-foreground",
+                )}
+              >
+                {player.name}
+              </span>
+              <span className="truncate text-[10px] text-muted-foreground">
+                {[player.slotLabel, player.nflTeam]
+                  .filter(Boolean)
+                  .join(" · ") ||
+                  (player.isViewed ? "This player" : PLACEHOLDER)}
+              </span>
             </PlayerProfileTrigger>
           );
         },
         meta: {
-          width: 176,
-          sticky: "left",
-          cellClassName: "align-top min-w-[11rem]",
+          width: 134,
+          cellClassName: "align-top min-w-0 pl-0 pr-2",
+          headerClassName: "pl-0 pr-2",
         },
       },
       numericColumn({

@@ -7,7 +7,10 @@ import {
   type LeagueDraftTableActions,
 } from "@/components/leagues/draft/draft-player-action";
 import { PlayerActionButton } from "@/components/rankings/player-action-button";
-import { PlayerIdentity } from "@/components/rankings/player-identity";
+import {
+  createFullPlayerColumn,
+  createStickyPlayerColumns,
+} from "@/components/rankings/sticky-player-columns";
 import { WatchlistToggle } from "@/components/rankings/watchlist-toggle";
 import { DataTableColumnHeader } from "@/components/ui/data-table";
 import {
@@ -204,44 +207,51 @@ export function getPlayersColumns(
 
   return [
     ...leadColumns,
-    {
-      id: "player",
-      accessorFn: (row) => row.fullName,
-      enableSorting: false,
-      enableHiding: false,
-      size: 220,
-      meta: {
-        width: isMobile ? 176 : 220,
-        sticky: isMobile ? "left" : undefined,
-      },
-      header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Player" />
-      ),
-      cell: ({ row }) => {
-        const player = row.original;
-
-        return (
-          <PlayerIdentity
-            fullName={player.fullName}
-            sleeperId={player.sleeperId}
-            primaryPositionId={player.primaryPositionId}
-            nflTeam={player.nflTeam}
-            byeWeek={player.byeWeek}
-            injuryStatus={player.injuryStatus}
-            playerId={player.id}
-            leagueSlug={leagueSlug || null}
-          />
-        );
-      },
-      filterFn: (row, _columnId, filterValue) => {
-        const query = String(filterValue).toLowerCase();
-        if (!query) {
-          return true;
-        }
-
-        return row.original.fullName.toLowerCase().includes(query);
-      },
-    },
+    ...(isMobile
+      ? createStickyPlayerColumns<RankedPlayerRow>({
+          leagueSlug: leagueSlug || null,
+          headerVariant: "data",
+          nameWidth: 134,
+          getPlayer: (row) => ({
+            id: row.id,
+            fullName: row.fullName,
+            sleeperId: row.sleeperId,
+            primaryPositionId: row.primaryPositionId,
+            nflTeam: row.nflTeam,
+            byeWeek: row.byeWeek,
+            injuryStatus: row.injuryStatus,
+          }),
+          filterFn: (row, _columnId, filterValue) => {
+            const query = String(filterValue).toLowerCase();
+            if (!query) {
+              return true;
+            }
+            return row.original.fullName.toLowerCase().includes(query);
+          },
+        })
+      : [
+          createFullPlayerColumn<RankedPlayerRow>({
+            leagueSlug: leagueSlug || null,
+            headerVariant: "data",
+            width: 220,
+            getPlayer: (row) => ({
+              id: row.id,
+              fullName: row.fullName,
+              sleeperId: row.sleeperId,
+              primaryPositionId: row.primaryPositionId,
+              nflTeam: row.nflTeam,
+              byeWeek: row.byeWeek,
+              injuryStatus: row.injuryStatus,
+            }),
+            filterFn: (row, _columnId, filterValue) => {
+              const query = String(filterValue).toLowerCase();
+              if (!query) {
+                return true;
+              }
+              return row.original.fullName.toLowerCase().includes(query);
+            },
+          }),
+        ]),
     {
       id: "positionRank",
       accessorFn: (row) => sortableRankValue(row.positionRank),

@@ -106,7 +106,7 @@ export function DraftBoard({
 
   return (
     <>
-      <div ref={scrollRef} className="overflow-x-auto rounded-xl border bg-card/40">
+      <div ref={scrollRef} className="overflow-x-auto overscroll-x-none rounded-xl border bg-card/40">
         <table className="w-max min-w-full table-fixed border-collapse text-sm">
           <colgroup>
             {orderedTeams.map((team) => (

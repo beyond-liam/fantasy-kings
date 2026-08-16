@@ -1,7 +1,14 @@
 "use client";
 
 import { PlayerIdentity } from "@/components/rankings/player-identity";
+import {
+  STICKY_AVATAR_CELL_PAD,
+  STICKY_NAME_CELL_PAD,
+  STICKY_PLAYER_AVATAR_WIDTH,
+  STICKY_PLAYER_NAME_WIDTH,
+} from "@/components/rankings/sticky-player-columns";
 import { OpponentCell } from "@/components/team/opponent-cell";
+import { DATA_TABLE_STICKY_CELL_SURFACE } from "@/components/ui/data-table";
 import {
   Table,
   TableBody,
@@ -22,10 +29,20 @@ import type {
   GameCentrePlayer,
 } from "@/lib/queries/game-centre";
 import { formatStatValue } from "@/lib/rankings/column-config";
+import { cn } from "@/lib/utils";
 
 const PLACEHOLDER = "—";
 /** Shared widths so Opp header/cells align within and across tables. */
-const PLAYER_COL = "w-60 min-w-60";
+const AVATAR_COL = cn(
+  "sticky left-0 z-20 overflow-hidden shadow-[4px_0_8px_-4px_rgba(0,0,0,0.45)]",
+  DATA_TABLE_STICKY_CELL_SURFACE,
+  STICKY_AVATAR_CELL_PAD,
+);
+const AVATAR_HEAD = cn(
+  "sticky left-0 z-30 overflow-hidden bg-muted shadow-[4px_0_8px_-4px_rgba(0,0,0,0.45)]",
+  STICKY_AVATAR_CELL_PAD,
+);
+const PLAYER_COL = cn("min-w-0 overflow-hidden", STICKY_NAME_CELL_PAD);
 const OPP_COL = "w-36 min-w-36 whitespace-normal text-left";
 const PTS_COL = "w-16 min-w-16";
 
@@ -355,7 +372,25 @@ function BoxSection({
         <Table className="table-fixed min-w-[60rem]">
           <TableHeader>
             <TableRow className="hover:bg-transparent">
-              <TableHead className={PLAYER_COL}>Player</TableHead>
+              <TableHead
+                className={AVATAR_HEAD}
+                style={{
+                  width: STICKY_PLAYER_AVATAR_WIDTH,
+                  minWidth: STICKY_PLAYER_AVATAR_WIDTH,
+                  maxWidth: STICKY_PLAYER_AVATAR_WIDTH,
+                }}
+              >
+                <span className="sr-only">Player</span>
+              </TableHead>
+              <TableHead
+                className={PLAYER_COL}
+                style={{
+                  width: STICKY_PLAYER_NAME_WIDTH,
+                  minWidth: STICKY_PLAYER_NAME_WIDTH,
+                }}
+              >
+                Player
+              </TableHead>
               <TableHead className={OPP_COL}>Opp</TableHead>
               {columns.map((column) => (
                 <StatHead
@@ -374,7 +409,14 @@ function BoxSection({
           <TableBody>
             {players.map((player) => (
               <TableRow key={player.id}>
-                <TableCell className={PLAYER_COL}>
+                <TableCell
+                  className={AVATAR_COL}
+                  style={{
+                    width: STICKY_PLAYER_AVATAR_WIDTH,
+                    minWidth: STICKY_PLAYER_AVATAR_WIDTH,
+                    maxWidth: STICKY_PLAYER_AVATAR_WIDTH,
+                  }}
+                >
                   <PlayerIdentity
                     fullName={player.fullName}
                     sleeperId={player.sleeperId}
@@ -384,6 +426,29 @@ function BoxSection({
                     size="sm"
                     playerId={player.id}
                     leagueSlug={leagueSlug}
+                    showText={false}
+                    hasPossession={player.opponent?.hasPossession}
+                    inRedZone={player.opponent?.inRedZone}
+                    isLive={player.opponent?.gameStatus === "in"}
+                  />
+                </TableCell>
+                <TableCell
+                  className={PLAYER_COL}
+                  style={{
+                    width: STICKY_PLAYER_NAME_WIDTH,
+                    minWidth: STICKY_PLAYER_NAME_WIDTH,
+                  }}
+                >
+                  <PlayerIdentity
+                    fullName={player.fullName}
+                    sleeperId={player.sleeperId}
+                    primaryPositionId={player.primaryPositionId}
+                    nflTeam={player.nflTeam}
+                    injuryStatus={player.injuryStatus}
+                    size="sm"
+                    playerId={player.id}
+                    leagueSlug={leagueSlug}
+                    showAvatar={false}
                     hasPossession={player.opponent?.hasPossession}
                     inRedZone={player.opponent?.inRedZone}
                     isLive={player.opponent?.gameStatus === "in"}

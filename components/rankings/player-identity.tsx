@@ -35,6 +35,9 @@ type PlayerIdentityProps = {
   hasPossession?: boolean;
   inRedZone?: boolean;
   isLive?: boolean;
+  /** Omit for sticky-avatar / scrolling-name column splits. */
+  showAvatar?: boolean;
+  showText?: boolean;
 };
 
 type PlayerProfileTriggerProps = {
@@ -123,6 +126,8 @@ export function PlayerIdentity({
   hasPossession = false,
   inRedZone = false,
   isLive = false,
+  showAvatar = true,
+  showText = true,
 }: PlayerIdentityProps) {
   const subtitle = formatPlayerSubtitle({
     primaryPositionId,
@@ -136,49 +141,70 @@ export function PlayerIdentity({
       playerId={playerId}
       leagueSlug={leagueSlug}
       aria-label={playerId ? `View ${fullName}` : undefined}
-      className={cn("flex min-w-0 items-center gap-2.5", className)}
+      className={cn(
+        "flex min-w-0 items-center",
+        showAvatar && showText && "gap-2.5",
+        className,
+      )}
     >
-      <PlayerAvatar
-        fullName={fullName}
-        sleeperId={sleeperId}
-        primaryPositionId={primaryPositionId}
-        nflTeam={nflTeam}
-        injuryStatus={injuryStatus}
-        size={size}
-        hasPossession={hasPossession}
-        inRedZone={inRedZone}
-        isLive={isLive}
-      />
-      <div className="flex min-w-0 flex-col">
-        <span
-          className={cn(
-            "truncate font-medium underline-offset-2",
-            playerId &&
-              "group-hover/player-identity:underline group-focus-visible/player-identity:underline",
-          )}
-        >
-          {fullName}
-        </span>
-        <span className="truncate text-[11px] leading-tight text-muted-foreground">
-          {subtitle}
-        </span>
-      </div>
+      {showAvatar ? (
+        <PlayerAvatar
+          fullName={fullName}
+          sleeperId={sleeperId}
+          primaryPositionId={primaryPositionId}
+          nflTeam={nflTeam}
+          injuryStatus={injuryStatus}
+          size={size}
+          hasPossession={hasPossession}
+          inRedZone={inRedZone}
+          isLive={isLive}
+        />
+      ) : null}
+      {showText ? (
+        <div className="flex min-w-0 flex-col">
+          <span
+            className={cn(
+              "truncate font-medium underline-offset-2",
+              playerId &&
+                "group-hover/player-identity:underline group-focus-visible/player-identity:underline",
+            )}
+          >
+            {fullName}
+          </span>
+          <span className="truncate text-[11px] leading-tight text-muted-foreground">
+            {subtitle}
+          </span>
+        </div>
+      ) : null}
     </PlayerProfileTrigger>
   );
 }
 
 export function EmptyPlayerIdentity({
   slotLabel,
+  showAvatar = true,
+  showText = true,
 }: {
   slotLabel: string;
+  showAvatar?: boolean;
+  showText?: boolean;
 }) {
   return (
-    <div className="flex min-w-0 items-center gap-2.5 text-muted-foreground">
-      <div className="size-6 shrink-0 rounded-full bg-muted" aria-hidden />
-      <div className="flex min-w-0 flex-col">
-        <span className="truncate text-sm">Empty</span>
-        <span className="truncate text-xs">{slotLabel}</span>
-      </div>
+    <div
+      className={cn(
+        "flex min-w-0 items-center text-muted-foreground",
+        showAvatar && showText && "gap-2.5",
+      )}
+    >
+      {showAvatar ? (
+        <div className="size-6 shrink-0 rounded-full bg-muted" aria-hidden />
+      ) : null}
+      {showText ? (
+        <div className="flex min-w-0 flex-col">
+          <span className="truncate text-sm">Empty</span>
+          <span className="truncate text-xs">{slotLabel}</span>
+        </div>
+      ) : null}
     </div>
   );
 }

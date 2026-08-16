@@ -78,9 +78,14 @@ const PLACEHOLDER = "—";
  * Only these cols get an explicit width. Other cols stay unset so they absorb
  * leftover table width — same pattern as DataTable `layout="fixed"` / stats.
  * (If every col has a width, `table-fixed` + `w-full` stretches Player too.)
+ *
+ * Mobile adds a separate sticky avatar col (`md:hidden`). Desktop keeps a single
+ * 224px Player col — same as before the sticky-avatar experiment.
  */
 const FIXED_COL_PX = {
-  player: 224, // matches stats / watchlist Player
+  /** Mobile only: pl-2 + badge + gap-2 + avatar sm + pr-2.5 */
+  avatar: 86,
+  player: 224,
   opponent: 144, // fits live down/distance
   slot: 120, // 7.5rem select
   action: 48, // icon-sm (32) + cell px-2 (16)
@@ -96,7 +101,26 @@ function fixedColStyle(id: string): CSSProperties | undefined {
   return undefined;
 }
 
+/** Mobile sticky avatar — hidden on md+ so desktop layout is unchanged. */
+const AVATAR_COL_CLASS = "overflow-hidden md:hidden";
+
+const AVATAR_CELL_PAD = "py-2 pl-2 pr-2.5";
+/** Name-only cell on mobile; desktop Player cell keeps default `p-2`. */
+const PLAYER_NAME_MOBILE_PAD = "max-md:py-2 max-md:pl-0 max-md:pr-2";
+
+const STICKY_AVATAR_CELL = cn(
+  AVATAR_CELL_PAD,
+  "sticky left-0 z-20 overflow-hidden shadow-[4px_0_8px_-4px_rgba(0,0,0,0.45)]",
+  "bg-background group-hover/tr:bg-[color-mix(in_oklab,var(--muted)_50%,var(--background))] group-data-[state=selected]/tr:bg-muted",
+);
+
+const STICKY_AVATAR_HEAD = cn(
+  AVATAR_CELL_PAD,
+  "sticky left-0 z-30 overflow-hidden shadow-[4px_0_8px_-4px_rgba(0,0,0,0.45)]",
+);
+
 const COL_CLASS: Record<string, string> = {
+  avatar: AVATAR_COL_CLASS,
   player: "overflow-hidden",
   opponent: "overflow-hidden",
   points: "",
@@ -110,6 +134,7 @@ const COL_CLASS: Record<string, string> = {
 };
 
 const COLUMNS = [
+  { id: "avatar", header: "Player", srOnly: true },
   { id: "player", header: "Player" },
   { id: "opponent", header: "Opp", tooltip: "Opponent" },
   {
@@ -276,6 +301,10 @@ export function TeamRosterTable({
                 return (
                   <col
                     key={column.id}
+                    className={cn(
+                      column.id === "avatar" && "md:hidden",
+                      column.id === "slot" && "max-md:hidden",
+                    )}
                     style={width != null ? { width } : undefined}
                   />
                 );
@@ -288,10 +317,18 @@ export function TeamRosterTable({
                     key={column.id}
                     className={cn(
                       COL_CLASS[column.id],
-                      column.id === "player" &&
-                        "max-md:sticky max-md:left-0 max-md:z-30 max-md:shadow-[4px_0_8px_-4px_rgba(0,0,0,0.45)]",
+                      column.id === "avatar" && STICKY_AVATAR_HEAD,
+                      column.id === "player" && PLAYER_NAME_MOBILE_PAD,
                     )}
-                    style={fixedColStyle(column.id)}
+                    style={
+                      column.id === "avatar"
+                        ? {
+                            width: FIXED_COL_PX.avatar,
+                            minWidth: FIXED_COL_PX.avatar,
+                            maxWidth: FIXED_COL_PX.avatar,
+                          }
+                        : fixedColStyle(column.id)
+                    }
                   >
                     <TeamTableColumnHeader
                       title={column.header}
@@ -310,31 +347,59 @@ export function TeamRosterTable({
                 const playerLocked = Boolean(
                   player && lockedIds.has(player.id),
                 );
+                const swapProps = {
+                  slotPositionId: slot.slotPositionId,
+                  player: slot.player,
+                  rosterPlayers,
+                  rosterSlots,
+                  irEligibleStatuses,
+                  taxiMaxYearsExp,
+                  taxiPreventReaddAfterActivation,
+                  onSlotChange,
+                  onSwap,
+                  disabled: !actionsEnabled || playerLocked,
+                } as const;
                 return (
                 <TableRow key={slot.key}>
                   <TableCell
-                    className={cn(
-                      COL_CLASS.player,
-                      "max-md:sticky max-md:left-0 max-md:z-20 max-md:overflow-hidden max-md:shadow-[4px_0_8px_-4px_rgba(0,0,0,0.45)]",
-                      "max-md:bg-background max-md:group-hover/tr:bg-[color-mix(in_oklab,var(--muted)_50%,var(--background))] max-md:group-data-[state=selected]/tr:bg-muted",
-                    )}
+                    className={cn(COL_CLASS.avatar, STICKY_AVATAR_CELL)}
+                    style={{
+                      width: FIXED_COL_PX.avatar,
+                      minWidth: FIXED_COL_PX.avatar,
+                      maxWidth: FIXED_COL_PX.avatar,
+                    }}
+                  >
+                    <div className="flex items-center gap-2">
+                      <RosterSlotSwap {...swapProps} />
+                      {slot.player ? (
+                        <PlayerIdentity
+                          fullName={slot.player.fullName}
+                          sleeperId={slot.player.sleeperId}
+                          primaryPositionId={slot.player.primaryPositionId}
+                          nflTeam={slot.player.nflTeam}
+                          byeWeek={slot.player.byeWeek}
+                          injuryStatus={slot.player.injuryStatus}
+                          playerId={slot.player.id}
+                          leagueSlug={leagueSlug}
+                          showText={false}
+                          hasPossession={slot.player.opponent?.hasPossession}
+                          inRedZone={slot.player.opponent?.inRedZone}
+                          isLive={slot.player.opponent?.gameStatus === "in"}
+                        />
+                      ) : (
+                        <EmptyPlayerIdentity
+                          slotLabel={defaultSlotLabel(slot.slotPositionId)}
+                          showText={false}
+                        />
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell
+                    className={cn(COL_CLASS.player, PLAYER_NAME_MOBILE_PAD)}
                     style={fixedColStyle("player")}
                   >
-                    <div className="flex min-w-0 items-center gap-2">
-                      <RosterSlotSwap
-                        slotPositionId={slot.slotPositionId}
-                        player={slot.player}
-                        rosterPlayers={rosterPlayers}
-                        rosterSlots={rosterSlots}
-                        irEligibleStatuses={irEligibleStatuses}
-                        taxiMaxYearsExp={taxiMaxYearsExp}
-                        taxiPreventReaddAfterActivation={
-                          taxiPreventReaddAfterActivation
-                        }
-                        onSlotChange={onSlotChange}
-                        onSwap={onSwap}
-                        disabled={!actionsEnabled || playerLocked}
-                      />
+                    {/* Desktop: original combined identity (avatar col is md:hidden). */}
+                    <div className="hidden min-w-0 items-center gap-2 md:flex">
                       {slot.player ? (
                         <PlayerIdentity
                           fullName={slot.player.fullName}
@@ -353,6 +418,28 @@ export function TeamRosterTable({
                       ) : (
                         <EmptyPlayerIdentity
                           slotLabel={defaultSlotLabel(slot.slotPositionId)}
+                        />
+                      )}
+                    </div>
+                    {/* Mobile: name scrolls; avatar sticks in the prior col. */}
+                    <div className="md:hidden">
+                      {slot.player ? (
+                        <PlayerIdentity
+                          fullName={slot.player.fullName}
+                          sleeperId={slot.player.sleeperId}
+                          primaryPositionId={slot.player.primaryPositionId}
+                          nflTeam={slot.player.nflTeam}
+                          byeWeek={slot.player.byeWeek}
+                          injuryStatus={slot.player.injuryStatus}
+                          playerId={slot.player.id}
+                          leagueSlug={leagueSlug}
+                          showAvatar={false}
+                          className="min-w-0"
+                        />
+                      ) : (
+                        <EmptyPlayerIdentity
+                          slotLabel={defaultSlotLabel(slot.slotPositionId)}
+                          showAvatar={false}
                         />
                       )}
                     </div>

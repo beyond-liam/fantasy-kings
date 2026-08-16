@@ -17,6 +17,10 @@ import {
   PILL_INACTIVE_CLASSNAME,
   PositionPills,
 } from "@/components/rankings/filter-pills";
+import {
+  createFullPlayerColumn,
+  createStickyPlayerColumns,
+} from "@/components/rankings/sticky-player-columns";
 import { PlayerIdentity } from "@/components/rankings/player-identity";
 import { Button } from "@/components/ui/button";
 import {
@@ -409,37 +413,40 @@ export function DraftPlayerPool({
       },
     };
 
-    const playerColumn: ColumnDef<RankedPlayerRow> = {
-      id: "player",
-      accessorFn: (row) => row.fullName,
-      enableSorting: false,
-      size: playerWidth,
-      meta: {
-        width: playerWidth,
-        sticky: isMobile ? "left" : undefined,
-      },
-      header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Player" />
-      ),
-      cell: ({ row }) => {
-        const player = row.original;
-        return (
-          <PlayerIdentity
-            fullName={player.fullName}
-            sleeperId={player.sleeperId}
-            primaryPositionId={player.primaryPositionId}
-            nflTeam={player.nflTeam}
-            byeWeek={player.byeWeek}
-            injuryStatus={player.injuryStatus}
-            playerId={player.id}
-            leagueSlug={slug === "mock" ? undefined : slug}
-          />
-        );
-      },
-    };
+    const playerColumns: ColumnDef<RankedPlayerRow>[] = isMobile
+      ? createStickyPlayerColumns<RankedPlayerRow>({
+          leagueSlug: slug === "mock" ? undefined : slug,
+          headerVariant: "data",
+          nameWidth: Math.max(playerWidth - 42, 100),
+          getPlayer: (row) => ({
+            id: row.id,
+            fullName: row.fullName,
+            sleeperId: row.sleeperId,
+            primaryPositionId: row.primaryPositionId,
+            nflTeam: row.nflTeam,
+            byeWeek: row.byeWeek,
+            injuryStatus: row.injuryStatus,
+          }),
+        })
+      : [
+          createFullPlayerColumn<RankedPlayerRow>({
+            leagueSlug: slug === "mock" ? undefined : slug,
+            headerVariant: "data",
+            width: playerWidth,
+            getPlayer: (row) => ({
+              id: row.id,
+              fullName: row.fullName,
+              sleeperId: row.sleeperId,
+              primaryPositionId: row.primaryPositionId,
+              nflTeam: row.nflTeam,
+              byeWeek: row.byeWeek,
+              injuryStatus: row.injuryStatus,
+            }),
+          }),
+        ];
 
     const middleColumns: ColumnDef<RankedPlayerRow>[] = [
-      playerColumn,
+      ...playerColumns,
       {
         id: "positionRank",
         accessorFn: (row) => sortableRankValue(row.positionRank),

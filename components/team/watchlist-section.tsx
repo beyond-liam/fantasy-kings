@@ -8,7 +8,7 @@ import { BinocularsIcon, UserGroupIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
 import { PlayerActionButton } from "@/components/rankings/player-action-button";
-import { PlayerIdentity } from "@/components/rankings/player-identity";
+import { createStickyPlayerColumns } from "@/components/rankings/sticky-player-columns";
 import { WatchlistToggle } from "@/components/rankings/watchlist-toggle";
 import { useWatchlist } from "@/components/rankings/watchlist-provider";
 import { OpponentCell } from "@/components/team/opponent-cell";
@@ -62,36 +62,24 @@ export function TeamWatchlistSection({
 
   const columns = useMemo<ColumnDef<WatchlistPlayer>[]>(
     () => [
-      {
-        id: "player",
-        accessorFn: (row) => row.fullName,
-        enableSorting: false,
-        enableHiding: false,
-        header: () => <TeamTableColumnHeader title="Player" />,
-        cell: ({ row }) => {
-          const player = row.original;
-          return (
-            <div className="flex min-w-0 items-center gap-1">
-              <WatchlistToggle playerId={player.id} />
-              <PlayerIdentity
-                fullName={player.fullName}
-                sleeperId={player.sleeperId}
-                primaryPositionId={player.primaryPositionId}
-                nflTeam={player.nflTeam}
-                byeWeek={player.byeWeek}
-                injuryStatus={player.injuryStatus}
-                playerId={player.id}
-                leagueSlug={leagueSlug}
-                className="min-w-0 flex-1"
-                hasPossession={player.opponent?.hasPossession}
-                inRedZone={player.opponent?.inRedZone}
-                isLive={player.opponent?.gameStatus === "in"}
-              />
-            </div>
-          );
-        },
-        meta: { width: 224, sticky: "left", cellClassName: "min-w-[14rem]" },
-      },
+      ...createStickyPlayerColumns<WatchlistPlayer>({
+        leagueSlug,
+        // Toggle (~32) + gap-2 + avatar + pads
+        avatarWidth: 86,
+        getPlayer: (row) => ({
+          id: row.id,
+          fullName: row.fullName,
+          sleeperId: row.sleeperId,
+          primaryPositionId: row.primaryPositionId,
+          nflTeam: row.nflTeam,
+          byeWeek: row.byeWeek,
+          injuryStatus: row.injuryStatus,
+          hasPossession: row.opponent?.hasPossession,
+          inRedZone: row.opponent?.inRedZone,
+          isLive: row.opponent?.gameStatus === "in",
+        }),
+        avatarLeading: (row) => <WatchlistToggle playerId={row.id} />,
+      }),
       {
         id: "opponent",
         accessorFn: (row) => row.opponent?.label ?? "",
