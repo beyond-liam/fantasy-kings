@@ -250,11 +250,13 @@ const ACTIVITY_TONE_CLASS: Record<
 };
 
 function resolveActivityTypeLabel(item: LeagueActivityRow): string {
-  if (
-    item.type === "draft_pick" &&
-    item.metadata?.draftSource === "commissioner"
-  ) {
-    return "Drafted by Commissioner";
+  if (item.type === "draft_pick") {
+    if (item.metadata?.draftSource === "commissioner") {
+      return "Drafted by Commissioner";
+    }
+    if (item.metadata?.draftSource === "autopick") {
+      return "Drafted by autopick";
+    }
   }
   return ACTIVITY_META[item.type as FeedActivityType]?.label ?? "Activity";
 }
@@ -308,9 +310,7 @@ function resolveActivitySummary(item: LeagueActivityRow): string {
       case "draft_pick": {
         const pickPart =
           meta?.overall != null ? ` · Pick #${meta.overall}` : "";
-        const autopickPart =
-          meta?.draftSource === "autopick" ? " (autopick)" : "";
-        return `${liveName} drafted ${playerName}${pickPart}${autopickPart}`;
+        return `${liveName} drafted ${playerName}${pickPart}`;
       }
       case "draft_pick_reverted": {
         const pickPart =

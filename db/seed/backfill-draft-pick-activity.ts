@@ -61,14 +61,13 @@ async function main() {
       continue;
     }
 
-    const autopickSuffix = pick.source === "autopick" ? " (autopick)" : "";
     await db.insert(leagueActivity).values({
       leagueSeasonId: pick.leagueSeasonId,
       type: "draft_pick",
       teamId: pick.teamId,
       actorUserId: pick.madeByUserId,
       playerId: pick.playerId,
-      summary: `${pick.teamName} drafted ${pick.playerFullName} · Pick #${pick.overall}${autopickSuffix}`,
+      summary: `${pick.teamName} drafted ${pick.playerFullName} · Pick #${pick.overall}`,
       metadata: {
         playerName: pick.playerFullName,
         teamName: pick.teamName,

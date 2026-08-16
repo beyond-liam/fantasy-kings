@@ -295,14 +295,13 @@ export async function commitDraftPick(
           .where(eq(leagueSeasons.id, input.leagueSeasonId));
       }
 
-      const autopickSuffix = input.source === "autopick" ? " (autopick)" : "";
       await tx.insert(leagueActivity).values({
         leagueSeasonId: input.leagueSeasonId,
         type: "draft_pick",
         teamId: slot.teamId,
         actorUserId: input.madeByUserId,
         playerId: input.playerId,
-        summary: `${slot.teamName} drafted ${player.fullName} · Pick #${slot.overall}${autopickSuffix}`,
+        summary: `${slot.teamName} drafted ${player.fullName} · Pick #${slot.overall}`,
         metadata: {
           playerName: player.fullName,
           teamName: slot.teamName,
