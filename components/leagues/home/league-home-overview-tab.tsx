@@ -127,8 +127,10 @@ export async function LeagueHomeOverviewTab({
       : Promise.resolve(emptyHighlights),
     loadOverviewSeasonHighlights({
       seasonYear: bundleInput.seasonYear,
+      week: scorePoint.week,
       seasonType: scorePoint.seasonType,
       scoringRules,
+      schedule: bundleInput.schedule,
     }).catch(() => EMPTY_PLAYER_LEADERS),
     useOverviewMock
       ? Promise.resolve(getOverviewWeeklyRoastMock())

@@ -1,3 +1,5 @@
+import type { ScheduleSettings } from "@/db/schema/league-seasons";
+import { resolveScheduleSettings } from "@/lib/leagues/schedule/settings";
 import { statsWeekHasOccurred } from "@/lib/rankings/table-rank-source";
 
 export type RosterWeekScore = {
@@ -7,6 +9,20 @@ export type RosterWeekScore = {
   appeared: boolean;
   fantasyPts: number | null;
 };
+
+export function seasonTypesForRosterTotals(
+  schedule?: ScheduleSettings | null,
+  currentType?: string,
+): string[] {
+  const types = new Set<string>(["regular"]);
+  if (resolveScheduleSettings(schedule).includePreseason) {
+    types.add("pre");
+  }
+  if (currentType === "post") {
+    types.add("post");
+  }
+  return [...types];
+}
 
 export function accumulateRosterSeasonTotals(
   weeks: RosterWeekScore[],

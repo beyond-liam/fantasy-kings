@@ -2,7 +2,6 @@ import Link from "next/link";
 import { ArrowRight01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
-import { ManagerPresenceBadge } from "@/components/leagues/presence/manager-presence-badge";
 import { PlayerAvatar } from "@/components/rankings/player-avatar";
 import { PlayerProfileTrigger } from "@/components/rankings/player-identity";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -81,9 +80,13 @@ function OverviewCard({
 }) {
   return (
     <Card size="sm" className="gap-0 py-0">
-      <CardHeader variant="panel">
+      <CardHeader variant="panel" className="flex flex-row items-center justify-between">
         <CardTitle className="text-base text-balance">{title}</CardTitle>
-        {action ? <CardAction>{action}</CardAction> : null}
+        {action ? (
+          <CardAction className="static row-auto justify-self-auto">
+            {action}
+          </CardAction>
+        ) : null}
       </CardHeader>
       <CardContent className="py-4">{children}</CardContent>
     </Card>
@@ -93,24 +96,21 @@ function OverviewCard({
 function TeamMark({
   name,
   logoUrl,
-  ownerUserId,
   size = "sm",
 }: {
   name: string;
   logoUrl: string | null;
-  ownerUserId?: string | null;
-  size?: "sm" | "lg" | "hero";
+  size?: "sm" | "hero";
 }) {
   return (
     <Avatar
       size={size === "sm" ? "sm" : "lg"}
-      className={cn(size === "hero" && "size-16 text-base")}
+      className={cn(size === "hero" && "size-20!")}
     >
       {logoUrl ? <AvatarImage src={logoUrl} alt="" /> : null}
-      <AvatarFallback className={cn(size === "hero" && "text-sm")}>
+      <AvatarFallback className={cn(size === "hero" && "text-2xl!")}>
         {teamInitials(name)}
       </AvatarFallback>
-      <ManagerPresenceBadge userId={ownerUserId} />
     </Avatar>
   );
 }
@@ -158,6 +158,32 @@ function FormGuide({
   );
 }
 
+function SpotlightMetric({
+  value,
+  hint,
+  valueClassName,
+}: {
+  value: string;
+  hint?: string;
+  valueClassName?: string;
+}) {
+  return (
+    <div className="flex flex-col items-center">
+      <p
+        className={cn(
+          "text-2xl font-semibold leading-none tracking-tight tabular-nums",
+          valueClassName,
+        )}
+      >
+        {value}
+      </p>
+      {hint ? (
+        <p className="mt-1 text-xs leading-none text-muted-foreground">{hint}</p>
+      ) : null}
+    </div>
+  );
+}
+
 function TeamSpotlight({
   row,
   leagueSlug,
@@ -191,36 +217,25 @@ function TeamSpotlight({
     : `/league/${leagueSlug}`;
 
   return (
-    <Link
-      href={href}
-      className="flex flex-col items-center gap-2 py-2 text-center outline-none transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-ring/50"
-    >
-      <TeamMark
-        name={row.teamName}
-        logoUrl={row.logoUrl}
-        ownerUserId={row.ownerUserId}
-        size="hero"
+    <div className="flex flex-col items-center gap-4 py-2 text-center">
+      <Link
+        href={href}
+        className="flex flex-col items-center gap-2 outline-none transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-ring/50"
+      >
+        <TeamMark name={row.teamName} logoUrl={row.logoUrl} size="hero" />
+        <div className="min-w-0 max-w-full text-center">
+          <p className="truncate text-sm font-semibold text-balance underline-offset-2 hover:underline">
+            {row.teamName}
+          </p>
+          <p className="truncate text-xs text-muted-foreground">{row.ownerName}</p>
+        </div>
+      </Link>
+      <SpotlightMetric
+        value={formatValue(row.value)}
+        hint={valueHint}
+        valueClassName={valueClassName}
       />
-      <div className="min-w-0 max-w-full">
-        <p className="truncate text-sm font-medium text-balance">
-          {row.teamName}
-        </p>
-        <p className="truncate text-xs text-muted-foreground">{row.ownerName}</p>
-      </div>
-      <div className="flex flex-col items-center gap-0.5">
-        <p
-          className={cn(
-            "text-2xl font-semibold tracking-tight tabular-nums",
-            valueClassName,
-          )}
-        >
-          {formatValue(row.value)}
-        </p>
-        {valueHint ? (
-          <p className="text-xs text-muted-foreground">{valueHint}</p>
-        ) : null}
-      </div>
-    </Link>
+    </div>
   );
 }
 
@@ -247,7 +262,7 @@ function PlayerSpotlight({
   }
 
   return (
-    <div className="flex flex-col items-center gap-2 py-2 text-center">
+    <div className="flex flex-col items-center gap-4 py-2 text-center">
       <PlayerProfileTrigger
         playerId={player.id}
         leagueSlug={leagueSlug}
@@ -260,10 +275,10 @@ function PlayerSpotlight({
           primaryPositionId={player.primaryPositionId}
           nflTeam={player.nflTeam}
           size="lg"
-          className="!size-24"
+          className="size-20! [&_[data-slot=avatar-fallback]]:text-2xl!"
         />
         <div className="min-w-0 max-w-full text-center">
-          <p className="truncate text-sm font-medium text-balance underline-offset-2 group-hover/player-identity:underline group-focus-visible/player-identity:underline">
+          <p className="truncate text-sm font-semibold text-balance underline-offset-2 group-hover/player-identity:underline group-focus-visible/player-identity:underline">
             {player.fullName}
           </p>
           <p className="truncate text-xs text-muted-foreground">
@@ -273,12 +288,10 @@ function PlayerSpotlight({
           </p>
         </div>
       </PlayerProfileTrigger>
-      <div className="flex flex-col items-center gap-0.5">
-        <p className="text-2xl font-semibold tracking-tight tabular-nums">
-          {formatPoints(player.points)}
-        </p>
-        <p className="text-xs text-muted-foreground">fantasy pts</p>
-      </div>
+      <SpotlightMetric
+        value={formatPoints(player.points)}
+        hint="fantasy pts"
+      />
     </div>
   );
 }

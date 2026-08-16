@@ -242,6 +242,38 @@ function metricFromTeam(
   };
 }
 
+/** Bench points left (OPF − PF) per team; prefer the fantasy-week row. */
+export function benchLeftByTeamIdFromOpfRows(
+  rows: Array<{
+    teamId: string;
+    week: number;
+    pointsFor: number | null;
+    optimumPointsFor: number | null;
+  }>,
+  fantasyWeek: number,
+): Map<string, number> {
+  const chosen = new Map<
+    string,
+    { pointsFor: number; optimumPointsFor: number }
+  >();
+  for (const row of rows) {
+    if (row.pointsFor == null || row.optimumPointsFor == null) continue;
+    const existing = chosen.get(row.teamId);
+    if (!existing || row.week === fantasyWeek) {
+      chosen.set(row.teamId, {
+        pointsFor: row.pointsFor,
+        optimumPointsFor: row.optimumPointsFor,
+      });
+    }
+  }
+  const benchLeftByTeamId = new Map<string, number>();
+  for (const [teamId, row] of chosen) {
+    const left = Math.max(0, row.optimumPointsFor - row.pointsFor);
+    benchLeftByTeamId.set(teamId, Math.round(left * 10) / 10);
+  }
+  return benchLeftByTeamId;
+}
+
 /**
  * Weekly roast plaques for the latest finalized fantasy week.
  * Underachiever = most bench points left (OPF − PF) among losers.

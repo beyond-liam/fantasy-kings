@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import {
+  benchLeftByTeamIdFromOpfRows,
   buildSeasonPositionLeaders,
   latestScoredWeek,
   pickWeeklyRoast,
@@ -200,5 +201,26 @@ describe("weekly roast", () => {
       3,
     );
     assert.equal(latestScoredWeek([]), null);
+  });
+
+  it("prefers fantasy-week OPF when NFL-week rows also exist", () => {
+    const bench = benchLeftByTeamIdFromOpfRows(
+      [
+        {
+          teamId: "d",
+          week: 2,
+          pointsFor: 100,
+          optimumPointsFor: 110,
+        },
+        {
+          teamId: "d",
+          week: 1,
+          pointsFor: 100,
+          optimumPointsFor: 135,
+        },
+      ],
+      1,
+    );
+    assert.equal(bench.get("d"), 35);
   });
 });

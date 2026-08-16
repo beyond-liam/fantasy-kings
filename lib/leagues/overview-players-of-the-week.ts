@@ -1,3 +1,5 @@
+import { statsWeekHasOccurred } from "@/lib/rankings/table-rank-source";
+
 export type OverviewPlayerHighlight = {
   id: string;
   fullName: string;
@@ -55,6 +57,50 @@ function pickBestByPositions(
   }
 
   return best ? toHighlight(best, bestPts) : null;
+}
+
+export type SeasonHighlightWeekRow = RankedWeekPlayer & {
+  week: number;
+  seasonType: string;
+};
+
+/** Sum weekly skill-position scores into season-to-date rows for Overview. */
+export function playersFromSeasonWeekTotals(
+  weeks: SeasonHighlightWeekRow[],
+  statsPoint: { week: number; seasonType?: string },
+): RankedWeekPlayer[] {
+  const totals = new Map<string, RankedWeekPlayer>();
+
+  for (const row of weeks) {
+    if (
+      !statsWeekHasOccurred(
+        { week: row.week, seasonType: row.seasonType },
+        statsPoint,
+      )
+    ) {
+      continue;
+    }
+    const pts = row.fantasyPts ?? 0;
+    if (pts <= 0) continue;
+    const existing = totals.get(row.id);
+    if (!existing) {
+      totals.set(row.id, {
+        id: row.id,
+        fullName: row.fullName,
+        sleeperId: row.sleeperId,
+        primaryPositionId: row.primaryPositionId,
+        nflTeam: row.nflTeam,
+        fantasyPts: pts,
+      });
+      continue;
+    }
+    existing.fantasyPts = (existing.fantasyPts ?? 0) + pts;
+    existing.fullName = row.fullName;
+    existing.sleeperId = row.sleeperId ?? existing.sleeperId;
+    existing.nflTeam = row.nflTeam ?? existing.nflTeam;
+  }
+
+  return [...totals.values()];
 }
 
 /**

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { pickPlayersOfTheWeek } from "@/lib/leagues/overview-players-of-the-week";
+import { pickPlayersOfTheWeek, playersFromSeasonWeekTotals } from "@/lib/leagues/overview-players-of-the-week";
 
 describe("pickPlayersOfTheWeek", () => {
   it("picks best QB / RB / WR|TE by full fantasy points", () => {
@@ -54,5 +54,46 @@ describe("pickPlayersOfTheWeek", () => {
     assert.equal(result.rusher?.points, 24.0);
     assert.equal(result.receiver?.id, "te1");
     assert.equal(result.receiver?.points, 21.2);
+  });
+
+  it("sums weekly scores for season-to-date highlights", () => {
+    const players = playersFromSeasonWeekTotals(
+      [
+        {
+          id: "qb1",
+          fullName: "A Passer",
+          sleeperId: "1",
+          primaryPositionId: "QB",
+          nflTeam: "PIT",
+          week: 2,
+          seasonType: "pre",
+          fantasyPts: 21.9,
+        },
+        {
+          id: "qb1",
+          fullName: "A Passer",
+          sleeperId: "1",
+          primaryPositionId: "QB",
+          nflTeam: "PIT",
+          week: 3,
+          seasonType: "pre",
+          fantasyPts: 10.1,
+        },
+        {
+          id: "qb2",
+          fullName: "Later",
+          sleeperId: "2",
+          primaryPositionId: "QB",
+          nflTeam: "KC",
+          week: 1,
+          seasonType: "regular",
+          fantasyPts: 99,
+        },
+      ],
+      { week: 3, seasonType: "pre" },
+    );
+    const result = pickPlayersOfTheWeek(players);
+    assert.equal(result.passer?.id, "qb1");
+    assert.equal(result.passer?.points, 32);
   });
 });

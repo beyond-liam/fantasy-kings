@@ -1,16 +1,18 @@
 import "server-only";
 
 import {
+  benchLeftByTeamIdFromOpfRows,
   latestScoredWeek,
   pickWeeklyRoast,
   weeklyResultsFromFinals,
   type OverviewWeeklyRoast,
 } from "@/lib/leagues/league-overview";
 import { getLeagueRollupMatchups } from "@/lib/leagues/matchups/finals";
+import { teamWeekStatsWeeksForFantasyWeek } from "@/lib/leagues/schedule/fantasy-week-map";
 import type { ScheduleSettings } from "@/db/schema/league-seasons";
 import { db } from "@/lib/db";
 import { teamWeekStats } from "@/db/schema";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 
 export type OverviewWeeklyRoastTeam = {
   teamId: string;
@@ -49,6 +51,7 @@ export async function loadOverviewWeeklyRoast(input: {
   const opfRows = await db
     .select({
       teamId: teamWeekStats.teamId,
+      week: teamWeekStats.week,
       pointsFor: teamWeekStats.pointsFor,
       optimumPointsFor: teamWeekStats.optimumPointsFor,
     })
@@ -56,17 +59,15 @@ export async function loadOverviewWeeklyRoast(input: {
     .where(
       and(
         eq(teamWeekStats.leagueSeasonId, input.leagueSeasonId),
-        eq(teamWeekStats.week, week),
+        inArray(
+          teamWeekStats.week,
+          teamWeekStatsWeeksForFantasyWeek(week, input.schedule),
+        ),
       ),
     )
     .catch(() => []);
 
-  const benchLeftByTeamId = new Map<string, number>();
-  for (const row of opfRows) {
-    if (row.pointsFor == null || row.optimumPointsFor == null) continue;
-    const left = Math.max(0, row.optimumPointsFor - row.pointsFor);
-    benchLeftByTeamId.set(row.teamId, Math.round(left * 10) / 10);
-  }
+  const benchLeftByTeamId = benchLeftByTeamIdFromOpfRows(opfRows, week);
 
   return pickWeeklyRoast({
     week,

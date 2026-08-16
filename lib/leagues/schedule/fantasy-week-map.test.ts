@@ -9,6 +9,7 @@ import {
   fantasyWeekToNfl,
   nflToFantasyWeek,
   preseasonFantasyWeekCount,
+  teamWeekStatsWeeksForFantasyWeek,
   userPreseasonWeekToEspn,
 } from "./fantasy-week-map";
 
@@ -177,5 +178,21 @@ describe("fantasyWeekFromNflState", () => {
       fantasyWeekFromNflState({ season_type: "off", week: 0 }, null),
       null,
     );
+  });
+});
+
+describe("teamWeekStatsWeeksForFantasyWeek", () => {
+  const withPre = {
+    playEachOtherTimes: 1 as const,
+    includePreseason: true,
+    preseasonStartWeek: 1,
+  };
+
+  it("probes both fantasy and NFL weeks when preseason offsets them", () => {
+    assert.deepEqual(teamWeekStatsWeeksForFantasyWeek(1, withPre), [1, 2]);
+  });
+
+  it("is a single week when calendars already match", () => {
+    assert.deepEqual(teamWeekStatsWeeksForFantasyWeek(1, null), [1]);
   });
 });

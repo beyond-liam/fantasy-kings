@@ -4,9 +4,9 @@ import { playerScores, players } from "@/db/schema";
 import type { ScheduleSettings } from "@/db/schema/league-seasons";
 import { db } from "@/lib/db";
 import type { PlayerScoreNflState } from "@/lib/leagues/schedule/player-score-point";
-import { resolveScheduleSettings } from "@/lib/leagues/schedule/settings";
 import {
   accumulateRosterSeasonTotals,
+  seasonTypesForRosterTotals,
   type RosterWeekScore,
 } from "@/lib/leagues/roster-table-stats";
 import { calculatePlayerPoints } from "@/lib/leagues/scoring/calculate";
@@ -78,20 +78,6 @@ export type RosterTableStat = {
   fantasyPts: number | null;
   avgPts: number | null;
 };
-
-function seasonTypesForRosterTotals(
-  schedule?: ScheduleSettings | null,
-  currentType?: string,
-): string[] {
-  const types = new Set<string>(["regular"]);
-  if (resolveScheduleSettings(schedule).includePreseason) {
-    types.add("pre");
-  }
-  if (currentType === "post") {
-    types.add("post");
-  }
-  return [...types];
-}
 
 /** League-wide RANK plus season FPTS / AVG for roster and watchlist tables. */
 export async function getRosterTableStatMap(input: {

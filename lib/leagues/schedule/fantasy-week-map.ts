@@ -83,6 +83,22 @@ export function espnSeasonTypeForNfl(
   return 2;
 }
 
+/**
+ * `team_week_stats.week` is written from the NFL calendar week (League Stats
+ * upsert), while matchups / roast use fantasy weeks. Probe both so OPF rows
+ * resolve when preseason offsets the two calendars.
+ */
+export function teamWeekStatsWeeksForFantasyWeek(
+  fantasyWeek: number,
+  stored?: ScheduleSettings | null,
+): number[] {
+  const nfl = fantasyWeekToNfl(fantasyWeek, stored);
+  if (nfl == null || nfl.week === fantasyWeek) {
+    return [fantasyWeek];
+  }
+  return [fantasyWeek, nfl.week];
+}
+
 /** Map fantasy week → NFL calendar. Null if out of range. */
 export function fantasyWeekToNfl(
   fantasyWeek: number,
