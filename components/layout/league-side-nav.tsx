@@ -77,7 +77,7 @@ function NavLink({
         {showLive ? <LivePulseDot /> : null}
         {showAttention && !showLive ? (
           <span
-            className="size-2 shrink-0 rounded-full bg-destructive"
+            className="inline-flex size-1.5 shrink-0 rounded-full bg-destructive"
             aria-hidden
           />
         ) : null}
