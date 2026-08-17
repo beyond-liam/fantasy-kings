@@ -129,19 +129,30 @@ const ADP_STAT_COLUMN: StatColumn = {
   decimals: 1,
 };
 
-const ALL_POOL_STAT_COLUMNS: StatColumn[] = [
-  {
-    key: "fantasy_pts",
-    header: "PTS",
-    tooltip: "Fantasy points",
-    group: "Fantasy",
-    decimals: 2,
-  },
-];
+function uniqueStatColumns(
+  positions: readonly PositionFilter[],
+): StatColumn[] {
+  const seen = new Set<string>();
+  const columns: StatColumn[] = [];
+  const source = positions.length > 0 ? positions : POSITION_FILTERS;
+  for (const pos of source) {
+    for (const column of getStatColumns(pos)) {
+      if (seen.has(column.key)) {
+        continue;
+      }
+      seen.add(column.key);
+      columns.push(column);
+    }
+  }
+  return columns;
+}
 
-function draftPoolStatColumns(position: DraftPoolPosition): StatColumn[] {
+function draftPoolStatColumns(
+  position: DraftPoolPosition,
+  allowed: readonly PositionFilter[],
+): StatColumn[] {
   const columns =
-    position === "ALL" ? ALL_POOL_STAT_COLUMNS : getStatColumns(position);
+    position === "ALL" ? uniqueStatColumns(allowed) : getStatColumns(position);
   return columns.filter((column) => column.key !== "adp");
 }
 
@@ -444,7 +455,7 @@ export function DraftPlayerPool({
   }, [data, drafted, position, projectedPicks, searching]);
 
   const columns = useMemo<ColumnDef<RankedPlayerRow>[]>(() => {
-    const statCols = draftPoolStatColumns(position);
+    const statCols = draftPoolStatColumns(position, positionOptions);
 
     const queueColumn: ColumnDef<RankedPlayerRow> = {
       id: "queue",
@@ -613,6 +624,7 @@ export function DraftPlayerPool({
     isMyTurn,
     onDraftPlayer,
     position,
+    positionOptions,
     showQueue,
     slug,
   ]);
