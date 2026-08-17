@@ -27,7 +27,7 @@ async function handle(request: Request) {
   }
 }
 
-/** Autopick due draft seats (immediate queue + expired open). Cron every 1–5m. */
+/** Autopick due draft seats (immediate queue + expired clocks). Cron every 1–5m. */
 export async function GET(request: Request) {
   return handle(request);
 }

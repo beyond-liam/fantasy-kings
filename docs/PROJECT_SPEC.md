@@ -282,9 +282,9 @@ Two variants via the `Empty` **`size`** prop:
 - Mock draft room at app level (practice) — **solo vs need-aware ADP bots only**; no friends lobby
 - Fully customizable: snake vs linear, manual order edits **(snake/linear + pick clock + autopick honored in live room)**
 - Auto-start at scheduled `draftStartAt` **(cron + draft-room client trigger)**
-- Autopick **(`/api/cron/process-draft-picks` + draft-room / action kicks)** — per-team toggle; claimed seats with a queue pick **immediately** on turn (empty queue waits). Open seats still queue→BPA on expiry/untimed
+- Autopick **(`/api/cron/process-draft-picks` + draft-room / action kicks)** — per-team toggle picks the **queue immediately** on turn. **Expired clocks always queue→BPA** (claimed or open)
 - Open/unclaimed slots autodraft even with no pick clock
-- Per-manager Autopick on My Team settings (queue immediately on turn; no best-available fallback)
+- Per-manager Autopick on My Team settings (queue immediately on turn; clock expiry still BPA)
 - Pause preserves remaining pick-clock time (`turnExpiresAt` / `pausedSecondsRemaining`)
 - **Email alerts (Brevo):** see Notifications; draft-specific:
   - Live draft: tomorrow + 15 minutes before start (`/api/cron/draft-reminders`)
@@ -953,3 +953,4 @@ lib/
 | 2026-08-17 | Draft player pool projected-pick line: Nth remaining by ADP in ALL/position views (not search) |
 | 2026-08-17 | Draft player pool shows a projected-pick line for every remaining pick |
 | 2026-08-17 | Standings RK shows places moved vs last week (week 1 vs draft slot; up success, down destructive) |
+| 2026-08-17 | Timed draft clocks autodraft on expiry (queue then BPA) even when Autopick is off |

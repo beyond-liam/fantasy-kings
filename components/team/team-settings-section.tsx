@@ -202,7 +202,7 @@ export function TeamSettingsSection({
           <SwitchField
             id="teamAutoPick"
             label="Autopick"
-            description="When on, your team drafts from your queue as soon as you're on the clock. If the queue is empty, you pick manually."
+            description="When on, your team drafts from your queue as soon as you're on the clock. When the clock expires, the seat always autodrafts (queue, then best available)."
             checked={autoPickEnabled}
             disabled={isPending}
             onCheckedChange={handleAutoPickChange}

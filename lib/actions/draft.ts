@@ -348,8 +348,8 @@ export async function makeDraftPick(
 
 /**
  * Autopick for the current seat when eligible.
- * Claimed + autopick on: queue pick as soon as the team is on the clock.
- * Open seats: queue → BPA after clock expiry (or untimed).
+ * Claimed + Autopick on: queue pick as soon as the team is on the clock.
+ * Clock expired: queue → BPA for every seat (claimed or open).
  */
 export async function autoDraftCurrentPick(
   slug: string,
@@ -379,10 +379,8 @@ export async function autoDraftCurrentPick(
   });
 
   if (!outcome.ok) {
-    const retry =
-      outcome.reason !== "disabled" &&
-      outcome.reason !== "no_queue" &&
-      outcome.reason !== "not_due";
+    // Keep polling after expiry / clock skew. Stop only when a human must act.
+    const retry = outcome.reason !== "disabled" && outcome.reason !== "no_queue";
     return { success: false, error: outcome.error, retry };
   }
 

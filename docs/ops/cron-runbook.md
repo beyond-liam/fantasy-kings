@@ -125,12 +125,12 @@ curl -X POST "https://<your-app>/api/cron/start-drafts" \
 ### `/api/cron/process-draft-picks` (GET or POST)
 
 Autopicks live draft seats that are due: claimed teams with Autopick + a queue
-pick immediately; open seats (and expired clocks) still queue→BPA.
+pick immediately; **expired clocks always queue→BPA** (claimed or open).
 Also applies timed-email daily pause windows (auto-pause / auto-resume).
 This is the authoritative unattended path — draft start/pick/queue/autopick
 toggle and the draft room also kick the same drain when someone is in the app.
 
-Run every **1–5 minutes** while any draft is live or in email/slow mode with a pick clock (Vercel Hobby daily is only a backup).
+Run every **1–5 minutes** while any draft is live or in email/slow mode with a pick clock (Vercel Hobby daily is only a backup). A **67ms HTTP error** is usually **401** (missing `Authorization: Bearer $CRON_SECRET`); an **Inactive** job will not fire.
 
 **Expected response (200):**
 ```json

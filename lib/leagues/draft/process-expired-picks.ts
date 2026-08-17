@@ -10,6 +10,7 @@ import {
   getDraftRounds,
 } from "@/lib/leagues/draft/board";
 import { commitDraftPick } from "@/lib/leagues/draft/pick";
+import { isDraftAutopickDue } from "@/lib/leagues/draft/autopick-due";
 import { selectAutopickPlayerId } from "@/lib/leagues/draft/select-autopick-player";
 import { resolveDraftSettings } from "@/lib/leagues/draft-settings";
 import {
@@ -33,10 +34,9 @@ export type RunDraftAutopickResult =
 /**
  * Autopick the current on-clock seat when due.
  *
- * Claimed seats with autopick on: pick from the queue immediately when the
- * team is on the clock (do not wait for expiry). Empty queue waits for a
- * manual pick.
- * Open seats: queue then BPA, still subject to expiry / untimed rules.
+ * Claimed + Autopick on: pick from the queue immediately (do not wait).
+ * Timed clock expired: queue then best available, even if Autopick is off.
+ * Open / unclaimed seats: queue then BPA after expiry, or immediately if untimed.
  */
 export async function runDraftAutopick(input: {
   leagueSeasonId: string;
@@ -108,10 +108,11 @@ export async function runDraftAutopick(input: {
   const onClockTeam = teamsWithSlots.find((team) => team.id === slot.teamId);
   const isOpenSlot = onClockTeam?.userId == null;
   const now = Date.now();
-  const clockExpired =
-    draft.turnExpiresAt != null && draft.turnExpiresAt.getTime() <= now;
+  const turnExpiresAt = draft.turnExpiresAt;
+  const hasTurnClock = turnExpiresAt != null;
+  const clockExpired = hasTurnClock && turnExpiresAt.getTime() <= now;
 
-  // Claimed + autopick on: draft from queue as soon as this seat is on the clock.
+  // Claimed + Autopick on: take the queue as soon as this seat is on the clock.
   if (!isOpenSlot && onClockTeam?.autoPickEnabled) {
     const queuedPlayerId = await selectAutopickPlayerId({
       draftId: draft.id,
@@ -133,40 +134,30 @@ export async function runDraftAutopick(input: {
         playerId: queuedPlayerId,
       });
     }
-
-    // Queue empty — never BPA; wait for a manual pick (even after expiry).
-    return {
-      ok: false,
-      error: "Queue is empty — waiting for a manual pick.",
-      reason: "no_queue",
-    };
   }
 
-  if (!isOpenSlot && !onClockTeam?.autoPickEnabled) {
-    return {
-      ok: false,
-      error: "Autopick is off for this team.",
-      reason: "disabled",
-    };
-  }
-
-  // Open / unclaimed seats — honour clock rules, then queue → BPA.
-  if (input.enforceExpiry) {
-    if (draft.turnExpiresAt != null) {
-      if (!clockExpired) {
-        return {
-          ok: false,
-          error: "The pick clock has not expired yet.",
-          reason: "not_due",
-        };
-      }
-    } else if (!isOpenSlot) {
+  if (
+    !isDraftAutopickDue({
+      isOpenSlot,
+      enforceExpiry: input.enforceExpiry,
+      hasTurnClock,
+      clockExpired,
+    })
+  ) {
+    if (!isOpenSlot && onClockTeam?.autoPickEnabled) {
       return {
         ok: false,
-        error: "No pick clock and seat is claimed.",
-        reason: "not_due",
+        error: "Queue is empty — waiting for a manual pick.",
+        reason: "no_queue",
       };
     }
+    return {
+      ok: false,
+      error: hasTurnClock
+        ? "The pick clock has not expired yet."
+        : "No pick clock and seat is claimed.",
+      reason: "not_due",
+    };
   }
 
   const playerId = await selectAutopickPlayerId({
@@ -304,7 +295,7 @@ const MAX_PICKS_PER_DRAFT = 32;
 
 /**
  * Drain eligible autopicks for one live draft (immediate queue seats, then
- * open/expired seats). Stops on not_due / disabled / no_queue / error.
+ * expired / open seats). Stops on not_due / disabled / no_queue / error.
  */
 export async function drainDraftAutopick(input: {
   leagueSeasonId: string;
@@ -351,9 +342,9 @@ export async function drainDraftAutopick(input: {
 
 /**
  * Autopick live draft seats:
- * - Claimed + autopick on + queue → pick immediately (even mid-clock)
- * - Open seats with expired/untimed clock → queue then BPA
- * Drains consecutive immediate queue picks in one pass.
+ * - Claimed + Autopick on + queue → pick immediately (even mid-clock)
+ * - Expired clock (any seat) or untimed open seat → queue then BPA
+ * Drains consecutive due picks in one pass.
  */
 export async function processExpiredDraftPicks(
   now = new Date(),
