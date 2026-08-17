@@ -39,7 +39,7 @@ import {
 } from "@/components/ui/tabs";
 import { autoDraftCurrentPick, tryAutoStartDraft } from "@/lib/actions/draft";
 import { formatDraftStartsAt } from "@/lib/leagues/draft-status";
-import type { DraftScheduleSlot } from "@/lib/leagues/draft/board";
+import { getRemainingTeamPickSlots, type DraftScheduleSlot } from "@/lib/leagues/draft/board";
 import type { DraftPickRow, DraftQueueRow } from "@/lib/queries/draft";
 import type { RankedPlayerRow } from "@/lib/queries/players";
 import type { PositionFilter } from "@/lib/rankings/column-config";
@@ -103,7 +103,7 @@ function computeSecondsLeft(input: {
   clockEnabled: boolean;
   turnExpiresAt: string | null;
   pausedSecondsRemaining: number | null;
-  nowMs: number;
+  nowMs: number | null;
 }): number | null {
   if (!input.clockEnabled) {
     return null;
@@ -112,6 +112,9 @@ function computeSecondsLeft(input: {
     return input.pausedSecondsRemaining;
   }
   if (input.status !== "live" || !input.turnExpiresAt) {
+    return null;
+  }
+  if (input.nowMs == null) {
     return null;
   }
   const expiresMs = new Date(input.turnExpiresAt).getTime();
@@ -174,7 +177,7 @@ export function DraftRoom({
 }: DraftRoomProps) {
   const router = useRouter();
   const [tab, setTab] = useState("board");
-  const [nowMs, setNowMs] = useState(() => Date.now());
+  const [nowMs, setNowMs] = useState<number | null>(null);
   const [optimisticStatus, setOptimisticStatus] = useState(status);
   const [prevStatus, setPrevStatus] = useState(status);
   const [liveTurnExpiresAt, setLiveTurnExpiresAt] = useState(turnExpiresAt);
@@ -258,26 +261,33 @@ export function DraftRoom({
   // Always attempt on expiry / open seats — server reads live autoPickEnabled +
   // queue. Do not gate on SSR team flags (stale after My Team toggle).
   const pickClockExpired = secondsLeft != null && secondsLeft <= 0;
+  const showPickClock =
+    secondsLeft != null ||
+    Boolean(
+      clockEnabled && effectiveStatus === "live" && liveTurnExpiresAt,
+    );
 
   const queuedPlayerIds = useMemo(
     () => queuedItems.map((item) => item.playerId),
     [queuedItems],
   );
 
-  const picksUntilUser = useMemo(() => {
-    if (
-      !myTeamId ||
-      (effectiveStatus !== "live" && effectiveStatus !== "paused")
-    ) {
-      return null;
+  const remainingUserPicks = useMemo(() => {
+    if (effectiveStatus !== "live" && effectiveStatus !== "paused") {
+      return [];
     }
-    for (let index = livePickIndex; index < schedule.length; index++) {
-      if (schedule[index]?.teamId === myTeamId) {
-        return index - livePickIndex;
-      }
-    }
-    return null;
-  }, [livePickIndex, myTeamId, schedule, effectiveStatus]);
+    return getRemainingTeamPickSlots(schedule, livePickIndex, myTeamId);
+  }, [effectiveStatus, livePickIndex, myTeamId, schedule]);
+  const picksUntilUser = remainingUserPicks[0]?.picksUntil ?? null;
+  const projectedPicks = useMemo(
+    () =>
+      remainingUserPicks.map(({ picksUntil, slot }) => ({
+        picksUntil,
+        round: slot.round,
+        overall: slot.overall,
+      })),
+    [remainingUserPicks],
+  );
 
   useEffect(() => {
     const onDraftPicks = (event: Event) => {
@@ -369,14 +379,15 @@ export function DraftRoom({
     };
   }, [myTeamId, poolById]);
 
-  // Tick the pick clock while live.
+  // Tick the pick clock on the client only — Date.now() during SSR/hydrate
+  // mismatches by a second and trips a recoverable hydration error.
   useEffect(() => {
     if (!clockEnabled || effectiveStatus !== "live") {
       return;
     }
-    const timer = window.setInterval(() => {
-      setNowMs(Date.now());
-    }, 250);
+    const tick = () => setNowMs(Date.now());
+    tick();
+    const timer = window.setInterval(tick, 250);
     return () => window.clearInterval(timer);
   }, [clockEnabled, effectiveStatus, liveTurnExpiresAt, livePickIndex]);
 
@@ -577,7 +588,7 @@ export function DraftRoom({
                 <p className="text-sm text-muted-foreground">{waitingMessage}</p>
               ) : isMyTurn && onTheClockLive ? (
                 <div className="flex flex-col gap-1">
-                  {secondsLeft != null ? (
+                  {showPickClock ? (
                     <>
                       <p className="text-xs text-muted-foreground">
                         Pick expires in
@@ -595,7 +606,7 @@ export function DraftRoom({
               ) : onTheClockLive &&
                 picksUntilUser != null &&
                 picksUntilUser > 0 ? (
-                secondsLeft != null ? (
+                showPickClock ? (
                   <div className="flex flex-col gap-1">
                     <p className="text-xs text-muted-foreground">
                       Pick expires in
@@ -617,7 +628,7 @@ export function DraftRoom({
                   <p className="text-sm text-muted-foreground">
                     Round {onTheClockLive.round} · Pick #{onTheClockLive.overall}
                   </p>
-                  {secondsLeft != null ? (
+                  {showPickClock ? (
                     <>
                       <p className="text-xs text-muted-foreground">
                         Pick expires in
@@ -682,6 +693,7 @@ export function DraftRoom({
                 isMyTurn={isMyTurn}
                 isCommissioner={isCommissioner}
                 positions={positions}
+                projectedPicks={projectedPicks}
               />
             ) : null}
           </TabsContent>

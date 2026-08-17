@@ -13,17 +13,18 @@ export const PILL_INACTIVE_CLASSNAME = "bg-muted text-muted-foreground";
 
 export const PILL_ACTIVE_CLASSNAME = "bg-primary text-primary-foreground";
 
-export function PositionPills({
+export function PositionPills<T extends string = PositionFilter>({
   value,
   onSelect,
-  positions = POSITION_FILTERS,
+  positions = POSITION_FILTERS as unknown as readonly T[],
 }: {
-  value: PositionFilter;
-  onSelect: (position: PositionFilter) => void;
+  value: T;
+  onSelect: (position: T) => void;
   /** League roster positions; defaults to the full filter list. */
-  positions?: readonly PositionFilter[];
+  positions?: readonly T[];
 }) {
-  const options = positions.length > 0 ? positions : POSITION_FILTERS;
+  const options =
+    positions.length > 0 ? positions : (POSITION_FILTERS as unknown as readonly T[]);
 
   return (
     <div className="flex gap-1.5" role="group" aria-label="Position filter">

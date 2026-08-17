@@ -72,3 +72,41 @@ export function buildDraftSchedule(input: {
 
   return schedule;
 }
+
+/** Picks from the current slot until `teamId` is on the clock (0 = now). */
+export function getPicksUntilTeam(
+  schedule: readonly DraftScheduleSlot[],
+  currentPickIndex: number,
+  teamId: string | null | undefined,
+): number | null {
+  return getRemainingTeamPickSlots(schedule, currentPickIndex, teamId)[0]
+    ?.picksUntil ?? null;
+}
+
+/** Every remaining slot for `teamId` from the current pick onward. */
+export function getRemainingTeamPickSlots(
+  schedule: readonly DraftScheduleSlot[],
+  currentPickIndex: number,
+  teamId: string | null | undefined,
+): { picksUntil: number; slot: DraftScheduleSlot }[] {
+  if (!teamId) {
+    return [];
+  }
+
+  const slots: { picksUntil: number; slot: DraftScheduleSlot }[] = [];
+  for (let index = currentPickIndex; index < schedule.length; index++) {
+    const slot = schedule[index];
+    if (slot?.teamId === teamId) {
+      slots.push({ picksUntil: index - currentPickIndex, slot });
+    }
+  }
+  return slots;
+}
+
+export function getNextTeamPickSlot(
+  schedule: readonly DraftScheduleSlot[],
+  currentPickIndex: number,
+  teamId: string | null | undefined,
+): { picksUntil: number; slot: DraftScheduleSlot } | null {
+  return getRemainingTeamPickSlots(schedule, currentPickIndex, teamId)[0] ?? null;
+}

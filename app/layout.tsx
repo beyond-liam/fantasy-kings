@@ -37,7 +37,7 @@ export default async function RootLayout({
   return (
     <html
       lang="en"
-      className={cn("dark h-full antialiased font-sans font-synthesis-none", figtree.variable)}
+      className={cn("dark h-full antialiased font-sans font-synthesis-none overscroll-none", figtree.variable)}
     >
       <body className="relative flex min-h-dvh flex-col">
         <ViewportProvider initialIsMobile={initialIsMobile}>

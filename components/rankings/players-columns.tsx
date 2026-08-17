@@ -10,6 +10,7 @@ import { PlayerActionButton } from "@/components/rankings/player-action-button";
 import {
   createFullPlayerColumn,
   createStickyPlayerColumns,
+  stickyPlayerNameWidth,
 } from "@/components/rankings/sticky-player-columns";
 import { WatchlistToggle } from "@/components/rankings/watchlist-toggle";
 import { DataTableColumnHeader } from "@/components/ui/data-table";
@@ -211,7 +212,7 @@ export function getPlayersColumns(
       ? createStickyPlayerColumns<RankedPlayerRow>({
           leagueSlug: leagueSlug || null,
           headerVariant: "data",
-          nameWidth: 134,
+          nameWidth: stickyPlayerNameWidth(176),
           getPlayer: (row) => ({
             id: row.id,
             fullName: row.fullName,

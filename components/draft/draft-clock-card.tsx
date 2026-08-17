@@ -71,7 +71,7 @@ export function DraftClockCard({
 }
 
 type DraftClockSecondsProps = {
-  seconds: number;
+  seconds: number | null;
   /** Emphasize when at or below this value. */
   urgentAt?: number;
   className?: string;
@@ -84,14 +84,15 @@ export function DraftClockSeconds({
 }: DraftClockSecondsProps) {
   return (
     <p
+      suppressHydrationWarning
       className={cn(
         "text-2xl font-semibold tabular-nums",
-        seconds <= urgentAt && "text-orange-500",
+        seconds != null && seconds <= urgentAt && "text-orange-500",
         seconds === 0 && "text-destructive",
         className,
       )}
     >
-      {formatPickClock(seconds)}
+      {seconds == null ? "\u00a0" : formatPickClock(seconds)}
     </p>
   );
 }

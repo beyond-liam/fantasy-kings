@@ -1,6 +1,6 @@
 "use client";
 
-import type { CSSProperties } from "react";
+import { Fragment, type CSSProperties, type ReactNode } from "react";
 import {
   flexRender,
   type Row,
@@ -43,6 +43,7 @@ type DataTableProps<TData> = {
   headerClassName?: string;
   layout?: "auto" | "fixed";
   getRowClassName?: (row: Row<TData>) => string | undefined;
+  renderAfterRow?: (row: Row<TData>) => ReactNode;
 };
 
 type ColumnLike = {
@@ -170,6 +171,7 @@ export function DataTable<TData>({
   headerClassName = DEFAULT_DATA_TABLE_HEADER_CLASS,
   layout = "auto",
   getRowClassName,
+  renderAfterRow,
 }: DataTableProps<TData>) {
   const columnCount = table.getAllColumns().length;
   const fixedLayout = layout === "fixed";
@@ -254,43 +256,45 @@ export function DataTable<TData>({
               <TableBody>
                 {table.getRowModel().rows.length ? (
                   table.getRowModel().rows.map((row) => (
-                    <TableRow
-                      key={row.id}
-                      className={getRowClassName?.(row)}
-                    >
-                      {row.getVisibleCells().map((cell) => {
-                        const stickyLeft = stickyLeftOffsets.get(cell.column.id);
-                        const sticky = stickyLeft != null;
+                    <Fragment key={row.id}>
+                      <TableRow className={getRowClassName?.(row)}>
+                        {row.getVisibleCells().map((cell) => {
+                          const stickyLeft = stickyLeftOffsets.get(
+                            cell.column.id,
+                          );
+                          const sticky = stickyLeft != null;
 
-                        return (
-                          <TableCell
-                            key={cell.id}
-                            className={cn(
-                              "overflow-hidden",
-                              cell.column.columnDef.meta?.cellClassName,
-                              // Sticky last so pin surface/position win over call-site classes.
-                              sticky && STICKY_LEFT_CLASSNAME,
-                              sticky &&
-                                isLastStickyLeftColumn(
-                                  visibleColumns,
-                                  cell.column.id,
-                                ) &&
-                                STICKY_LEFT_EDGE_CLASSNAME,
-                            )}
-                            style={getColumnStyle(
-                              cell.column,
-                              fixedLayout,
-                              stickyLeft,
-                            )}
-                          >
-                            {flexRender(
-                              cell.column.columnDef.cell,
-                              cell.getContext(),
-                            )}
-                          </TableCell>
-                        );
-                      })}
-                    </TableRow>
+                          return (
+                            <TableCell
+                              key={cell.id}
+                              className={cn(
+                                "overflow-hidden",
+                                cell.column.columnDef.meta?.cellClassName,
+                                // Sticky last so pin surface/position win over call-site classes.
+                                sticky && STICKY_LEFT_CLASSNAME,
+                                sticky &&
+                                  isLastStickyLeftColumn(
+                                    visibleColumns,
+                                    cell.column.id,
+                                  ) &&
+                                  STICKY_LEFT_EDGE_CLASSNAME,
+                              )}
+                              style={getColumnStyle(
+                                cell.column,
+                                fixedLayout,
+                                stickyLeft,
+                              )}
+                            >
+                              {flexRender(
+                                cell.column.columnDef.cell,
+                                cell.getContext(),
+                              )}
+                            </TableCell>
+                          );
+                        })}
+                      </TableRow>
+                      {renderAfterRow?.(row)}
+                    </Fragment>
                   ))
                 ) : (
                   <TableRow>

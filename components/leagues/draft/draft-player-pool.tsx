@@ -20,6 +20,7 @@ import {
 import {
   createFullPlayerColumn,
   createStickyPlayerColumns,
+  stickyPlayerNameWidth,
 } from "@/components/rankings/sticky-player-columns";
 import { PlayerIdentity } from "@/components/rankings/player-identity";
 import { Button } from "@/components/ui/button";
@@ -61,6 +62,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
+import { TableCell, TableRow } from "@/components/ui/table";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { getNflTeamLabel } from "@/lib/nfl/teams";
 import { cn } from "@/lib/utils";
@@ -70,6 +72,7 @@ import {
   formatStatValue,
   getStatColumns,
   parsePositionFilter,
+  type StatColumn,
 } from "@/lib/rankings/column-config";
 import {
   formatPositionRank,
@@ -79,6 +82,12 @@ import {
   sortableRankValue,
   sortableStatValue,
 } from "@/lib/rankings/stat-helpers";
+import {
+  comparePlayersByAdp,
+  formatProjectedPickLabel,
+  getProjectedPicksByPlayerId,
+  type DraftProjectedPick,
+} from "@/lib/leagues/draft/projected-pick";
 import type { RankedPlayerRow } from "@/lib/queries/players";
 
 type DraftPlayerPoolProps = {
@@ -96,9 +105,11 @@ type DraftPlayerPoolProps = {
   onDraftPlayer?: (playerId: string) => void;
   /** League roster positions for filters. Defaults to all. */
   positions?: readonly PositionFilter[];
+  /** Remaining picks for the viewing team — omitted in search, shown on position/ALL. */
+  projectedPicks?: readonly DraftProjectedPick[];
 };
 
-const DEFAULT_SORTING: SortingState = [{ id: "fantasy_pts", desc: true }];
+const DEFAULT_SORTING: SortingState = [{ id: "adp", desc: false }];
 const STAT_CELL_CLASS = "tabular-nums";
 const ACTION_COLUMN_WIDTH = 148;
 /** Mobile shows an icon-only draft button, so the cell only needs the icon + padding. */
@@ -106,6 +117,43 @@ const ACTION_COLUMN_WIDTH_MOBILE = 48;
 const PLAYER_COLUMN_WIDTH = 220;
 /** Narrower so the pinned action + player columns leave room to scroll. */
 const PLAYER_COLUMN_WIDTH_MOBILE = 168;
+const EMPTY_PROJECTED_PICKS: DraftProjectedPick[] = [];
+
+type DraftPoolPosition = PositionFilter | "ALL";
+
+const ADP_STAT_COLUMN: StatColumn = {
+  key: "adp",
+  header: "ADP",
+  tooltip: "Average draft position",
+  group: "Fantasy",
+  decimals: 1,
+};
+
+const ALL_POOL_STAT_COLUMNS: StatColumn[] = [
+  {
+    key: "fantasy_pts",
+    header: "PTS",
+    tooltip: "Fantasy points",
+    group: "Fantasy",
+    decimals: 2,
+  },
+];
+
+function draftPoolStatColumns(position: DraftPoolPosition): StatColumn[] {
+  const columns =
+    position === "ALL" ? ALL_POOL_STAT_COLUMNS : getStatColumns(position);
+  return columns.filter((column) => column.key !== "adp");
+}
+
+function parseDraftPoolPosition(
+  value: string,
+  allowed: readonly PositionFilter[],
+): DraftPoolPosition {
+  if (value === "ALL") {
+    return "ALL";
+  }
+  return parsePositionFilter(value, allowed);
+}
 
 function renderStatCell(row: RankedPlayerRow, key: string, decimals?: number) {
   if (key === "adp") {
@@ -117,6 +165,33 @@ function renderStatCell(row: RankedPlayerRow, key: string, decimals?: number) {
   }
 
   return formatStatValue(row.stats[key], decimals);
+}
+
+function DraftProjectedPickRule({
+  colSpan,
+  label,
+}: {
+  colSpan: number;
+  label: string;
+}) {
+  return (
+    <TableRow className="pointer-events-none !border-b-0 hover:bg-transparent">
+      <TableCell
+        colSpan={colSpan}
+        className="relative z-[25] h-5 overflow-visible !border-0 p-0"
+      >
+        <div className="relative flex h-5 items-center">
+          <div
+            aria-hidden
+            className="absolute inset-x-0 top-1/2 h-0.5 -translate-y-1/2 bg-primary"
+          />
+          <span className="sticky left-8 z-[25] bg-background px-1.5 text-[10px] leading-none text-primary tabular-nums">
+            {label}
+          </span>
+        </div>
+      </TableCell>
+    </TableRow>
+  );
 }
 
 /** Gap between the search sheet and the viewport edges. */
@@ -160,7 +235,7 @@ function DraftPlayerSearchSheet({
       if (hideDrafted && drafted.has(player.id)) return false;
       return !needle || player.fullName.toLowerCase().includes(needle);
     });
-    return matches.slice(0, SEARCH_RESULT_LIMIT);
+    return matches.toSorted(comparePlayersByAdp).slice(0, SEARCH_RESULT_LIMIT);
   }, [deferredQuery, drafted, hideDrafted, players]);
 
   return (
@@ -313,25 +388,28 @@ export function DraftPlayerPool({
   showQueue = true,
   onDraftPlayer,
   positions = POSITION_FILTERS,
+  projectedPicks = EMPTY_PROJECTED_PICKS,
 }: DraftPlayerPoolProps) {
   const isMobile = useIsMobile();
   const positionOptions =
     positions.length > 0 ? positions : POSITION_FILTERS;
+  const poolPositions = useMemo<DraftPoolPosition[]>(
+    () => ["ALL", ...positionOptions],
+    [positionOptions],
+  );
   const positionItems = useMemo(
     () =>
-      positionOptions.map((value) => ({
+      poolPositions.map((value) => ({
         label: value,
         value,
       })),
-    [positionOptions],
+    [poolPositions],
   );
   const drafted = useMemo(
     () => new Set(draftedPlayerIds),
     [draftedPlayerIds],
   );
-  const [position, setPosition] = useState<PositionFilter>(
-    () => positionOptions[0] ?? "QB",
-  );
+  const [position, setPosition] = useState<DraftPoolPosition>("ALL");
   const [team, setTeam] = useState("ALL");
   const [rookiesOnly, setRookiesOnly] = useState(false);
   const [hideDrafted, setHideDrafted] = useState(true);
@@ -349,8 +427,24 @@ export function DraftPlayerPool({
     [teams],
   );
 
+  const searching = search.trim().length > 0;
+  const projectedByPlayerId = useMemo(() => {
+    if (searching || projectedPicks.length === 0) {
+      return new Map<string, DraftProjectedPick>();
+    }
+    const positionPlayers =
+      position === "ALL"
+        ? data
+        : data.filter((row) => row.primaryPositionId === position);
+    return getProjectedPicksByPlayerId(
+      positionPlayers,
+      drafted,
+      projectedPicks,
+    );
+  }, [data, drafted, position, projectedPicks, searching]);
+
   const columns = useMemo<ColumnDef<RankedPlayerRow>[]>(() => {
-    const statCols = getStatColumns(position);
+    const statCols = draftPoolStatColumns(position);
 
     const queueColumn: ColumnDef<RankedPlayerRow> = {
       id: "queue",
@@ -417,7 +511,7 @@ export function DraftPlayerPool({
       ? createStickyPlayerColumns<RankedPlayerRow>({
           leagueSlug: slug === "mock" ? undefined : slug,
           headerVariant: "data",
-          nameWidth: Math.max(playerWidth - 42, 100),
+          nameWidth: stickyPlayerNameWidth(playerWidth),
           getPlayer: (row) => ({
             id: row.id,
             fullName: row.fullName,
@@ -445,15 +539,42 @@ export function DraftPlayerPool({
           }),
         ];
 
+    const toStatColumn = (
+      column: StatColumn,
+    ): ColumnDef<RankedPlayerRow> => ({
+      id: column.key,
+      meta: { cellClassName: STAT_CELL_CLASS },
+      accessorFn: (row) =>
+        column.key === "adp"
+          ? sortableRankValue(getAdp(row.stats))
+          : column.key === "fantasy_pts"
+            ? sortableStatValue(getFantasyPts(row))
+            : sortableStatValue(row.stats[column.key]),
+      sortUndefined: "last",
+      header: ({ column: tableColumn }) => (
+        <DataTableColumnHeader
+          column={tableColumn}
+          title={column.header}
+          tooltip={column.tooltip}
+        />
+      ),
+      cell: ({ row }) => (
+        <span className="block truncate">
+          {renderStatCell(row.original, column.key, column.decimals)}
+        </span>
+      ),
+    });
+
     const middleColumns: ColumnDef<RankedPlayerRow>[] = [
       ...playerColumns,
+      toStatColumn(ADP_STAT_COLUMN),
       {
         id: "positionRank",
         accessorFn: (row) => sortableRankValue(row.positionRank),
         sortUndefined: "last",
         meta: { cellClassName: STAT_CELL_CLASS },
         header: ({ column }) => (
-          <DataTableColumnHeader column={column} title="Draft" />
+          <DataTableColumnHeader column={column} title="RANK" />
         ),
         cell: ({ row }) => (
           <span
@@ -466,31 +587,7 @@ export function DraftPlayerPool({
           </span>
         ),
       },
-      ...statCols.map(
-        (column): ColumnDef<RankedPlayerRow> => ({
-          id: column.key,
-          meta: { cellClassName: STAT_CELL_CLASS },
-          accessorFn: (row) =>
-            column.key === "adp"
-              ? sortableStatValue(getAdp(row.stats))
-              : column.key === "fantasy_pts"
-                ? sortableStatValue(getFantasyPts(row))
-                : sortableStatValue(row.stats[column.key]),
-          sortUndefined: "last",
-          header: ({ column: tableColumn }) => (
-            <DataTableColumnHeader
-              column={tableColumn}
-              title={column.header}
-              tooltip={column.tooltip}
-            />
-          ),
-          cell: ({ row }) => (
-            <span className="block truncate">
-              {renderStatCell(row.original, column.key, column.decimals)}
-            </span>
-          ),
-        }),
-      ),
+      ...statCols.map(toStatColumn),
     ];
 
     // Desktop: queue | player | stats | draft. Mobile: draft | player | stats | queue.
@@ -523,7 +620,7 @@ export function DraftPlayerPool({
   const filteredData = useMemo(() => {
     const query = search.trim().toLowerCase();
     return data.filter((row) => {
-      if (row.primaryPositionId !== position) return false;
+      if (position !== "ALL" && row.primaryPositionId !== position) return false;
       if (team !== "ALL" && row.nflTeam !== team) return false;
       if (rookiesOnly && row.yearsExp !== 0) return false;
       if (hideDrafted && drafted.has(row.id)) return false;
@@ -583,7 +680,7 @@ export function DraftPlayerPool({
       value={position}
       onValueChange={(value) => {
         if (value) {
-          setPosition(parsePositionFilter(value, positionOptions));
+          setPosition(parseDraftPoolPosition(value, positionOptions));
           setSorting(DEFAULT_SORTING);
         }
       }}
@@ -593,7 +690,7 @@ export function DraftPlayerPool({
       </SelectTrigger>
       <SelectContent>
         <SelectGroup>
-          {positionOptions.map((value) => (
+          {poolPositions.map((value) => (
             <SelectItem key={value} value={value}>
               {value}
             </SelectItem>
@@ -719,7 +816,7 @@ export function DraftPlayerPool({
 
         <PositionPills
           value={position}
-          positions={positionOptions}
+          positions={poolPositions}
           onSelect={(next) => {
             setPosition(next);
             setSorting(DEFAULT_SORTING);
@@ -766,6 +863,23 @@ export function DraftPlayerPool({
         layout="fixed"
         emptyMessage="No players match your filters."
         rowLabel={{ singular: "player", plural: "players" }}
+        getRowClassName={(row) =>
+          projectedByPlayerId.has(row.original.id)
+            ? "!border-b-0"
+            : undefined
+        }
+        renderAfterRow={(row) => {
+          const pick = projectedByPlayerId.get(row.original.id);
+          if (!pick) {
+            return null;
+          }
+          return (
+            <DraftProjectedPickRule
+              colSpan={row.getVisibleCells().length}
+              label={formatProjectedPickLabel(pick)}
+            />
+          );
+        }}
       />
     </div>
   );

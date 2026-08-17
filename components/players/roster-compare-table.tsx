@@ -5,6 +5,7 @@ import type { ColumnDef, SortingState } from "@tanstack/react-table";
 
 import { PlayerAvatar } from "@/components/rankings/player-avatar";
 import { PlayerProfileTrigger } from "@/components/rankings/player-identity";
+import { stickyPlayerNameWidth } from "@/components/rankings/sticky-player-columns";
 import {
   DataTable,
   DataTableColumnHeader,
@@ -243,7 +244,7 @@ export function RosterCompareTable({
           );
         },
         meta: {
-          width: 134,
+          width: stickyPlayerNameWidth(176),
           cellClassName: "align-top min-w-0 pl-0 pr-2",
           headerClassName: "pl-0 pr-2",
         },

@@ -948,3 +948,7 @@ lib/
 | 2026-08-15 | Power Rankings season tooltip uses the inverted white chip (same as other charts) |
 | 2026-08-15 | Player Overview position average is NFL counting-stat aggregate (not fantasy, not a typical rate) |
 | 2026-08-15 | League Stats is season totals (not the current week) |
+| 2026-08-17 | Draft player pool defaults to ALL (ADP order); QB/RB/WR and player search also sort by ADP |
+| 2026-08-17 | Draft player pool columns: ADP, RANK, PTS (then position stats) |
+| 2026-08-17 | Draft player pool projected-pick line: Nth remaining by ADP in ALL/position views (not search) |
+| 2026-08-17 | Draft player pool shows a projected-pick line for every remaining pick |

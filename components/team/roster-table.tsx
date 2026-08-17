@@ -5,6 +5,9 @@ import {
   EmptyPlayerIdentity,
   PlayerIdentity,
 } from "@/components/rankings/player-identity";
+import {
+  PLAYER_COLUMN_WIDTH,
+} from "@/components/rankings/sticky-player-columns";
 import { OpponentCell } from "@/components/team/opponent-cell";
 import { PointsCell } from "@/components/team/points-cell";
 import { RosterRowActions } from "@/components/team/roster-row-actions";
@@ -80,12 +83,12 @@ const PLACEHOLDER = "—";
  * (If every col has a width, `table-fixed` + `w-full` stretches Player too.)
  *
  * Mobile adds a separate sticky avatar col (`md:hidden`). Desktop keeps a single
- * 224px Player col — same as before the sticky-avatar experiment.
+ * 224px Player col. Name-only mobile width drops avatar sm + former gap-2.5.
  */
 const FIXED_COL_PX = {
   /** Mobile only: pl-2 + badge + gap-2 + avatar sm + pr-2.5 */
   avatar: 86,
-  player: 224,
+  player: PLAYER_COLUMN_WIDTH,
   opponent: 144, // fits live down/distance
   slot: 120, // 7.5rem select
   action: 48, // icon-sm (32) + cell px-2 (16)
@@ -107,6 +110,9 @@ const AVATAR_COL_CLASS = "overflow-hidden md:hidden";
 const AVATAR_CELL_PAD = "py-2 pl-2 pr-2.5";
 /** Name-only cell on mobile; desktop Player cell keeps default `p-2`. */
 const PLAYER_NAME_MOBILE_PAD = "max-md:py-2 max-md:pl-0 max-md:pr-2";
+
+const PLAYER_COL_WIDTH_CLASS =
+  "w-[190px] min-w-[190px] max-w-[190px] md:w-[224px] md:min-w-[224px] md:max-w-[224px]";
 
 const STICKY_AVATAR_CELL = cn(
   AVATAR_CELL_PAD,
@@ -295,15 +301,16 @@ export function TeamRosterTable({
             <colgroup>
               {columns.map((column) => {
                 const width =
-                  column.id in FIXED_COL_PX
-                    ? FIXED_COL_PX[column.id as FixedColId]
-                    : undefined;
+                  column.id === "player" || !(column.id in FIXED_COL_PX)
+                    ? undefined
+                    : FIXED_COL_PX[column.id as FixedColId];
                 return (
                   <col
                     key={column.id}
                     className={cn(
                       column.id === "avatar" && "md:hidden",
                       column.id === "slot" && "max-md:hidden",
+                      column.id === "player" && PLAYER_COL_WIDTH_CLASS,
                     )}
                     style={width != null ? { width } : undefined}
                   />
@@ -318,7 +325,8 @@ export function TeamRosterTable({
                     className={cn(
                       COL_CLASS[column.id],
                       column.id === "avatar" && STICKY_AVATAR_HEAD,
-                      column.id === "player" && PLAYER_NAME_MOBILE_PAD,
+                      column.id === "player" &&
+                        cn(PLAYER_NAME_MOBILE_PAD, PLAYER_COL_WIDTH_CLASS),
                     )}
                     style={
                       column.id === "avatar"
@@ -327,7 +335,9 @@ export function TeamRosterTable({
                             minWidth: FIXED_COL_PX.avatar,
                             maxWidth: FIXED_COL_PX.avatar,
                           }
-                        : fixedColStyle(column.id)
+                        : column.id === "player"
+                          ? undefined
+                          : fixedColStyle(column.id)
                     }
                   >
                     <TeamTableColumnHeader
@@ -395,8 +405,11 @@ export function TeamRosterTable({
                     </div>
                   </TableCell>
                   <TableCell
-                    className={cn(COL_CLASS.player, PLAYER_NAME_MOBILE_PAD)}
-                    style={fixedColStyle("player")}
+                    className={cn(
+                      COL_CLASS.player,
+                      PLAYER_NAME_MOBILE_PAD,
+                      PLAYER_COL_WIDTH_CLASS,
+                    )}
                   >
                     {/* Desktop: original combined identity (avatar col is md:hidden). */}
                     <div className="hidden min-w-0 items-center gap-2 md:flex">

@@ -45,7 +45,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
-import { buildDraftSchedule } from "@/lib/leagues/draft/board";
+import { buildDraftSchedule, getRemainingTeamPickSlots } from "@/lib/leagues/draft/board";
 import { buildPersistedRosterSlots } from "@/lib/leagues/roster";
 import { pickBotPlayer } from "@/lib/mock-draft/bot";
 import {
@@ -236,15 +236,20 @@ export function MockDraftRoom({ players }: MockDraftRoomProps) {
     [draftedPlayerIds],
   );
 
-  const picksUntilUser = useMemo(() => {
-    if (!userTeamId || status !== "live") return null;
-    for (let index = currentPickIndex; index < schedule.length; index++) {
-      if (schedule[index]?.teamId === userTeamId) {
-        return index - currentPickIndex;
-      }
-    }
-    return null;
+  const remainingUserPicks = useMemo(() => {
+    if (status !== "live") return [];
+    return getRemainingTeamPickSlots(schedule, currentPickIndex, userTeamId);
   }, [currentPickIndex, schedule, status, userTeamId]);
+  const picksUntilUser = remainingUserPicks[0]?.picksUntil ?? null;
+  const projectedPicks = useMemo(
+    () =>
+      remainingUserPicks.map(({ picksUntil, slot }) => ({
+        picksUntil,
+        round: slot.round,
+        overall: slot.overall,
+      })),
+    [remainingUserPicks],
+  );
 
   const applyPick = (
     player: RankedPlayerRow,
@@ -496,6 +501,7 @@ export function MockDraftRoom({ players }: MockDraftRoomProps) {
               isCommissioner={false}
               showQueue={false}
               onDraftPlayer={draftPlayer}
+              projectedPicks={projectedPicks}
             />
           ) : null}
         </TabsContent>

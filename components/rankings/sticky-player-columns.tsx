@@ -8,14 +8,25 @@ import { TeamTableColumnHeader } from "@/components/team/team-table-column-heade
 import { DataTableColumnHeader } from "@/components/ui/data-table";
 import { cn } from "@/lib/utils";
 
+/** Avatar `size="sm"` (`size-6`). */
+export const PLAYER_AVATAR_SM_PX = 24;
+
+/** `PlayerIdentity` `gap-2.5` between avatar and name. */
+export const PLAYER_AVATAR_NAME_GAP_PX = 10;
+
 /** pl-2 (8) + avatar sm (24) + pr-2.5 (10) — gap lives in avatar cell. */
 export const STICKY_PLAYER_AVATAR_WIDTH = 42;
 
-/** Former 224px Player col minus avatar sticky width. */
-export const STICKY_PLAYER_NAME_WIDTH = 182;
-
 /** Combined Player column width when not split (desktop). */
 export const PLAYER_COLUMN_WIDTH = 224;
+
+/** Name-only column after moving avatar + former gap into the sticky cell. */
+export const STICKY_PLAYER_NAME_WIDTH =
+  PLAYER_COLUMN_WIDTH - PLAYER_AVATAR_SM_PX - PLAYER_AVATAR_NAME_GAP_PX;
+
+export function stickyPlayerNameWidth(combinedWidth: number) {
+  return combinedWidth - PLAYER_AVATAR_SM_PX - PLAYER_AVATAR_NAME_GAP_PX;
+}
 
 export const STICKY_AVATAR_CELL_PAD = "pl-2 pr-2.5";
 export const STICKY_NAME_CELL_PAD = "pl-0 pr-2";
