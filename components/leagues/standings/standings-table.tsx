@@ -2,7 +2,13 @@
 
 import { useState, useTransition } from "react";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { AddTeamIcon, LeftToRightListNumberIcon } from "@hugeicons/core-free-icons";
+import {
+  AddTeamIcon,
+  LeftToRightListNumberIcon,
+  MinusSignIcon,
+  TradeDownIcon as TrendingDownIcon,
+  TradeUpIcon as TrendingUpIcon,
+} from "@hugeicons/core-free-icons";
 import type {
   ColumnDef,
   SortingState,
@@ -210,6 +216,49 @@ function ClaimTeamButton({
   );
 }
 
+function RankDelta({ delta }: { delta: number | null | undefined }) {
+  if (delta == null) return null;
+
+  if (delta === 0) {
+    return (
+      <span
+        className="inline-flex items-center text-muted-foreground"
+        aria-label="No change from last week"
+      >
+        <HugeiconsIcon
+          icon={MinusSignIcon}
+          strokeWidth={2}
+          className="size-2.5"
+        />
+      </span>
+    );
+  }
+
+  const up = delta > 0;
+  const places = Math.abs(delta);
+
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-px text-[10px] font-medium leading-none",
+        up ? "text-success" : "text-destructive",
+      )}
+      aria-label={
+        up
+          ? `Up ${places} from last week`
+          : `Down ${places} from last week`
+      }
+    >
+      <HugeiconsIcon
+        icon={up ? TrendingUpIcon : TrendingDownIcon}
+        strokeWidth={2}
+        className="size-2.5"
+      />
+      {places}
+    </span>
+  );
+}
+
 /** Invite/recruit mobile rows: team + record under name + claim. */
 function MobileInviteStandings({
   rows,
@@ -361,10 +410,17 @@ function getStandingsColumns(
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="RK" tooltip="Rank" />
     ),
-    cell: ({ row }) =>
-      row.original.claimed
-        ? (row.original.rank ?? PLACEHOLDER)
-        : PLACEHOLDER,
+    cell: ({ row }) => {
+      if (!row.original.claimed) return PLACEHOLDER;
+      const rank = row.original.rank;
+      if (rank == null) return PLACEHOLDER;
+      return (
+        <span className="inline-flex items-center gap-1 tabular-nums">
+          {rank}
+          <RankDelta delta={row.original.rankDelta} />
+        </span>
+      );
+    },
     meta: { cellClassName: "tabular-nums" },
   };
 

@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { buildLeagueStandings } from "@/lib/leagues/standings-from-matchups";
+import {
+  attachPreviousWeekRankDelta,
+  buildLeagueStandings,
+} from "@/lib/leagues/standings-from-matchups";
 import type { LeagueStandingsMember } from "@/lib/leagues/standings";
 
 const members: LeagueStandingsMember[] = [
@@ -170,5 +173,77 @@ describe("buildLeagueStandings", () => {
     });
     assert.equal(byH2h[0]?.teamId, "a", "with H2H first, A ranks above B");
     assert.equal(byH2h[1]?.teamId, "b");
+  });
+});
+
+describe("attachPreviousWeekRankDelta", () => {
+  const options = { teamCount: 2 };
+  const week1 = [
+    {
+      id: "m1",
+      week: 1,
+      homeTeamId: "a",
+      awayTeamId: "b",
+      homePts: 120,
+      awayPts: 100,
+    },
+  ];
+  const week2 = [
+    {
+      id: "m2",
+      week: 2,
+      homeTeamId: "b",
+      awayTeamId: "a",
+      homePts: 150,
+      awayPts: 80,
+    },
+  ];
+
+  it("is null before any scored week", () => {
+    const current = buildLeagueStandings(members, options, []);
+    const rows = attachPreviousWeekRankDelta(
+      current,
+      members,
+      options,
+      [],
+    );
+    assert.equal(rows[0]?.rankDelta, null);
+    assert.equal(rows[1]?.rankDelta, null);
+  });
+
+  it("uses draft slot after week 1", () => {
+    const swapped: LeagueStandingsMember[] = [
+      { ...members[0]!, draftSlot: 2 },
+      { ...members[1]!, draftSlot: 1 },
+    ];
+    const current = buildLeagueStandings(swapped, options, week1);
+    const rows = attachPreviousWeekRankDelta(
+      current,
+      swapped,
+      options,
+      week1,
+    );
+    const byId = new Map(rows.map((row) => [row.teamId, row]));
+    assert.equal(byId.get("a")?.rank, 1);
+    assert.equal(byId.get("a")?.rankDelta, 1);
+    assert.equal(byId.get("b")?.rank, 2);
+    assert.equal(byId.get("b")?.rankDelta, -1);
+  });
+
+  it("is positive when a team moves up vs last week", () => {
+    const finals = [...week1, ...week2];
+    const current = buildLeagueStandings(members, options, finals);
+    const rows = attachPreviousWeekRankDelta(
+      current,
+      members,
+      options,
+      finals,
+    );
+    const byId = new Map(rows.map((row) => [row.teamId, row]));
+    // After week 1: A 1st, B 2nd. After week 2 both 1-1; B has more PF → 1st.
+    assert.equal(byId.get("b")?.rank, 1);
+    assert.equal(byId.get("b")?.rankDelta, 1);
+    assert.equal(byId.get("a")?.rank, 2);
+    assert.equal(byId.get("a")?.rankDelta, -1);
   });
 });

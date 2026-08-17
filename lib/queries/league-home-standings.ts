@@ -34,6 +34,7 @@ import {
 import { getPlayoffWeekRange } from "@/lib/leagues/season-calendar";
 import { resolveTeamStrengthForSos } from "@/lib/leagues/sos";
 import {
+  attachPreviousWeekRankDelta,
   buildLeagueStandings,
 } from "@/lib/leagues/standings-from-matchups";
 import type {
@@ -186,10 +187,19 @@ export const getLeagueHomeStandingsBundle = cache(
       projectedWeeklyPfByTeamId: projectedWeeklyPf,
     });
 
-    const standings = attachSosToStandings(
-      baseStandings,
-      sosMatchups,
-      projectedWeeklyPf,
+    const standings = attachPreviousWeekRankDelta(
+      attachSosToStandings(
+        baseStandings,
+        sosMatchups,
+        projectedWeeklyPf,
+      ),
+      input.standingsTeams,
+      {
+        teamCount: input.teamCount,
+        faabBudget: input.showFaabBudget ? input.faabBudget : null,
+      },
+      finals,
+      input.tiebreakers,
     );
     const playoffSettings = resolvePlayoffSettings(input.playoffs);
     const playoffTeamCount =

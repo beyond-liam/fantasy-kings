@@ -35,7 +35,7 @@ A mobile-first fantasy football web app for a private friend group (4–16 users
 | Activity | Adds/drops, waivers, trades, IR/taxi, settings diffs, score corrections; nav unseen red dot |
 | Team UX | Roster summary panel, IR/taxi lock alerts, floating roster actions, suggested lineup |
 | Notifications | In-app bell (with league name) + Brevo email v1 (draft + trade only) |
-| Standings | FORM guide (last 5) replaces next-opponent column |
+| Standings | FORM guide (last 5); RK shows week-over-week movement |
 | Game Centre | Yet-to-play + scheduled Preview dashboard (predictor, leaders, injuries, H2H) |
 | Playoffs standings | Seed only (no Rank column) |
 | Messages | League threads + replies; nav unread red dot; mark all read |
@@ -952,3 +952,4 @@ lib/
 | 2026-08-17 | Draft player pool columns: ADP, RANK, PTS (then position stats) |
 | 2026-08-17 | Draft player pool projected-pick line: Nth remaining by ADP in ALL/position views (not search) |
 | 2026-08-17 | Draft player pool shows a projected-pick line for every remaining pick |
+| 2026-08-17 | Standings RK shows places moved vs last week (week 1 vs draft slot; up success, down destructive) |

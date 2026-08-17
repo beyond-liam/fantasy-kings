@@ -260,3 +260,64 @@ export function buildLeagueStandings(
   }
   return applyFinalMatchupsToStandings(base, finals, tiebreakers);
 }
+
+function latestScoredWeek(finals: FinalMatchupRecord[]): number | null {
+  let latest: number | null = null;
+  for (const row of finals) {
+    if (row.homePts == null || row.awayPts == null) continue;
+    if (latest == null || row.week > latest) latest = row.week;
+  }
+  return latest;
+}
+
+/**
+ * Compare current rank to last week's table (or draft slot after week 1).
+ * Positive = moved up. Null before any scored week.
+ */
+export function attachPreviousWeekRankDelta(
+  rows: LeagueStandingsRow[],
+  members: LeagueStandingsMember[],
+  options: BuildStandingsOptions,
+  finals: FinalMatchupRecord[],
+  tiebreakers?: StandingsTiebreakerOptions | TiebreakerSettings | null,
+): LeagueStandingsRow[] {
+  const latestWeek = latestScoredWeek(finals);
+  if (latestWeek == null) {
+    return rows.map((row) => ({ ...row, rankDelta: null }));
+  }
+
+  const previousFinals = finals.filter(
+    (row) =>
+      row.week < latestWeek &&
+      row.homePts != null &&
+      row.awayPts != null,
+  );
+
+  const previousRankByTeamId = new Map<string, number>();
+  if (previousFinals.length > 0) {
+    for (const row of buildLeagueStandings(
+      members,
+      options,
+      previousFinals,
+      tiebreakers,
+    )) {
+      if (row.teamId && row.claimed && row.rank != null) {
+        previousRankByTeamId.set(row.teamId, row.rank);
+      }
+    }
+  }
+
+  return rows.map((row) => {
+    if (!row.claimed || !row.teamId || row.rank == null) {
+      return { ...row, rankDelta: null };
+    }
+    const previousRank =
+      previousFinals.length > 0
+        ? previousRankByTeamId.get(row.teamId)
+        : row.draftOrder;
+    if (previousRank == null) {
+      return { ...row, rankDelta: null };
+    }
+    return { ...row, rankDelta: previousRank - row.rank };
+  });
+}

@@ -32,6 +32,8 @@ export type LeagueStandingsRow = {
   /** Remaining FAAB when budgets are enabled; null otherwise. */
   faabRemaining: number | null;
   rank: number | null;
+  /** Previous week rank − current (positive = moved up). Null before week 2. */
+  rankDelta?: number | null;
   draftOrder: number | null;
   /** @deprecated Prefer `form` — next opponent is no longer shown on standings. */
   opponentName: string | null;
@@ -107,6 +109,7 @@ function emptyStats() {
     sos: null as number | null,
     sosPlayed: null as number | null,
     sosRemaining: null as number | null,
+    rankDelta: null as number | null,
   };
 }
 
