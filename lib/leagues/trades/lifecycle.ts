@@ -2,7 +2,7 @@ import "server-only";
 
 import { and, eq, inArray } from "drizzle-orm";
 
-import { teams, tradePlayers, trades, tradeVetoes } from "@/db/schema";
+import { teams, tradePicks, tradePlayers, trades, tradeVetoes } from "@/db/schema";
 import type { RosterSlotConfig } from "@/db/schema/league-seasons";
 import {
   announceTradeAcceptedReview,
@@ -120,6 +120,8 @@ export async function commitTradeProposal(input: {
   receivingOfferIds: string[];
   proposingDropIds: string[];
   receivingDropIds: string[];
+  proposingPickIds?: string[];
+  receivingPickIds?: string[];
   comment: string | null;
   expiresAt?: Date | null;
   counterOfTradeId?: string;
@@ -168,13 +170,29 @@ export async function commitTradeProposal(input: {
     await db.insert(tradePlayers).values(rows);
   }
 
+  const pickRows = [
+    ...(input.proposingPickIds ?? []).map((draftPickAssetId) => ({
+      tradeId: trade.id,
+      teamId: input.actor.teamId,
+      draftPickAssetId,
+    })),
+    ...(input.receivingPickIds ?? []).map((draftPickAssetId) => ({
+      tradeId: trade.id,
+      teamId: input.receivingTeam.id,
+      draftPickAssetId,
+    })),
+  ];
+  if (pickRows.length > 0) {
+    await db.insert(tradePicks).values(pickRows);
+  }
+
   await logTradeActivity({
     leagueSeasonId: input.league.leagueSeasonId,
     tradeId: trade.id,
     type: "trade_proposed",
     summary: input.counterOfTradeId
-      ? `${input.actor.teamName} sent a counter-offer to ${input.receivingTeam.name}.`
-      : `${input.actor.teamName} proposed a trade with ${input.receivingTeam.name}.`,
+      ? `${input.actor.teamName} sent a counter-offer to ${input.receivingTeam.name}${pickRows.length > 0 ? " including draft picks" : ""}.`
+      : `${input.actor.teamName} proposed a trade with ${input.receivingTeam.name}${pickRows.length > 0 ? " including draft picks" : ""}.`,
     teamId: input.actor.teamId,
     actorUserId: input.actor.userId,
   });

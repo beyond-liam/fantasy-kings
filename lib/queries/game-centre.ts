@@ -36,8 +36,11 @@ import {
 import { getNflScoreboard, type ScheduleGame } from "@/lib/espn/scoreboard";
 import {
   espnSeasonTypeForNfl,
+  fantasyWeekFromNflState,
   fantasyWeekToNfl,
 } from "@/lib/leagues/schedule/fantasy-week-map";
+import { resolveScheduleSettings } from "@/lib/leagues/schedule/settings";
+import { overlayPlanSlots } from "@/lib/leagues/lineup-plans";
 import {
   needsPreseasonProjectionFallback,
   PRESEASON_PROJECTION_FALLBACK_SEASON_TYPE,
@@ -47,9 +50,11 @@ import {
   buildOpponentByTeam,
   normalizeNflTeamAbbrev,
   resolvePlayerOpponent,
+  withPositionalSos,
   type PlayerOpponent,
   type TeamMatchup,
 } from "@/lib/nfl/matchups";
+import { getPositionalSosTable } from "@/lib/queries/positional-sos";
 import {
   getLeagueBySlug,
   getLeagueMembership,
@@ -66,7 +71,10 @@ import {
   getLeaguePlayerOwnershipMap,
 } from "@/lib/queries/roster";
 import { getTeamRosterPlayers } from "@/lib/queries/team-roster";
+import { applyDueLineupPlans, getLineupPlansByTeam } from "@/lib/queries/lineup-plans";
 import { getUserTeamForSeason } from "@/lib/queries/watchlist";
+import { getNflState } from "@/lib/sleeper/api";
+import type { PositionalSosTable } from "@/lib/players/matchup-difficulty";
 import {
   clientStatAllowlist,
   pickClientStats,
@@ -227,6 +235,7 @@ function mapPlayer(input: {
   actualById: Map<string, number | null>;
   actualStatsById: Map<string, RankedPlayerRow>;
   opponentsByTeam: Map<string, TeamMatchup>;
+  sos: PositionalSosTable;
   week: number;
   seasonYear: number;
   startedTeams: Set<string>;
@@ -239,6 +248,7 @@ function mapPlayer(input: {
     actualById,
     actualStatsById,
     opponentsByTeam,
+    sos,
     week,
     seasonYear,
     startedTeams,
@@ -247,13 +257,17 @@ function mapPlayer(input: {
 
   const projectedPts = projectedById.get(player.id) ?? null;
   const actualPts = actualById.get(player.id) ?? null;
-  const opponent = resolvePlayerOpponent({
-    nflTeam: player.nflTeam,
-    byeWeek: player.byeWeek,
-    week,
-    opponentsByTeam,
-    seasonYear,
-  });
+  const opponent = withPositionalSos(
+    resolvePlayerOpponent({
+      nflTeam: player.nflTeam,
+      byeWeek: player.byeWeek,
+      week,
+      opponentsByTeam,
+      seasonYear,
+    }),
+    player.primaryPositionId,
+    sos,
+  );
   const kickoff = kickoffForNflTeam(player.nflTeam, games);
   const teamMatchup = player.nflTeam
     ? opponentsByTeam.get(normalizeNflTeamAbbrev(player.nflTeam) ?? "")
@@ -360,8 +374,25 @@ export async function getGameCentreData(input: {
   const nflPoint = fantasyWeekToNfl(matchup.week, season.settings.schedule);
   const scoringWeek = nflPoint?.week ?? matchup.week;
   const scoringSeasonType = nflPoint?.seasonType ?? "regular";
+  const nflState = await getNflState();
+  const currentWeek = Math.max(
+    1,
+    fantasyWeekFromNflState(
+      nflState,
+      resolveScheduleSettings(season.settings.schedule),
+    ) ?? 1,
+  );
 
-  const [awayRoster, homeRoster, viewerTeam, ownership, scoreboard] =
+  if (matchup.week <= currentWeek) {
+    await applyDueLineupPlans({
+      leagueSeasonId: season.id,
+      currentWeek,
+      rosterSlots: season.settings.rosterSlots,
+      benchSlots: season.benchSlots,
+    });
+  }
+
+  const [awayRosterRaw, homeRosterRaw, viewerTeam, ownership, scoreboard] =
     await Promise.all([
       getTeamRosterPlayers(matchup.awayTeamId),
       getTeamRosterPlayers(matchup.homeTeamId),
@@ -377,6 +408,23 @@ export async function getGameCentreData(input: {
         seasonType: espnSeasonTypeForNfl(scoringSeasonType),
       }).catch(() => null),
     ]);
+
+  const plans =
+    matchup.week > currentWeek
+      ? await getLineupPlansByTeam(season.id, matchup.week)
+      : null;
+  const awayRoster = plans
+    ? overlayPlanSlots(
+        awayRosterRaw,
+        plans.get(matchup.awayTeamId) ?? new Map(),
+      )
+    : awayRosterRaw;
+  const homeRoster = plans
+    ? overlayPlanSlots(
+        homeRosterRaw,
+        plans.get(matchup.homeTeamId) ?? new Map(),
+      )
+    : homeRosterRaw;
 
   const games = scoreboard?.games ?? [];
   const opponentsByTeam = buildOpponentByTeam(games);
@@ -432,6 +480,7 @@ export async function getGameCentreData(input: {
     awaySchedule,
     seasonProjectedById,
     faProjectionsFallback,
+    sos,
   ] = await Promise.all([
     rosterIds.length
       ? getWeekProjectedFantasyPoints({
@@ -491,6 +540,13 @@ export async function getGameCentreData(input: {
           pointsOnly: true,
         }).catch(() => [])
       : Promise.resolve([]),
+    getPositionalSosTable({
+      season: seasonYear,
+      positionIds: [...awayRoster, ...homeRoster].map(
+        (player) => player.primaryPositionId,
+      ),
+      rules: scoringRules,
+    }),
   ]);
 
   const faHasPositive = faProjectionsPrimary.some(
@@ -508,6 +564,7 @@ export async function getGameCentreData(input: {
     actualById,
     actualStatsById,
     opponentsByTeam,
+    sos,
     week: matchup.week,
     seasonYear: season.seasonYear,
     startedTeams,

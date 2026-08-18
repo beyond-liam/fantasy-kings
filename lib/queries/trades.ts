@@ -4,10 +4,13 @@ import { cache } from "react";
 
 import {
   draftPicks,
+  draftPickAssets,
+  leagueSeasons,
   playerExternalIds,
   players,
   rosterPlayers,
   teams,
+  tradePicks,
   tradePlayers,
   tradeVetoes,
   trades,
@@ -15,6 +18,7 @@ import {
 import { db } from "@/lib/db";
 import { rosterPositionSortIndex } from "@/lib/leagues/roster-position-order";
 import { formatAcquisitionLabel } from "@/lib/leagues/trades/acquisition-label";
+import { tradePickDisplayLabel } from "@/lib/leagues/trades/picks";
 import {
   LEAGUE_VISIBLE_TRADE_STATUSES,
   OPEN_TRADE_STATUSES,
@@ -26,6 +30,7 @@ import { getTeamRosterPlayers } from "@/lib/queries/team-roster";
 
 const proposingTeam = alias(teams, "proposing_team");
 const receivingTeam = alias(teams, "receiving_team");
+const originalPickTeam = alias(teams, "original_pick_team");
 
 /** Full projection pool ranks — shared across both trade roster fetches. */
 const getProjectionPositionRanks = cache(
@@ -71,6 +76,15 @@ export type TradeListPlayer = {
   isDrop: boolean;
 };
 
+export type TradeListPick = {
+  assetId: string;
+  teamId: string;
+  draftYear: number;
+  round: number;
+  primary: string;
+  secondary: string | null;
+};
+
 export type TradeListRow = {
   id: string;
   status: string;
@@ -86,6 +100,7 @@ export type TradeListRow = {
   receivingTeamSlug: string;
   createdByUserId: string | null;
   players: TradeListPlayer[];
+  picks: TradeListPick[];
 };
 
 async function getDraftRoundMap(teamIds: string[]) {
@@ -220,6 +235,74 @@ async function hydrateTradePlayers(tradeIds: string[]) {
   return map;
 }
 
+async function hydrateTradePicks(tradeIds: string[]) {
+  if (tradeIds.length === 0) {
+    return new Map<string, TradeListPick[]>();
+  }
+
+  const rows = await db
+    .select({
+      tradeId: tradePicks.tradeId,
+      assetId: tradePicks.draftPickAssetId,
+      teamId: tradePicks.teamId,
+      draftYear: draftPickAssets.draftYear,
+      round: draftPickAssets.round,
+      slot: draftPickAssets.slot,
+      originalTeamId: draftPickAssets.originalTeamId,
+      ownerTeamId: draftPickAssets.ownerTeamId,
+      originalTeamName: originalPickTeam.name,
+      originalTeamDraftSlot: originalPickTeam.draftSlot,
+      seasonYear: leagueSeasons.seasonYear,
+    })
+    .from(tradePicks)
+    .innerJoin(
+      draftPickAssets,
+      eq(tradePicks.draftPickAssetId, draftPickAssets.id),
+    )
+    .innerJoin(
+      originalPickTeam,
+      eq(draftPickAssets.originalTeamId, originalPickTeam.id),
+    )
+    .innerJoin(
+      leagueSeasons,
+      eq(originalPickTeam.leagueSeasonId, leagueSeasons.id),
+    )
+    .where(inArray(tradePicks.tradeId, tradeIds));
+
+  const map = new Map<string, TradeListPick[]>();
+  for (const row of rows) {
+    const label = tradePickDisplayLabel({
+      draftYear: row.draftYear,
+      round: row.round,
+      slot: row.slot,
+      originalTeamName: row.originalTeamName,
+      originalTeamId: row.originalTeamId,
+      ownerTeamId: row.teamId,
+      originalTeamDraftSlot: row.originalTeamDraftSlot,
+      currentSeasonYear: row.seasonYear,
+    });
+    const list = map.get(row.tradeId) ?? [];
+    list.push({
+      assetId: row.assetId,
+      teamId: row.teamId,
+      draftYear: row.draftYear,
+      round: row.round,
+      primary: label.primary,
+      secondary: label.secondary,
+    });
+    map.set(row.tradeId, list);
+  }
+  return map;
+}
+
+async function hydrateTradeLegs(tradeIds: string[]) {
+  const [playersByTrade, picksByTrade] = await Promise.all([
+    hydrateTradePlayers(tradeIds),
+    hydrateTradePicks(tradeIds),
+  ]);
+  return { playersByTrade, picksByTrade };
+}
+
 export async function getLeagueTrades(
   leagueSeasonId: string,
   viewerTeamId: string,
@@ -255,7 +338,9 @@ export async function getLeagueTrades(
     )
     .orderBy(desc(trades.createdAt));
 
-  const playersByTrade = await hydrateTradePlayers(rows.map((row) => row.id));
+  const { playersByTrade, picksByTrade } = await hydrateTradeLegs(
+    rows.map((row) => row.id),
+  );
 
   return rows.map((row) => ({
     id: row.id,
@@ -272,6 +357,7 @@ export async function getLeagueTrades(
     receivingTeamSlug: row.receivingTeamSlug ?? row.receivingTeamId,
     createdByUserId: row.createdByUserId,
     players: playersByTrade.get(row.id) ?? [],
+    picks: picksByTrade.get(row.id) ?? [],
   }));
 }
 
@@ -310,7 +396,9 @@ export async function getTeamTrades(leagueSeasonId: string, teamId: string) {
     )
     .orderBy(desc(trades.createdAt));
 
-  const playersByTrade = await hydrateTradePlayers(rows.map((row) => row.id));
+  const { playersByTrade, picksByTrade } = await hydrateTradeLegs(
+    rows.map((row) => row.id),
+  );
 
   return rows.map((row) => ({
     id: row.id,
@@ -327,6 +415,7 @@ export async function getTeamTrades(leagueSeasonId: string, teamId: string) {
     receivingTeamSlug: row.receivingTeamSlug ?? row.receivingTeamId,
     createdByUserId: row.createdByUserId,
     players: playersByTrade.get(row.id) ?? [],
+    picks: picksByTrade.get(row.id) ?? [],
   }));
 }
 

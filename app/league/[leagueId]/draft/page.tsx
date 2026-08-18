@@ -7,6 +7,7 @@ import { DraftGradeDialogSlot } from "@/components/leagues/draft/draft-grade-dia
 import { LeaguePresenceProvider } from "@/components/leagues/presence/league-presence-provider";
 import { Spinner } from "@/components/ui/spinner";
 import { getSessionUser } from "@/lib/auth/session";
+import { dynastyDraftPoolRestrictsToRookies, isEligibleForDraftPlayerPool } from "@/lib/leagues/draft/pool";
 import { resolveDraftSettings } from "@/lib/leagues/draft-settings";
 import {
   resolveScoringRuleDefinitions,
@@ -116,7 +117,14 @@ export default async function LeagueDraftRoomPage({
       "Some teams are missing draft order — starting will assign remaining slots.";
   }
 
-  const slimPool = poolPlayers.map(toDraftPoolPlayer);
+  const restrictToRookies = dynastyDraftPoolRestrictsToRookies(
+    season.settings.dynasty,
+  );
+  const slimPool = poolPlayers
+    .filter((player) =>
+      isEligibleForDraftPlayerPool(player.yearsExp, restrictToRookies),
+    )
+    .map(toDraftPoolPlayer);
   const poolById = new Map(slimPool.map((player) => [player.id, player]));
   const pickByPlayerId: Record<string, number> = {};
   const myDraftedRanked = [];
@@ -168,6 +176,7 @@ export default async function LeagueDraftRoomPage({
           turnExpiresAt={toIso(room.draft?.turnExpiresAt)}
           pausedSecondsRemaining={room.draft?.pausedSecondsRemaining ?? null}
           positions={positionFiltersFromRosterSlots(season.settings.rosterSlots)}
+          rookiesOnlyLocked={restrictToRookies}
         />
       </LeaguePresenceProvider>
     </div>

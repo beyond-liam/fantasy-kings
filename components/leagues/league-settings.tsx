@@ -5,6 +5,8 @@ import { InviteLinkCard } from "@/components/leagues/invite-link-card";
 import { LeagueSettingsTabs } from "@/components/leagues/settings/league-settings-tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { MembershipOwnerOption } from "@/lib/leagues/membership";
+import type { NonKeeperClearanceTeam } from "@/lib/leagues/keepers/clearance";
+import type { KeeperTeamOption } from "@/lib/queries/keepers";
 
 type LeagueSettingsProps = {
   league: typeof leagues.$inferSelect;
@@ -13,6 +15,10 @@ type LeagueSettingsProps = {
   regularSeasonFinished: boolean;
   boxScoresEditable: boolean;
   owners: MembershipOwnerOption[];
+  keeperTeams?: KeeperTeamOption[];
+  clearanceTeams?: NonKeeperClearanceTeam[];
+  keepersLocked?: boolean;
+  keepersMaxConfigured?: boolean;
 };
 
 export function LeagueSettings({
@@ -22,6 +28,10 @@ export function LeagueSettings({
   regularSeasonFinished,
   boxScoresEditable,
   owners,
+  keeperTeams = [],
+  clearanceTeams = [],
+  keepersLocked = false,
+  keepersMaxConfigured = false,
 }: LeagueSettingsProps) {
   const hasOpenSlots = season ? memberCount < season.teamCount : true;
 
@@ -44,6 +54,10 @@ export function LeagueSettings({
           regularSeasonFinished={regularSeasonFinished}
           boxScoresEditable={boxScoresEditable}
           owners={owners}
+          keeperTeams={keeperTeams}
+          clearanceTeams={clearanceTeams}
+          keepersLocked={keepersLocked}
+          keepersMaxConfigured={keepersMaxConfigured}
         />
       </Suspense>
     </div>

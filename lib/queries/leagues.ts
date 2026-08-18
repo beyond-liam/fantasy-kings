@@ -461,12 +461,7 @@ export async function getJoinPreview(inviteCode: string) {
     return null;
   }
 
-  const [season] = await db
-    .select()
-    .from(leagueSeasons)
-    .where(eq(leagueSeasons.leagueId, league.id))
-    .orderBy(leagueSeasons.createdAt)
-    .limit(1);
+  const season = await getLeagueSeason(league.id);
 
   const [memberCountRow] = await db
     .select({ value: count() })

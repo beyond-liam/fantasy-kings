@@ -1,6 +1,8 @@
 import type { LeagueSeasonSettings } from "@/db/schema/league-seasons";
 import { secondsToPickTime } from "@/lib/leagues/defaults";
+import { resolveSeasonDraftRounds } from "@/lib/leagues/draft/board";
 import { resolveDraftSettings } from "@/lib/leagues/draft-settings";
+import { resolveDynastySettings } from "@/lib/leagues/dynasty-settings";
 import { formatDraftScheduledAt } from "@/lib/leagues/draft-status";
 import { formatLeagueLabel } from "@/lib/leagues/format";
 import { resolveIrEligibleStatuses } from "@/lib/leagues/ir-eligibility";
@@ -163,6 +165,15 @@ export function buildLeagueRulesSummary(input: {
   );
   const transactions = resolveTransactionRules(settings.transactionRules);
   const draft = resolveDraftSettings(settings.draft);
+  const dynasty = settings.dynasty
+    ? resolveDynastySettings(settings.dynasty)
+    : null;
+  const draftRounds = resolveSeasonDraftRounds({
+    rosterSlots: settings.rosterSlots,
+    benchSlots: season.benchSlots,
+    draft: settings.draft,
+    dynasty: settings.dynasty,
+  });
   const schedule = resolveScheduleSettings(settings.schedule);
   const playoffs = resolvePlayoffSettings(settings.playoffs);
   const tiebreakers = resolveTiebreakerSettings(settings.tiebreakers);
@@ -401,6 +412,21 @@ export function buildLeagueRulesSummary(input: {
         label: "Draft Style",
         value: formatLeagueLabel(draft.style),
       },
+      {
+        label: "Draft Rounds",
+        value: String(draftRounds),
+      },
+      ...(dynasty
+        ? [
+            {
+              label: "Draft Player Pool",
+              value:
+                dynasty.draftPlayerPool === "all"
+                  ? "All available players"
+                  : "Rookies only",
+            },
+          ]
+        : []),
       {
         label: "Draft Date",
         value: formatDraftScheduledAt(season.draftStartAt),

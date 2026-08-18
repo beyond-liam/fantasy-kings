@@ -6,9 +6,12 @@ import {
   countKeepersTowardMax,
   defaultDynastySettings,
   dynastySettingsSchema,
+  isKeeperDeadlineDue,
   keepersMaxDescription,
+  maxConfigurableDynastyDraftRounds,
   maxCountingKeepersCap,
   maxDynastyDraftRounds,
+  mergeDynastyFormWithStored,
   resolveDynastySettings,
   validateKeeperSelection,
 } from "@/lib/leagues/dynasty-settings";
@@ -54,6 +57,7 @@ describe("clampDynastyKeepersToRosterCap", () => {
         taxiCountsTowardKeepers: false,
         futurePickTradeYears: 3,
         draftPlayerPool: "rookies",
+        keepersLocked: false,
       },
       { activeRosterSize: 15, irSlots: 2, taxiSlots: 3 },
     );
@@ -71,6 +75,7 @@ describe("clampDynastyKeepersToRosterCap", () => {
         taxiCountsTowardKeepers: false,
         futurePickTradeYears: 3,
         draftPlayerPool: "rookies",
+        keepersLocked: false,
       },
       { activeRosterSize: 15, irSlots: 2, taxiSlots: 3 },
     );
@@ -97,6 +102,30 @@ describe("maxDynastyDraftRounds", () => {
   });
 });
 
+describe("maxConfigurableDynastyDraftRounds", () => {
+  it("uses full roster cap for startup drafts", () => {
+    assert.equal(
+      maxConfigurableDynastyDraftRounds({
+        rosterCap: 25,
+        keepersMax: 20,
+        isStartup: true,
+      }),
+      25,
+    );
+  });
+
+  it("uses spare spots after keepers for later seasons", () => {
+    assert.equal(
+      maxConfigurableDynastyDraftRounds({
+        rosterCap: 25,
+        keepersMax: 20,
+        isStartup: false,
+      }),
+      5,
+    );
+  });
+});
+
 describe("resolveDynastySettings", () => {
   it("fills defaults for missing fields", () => {
     const resolved = resolveDynastySettings({ keepersMax: 18 });
@@ -105,6 +134,8 @@ describe("resolveDynastySettings", () => {
     assert.equal(resolved.irCountsTowardKeepers, false);
     assert.equal(resolved.draftPlayerPool, "rookies");
     assert.equal(resolved.futurePickTradeYears, 3);
+    assert.equal(resolved.keepersLocked, false);
+    assert.equal(resolved.isStartupSeason, true);
   });
 
   it("preserves unset keepers max", () => {
@@ -200,6 +231,8 @@ describe("validateKeeperSelection", () => {
     taxiCountsTowardKeepers: false,
     futurePickTradeYears: 3,
     draftPlayerPool: "rookies" as const,
+    keepersLocked: false,
+    isStartupSeason: true,
   };
 
   it("rejects when keepers max is unset", () => {
@@ -237,5 +270,77 @@ describe("validateKeeperSelection", () => {
       keepersMin: 2,
     });
     assert.equal(result.ok, false);
+  });
+});
+
+describe("keepersLocked", () => {
+  it("defaults to unlocked", () => {
+    assert.equal(defaultDynastySettings().keepersLocked, false);
+    assert.equal(resolveDynastySettings({ keepersMax: 12 }).keepersLocked, false);
+  });
+
+  it("preserves lock when merging form values", () => {
+    const stored = resolveDynastySettings({
+      keepersMax: 12,
+      keepersLocked: true,
+      isStartupSeason: false,
+    });
+    const merged = mergeDynastyFormWithStored(
+      {
+        keepersMax: 10,
+        keepersMin: null,
+        keeperDeadlineAt: null,
+        irCountsTowardKeepers: false,
+        taxiCountsTowardKeepers: false,
+        futurePickTradeYears: 3,
+        draftPlayerPool: "rookies",
+      },
+      stored,
+    );
+    assert.equal(merged.keepersMax, 10);
+    assert.equal(merged.keepersLocked, true);
+    assert.equal(merged.isStartupSeason, false);
+  });
+});
+
+describe("isKeeperDeadlineDue", () => {
+  const base = resolveDynastySettings({ keepersMax: 12 });
+
+  it("is false when no deadline is set", () => {
+    assert.equal(isKeeperDeadlineDue(base, new Date("2026-08-18T18:00:00Z")), false);
+  });
+
+  it("is false before the stored instant", () => {
+    assert.equal(
+      isKeeperDeadlineDue(
+        { ...base, keeperDeadlineAt: "2026-08-18T18:00:00.000Z" },
+        new Date("2026-08-18T17:59:59.000Z"),
+      ),
+      false,
+    );
+  });
+
+  it("is true at or after the stored instant", () => {
+    assert.equal(
+      isKeeperDeadlineDue(
+        { ...base, keeperDeadlineAt: "2026-08-18T18:00:00.000Z" },
+        new Date("2026-08-18T18:00:00.000Z"),
+      ),
+      true,
+    );
+  });
+
+  it("is false when keepers are already locked", () => {
+    assert.equal(
+      isKeeperDeadlineDue(
+        {
+          ...base,
+          keeperDeadlineAt: "2026-08-18T18:00:00.000Z",
+          keepersLocked: true,
+        },
+        new Date("2026-08-18T19:00:00.000Z"),
+      ),
+      false,
+    );
   });
 });

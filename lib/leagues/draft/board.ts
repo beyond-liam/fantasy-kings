@@ -1,7 +1,15 @@
 import type {
+  DraftSettings,
   DraftStyle,
+  DynastySettings,
+  LeagueSeasonSettings,
   RosterSlotConfig,
 } from "@/db/schema/league-seasons";
+import {
+  isDynastyStartupSeason,
+  maxConfigurableDynastyDraftRounds,
+  resolveDynastySettings,
+} from "@/lib/leagues/dynasty-settings";
 import { getMaxRosterSize } from "@/lib/leagues/roster-capacity";
 
 export type DraftTeamSlot = {
@@ -27,6 +35,42 @@ export function getDraftRounds(
   benchSlots: number,
 ) {
   return getMaxRosterSize(rosterSlots, benchSlots);
+}
+
+/** Dynasty-aware round count for a season's draft board. */
+export function resolveSeasonDraftRounds(input: {
+  rosterSlots: RosterSlotConfig[] | null | undefined;
+  benchSlots: number;
+  draft?: DraftSettings | null;
+  dynasty?: DynastySettings | null;
+}): number {
+  const rosterCap = getDraftRounds(input.rosterSlots, input.benchSlots);
+  if (input.dynasty == null) {
+    return rosterCap;
+  }
+  const dynasty = resolveDynastySettings(input.dynasty);
+  const max = maxConfigurableDynastyDraftRounds({
+    rosterCap,
+    keepersMax: dynasty.keepersMax,
+    isStartup: isDynastyStartupSeason(dynasty),
+  });
+  const stored = input.draft?.rounds;
+  if (stored == null || !Number.isFinite(stored)) {
+    return max;
+  }
+  return Math.min(Math.max(0, Math.trunc(stored)), max);
+}
+
+export function draftRoundsForSeason(input: {
+  settings: Pick<LeagueSeasonSettings, "rosterSlots" | "draft" | "dynasty">;
+  benchSlots: number;
+}): number {
+  return resolveSeasonDraftRounds({
+    rosterSlots: input.settings.rosterSlots,
+    benchSlots: input.benchSlots,
+    draft: input.settings.draft,
+    dynasty: input.settings.dynasty,
+  });
 }
 
 /** Ordered team list by draftSlot ascending. */

@@ -3,7 +3,7 @@ import { before, describe, it } from "node:test";
 
 import { eq } from "drizzle-orm";
 
-import { leagueActivity, rosterPlayers, tradePlayers, trades } from "@/db/schema";
+import { draftPickAssets, leagueActivity, rosterPlayers, tradePlayers, trades } from "@/db/schema";
 import {
   acceptTradeOffer,
   castTradeVeto,
@@ -995,5 +995,73 @@ describe("trade lifecycle", () => {
       .from(rosterPlayers)
       .where(eq(rosterPlayers.playerId, receivingOffer!.id));
     assert.equal(receivingRosterRow?.teamId, receiver!.id);
+  });
+
+  it("executeTrade transfers draft pick ownership only", async () => {
+    const { leagueId, season } = await seedLeagueSeason(testDb, { teamCount: 2 });
+    const [proposer, receiver] = await seedTeams(testDb, {
+      leagueSeasonId: season.id,
+      count: 2,
+    });
+    const [proposerPick] = await testDb
+      .insert(draftPickAssets)
+      .values({
+        leagueId,
+        draftYear: 2028,
+        round: 1,
+        originalTeamId: proposer!.id,
+        ownerTeamId: proposer!.id,
+      })
+      .returning({ id: draftPickAssets.id });
+    const [receiverPick] = await testDb
+      .insert(draftPickAssets)
+      .values({
+        leagueId,
+        draftYear: 2028,
+        round: 2,
+        originalTeamId: receiver!.id,
+        ownerTeamId: receiver!.id,
+      })
+      .returning({ id: draftPickAssets.id });
+
+    const swap = await commitTradeProposal({
+      league: leagueRef(leagueId, season),
+      actor: actorFor(proposer!),
+      receivingTeam: {
+        id: receiver!.id,
+        name: receiver!.name,
+        userId: receiver!.userId,
+      },
+      proposingOfferIds: [],
+      receivingOfferIds: [],
+      proposingDropIds: [],
+      receivingDropIds: [],
+      proposingPickIds: [proposerPick!.id],
+      receivingPickIds: [receiverPick!.id],
+      comment: null,
+    });
+    assert.equal(swap.ok, true);
+    if (!swap.ok) return;
+
+    const execResult = await executeTrade({
+      tradeId: swap.tradeId,
+      waiversEnabled: true,
+      waiverWire: DEFAULT_WAIVER_WIRE_SETTINGS,
+      rosterSlots: season.settings.rosterSlots,
+      benchSlots: season.benchSlots,
+    });
+    assert.equal(execResult.success, true);
+
+    const [movedOut] = await testDb
+      .select({ ownerTeamId: draftPickAssets.ownerTeamId })
+      .from(draftPickAssets)
+      .where(eq(draftPickAssets.id, proposerPick!.id));
+    assert.equal(movedOut?.ownerTeamId, receiver!.id);
+
+    const [movedIn] = await testDb
+      .select({ ownerTeamId: draftPickAssets.ownerTeamId })
+      .from(draftPickAssets)
+      .where(eq(draftPickAssets.id, receiverPick!.id));
+    assert.equal(movedIn?.ownerTeamId, proposer!.id);
   });
 });

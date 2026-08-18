@@ -30,9 +30,12 @@ import {
 } from "@hugeicons/core-free-icons";
 import type { IconSvgElement } from "@hugeicons/react";
 
+import { ClearNonKeepersMenuItem } from "@/components/leagues/settings/clear-non-keepers-menu-item";
 import { DangerZoneMenuItems } from "@/components/leagues/settings/danger-zone-menu-items";
+import { EditRostersMenuItem } from "@/components/leagues/settings/edit-rosters-menu-item";
 import { OpenFreeAgencyMenuItem } from "@/components/leagues/settings/open-free-agency-menu-item";
 import { RemoveOwnerMenuItem } from "@/components/leagues/settings/remove-owner-menu-item";
+import { SetKeepersMenuItem } from "@/components/leagues/settings/set-keepers-menu-item";
 import {
   SettingsMenuSection,
   type SettingsMenuItem,
@@ -48,6 +51,8 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs";
 import type { MembershipOwnerOption } from "@/lib/leagues/membership";
+import type { NonKeeperClearanceTeam } from "@/lib/leagues/keepers/clearance";
+import type { KeeperTeamOption } from "@/lib/queries/keepers";
 import {
   DEFAULT_SETTINGS_TAB,
   parseSettingsTab,
@@ -257,6 +262,10 @@ type LeagueSettingsTabsProps = {
   regularSeasonFinished: boolean;
   boxScoresEditable: boolean;
   owners: MembershipOwnerOption[];
+  keeperTeams: KeeperTeamOption[];
+  clearanceTeams: NonKeeperClearanceTeam[];
+  keepersLocked: boolean;
+  keepersMaxConfigured: boolean;
 };
 
 export function LeagueSettingsTabs({
@@ -269,6 +278,10 @@ export function LeagueSettingsTabs({
   regularSeasonFinished,
   boxScoresEditable,
   owners,
+  keeperTeams,
+  clearanceTeams,
+  keepersLocked,
+  keepersMaxConfigured,
 }: LeagueSettingsTabsProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -382,6 +395,26 @@ export function LeagueSettingsTabs({
                   seasonStatus={seasonStatus}
                   freeAgencyOpen={freeAgencyOpen}
                 />
+              }
+            />
+          ) : tab.value === "commish" ? (
+            <SettingsMenuSection
+              title={tab.title}
+              items={tab.items}
+              variant={tab.variant}
+              footer={
+                leagueType === "dynasty" ? (
+                  <div className="flex flex-col gap-0.5">
+                    <SetKeepersMenuItem slug={slug} teams={keeperTeams} />
+                    <EditRostersMenuItem slug={slug} teams={keeperTeams} />
+                    <ClearNonKeepersMenuItem
+                      slug={slug}
+                      teams={clearanceTeams}
+                      keepersLocked={keepersLocked}
+                      keepersMaxConfigured={keepersMaxConfigured}
+                    />
+                  </div>
+                ) : null
               }
             />
           ) : tab.value === "danger" ? (

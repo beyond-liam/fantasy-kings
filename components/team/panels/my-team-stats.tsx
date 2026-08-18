@@ -11,6 +11,7 @@ import { getRosterEvaluationByMode } from "@/lib/queries/roster-evaluation";
 import { getTeamRosteredPlayerIds } from "@/lib/queries/roster";
 import { getTeamRosterStatPlayers } from "@/lib/queries/team-player-stats";
 import { getTeamStatsCharts } from "@/lib/queries/team-stats-charts";
+import { getPositionalSosTable } from "@/lib/queries/positional-sos";
 
 export type MyTeamStatsPanelProps = {
   slug: string;
@@ -37,7 +38,7 @@ export async function MyTeamStatsPanel({
     getTeamRosteredPlayerIds(teamId),
   ]);
 
-  const [seasonRows, charts, rosterEvaluationByMode] = await Promise.all([
+  const seasonRowsPromise =
     rosterIds.length > 0
       ? getTeamRosterStatPlayers({
           season: nflSeason,
@@ -46,7 +47,10 @@ export async function MyTeamStatsPanel({
           nfl: nflState,
           schedule,
         }).catch(() => [])
-      : Promise.resolve([]),
+      : Promise.resolve([]);
+
+  const [seasonRows, charts, rosterEvaluationByMode, sos] = await Promise.all([
+    seasonRowsPromise,
     useChartsMock
       ? Promise.resolve(getTeamStatsChartsMock())
       : getTeamStatsCharts({
@@ -60,6 +64,13 @@ export async function MyTeamStatsPanel({
           teamId,
           upcomingWeek: fantasyWeek,
         }).catch(() => null),
+    seasonRowsPromise.then((rows) =>
+      getPositionalSosTable({
+        season: nflSeason,
+        positionIds: rows.map((player) => player.primaryPositionId),
+        rules: scoringRules,
+      }),
+    ),
   ]);
 
   const rosterIdSet = new Set(rosterIds);
@@ -69,6 +80,7 @@ export async function MyTeamStatsPanel({
       withPlayerOpponent(player, nflWeek, opponentsByTeam, {
         seasonYear,
         seasonType: nflSeasonType,
+        sos,
       }),
     );
 

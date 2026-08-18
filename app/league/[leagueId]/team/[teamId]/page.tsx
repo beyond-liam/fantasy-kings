@@ -5,7 +5,7 @@ import { redirect, notFound } from "next/navigation";
 import { UserWarning02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
-import { TeamDraftPicksList } from "@/components/team/team-draft-picks-list";
+import { MyTeamDraftPicksPanel } from "@/components/team/panels/my-team-draft-picks";
 import { TeamH2hSection } from "@/components/team/team-h2h-section";
 import { TeamRosterSections } from "@/components/team/roster-sections";
 import { TeamScheduleList } from "@/components/team/team-schedule-list";
@@ -41,10 +41,16 @@ import { buildTeamH2hSeries } from "@/lib/leagues/team-h2h";
 import { myTeamPath } from "@/lib/leagues/utils";
 import { canProposeTrades } from "@/lib/leagues/trades/guards";
 import {
+  parseWeekQueryParam,
+  resolveFantasyMatchupWeek,
+} from "@/lib/leagues/matchup-week";
+import { overlayPlanSlots } from "@/lib/leagues/lineup-plans";
+import {
   loadMyTeamNflContext,
   withPlayerOpponent,
 } from "@/components/team/panels/load-my-team-nfl-context";
-import { getDraftedRosterForTeam } from "@/lib/queries/draft";
+import { getPositionalSosTable } from "@/lib/queries/positional-sos";
+import { getTeamLineupPlanSlots } from "@/lib/queries/lineup-plans";
 import { getLeagueHomeData } from "@/lib/queries/leagues";
 import { getTeamSchedule } from "@/lib/queries/matchups";
 import { getRankedPlayers, getWeekProjectedFantasyPoints } from "@/lib/queries/players";
@@ -74,7 +80,7 @@ import {
 
 type LeagueTeamPageProps = {
   params: Promise<{ leagueId: string; teamId: string }>;
-  searchParams: Promise<{ tab?: string; mock?: string }>;
+  searchParams: Promise<{ tab?: string; mock?: string; week?: string }>;
 };
 
 export async function generateMetadata({
@@ -110,7 +116,7 @@ export default async function LeagueTeamPage({
   searchParams,
 }: LeagueTeamPageProps) {
   const { leagueId: slug, teamId } = await params;
-  const { tab, mock } = await searchParams;
+  const { tab, mock, week: weekParam } = await searchParams;
   const useChartsMock =
     process.env.NODE_ENV === "development" && (mock === "1" || mock === "true");
   const activeTab = resolveActiveTab(tab);
@@ -164,6 +170,15 @@ export default async function LeagueTeamPage({
   const needsOtherTeamSchedule = needsRosterPanel || needsSchedulePanel;
   const needsViewerSchedule = needsH2hPanel && Boolean(myTeam);
 
+  const rosterWeek = needsRosterPanel
+    ? await resolveFantasyMatchupWeek({
+        seasonYear: season.seasonYear,
+        nflRegularSeasonEndWeek: season.regularSeasonEndWeek,
+        schedule: season.settings.schedule,
+        requestedWeek: parseWeekQueryParam(weekParam),
+      })
+    : null;
+
   if (needsRosterPanel || needsStatsPanel) {
     await ensureTeamRosterSlotsAssigned({
       teamId: team.id,
@@ -171,14 +186,15 @@ export default async function LeagueTeamPage({
       benchSlots: season.benchSlots,
       irEnabled: season.irEnabled,
       taxiEnabled: season.taxiEnabled,
+      leagueSeasonId: season.id,
+      schedule: season.settings.schedule,
     });
   }
 
   const [
-    rosterPlayers,
+    loadedRosterPlayers,
     scheduleRows,
     viewerScheduleRows,
-    draftPicks,
     nflContext,
     finals,
   ] = await Promise.all([
@@ -191,19 +207,34 @@ export default async function LeagueTeamPage({
     needsViewerSchedule && myTeam
       ? getTeamSchedule(season.id, myTeam.id)
       : Promise.resolve([]),
-    needsDraftPicksPanel
-      ? getDraftedRosterForTeam(team.id)
-      : Promise.resolve([]),
     needsNflContext
       ? loadMyTeamNflContext({
           seasonYear: season.seasonYear,
           schedule: season.settings.schedule,
+          fantasyWeek: rosterWeek?.week,
         })
       : Promise.resolve(null),
     needsSchedulePanel
       ? getFinalMatchupsForSeason(season.id).catch(() => [])
       : Promise.resolve([]),
   ]);
+
+  const viewedWeek = rosterWeek?.week ?? null;
+  const currentWeek = rosterWeek?.currentWeek ?? null;
+  const planSlots =
+    needsRosterPanel &&
+    viewedWeek != null &&
+    currentWeek != null &&
+    viewedWeek > currentWeek
+      ? await getTeamLineupPlanSlots({
+          leagueSeasonId: season.id,
+          teamId: team.id,
+          week: viewedWeek,
+        })
+      : null;
+  const rosterPlayers = planSlots
+    ? overlayPlanSlots(loadedRosterPlayers, planSlots)
+    : loadedRosterPlayers;
 
   const rosterPlayerIds = rosterPlayers.map((player) => player.id);
   const fantasyWeek = nflContext?.fantasyWeek ?? 1;
@@ -214,14 +245,24 @@ export default async function LeagueTeamPage({
   const scoreboard = nflContext?.scoreboard ?? null;
   const opponentsByTeam = nflContext?.opponentsByTeam ?? new Map();
 
+  const sos =
+    rosterPlayers.length > 0
+      ? await getPositionalSosTable({
+          season: nflSeason,
+          positionIds: rosterPlayers.map((player) => player.primaryPositionId),
+          rules: scoringRules,
+        })
+      : new Map();
+
   const withOpponent = <
-    T extends { nflTeam: string | null; byeWeek: number | null },
+    T extends { nflTeam: string | null; byeWeek: number | null; primaryPositionId?: string },
   >(
     player: T,
   ) =>
     withPlayerOpponent(player, nflWeek, opponentsByTeam, {
       seasonYear: season.seasonYear,
       seasonType: nflSeasonType,
+      sos,
     });
 
   let rosterPanel: ReactNode = null;
@@ -329,6 +370,9 @@ export default async function LeagueTeamPage({
         tradesEnabled={tradesEnabled}
         scoringRules={scoringRules}
         scoringWeek={fantasyWeek}
+        week={rosterWeek?.week ?? fantasyWeek}
+        currentWeek={rosterWeek?.currentWeek}
+        weeks={rosterWeek?.weeks}
         summary={{
           waiverPriorityLabel: season.waiversEnabled
             ? formatWaiverPriority(team.waiverPriority)
@@ -459,15 +503,17 @@ export default async function LeagueTeamPage({
   }
 
   if (needsDraftPicksPanel) {
-    const draftPickRows = draftPicks.map((pick) => ({
-      overall: pick.overall,
-      playerId: pick.playerId,
-      playerName: pick.fullName,
-      positionId: pick.primaryPositionId,
-      nflTeam: pick.nflTeam,
-    }));
     draftPicksPanel = (
-      <TeamDraftPicksList picks={draftPickRows} leagueSlug={slug} />
+      <MyTeamDraftPicksPanel
+        teamId={team.id}
+        leagueSlug={slug}
+        leagueId={data.league.id}
+        leagueType={season.leagueType}
+        seasonYear={season.seasonYear}
+        tradesEnabled={tradesEnabled}
+        variant="other"
+        partnerTeamSlug={team.publicId ?? team.slug}
+      />
     );
   }
 

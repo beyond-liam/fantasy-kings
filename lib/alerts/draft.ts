@@ -9,7 +9,7 @@ import { db } from "@/lib/db";
 import { draftRoomUrl } from "@/lib/email/env";
 import {
   buildDraftSchedule,
-  getDraftRounds,
+  draftRoundsForSeason,
 } from "@/lib/leagues/draft/board";
 import { resolveDraftSettings } from "@/lib/leagues/draft-settings";
 import { getDraftBySeasonId, getSeasonDraftTeams } from "@/lib/queries/draft";
@@ -148,7 +148,10 @@ async function announceOnClockAndOnDeck(input: {
       draftSlot: team.draftSlot as number,
     }));
 
-  const rounds = getDraftRounds(season.settings.rosterSlots, season.benchSlots);
+  const rounds = draftRoundsForSeason({
+    settings: season.settings,
+    benchSlots: season.benchSlots,
+  });
   const schedule = buildDraftSchedule({
     teams: teamsWithSlots,
     rounds,

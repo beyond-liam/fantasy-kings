@@ -1,6 +1,6 @@
 "use client";
 
-import type { CSSProperties } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import {
   EmptyPlayerIdentity,
   PlayerIdentity,
@@ -70,9 +70,11 @@ type TeamRosterTableProps = {
   taxiMaxYearsExp?: 0 | 1 | 2 | 3 | 4 | 5 | null;
   taxiPreventReaddAfterActivation?: boolean;
   gameLockedPlayerIds?: Set<string>;
+  slotLockedPlayerIds?: Set<string>;
   onSlotChange?: (playerId: string, slotPositionId: string) => void;
   onSwap?: (playerId: string, otherPlayerId: string) => void;
   onActualClick?: (player: TeamRosterPlayer) => void;
+  headerEnd?: ReactNode;
 };
 
 const PLACEHOLDER = "—";
@@ -277,9 +279,11 @@ export function TeamRosterTable({
   taxiMaxYearsExp,
   taxiPreventReaddAfterActivation,
   gameLockedPlayerIds,
+  slotLockedPlayerIds,
   onSlotChange,
   onSwap,
   onActualClick,
+  headerEnd,
 }: TeamRosterTableProps) {
   if (slots.length === 0) {
     return null;
@@ -288,13 +292,31 @@ export function TeamRosterTable({
   const showRowActions = rowActionsEnabled ?? actionsEnabled;
   const canCut = cutActionsEnabled ?? actionsEnabled;
   const lockedIds = gameLockedPlayerIds ?? new Set<string>();
+  const slotLockedIds = slotLockedPlayerIds ?? lockedIds;
   const columns = showRowActions
     ? COLUMNS
     : COLUMNS.filter((column) => column.id !== "action");
 
   return (
     <section className="flex flex-col gap-3">
-      <h2 className="text-sm font-medium">{rosterSectionTitle(section)}</h2>
+      <div
+        className={cn(
+          "flex flex-col gap-3",
+          headerEnd && "md:flex-row md:items-end md:justify-between",
+        )}
+      >
+        {headerEnd ? (
+          <div className="order-1 md:order-2">{headerEnd}</div>
+        ) : null}
+        <h2
+          className={cn(
+            "text-sm font-medium",
+            headerEnd && "order-2 md:order-1",
+          )}
+        >
+          {rosterSectionTitle(section)}
+        </h2>
+      </div>
       <TableShell>
         <TooltipProvider>
           <Table className="table-fixed min-w-4xl">
@@ -354,8 +376,9 @@ export function TeamRosterTable({
             <TableBody>
               {slots.map((slot) => {
                 const player = slot.player;
-                const playerLocked = Boolean(
-                  player && lockedIds.has(player.id),
+                const cutLocked = Boolean(player && lockedIds.has(player.id));
+                const slotLocked = Boolean(
+                  player && slotLockedIds.has(player.id),
                 );
                 const swapProps = {
                   slotPositionId: slot.slotPositionId,
@@ -367,7 +390,7 @@ export function TeamRosterTable({
                   taxiPreventReaddAfterActivation,
                   onSlotChange,
                   onSwap,
-                  disabled: !actionsEnabled || playerLocked,
+                  disabled: !actionsEnabled || slotLocked,
                 } as const;
                 return (
                 <TableRow key={slot.key}>
@@ -534,7 +557,7 @@ export function TeamRosterTable({
                       slot={slot}
                       assignmentOptions={assignmentOptions}
                       disabled={
-                        !actionsEnabled || !slot.player || playerLocked
+                        !actionsEnabled || !slot.player || slotLocked
                       }
                       irEligibleStatuses={irEligibleStatuses}
                       taxiMaxYearsExp={taxiMaxYearsExp}
@@ -555,7 +578,7 @@ export function TeamRosterTable({
                       <RosterRowActions
                         player={slot.player}
                         leagueSlug={leagueSlug}
-                        disabled={!slot.player || !canCut || playerLocked}
+                        disabled={!slot.player || !canCut || cutLocked}
                         variant={actionsVariant}
                         partnerTeamSlug={partnerTeamSlug}
                         tradesEnabled={tradesEnabled}

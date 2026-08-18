@@ -14,8 +14,10 @@ import { resolveScheduleSettings } from "@/lib/leagues/schedule/settings";
 import {
   buildOpponentByTeam,
   resolvePlayerOpponent,
+  withPositionalSos,
   type TeamMatchup,
 } from "@/lib/nfl/matchups";
+import type { PositionalSosTable } from "@/lib/players/matchup-difficulty";
 import { getNflState } from "@/lib/sleeper/api";
 
 export type MyTeamNflContextOptions = {
@@ -23,6 +25,8 @@ export type MyTeamNflContextOptions = {
   seasonYear?: number;
   /** League schedule settings — drives preseason vs regular OPP slate. */
   schedule?: ScheduleSettings | null;
+  /** Fantasy week to view. Defaults to the league’s current week. */
+  fantasyWeek?: number;
 };
 
 export async function loadMyTeamNflContext(
@@ -41,7 +45,11 @@ export async function loadMyTeamNflContext(
   const nflSeason = String(seasonYear);
 
   // League fantasy week → NFL calendar (respects includePreseason / start week).
-  const fantasyWeek = fantasyWeekFromNflState(nflState, settings) ?? 1;
+  const currentFantasyWeek = fantasyWeekFromNflState(nflState, settings) ?? 1;
+  const fantasyWeek = Math.max(
+    1,
+    options.fantasyWeek ?? currentFantasyWeek,
+  );
   const nflPoint: NflCalendarPoint = fantasyWeekToNfl(fantasyWeek, settings) ?? {
     seasonType: "regular",
     week: Math.max(1, Number(nflState.display_week ?? nflState.week) || 1),
@@ -61,6 +69,7 @@ export async function loadMyTeamNflContext(
   return {
     nflState,
     fantasyWeek,
+    currentFantasyWeek,
     nflWeek: nflPoint.week,
     nflSeasonType: nflPoint.seasonType,
     nflSeason,
@@ -70,7 +79,11 @@ export async function loadMyTeamNflContext(
 }
 
 export function withPlayerOpponent<
-  T extends { nflTeam: string | null; byeWeek: number | null },
+  T extends {
+    nflTeam: string | null;
+    byeWeek: number | null;
+    primaryPositionId?: string;
+  },
 >(
   player: T,
   nflWeek: number,
@@ -78,17 +91,23 @@ export function withPlayerOpponent<
   options?: {
     seasonYear?: number;
     seasonType?: NflCalendarPoint["seasonType"];
+    sos?: PositionalSosTable | null;
   },
 ): T & { opponent: ReturnType<typeof resolvePlayerOpponent> } {
+  const opponent = resolvePlayerOpponent({
+    nflTeam: player.nflTeam,
+    byeWeek: player.byeWeek,
+    week: nflWeek,
+    opponentsByTeam,
+    seasonYear: options?.seasonYear,
+    seasonType: options?.seasonType,
+  });
   return {
     ...player,
-    opponent: resolvePlayerOpponent({
-      nflTeam: player.nflTeam,
-      byeWeek: player.byeWeek,
-      week: nflWeek,
-      opponentsByTeam,
-      seasonYear: options?.seasonYear,
-      seasonType: options?.seasonType,
-    }),
+    opponent: withPositionalSos(
+      opponent,
+      player.primaryPositionId,
+      options?.sos,
+    ),
   };
 }

@@ -1,9 +1,11 @@
 import { and, eq, inArray, isNull, ne } from "drizzle-orm";
 
 import {
+  draftPickAssets,
   leagueActivity,
   players,
   rosterPlayers,
+  tradePicks,
   tradePlayers,
   trades,
 } from "@/db/schema";
@@ -71,27 +73,49 @@ async function invalidateConflictingTrades(input: {
   completedTradeId: string;
   leagueSeasonId: string;
   playerIds: string[];
+  pickAssetIds: string[];
   // Drizzle transaction client shares the query API with `db`.
   tx: Pick<typeof db, "select" | "update" | "insert">;
 }) {
-  if (input.playerIds.length === 0) {
-    return;
+  const conflictingIds = new Set<string>();
+
+  if (input.playerIds.length > 0) {
+    const conflicting = await input.tx
+      .select({ tradeId: tradePlayers.tradeId })
+      .from(tradePlayers)
+      .innerJoin(trades, eq(tradePlayers.tradeId, trades.id))
+      .where(
+        and(
+          eq(trades.leagueSeasonId, input.leagueSeasonId),
+          inArray(trades.status, [...OPEN_TRADE_STATUSES]),
+          inArray(tradePlayers.playerId, input.playerIds),
+          ne(trades.id, input.completedTradeId),
+        ),
+      );
+    for (const row of conflicting) {
+      conflictingIds.add(row.tradeId);
+    }
   }
 
-  const conflicting = await input.tx
-    .select({ tradeId: tradePlayers.tradeId })
-    .from(tradePlayers)
-    .innerJoin(trades, eq(tradePlayers.tradeId, trades.id))
-    .where(
-      and(
-        eq(trades.leagueSeasonId, input.leagueSeasonId),
-        inArray(trades.status, [...OPEN_TRADE_STATUSES]),
-        inArray(tradePlayers.playerId, input.playerIds),
-        ne(trades.id, input.completedTradeId),
-      ),
-    );
+  if (input.pickAssetIds.length > 0) {
+    const conflicting = await input.tx
+      .select({ tradeId: tradePicks.tradeId })
+      .from(tradePicks)
+      .innerJoin(trades, eq(tradePicks.tradeId, trades.id))
+      .where(
+        and(
+          eq(trades.leagueSeasonId, input.leagueSeasonId),
+          inArray(trades.status, [...OPEN_TRADE_STATUSES]),
+          inArray(tradePicks.draftPickAssetId, input.pickAssetIds),
+          ne(trades.id, input.completedTradeId),
+        ),
+      );
+    for (const row of conflicting) {
+      conflictingIds.add(row.tradeId);
+    }
+  }
 
-  const tradeIds = [...new Set(conflicting.map((row) => row.tradeId))];
+  const tradeIds = [...conflictingIds];
   if (tradeIds.length === 0) {
     return;
   }
@@ -107,7 +131,7 @@ async function invalidateConflictingTrades(input: {
       type: "trade_cancelled" as const,
       tradeId,
       summary:
-        "Trade invalidated — a player was included in another completed trade.",
+        "Trade invalidated — a player or pick was included in another completed trade.",
       metadata: { tradeId, reason: "player_conflict" },
     })),
   );
@@ -189,6 +213,14 @@ export async function executeTrade(input: {
     .from(tradePlayers)
     .where(eq(tradePlayers.tradeId, input.tradeId));
 
+  const pickRows = await db
+    .select({
+      teamId: tradePicks.teamId,
+      draftPickAssetId: tradePicks.draftPickAssetId,
+    })
+    .from(tradePicks)
+    .where(eq(tradePicks.tradeId, input.tradeId));
+
   const [trade] = await db
     .select()
     .from(trades)
@@ -223,27 +255,52 @@ export async function executeTrade(input: {
     (row) => row.teamId === receivingTeamId && row.isDrop,
   );
 
+  const proposingPicks = pickRows.filter(
+    (row) => row.teamId === proposingTeamId,
+  );
+  const receivingPicks = pickRows.filter(
+    (row) => row.teamId === receivingTeamId,
+  );
+
   const allPlayerIds = tradeRows.map((row) => row.playerId);
-  const rosterRows = await db
-    .select({
-      id: rosterPlayers.id,
-      teamId: rosterPlayers.teamId,
-      playerId: rosterPlayers.playerId,
-      slotPositionId: rosterPlayers.slotPositionId,
-      primaryPositionId: players.primaryPositionId,
-      injuryStatus: players.injuryStatus,
-    })
-    .from(rosterPlayers)
-    .innerJoin(players, eq(rosterPlayers.playerId, players.id))
-    .where(
-      and(
-        inArray(rosterPlayers.playerId, allPlayerIds),
-        eq(rosterPlayers.status, "rostered"),
-      ),
-    );
+  const allPickAssetIds = pickRows.map((row) => row.draftPickAssetId);
+  const rosterRows =
+    allPlayerIds.length === 0
+      ? []
+      : await db
+          .select({
+            id: rosterPlayers.id,
+            teamId: rosterPlayers.teamId,
+            playerId: rosterPlayers.playerId,
+            slotPositionId: rosterPlayers.slotPositionId,
+            primaryPositionId: players.primaryPositionId,
+            injuryStatus: players.injuryStatus,
+          })
+          .from(rosterPlayers)
+          .innerJoin(players, eq(rosterPlayers.playerId, players.id))
+          .where(
+            and(
+              inArray(rosterPlayers.playerId, allPlayerIds),
+              eq(rosterPlayers.status, "rostered"),
+            ),
+          );
 
   const rosterByPlayer = new Map(
     rosterRows.map((row) => [row.playerId, row]),
+  );
+
+  const pickOwnerRows =
+    allPickAssetIds.length === 0
+      ? []
+      : await db
+          .select({
+            id: draftPickAssets.id,
+            ownerTeamId: draftPickAssets.ownerTeamId,
+          })
+          .from(draftPickAssets)
+          .where(inArray(draftPickAssets.id, allPickAssetIds));
+  const pickOwnerById = new Map(
+    pickOwnerRows.map((row) => [row.id, row.ownerTeamId]),
   );
 
   const playersStillAvailable =
@@ -259,6 +316,14 @@ export async function executeTrade(input: {
       const row = rosterByPlayer.get(drop.playerId);
       return row != null && row.teamId === drop.teamId;
     });
+
+  const picksStillAvailable =
+    proposingPicks.every(
+      (pick) => pickOwnerById.get(pick.draftPickAssetId) === proposingTeamId,
+    ) &&
+    receivingPicks.every(
+      (pick) => pickOwnerById.get(pick.draftPickAssetId) === receivingTeamId,
+    );
 
   const invalidate = async (summary: string) => {
     const [invalidated] = await db
@@ -281,13 +346,13 @@ export async function executeTrade(input: {
     }
   };
 
-  if (!playersStillAvailable) {
+  if (!playersStillAvailable || !picksStillAvailable) {
     await invalidate(
-      "Trade invalidated — a player was included in another completed trade.",
+      "Trade invalidated — a player or pick was included in another completed trade.",
     );
     return {
       success: false as const,
-      error: "Trade invalidated — a player is no longer available.",
+      error: "Trade invalidated — a player or pick is no longer available.",
       invalidated: true as const,
     };
   }
@@ -427,10 +492,24 @@ export async function executeTrade(input: {
           .where(eq(rosterPlayers.id, row.id));
       }
 
+      for (const pick of proposingPicks) {
+        await tx
+          .update(draftPickAssets)
+          .set({ ownerTeamId: receivingTeamId })
+          .where(eq(draftPickAssets.id, pick.draftPickAssetId));
+      }
+      for (const pick of receivingPicks) {
+        await tx
+          .update(draftPickAssets)
+          .set({ ownerTeamId: proposingTeamId })
+          .where(eq(draftPickAssets.id, pick.draftPickAssetId));
+      }
+
       await invalidateConflictingTrades({
         completedTradeId: input.tradeId,
         leagueSeasonId: trade.leagueSeasonId,
         playerIds: allPlayerIds,
+        pickAssetIds: allPickAssetIds,
         tx,
       });
     });

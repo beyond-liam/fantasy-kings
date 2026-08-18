@@ -5,7 +5,7 @@ import type { LeagueSeasonSettings } from "@/db/schema/league-seasons";
 import { db } from "@/lib/db";
 import {
   buildDraftSchedule,
-  getDraftRounds,
+  draftRoundsForSeason,
 } from "@/lib/leagues/draft/board";
 import { expiredPickStreakFromSources } from "@/lib/leagues/draft/expired-pick-streak";
 import { ensureDraftTurnClock } from "@/lib/leagues/draft/ensure-turn-clock";
@@ -190,7 +190,10 @@ async function expireClockIfForcedTeamOnClock(input: {
     }));
   const schedule = buildDraftSchedule({
     teams: teamsWithSlots,
-    rounds: getDraftRounds(season.settings.rosterSlots, season.benchSlots),
+    rounds: draftRoundsForSeason({
+      settings: season.settings,
+      benchSlots: season.benchSlots,
+    }),
     style: resolveDraftSettings(season.settings.draft).style,
   });
   const onClock = schedule[draft.currentPickIndex];

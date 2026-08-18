@@ -28,7 +28,7 @@ const rosterSlots = [
 ];
 
 describe("validateTradeProposal", () => {
-  it("requires at least one player per side", () => {
+  it("requires at least one player or pick per side", () => {
     const result = validateTradeProposal({
       proposingTeamId: "a",
       proposingTeamLabel: "A",
@@ -49,6 +49,28 @@ describe("validateTradeProposal", () => {
     if (!result.ok) {
       assert.ok(result.errors.length > 0);
     }
+  });
+
+  it("allows pick-only trades", () => {
+    const result = validateTradeProposal({
+      proposingTeamId: "a",
+      proposingTeamLabel: "A",
+      receivingTeamId: "b",
+      receivingTeamLabel: "B",
+      proposingRoster: [],
+      receivingRoster: [],
+      proposingOfferIds: [],
+      receivingOfferIds: [],
+      proposingDropIds: [],
+      receivingDropIds: [],
+      proposingPickIds: ["pick-a"],
+      receivingPickIds: ["pick-b"],
+      rosterSlots,
+      benchSlots: 4,
+      enforceRosterMinimums: false,
+    });
+
+    assert.equal(result.ok, true);
   });
 
   it("counts drops needed when net roster size increases", () => {

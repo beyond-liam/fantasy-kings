@@ -7,6 +7,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { InviteLinkCard } from "@/components/leagues/invite-link-card";
 import { DraftGradeDialogSlot } from "@/components/leagues/draft/draft-grade-dialog-slot";
 import { DraftUnderwayAlert } from "@/components/leagues/draft/draft-underway-alert";
+import { StartNewSeasonAlertSlot } from "@/components/leagues/dynasty/start-new-season-alert-slot";
 import { LeagueHomeHofTab } from "@/components/leagues/home/league-home-hof-tab";
 import { LeagueHomeOverviewTab } from "@/components/leagues/home/league-home-overview-tab";
 import { LeagueHomePlayoffsTab } from "@/components/leagues/home/league-home-playoffs-tab";
@@ -34,6 +35,7 @@ import { teamInitials } from "@/lib/leagues/standings";
 import { getDraftUnderwayBoard } from "@/lib/queries/draft";
 import type { LeagueHomeStandingsBundleInput } from "@/lib/queries/league-home-standings";
 import { getLeagueHomeData, isDraftUnderway } from "@/lib/queries/leagues";
+import { processDueKeeperDeadline } from "@/lib/leagues/keepers/process";
 
 type LeagueHomePageProps = {
   params: Promise<{ leagueId: string }>;
@@ -83,6 +85,10 @@ export default async function LeagueHomePage({
 
   if (!data.isMember) {
     redirect("/leagues");
+  }
+
+  if (data.season?.leagueType === "dynasty") {
+    void processDueKeeperDeadline(slug);
   }
 
   const { league, season, members, draftStatus, standingsTeams } = data;
@@ -172,6 +178,19 @@ export default async function LeagueHomePage({
           draftType={draftType}
           board={draftBoard}
         />
+      ) : null}
+
+      {season &&
+      season.leagueType === "dynasty" &&
+      (myMember?.role === "commissioner" ||
+        myMember?.role === "co_commissioner") ? (
+        <Suspense fallback={null}>
+          <StartNewSeasonAlertSlot
+            slug={league.publicId}
+            season={season}
+            standingsTeams={standingsTeams}
+          />
+        </Suspense>
       ) : null}
 
       {!isFull ? <InviteLinkCard inviteCode={league.inviteCode} /> : null}

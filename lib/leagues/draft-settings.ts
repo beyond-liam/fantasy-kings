@@ -33,6 +33,8 @@ export type DraftConfigFormValues = {
   pauseWindowStart: string;
   pauseWindowEnd: string;
   forceAutopickAfterTwoExpires: boolean;
+  draftRounds?: number;
+  draftPlayerPool?: "rookies" | "all";
 };
 
 export const FORCE_AUTOPICK_AFTER_TWO_EXPIRES_COPY = {
@@ -92,6 +94,8 @@ export const draftConfigFormSchema = z
     pauseWindowStart: ukTimeOfDaySchema,
     pauseWindowEnd: ukTimeOfDaySchema,
     forceAutopickAfterTwoExpires: z.boolean(),
+    draftRounds: z.number().int().min(0).max(99).optional(),
+    draftPlayerPool: z.enum(["rookies", "all"]).optional(),
   })
   .superRefine((data, ctx) => {
     const start = new Date(data.draftStartAt);
@@ -137,6 +141,10 @@ export function resolveDraftSettings(
     forceAutopickStreaksBackfilled: Boolean(
       stored?.forceAutopickStreaksBackfilled,
     ),
+    rounds:
+      stored?.rounds != null && Number.isFinite(stored.rounds)
+        ? Math.max(0, Math.trunc(stored.rounds))
+        : undefined,
   };
 }
 
@@ -145,6 +153,10 @@ export function toDraftConfigFormValues(input: {
   draftStartAt: Date;
   pickTimeLimitSeconds: number;
   draft?: DraftSettings | null;
+  dynastyDraft?: {
+    rounds: number;
+    draftPlayerPool: "rookies" | "all";
+  } | null;
 }): DraftConfigFormValues {
   const draft = resolveDraftSettings(input.draft);
   const pickTime = secondsToPickTime(
@@ -174,6 +186,12 @@ export function toDraftConfigFormValues(input: {
     pauseWindowStart: draft.pauseWindowStart ?? DEFAULT_PAUSE_WINDOW_START,
     pauseWindowEnd: draft.pauseWindowEnd ?? DEFAULT_PAUSE_WINDOW_END,
     forceAutopickAfterTwoExpires: Boolean(draft.forceAutopickAfterTwoExpires),
+    ...(input.dynastyDraft
+      ? {
+          draftRounds: input.dynastyDraft.rounds,
+          draftPlayerPool: input.dynastyDraft.draftPlayerPool,
+        }
+      : {}),
   };
 }
 
@@ -201,6 +219,7 @@ export function toPersistedDraftSettings(
       ? values.pauseWindowEnd
       : DEFAULT_PAUSE_WINDOW_END,
     forceAutopickAfterTwoExpires: Boolean(values.forceAutopickAfterTwoExpires),
+    ...(values.draftRounds != null ? { rounds: values.draftRounds } : {}),
   };
 }
 
@@ -248,6 +267,12 @@ export function normalizeDraftConfigFormValues(
     forceAutopickAfterTwoExpires: Boolean(
       persisted.forceAutopickAfterTwoExpires,
     ),
+    ...(values.draftRounds != null
+      ? { draftRounds: persisted.rounds ?? values.draftRounds }
+      : {}),
+    ...(values.draftPlayerPool != null
+      ? { draftPlayerPool: values.draftPlayerPool }
+      : {}),
   };
 }
 

@@ -119,6 +119,12 @@ export type DraftSettings = {
   pauseWindowStart?: string;
   pauseWindowEnd?: string;
   /**
+   * Dynasty only: picks per team. Redraft ignores this and uses full roster
+   * size. Clamped to the season's max (startup = roster cap; later = spare
+   * spots after keepers max).
+   */
+  rounds?: number;
+  /**
    * When true, two consecutive clock-expiry autodrafts put that team on
    * Autopick with no pick timer until the manager comes back online.
    */
@@ -166,6 +172,17 @@ export type DynastySettings = {
   /** Future draft years beyond the upcoming draft that can be owned/traded. */
   futurePickTradeYears: number;
   draftPlayerPool: DynastyDraftPlayerPool;
+  /**
+   * After non-keepers are cleared, keepers stay frozen until the next draft
+   * completes. Not a commissioner form field — operational state.
+   */
+  keepersLocked: boolean;
+  /**
+   * True for the league's first season (startup draft fills the roster).
+   * Start new season (D6) sets this false so later drafts use spare rounds
+   * and the configured player pool.
+   */
+  isStartupSeason: boolean;
 };
 
 export type LeagueSeasonSettings = {

@@ -18,7 +18,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import type { TradeListPlayer, TradeListRow } from "@/lib/queries/trades";
+import type { TradeListPick, TradeListPlayer, TradeListRow } from "@/lib/queries/trades";
 import { cn } from "@/lib/utils";
 
 export function playersForTeam(
@@ -31,9 +31,14 @@ export function playersForTeam(
   );
 }
 
+export function picksForTeam(trade: TradeListRow, teamId: string) {
+  return trade.picks.filter((pick) => pick.teamId === teamId);
+}
+
 type TradeSideView = {
   label: string;
   players: TradeListPlayer[];
+  picks: TradeListPick[];
 };
 
 /** Column labels/players for league-visible trade cards. */
@@ -57,10 +62,12 @@ export function resolveTradeSideViews(
       left: {
         label: tense === "past" ? "You received" : "You receive",
         players: playersForTeam(trade, receiveFrom),
+        picks: picksForTeam(trade, receiveFrom),
       },
       right: {
         label: tense === "past" ? "You gave" : "You offer",
         players: playersForTeam(trade, giveFrom),
+        picks: picksForTeam(trade, giveFrom),
       },
     };
   }
@@ -70,10 +77,12 @@ export function resolveTradeSideViews(
     left: {
       label: `${trade.proposingTeamName} ${receiveVerb}`,
       players: playersForTeam(trade, trade.receivingTeamId),
+      picks: picksForTeam(trade, trade.receivingTeamId),
     },
     right: {
       label: `${trade.receivingTeamName} ${receiveVerb}`,
       players: playersForTeam(trade, trade.proposingTeamId),
+      picks: picksForTeam(trade, trade.proposingTeamId),
     },
   };
 }
@@ -189,12 +198,14 @@ export function TradeCardHeader({
 function TradeSideColumn({
   label,
   players,
+  picks,
   leagueSlug,
   className,
   compact,
 }: {
   label: string;
   players: TradeListPlayer[];
+  picks: TradeListPick[];
   leagueSlug: string;
   className?: string;
   compact?: boolean;
@@ -212,22 +223,34 @@ function TradeSideColumn({
         {label}
       </p>
       <ul className="flex flex-col gap-2">
-        {players.length === 0 ? (
+        {players.length === 0 && picks.length === 0 ? (
           <li className="text-xs text-muted-foreground">—</li>
         ) : (
-          players.map((player) => (
-            <li key={player.playerId} className="min-w-0">
-              <PlayerIdentity
-                fullName={player.playerName}
-                sleeperId={player.sleeperId}
-                primaryPositionId={player.primaryPositionId}
-                nflTeam={player.nflTeam}
-                size="sm"
-                playerId={player.playerId}
-                leagueSlug={leagueSlug}
-              />
-            </li>
-          ))
+          <>
+            {players.map((player) => (
+              <li key={player.playerId} className="min-w-0">
+                <PlayerIdentity
+                  fullName={player.playerName}
+                  sleeperId={player.sleeperId}
+                  primaryPositionId={player.primaryPositionId}
+                  nflTeam={player.nflTeam}
+                  size="sm"
+                  playerId={player.playerId}
+                  leagueSlug={leagueSlug}
+                />
+              </li>
+            ))}
+            {picks.map((pick) => (
+              <li key={pick.assetId} className="min-w-0">
+                <p className="text-sm font-medium tabular-nums">{pick.primary}</p>
+                {pick.secondary ? (
+                  <p className="text-xs text-pretty text-muted-foreground">
+                    {pick.secondary}
+                  </p>
+                ) : null}
+              </li>
+            ))}
+          </>
         )}
       </ul>
     </div>
@@ -259,12 +282,14 @@ export function TradeSidesPanel({
       <TradeSideColumn
         label={left.label}
         players={left.players}
+        picks={left.picks}
         leagueSlug={leagueSlug}
         compact
       />
       <TradeSideColumn
         label={right.label}
         players={right.players}
+        picks={right.picks}
         leagueSlug={leagueSlug}
         compact
         className="border-l border-border/70 pl-3 sm:border-l-0 sm:pl-0"

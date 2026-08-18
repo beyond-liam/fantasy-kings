@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useMemo, useState, useTransition } from "react";
+import { Suspense, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   IterationCwIcon,
@@ -13,7 +13,12 @@ import { toast } from "sonner";
 import { TeamRosterTable } from "@/components/team/roster-table";
 import { TeamSummaryPanel } from "@/components/team/team-summary-panel";
 import { PageFormActions } from "@/components/layout/page-form-actions";
+import {
+  WeekFilter,
+  type WeekFilterOption,
+} from "@/components/scores/week-filter";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import { updateRosterSlots, commissionerUpdateRosterSlots } from "@/lib/actions/roster";
 import type { RosterSlotConfig } from "@/db/schema/league-seasons";
 import { resolveIrEligibleStatuses } from "@/lib/leagues/ir-eligibility";
@@ -26,6 +31,7 @@ import {
   applyLocalSlotAssignment,
   applyLocalSlotSwap,
 } from "@/lib/leagues/roster-slots";
+import { lineupWeekRelation } from "@/lib/leagues/lineup-plans";
 import { explainPlayerPoints } from "@/lib/leagues/scoring/calculate";
 import type { ScoringRuleDefinition } from "@/lib/leagues/scoring/types";
 import {
@@ -75,6 +81,9 @@ type TeamRosterSectionsProps = {
   };
   scoringRules?: ScoringRuleDefinition[];
   scoringWeek?: number;
+  week?: number;
+  currentWeek?: number;
+  weeks?: WeekFilterOption[];
 };
 
 function slotsFingerprint(players: TeamRosterPlayer[]) {
@@ -82,6 +91,34 @@ function slotsFingerprint(players: TeamRosterPlayer[]) {
     .map((player) => `${player.id}:${player.slotPositionId ?? ""}`)
     .sort()
     .join("|");
+}
+
+function weekDisplayFingerprint(players: TeamRosterPlayer[]) {
+  return players
+    .map((player) =>
+      [
+        player.id,
+        player.projectedPts ?? "",
+        player.actualPts ?? "",
+        player.opponent?.label ?? "",
+        player.opponent?.kickoffLabel ?? "",
+        player.opponent?.gameId ?? "",
+      ].join(":"),
+    )
+    .sort()
+    .join("|");
+}
+
+function mergeWeekDisplay(
+  draft: TeamRosterPlayer[],
+  server: TeamRosterPlayer[],
+): TeamRosterPlayer[] {
+  const byId = new Map(server.map((player) => [player.id, player]));
+  return draft.map((player) => {
+    const next = byId.get(player.id);
+    if (!next) return player;
+    return { ...next, slotPositionId: player.slotPositionId };
+  });
 }
 
 export function TeamRosterSections({
@@ -107,6 +144,9 @@ export function TeamRosterSections({
   summary,
   scoringRules,
   scoringWeek,
+  week,
+  currentWeek,
+  weeks,
 }: TeamRosterSectionsProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -114,17 +154,34 @@ export function TeamRosterSections({
   const [breakdownPlayerId, setBreakdownPlayerId] = useState<string | null>(
     null,
   );
-  const serverKey = slotsFingerprint(players);
+  const serverKey = `${week ?? ""}:${slotsFingerprint(players)}`;
+  const displayKey = `${week ?? ""}:${weekDisplayFingerprint(players)}`;
   const resolvedIrEligible = resolveIrEligibleStatuses(irEligibleStatuses);
   const showRowActions = rowActionsEnabled ?? actionsEnabled;
   const canCut = cutActionsEnabled ?? actionsEnabled;
   const gameLockedIdSet = new Set(gameLockedPlayerIds);
+  const weekRelation =
+    week != null && currentWeek != null
+      ? lineupWeekRelation(week, currentWeek)
+      : "current";
+  const slotLockedIdSet =
+    weekRelation === "future"
+      ? new Set<string>()
+      : weekRelation === "past"
+        ? new Set(draftPlayers.map((player) => player.id))
+        : gameLockedIdSet;
 
-  // Only reset the draft when persisted slot assignments change.
+  // Reset the draft when persisted slots change. Overlay Opp/PTS when the
+  // selected week (or live scores) updates so unsaved lineup edits stay.
   const [syncedServerKey, setSyncedServerKey] = useState(serverKey);
+  const [syncedDisplayKey, setSyncedDisplayKey] = useState(displayKey);
   if (serverKey !== syncedServerKey) {
     setSyncedServerKey(serverKey);
+    setSyncedDisplayKey(displayKey);
     setDraftPlayers(players);
+  } else if (displayKey !== syncedDisplayKey) {
+    setSyncedDisplayKey(displayKey);
+    setDraftPlayers(mergeWeekDisplay(draftPlayers, players));
   }
 
   const serverSlots = new Map(
@@ -223,13 +280,18 @@ export function TeamRosterSections({
             leagueSlug,
             commissionerTeamId,
             assignments,
+            week,
           )
-        : await updateRosterSlots(leagueSlug, assignments);
+        : await updateRosterSlots(leagueSlug, assignments, week);
       if (!result.success) {
         toast.error(result.error ?? "Could not update roster.");
         return;
       }
-      toast.success("Roster updated");
+      toast.success(
+        result.scheduledWeek != null
+          ? `Lineup saved for Week ${result.scheduledWeek}`
+          : "Roster updated",
+      );
       router.refresh();
     });
   };
@@ -250,6 +312,7 @@ export function TeamRosterSections({
     taxiMaxYearsExp,
     taxiPreventReaddAfterActivation,
     gameLockedPlayerIds: gameLockedIdSet,
+    slotLockedPlayerIds: slotLockedIdSet,
     onSlotChange: handleSlotChange,
     onSwap: handleSwap,
     onActualClick:
@@ -285,9 +348,21 @@ export function TeamRosterSections({
       />
     ) : null;
 
+  const weekFilter =
+    weeks && weeks.length > 0 && week != null ? (
+      <Suspense fallback={<Spinner />}>
+        <WeekFilter weeks={weeks} value={week} />
+      </Suspense>
+    ) : null;
+
   const rosterColumn = (
     <div className="flex min-w-0 flex-1 flex-col gap-8">
-      <TeamRosterTable section="lineup" slots={sections.lineup} {...tableProps} />
+      <TeamRosterTable
+        section="lineup"
+        slots={sections.lineup}
+        headerEnd={weekFilter}
+        {...tableProps}
+      />
       <TeamRosterTable section="bench" slots={sections.bench} {...tableProps} />
       {sections.ir ? (
         <TeamRosterTable section="ir" slots={sections.ir} {...tableProps} />

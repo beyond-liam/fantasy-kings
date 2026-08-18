@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Cell, Label, Pie, PieChart, Sector } from "recharts";
 import type { PieSectorShapeProps } from "recharts";
 
+import { SosMatchupTooltipBody } from "@/components/players/sos-matchup-tooltip";
 import {
   ChartContainer,
   ChartTooltip,
@@ -14,6 +15,7 @@ import type {
   OverviewMatchupDifficulty,
 } from "@/lib/players/overview-metrics";
 import { formatOpponentTick } from "@/lib/players/overview-metrics";
+import { sosMatchupTone } from "@/lib/players/matchup-difficulty";
 import { cn } from "@/lib/utils";
 
 const chartConfig = {
@@ -240,40 +242,23 @@ export function ScheduleWheel({
               }
               const rank = row.matchupRank;
               const tone =
-                row.difficulty === "hard"
-                  ? "looks like one to avoid"
-                  : row.difficulty === "easy"
-                    ? "looks friendly"
-                    : "looks about average";
+                row.difficulty != null
+                  ? sosMatchupTone(row.difficulty)
+                  : "looks about average";
+              const ptsValue =
+                row.ptsAllowed != null
+                  ? `${row.ptsAllowed.toFixed(1)} / game`
+                  : "—";
+              const rankValue =
+                rank != null ? `#${rank} of ${data.leagueTeamCount}` : "—";
               return (
                 <div className="flex max-w-[16rem] flex-col rounded-md bg-foreground text-xs text-background">
-                  <p className="px-3 py-1.5 text-pretty font-semibold">
-                    Week {row.week} {formatOpponent(row)} {tone} for{" "}
-                    {positionLabel}.
-                  </p>
-                  <dl className="flex flex-col gap-1 border-y border-background/15 px-3 py-1.5">
-                    <div className="flex justify-between gap-4">
-                      <dt className="text-background/70">Matchup rank</dt>
-                      <dd className="font-medium tabular-nums">
-                        {rank != null
-                          ? `#${rank} of ${data.leagueTeamCount}`
-                          : "—"}
-                      </dd>
-                    </div>
-                    <div className="flex justify-between gap-4">
-                      <dt className="text-background/70">
-                        Fantasy pts allowed
-                      </dt>
-                      <dd className="font-medium tabular-nums">
-                        {row.ptsAllowed != null
-                          ? `${row.ptsAllowed.toFixed(1)} / game`
-                          : "—"}
-                      </dd>
-                    </div>
-                  </dl>
-                  <p className="px-3 py-1.5 text-[10px] text-background/70">
-                    #1 gives up the most fantasy points to {positionLabel}.
-                  </p>
+                  <SosMatchupTooltipBody
+                    headline={`Week ${row.week} ${formatOpponent(row)} ${tone} for ${positionLabel}.`}
+                    rankValue={rankValue}
+                    ptsValue={ptsValue}
+                    footnote={`#1 gives up the most fantasy points to ${positionLabel}.`}
+                  />
                 </div>
               );
             }}

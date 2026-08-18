@@ -5,6 +5,7 @@ import {
   buildOpponentByTeam,
   formatMatchupKickoff,
   resolvePlayerOpponent,
+  withPositionalSos,
   type TeamMatchup,
 } from "@/lib/nfl/matchups";
 import type { ScheduleGame } from "@/lib/espn/scoreboard";
@@ -93,6 +94,8 @@ describe("resolvePlayerOpponent", () => {
       seasonYear: 2026,
     });
     assert.equal(result?.label, "@ LV");
+    assert.equal(result?.abbrev, "LV");
+    assert.equal(result?.gameId, "BUF-LV");
     assert.equal(result?.hasPossession, false);
     assert.equal(result?.inRedZone, false);
   });
@@ -139,5 +142,58 @@ describe("formatMatchupKickoff", () => {
   it("formats kickoff in UK time", () => {
     // 1:00pm EDT = 17:00 UTC = 6:00pm BST
     assert.equal(formatMatchupKickoff("2026-08-13T17:00:00Z"), "Thu 6pm");
+  });
+});
+
+describe("withPositionalSos", () => {
+  it("stamps Easy/Average/Hard onto the opponent when ranked", () => {
+    const opponentsByTeam = buildOpponentByTeam([game("LV", "BUF")]);
+    const opponent = resolvePlayerOpponent({
+      nflTeam: "BUF",
+      byeWeek: null,
+      week: 6,
+      opponentsByTeam,
+      seasonYear: 2026,
+    });
+    const stamped = withPositionalSos(
+      opponent,
+      "QB",
+      new Map([
+        [
+          "QB",
+          new Map([
+            [
+              "LV",
+              {
+                positionId: "QB",
+                rank: 31,
+                ptsAllowed: 23.2,
+                difficulty: "easy",
+                teamCount: 32,
+              },
+            ],
+          ]),
+        ],
+      ]),
+    );
+    assert.equal(stamped?.matchup?.rank, 31);
+    assert.equal(stamped?.matchup?.difficulty, "easy");
+  });
+
+  it("leaves BYE and unknown opponents unchanged", () => {
+    const bye = resolvePlayerOpponent({
+      nflTeam: "DET",
+      byeWeek: 6,
+      week: 6,
+      opponentsByTeam: new Map(),
+      seasonYear: 2026,
+    });
+    const stamped = withPositionalSos(
+      bye,
+      "QB",
+      new Map([["QB", new Map()]]),
+    );
+    assert.equal(stamped?.label, "BYE");
+    assert.equal(stamped?.matchup, undefined);
   });
 });

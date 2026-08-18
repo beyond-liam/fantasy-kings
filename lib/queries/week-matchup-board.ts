@@ -21,6 +21,8 @@ import {
 import { normalizeNflTeamAbbrev } from "@/lib/nfl/matchups";
 import type { LeagueMatchupRow } from "@/lib/queries/matchups";
 import { getPlayerFantasyPoints, getWeekProjectedFantasyPoints } from "@/lib/queries/players";
+import { overlayPlanSlots } from "@/lib/leagues/lineup-plans";
+import { applyDueLineupPlans, getLineupPlansByTeam } from "@/lib/queries/lineup-plans";
 import { isMatchupResultFinal } from "@/lib/leagues/matchups/week-scoring";
 
 export type MatchupBoardSide = {
@@ -432,7 +434,27 @@ export async function enrichWeekMatchupBoard(
     }
   } else {
     // Live roster path
+    if (input.leagueSeasonId && input.week <= input.currentWeek) {
+      await applyDueLineupPlans({
+        leagueSeasonId: input.leagueSeasonId,
+        currentWeek: input.currentWeek,
+        rosterSlots: input.rosterSlots,
+        benchSlots: input.benchSlots,
+      });
+    }
     const rostersByTeam = await getRosterPlayersForTeams(teamIds);
+    if (input.leagueSeasonId && input.week > input.currentWeek) {
+      const plans = await getLineupPlansByTeam(
+        input.leagueSeasonId,
+        input.week,
+      );
+      for (const [teamId, players] of rostersByTeam) {
+        const slots = plans.get(teamId);
+        if (slots) {
+          rostersByTeam.set(teamId, overlayPlanSlots(players, slots));
+        }
+      }
+    }
     startersByTeam = new Map();
     for (const teamId of teamIds) {
       startersByTeam.set(

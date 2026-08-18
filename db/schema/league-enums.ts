@@ -40,6 +40,8 @@ export const leagueActivityTypeEnum = pgEnum("league_activity_type", [
   "draft_pick",
   "draft_pick_reverted",
   "keepers_set",
+  "keepers_cleared",
+  "season_started",
 ]);
 
 export const tradeStatusEnum = pgEnum("trade_status", [

@@ -336,6 +336,18 @@ export function TradeList({
                                   !player.isDrop,
                               )
                               .map((player) => player.playerId),
+                            wantPick: trade.picks
+                              .filter(
+                                (pick) =>
+                                  pick.teamId === trade.proposingTeamId,
+                              )
+                              .map((pick) => pick.assetId),
+                            offerPick: trade.picks
+                              .filter(
+                                (pick) =>
+                                  pick.teamId === trade.receivingTeamId,
+                              )
+                              .map((pick) => pick.assetId),
                             counter: trade.id,
                           })}
                         />

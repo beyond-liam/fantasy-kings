@@ -135,6 +135,7 @@ export default async function FantasyScoresPage({
     const recordsByTeamId = recordsFromFinalMatchups(finals);
 
     const games = await enrichWeekMatchupBoard({
+      leagueSeasonId: season.id,
       matchups: rows,
       week,
       currentWeek,
@@ -272,6 +273,7 @@ export default async function FantasyScoresPage({
   const recordsByTeamId = recordsFromFinalMatchups(finals);
 
   const games = await enrichWeekMatchupBoard({
+    leagueSeasonId: season.id,
     matchups: rows,
     week,
     currentWeek,

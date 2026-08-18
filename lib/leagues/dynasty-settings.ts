@@ -4,6 +4,7 @@ import type {
   DynastyDraftPlayerPool,
   DynastySettings,
 } from "@/db/schema/league-seasons";
+import { formatUkDateTime, ukTimezoneAbbrev } from "@/lib/datetime/uk-time";
 
 export const DYNASTY_DRAFT_PLAYER_POOL_OPTIONS = [
   "rookies",
@@ -22,6 +23,8 @@ export const DEFAULT_DYNASTY_SETTINGS: DynastySettings = {
   taxiCountsTowardKeepers: false,
   futurePickTradeYears: 3,
   draftPlayerPool: "rookies",
+  keepersLocked: false,
+  isStartupSeason: true,
 };
 
 export type DynastyRosterKeeperCap = {
@@ -81,10 +84,15 @@ export function keepersMaxDescription(
 }
 
 /** Clamp keepers max/min to the roster-derived counting ceiling. */
-export function clampDynastyKeepersToRosterCap(
-  settings: DynastySettings,
-  roster: DynastyRosterKeeperCap,
-): DynastySettings {
+export function clampDynastyKeepersToRosterCap<
+  T extends Pick<
+    DynastySettings,
+    | "keepersMax"
+    | "keepersMin"
+    | "irCountsTowardKeepers"
+    | "taxiCountsTowardKeepers"
+  >,
+>(settings: T, roster: DynastyRosterKeeperCap): T {
   const cap = maxCountingKeepersCap(roster, settings);
   const keepersMax =
     settings.keepersMax == null
@@ -120,6 +128,26 @@ export function maxDynastyDraftRounds(
       ? Math.trunc(keepersMax)
       : 0;
   return Math.max(0, cap - keepers);
+}
+
+/** Startup drafts fill the roster; later drafts cap at spare spots after keepers. */
+export function maxConfigurableDynastyDraftRounds(input: {
+  rosterCap: number;
+  keepersMax: number | null;
+  isStartup: boolean;
+}): number {
+  if (input.isStartup) {
+    return Number.isFinite(input.rosterCap) && input.rosterCap > 0
+      ? Math.trunc(input.rosterCap)
+      : 0;
+  }
+  return maxDynastyDraftRounds(input.rosterCap, input.keepersMax);
+}
+
+export function isDynastyStartupSeason(
+  settings: Pick<DynastySettings, "isStartupSeason">,
+): boolean {
+  return settings.isStartupSeason !== false;
 }
 
 export const dynastySettingsSchema = z
@@ -233,6 +261,8 @@ export function resolveDynastySettings(
       stored.futurePickTradeYears,
     ),
     draftPlayerPool: resolveDraftPlayerPool(stored.draftPlayerPool),
+    keepersLocked: stored.keepersLocked === true,
+    isStartupSeason: stored.isStartupSeason !== false,
   };
 }
 
@@ -241,6 +271,49 @@ export function toPersistedDynastySettings(
   values: DynastySettingsFormValues,
 ): DynastySettings {
   return resolveDynastySettings(values);
+}
+
+/** Keep operational lock state when saving Dynasty Rules. */
+export function mergeDynastyFormWithStored(
+  values: DynastySettingsFormValues,
+  stored: DynastySettings,
+): DynastySettings {
+  return {
+    ...toPersistedDynastySettings(values),
+    keepersLocked: stored.keepersLocked,
+    isStartupSeason: stored.isStartupSeason,
+  };
+}
+
+export function areKeepersLocked(settings: DynastySettings): boolean {
+  return settings.keepersLocked === true;
+}
+
+export function withKeepersLocked(
+  settings: DynastySettings,
+  locked: boolean,
+): DynastySettings {
+  if (settings.keepersLocked === locked) return settings;
+  return { ...settings, keepersLocked: locked };
+}
+
+/** True when a deadline is set, keepers are unlocked, and the instant has passed. */
+export function isKeeperDeadlineDue(
+  settings: DynastySettings,
+  now: Date = new Date(),
+): boolean {
+  if (settings.keepersLocked) return false;
+  if (settings.keeperDeadlineAt == null) return false;
+  const at = Date.parse(settings.keeperDeadlineAt);
+  return Number.isFinite(at) && at <= now.getTime();
+}
+
+/** UK wall-clock label for a stored keeper deadline ISO instant. */
+export function formatKeeperDeadlineLabel(iso: string): string | null {
+  const at = Date.parse(iso);
+  if (!Number.isFinite(at)) return null;
+  const date = new Date(at);
+  return `${formatUkDateTime(date)} ${ukTimezoneAbbrev(date)}`;
 }
 
 /**

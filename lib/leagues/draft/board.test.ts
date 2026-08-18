@@ -6,6 +6,7 @@ import {
   getNextTeamPickSlot,
   getPicksUntilTeam,
   getRemainingTeamPickSlots,
+  resolveSeasonDraftRounds,
 } from "@/lib/leagues/draft/board";
 
 describe("buildDraftSchedule", () => {
@@ -76,6 +77,63 @@ describe("getPicksUntilTeam", () => {
     assert.deepEqual(
       remaining.map((item) => item.picksUntil),
       [0, 2],
+    );
+  });
+});
+
+describe("resolveSeasonDraftRounds", () => {
+  const rosterSlots = [{ positionId: "QB", slotCount: 1, minSlots: 1, maxSlots: 1, isStarter: true }];
+
+  it("uses full roster size for redraft", () => {
+    assert.equal(
+      resolveSeasonDraftRounds({
+        rosterSlots,
+        benchSlots: 5,
+      }),
+      6,
+    );
+  });
+
+  it("uses full roster size for dynasty startup even when keepers max is set", () => {
+    assert.equal(
+      resolveSeasonDraftRounds({
+        rosterSlots,
+        benchSlots: 5,
+        dynasty: {
+          keepersMax: 4,
+          keepersMin: null,
+          keeperDeadlineAt: null,
+          irCountsTowardKeepers: false,
+          taxiCountsTowardKeepers: false,
+          futurePickTradeYears: 3,
+          draftPlayerPool: "rookies",
+          keepersLocked: false,
+          isStartupSeason: true,
+        },
+      }),
+      6,
+    );
+  });
+
+  it("clamps configured rounds to spare spots after startup", () => {
+    assert.equal(
+      resolveSeasonDraftRounds({
+        rosterSlots,
+        benchSlots: 5,
+        draft: { style: "snake", autoPickEnabled: true, rounds: 9 },
+        dynasty: {
+          keepersMax: 4,
+          keepersMin: null,
+          keeperDeadlineAt: null,
+          irCountsTowardKeepers: false,
+          taxiCountsTowardKeepers: false,
+          futurePickTradeYears: 3,
+          draftPlayerPool: "rookies",
+          keepersLocked: false,
+          isStartupSeason: false,
+        },
+      }),
+      2,
     );
   });
 });

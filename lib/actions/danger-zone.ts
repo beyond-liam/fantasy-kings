@@ -7,7 +7,6 @@ import { redirect } from "next/navigation";
 import {
   leagueMembers,
   leagues,
-  leagueSeasons,
   rosterPlayers,
   teams,
 } from "@/db/schema";
@@ -15,6 +14,7 @@ import { requireSessionUser } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import {
   getLeagueBySlug,
+  getLeagueSeason,
   isLeagueCommissioner,
   isPrimaryCommissioner,
 } from "@/lib/queries/leagues";
@@ -39,11 +39,7 @@ async function getCommissionerSeason(slug: string) {
     };
   }
 
-  const [season] = await db
-    .select()
-    .from(leagueSeasons)
-    .where(eq(leagueSeasons.leagueId, league.id))
-    .limit(1);
+  const season = await getLeagueSeason(league.id);
 
   if (!season) {
     return { error: "League season not found." as const };

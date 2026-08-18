@@ -62,7 +62,12 @@ import {
   listRosterPlayerRows,
   toTradeRosterPlayers,
 } from "@/lib/queries/trades";
+import { getDraftPickAssetsByIds } from "@/lib/queries/draft-pick-assets";
 import { getTeamRosterPlayers } from "@/lib/queries/team-roster";
+import {
+  uniqueTradeIds,
+  validatePickOwnership,
+} from "@/lib/leagues/trades/picks";
 import { getNflState, type SleeperNflState } from "@/lib/sleeper/api";
 
 const tradeProposalSchema = z.object({
@@ -71,6 +76,8 @@ const tradeProposalSchema = z.object({
   receivingOfferIds: z.array(z.string().uuid()).max(20),
   proposingDropIds: z.array(z.string().uuid()).max(20),
   receivingDropIds: z.array(z.string().uuid()).max(20),
+  proposingPickIds: z.array(z.string().uuid()).max(20).optional(),
+  receivingPickIds: z.array(z.string().uuid()).max(20).optional(),
   comment: z.string().trim().max(2000).optional(),
   /** ISO timestamp; omit / null = never expires. */
   expiresAt: z.string().datetime().nullable().optional(),
@@ -371,6 +378,8 @@ export async function proposeTrade(
     receivingOfferIds: string[];
     proposingDropIds: string[];
     receivingDropIds: string[];
+    proposingPickIds?: string[];
+    receivingPickIds?: string[];
     comment?: string;
     expiresAt?: string | null;
     counterOfTradeId?: string;
@@ -453,13 +462,23 @@ export async function proposeTrade(
     return { success: false, error: "Trade partner not found." };
   }
 
-  const irError = await assertNoIrLock(
-    team.id,
-    season.settings.irEligibleStatuses,
-    season.settings.taxiMaxYearsExp,
-  );
-  if (irError) {
-    return { success: false, error: irError };
+  const proposingPickIds = uniqueTradeIds(validated.proposingPickIds ?? []);
+  const receivingPickIds = uniqueTradeIds(validated.receivingPickIds ?? []);
+  const hasPlayerLegs =
+    validated.proposingOfferIds.length > 0 ||
+    validated.receivingOfferIds.length > 0 ||
+    validated.proposingDropIds.length > 0 ||
+    validated.receivingDropIds.length > 0;
+
+  if (hasPlayerLegs) {
+    const irError = await assertNoIrLock(
+      team.id,
+      season.settings.irEligibleStatuses,
+      season.settings.taxiMaxYearsExp,
+    );
+    if (irError) {
+      return { success: false, error: irError };
+    }
   }
 
   const allIds = [
@@ -472,6 +491,27 @@ export async function proposeTrade(
   const lockError = await assertPlayersAvailable(allIds, team.id);
   if (lockError) {
     return { success: false, error: lockError };
+  }
+
+  const pickAssets = await getDraftPickAssetsByIds([
+    ...proposingPickIds,
+    ...receivingPickIds,
+  ]);
+  const pickError = validatePickOwnership({
+    proposingTeamId: team.id,
+    receivingTeamId: partner.id,
+    proposingPickIds,
+    receivingPickIds,
+    assets: pickAssets.map((asset) => ({
+      id: asset.id,
+      ownerTeamId: asset.ownerTeamId,
+      leagueId: asset.leagueId ?? league.id,
+    })),
+    leagueId: league.id,
+    isDynasty: season.leagueType === "dynasty",
+  });
+  if (pickError) {
+    return { success: false, error: pickError };
   }
 
   const [proposingRoster, receivingRoster] = await Promise.all([
@@ -491,6 +531,8 @@ export async function proposeTrade(
     receivingOfferIds: validated.receivingOfferIds,
     proposingDropIds: validated.proposingDropIds,
     receivingDropIds: validated.receivingDropIds,
+    proposingPickIds,
+    receivingPickIds,
     rosterSlots: season.settings.rosterSlots,
     benchSlots: season.benchSlots,
     enforceRosterMinimums: rules.enforceRosterMinimums,
@@ -534,6 +576,8 @@ export async function proposeTrade(
     receivingOfferIds: validated.receivingOfferIds,
     proposingDropIds: validated.proposingDropIds,
     receivingDropIds: validated.receivingDropIds,
+    proposingPickIds,
+    receivingPickIds,
     comment: validated.comment || null,
     expiresAt,
     counterOfTradeId,

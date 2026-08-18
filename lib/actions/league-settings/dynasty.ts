@@ -8,8 +8,8 @@ import {
   clampDynastyKeepersToRosterCap,
   dynastySettingsSchema,
   maxCountingKeepersCap,
+  mergeDynastyFormWithStored,
   resolveDynastySettings,
-  toPersistedDynastySettings,
   type DynastySettingsFormValues,
 } from "@/lib/leagues/dynasty-settings";
 import { getMaxRosterSize } from "@/lib/leagues/roster-capacity";
@@ -58,8 +58,9 @@ export async function updateDynastySettings(
     irSlots: season.irEnabled ? season.irSlots : 0,
     taxiSlots: season.taxiEnabled ? season.taxiSlots : 0,
   };
+  const before = resolveDynastySettings(season.settings.dynasty);
   const after = clampDynastyKeepersToRosterCap(
-    toPersistedDynastySettings(parsed.data),
+    mergeDynastyFormWithStored(parsed.data, before),
     rosterCap,
   );
   const countingCap = maxCountingKeepersCap(rosterCap, after);
@@ -70,7 +71,6 @@ export async function updateDynastySettings(
     };
   }
 
-  const before = resolveDynastySettings(season.settings.dynasty);
   const fields: SettingsFieldDef[] = [
     {
       path: "keepersMax",

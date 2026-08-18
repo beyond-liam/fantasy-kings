@@ -1,7 +1,7 @@
 # Fantasy Kings — Project Specification
 
 > Living document. Update this file as requirements, decisions, and scope change.
-> Last updated: 2026-08-16
+> Last updated: 2026-08-18
 
 ---
 
@@ -23,7 +23,7 @@ A mobile-first fantasy football web app for a private friend group (4–16 users
 |---|---|
 | Auth / leagues | Email/password auth, create/join, multi-league, settings |
 | Scoring | Offense engine + commissioner scoring UI; **minimal IDP defaults** (CB/S/DT/DE/LB) |
-| Roster | Lineup / IR / taxi (eligibility), FA add/cut, lineup-lock enforce; cut/slot lock after NFL game start; optional enforce position roster minimums on cuts/claims/trades |
+| Roster | Lineup / IR / taxi (eligibility), FA add/cut, lineup-lock enforce; cut/slot lock after NFL game start; future-week lineups scheduled until that week starts; optional enforce position roster minimums on cuts/claims/trades |
 | Waivers / trades | FAAB + rolling, claims (grouped by process date), vetoes, limits, crons, alerts; optional daily drop processing; FCFS only for cleared unplayed FAs (claim after kickoff or slate-complete until weekly process); trade week-end hold for started players; optional trade offer expiry |
 | Draft | Live + email/slow same room; Brevo turn emails; mock draft; timed email daily UK pause window |
 | Matchups | Week board, Game Centre, standings from finals (held until 2h after last NFL game of the week), Live/Final badges |
@@ -49,7 +49,7 @@ A mobile-first fantasy football web app for a private friend group (4–16 users
 | Item | Notes |
 |---|---|
 | IDP production hardening | See [`docs/IDP.md`](IDP.md) — Overview/leaders, filter density; nflverse IDP keys shipped |
-| Dynasty format | Specced in [`docs/DYNASTY.md`](DYNASTY.md) — **D0–D2** shipped (settings + Keepers tab); D3+ pending |
+| Dynasty format | Specced in [`docs/DYNASTY.md`](DYNASTY.md) — **D0–D9** shipped |
 
 ### Near-term bugs / fixes (tackle one by one)
 
@@ -666,7 +666,7 @@ lib/
 ### Deferred / remaining
 
 **Near-term product**
-- [ ] **Dynasty** — keepers, clearance, Start new season, future picks + pick trades per [`docs/DYNASTY.md`](DYNASTY.md) (D0–D2 done; D3–D9 pending)
+- [x] **Dynasty** — keepers, clearance, Start new season, future picks + pick trades per [`docs/DYNASTY.md`](DYNASTY.md) (D0–D9 done)
 - [ ] **Advanced player filtering** — richer filters beyond position / team / rookies / FA (DEFERRED)
 - [x] **Manager presence** — online (2-min), offline, inactive (14d in-season / 30d offseason); avatar badges on standings and draft board
 - [x] **Empty-state consistency** — use shadcn `Empty` everywhere zero-data is shown; migrate ad-hoc placeholders
@@ -727,6 +727,14 @@ lib/
 
 ## 13. Changelog
 
+| 2026-08-18 | Week filters (Matchups, Roster, NFL Scores) show ESPN game-week dates on the second row |
+| 2026-08-18 | Dynasty D9: commissioner Edit Rosters (add/remove any time, dynasty only) |
+| 2026-08-18 | Dynasty D8: trade composer Roster \| Picks tabs; persist and execute pick transfers (`owner_team_id` only) |
+| 2026-08-18 | Dynasty D7: team Draft Picks tab shows minted future picks by year, resolved `1.04` labels, and trade deep-links |
+| 2026-08-18 | Dynasty D6: Start new season on league home; mint `draft_pick_assets`; carry keepers; reset FAAB and reverse-finish draft/waiver order |
+| 2026-08-18 | Dynasty D5: configure-draft rounds cap + player pool; auto-clear non-keepers on draft start |
+| 2026-08-18 | Dynasty D4: keeper deadline auto-clears non-keepers via cron + page-load; UK deadline shown on Keepers |
+| 2026-08-18 | Dynasty D3: commish Set Keepers + Clear Non-Keepers; lock until draft completes; `keepers_cleared` activity |
 | 2026-08-18 | Draft: backfill forced Autopick from consecutive historical autopicks on live boards |
 | 2026-08-18 | Draft setting: two consecutive missed clocks force Autopick and skip the pick timer until the manager comes back online |
 | 2026-08-16 | Per-team Autopick: with a queue, pick immediately when on the clock (not on expiry); empty queue waits (no BPA). Open seats still queue→BPA on expiry |
@@ -955,3 +963,4 @@ lib/
 | 2026-08-17 | Timed draft clocks autodraft on expiry (queue then BPA) even when Autopick is off |
 | 2026-08-18 | Dashboard: My Leagues carousel plus NFL yardage leaders, standard team of the week, and trending adds/cuts |
 | 2026-08-18 | Manager presence badges only on standings + draft board; seed from server so the status circle is immediate |
+| 2026-08-18 | Future-week roster lineups: slot edits unlock after current games start, save as a plan, and apply when that week becomes current |

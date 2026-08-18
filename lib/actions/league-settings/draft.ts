@@ -4,6 +4,10 @@ import { asc, eq } from "drizzle-orm";
 
 import { leagueSeasons, teams } from "@/db/schema";
 import { db } from "@/lib/db";
+import { getDraftRounds } from "@/lib/leagues/draft/board";
+import { unwindDraftForFutureStart } from "@/lib/leagues/draft/reschedule";
+import { ensureDraftTurnClock } from "@/lib/leagues/draft/ensure-turn-clock";
+import { syncDraftPauseWindowForSeason } from "@/lib/leagues/draft/pause-window";
 import {
   draftConfigFormSchema,
   draftConfigPickTimeSeconds,
@@ -14,12 +18,14 @@ import {
   type DraftConfigFormValues,
 } from "@/lib/leagues/draft-settings";
 import {
+  isDynastyStartupSeason,
+  maxConfigurableDynastyDraftRounds,
+  resolveDynastySettings,
+} from "@/lib/leagues/dynasty-settings";
+import {
   diffSettingsValues,
   logSettingsUpdated,
 } from "@/lib/leagues/settings-activity";
-import { unwindDraftForFutureStart } from "@/lib/leagues/draft/reschedule";
-import { ensureDraftTurnClock } from "@/lib/leagues/draft/ensure-turn-clock";
-import { syncDraftPauseWindowForSeason } from "@/lib/leagues/draft/pause-window";
 import { getDraftBySeasonId } from "@/lib/queries/draft";
 
 import {
@@ -52,6 +58,35 @@ export async function updateDraftConfig(
   };
   const draftStartAt = new Date(next.draftStartAt);
   const beforeDraft = resolveDraftSettings(season.settings.draft);
+  const isDynasty = season.leagueType === "dynasty";
+  const dynasty = isDynasty
+    ? resolveDynastySettings(season.settings.dynasty)
+    : null;
+  const rosterCap = getDraftRounds(
+    season.settings.rosterSlots,
+    season.benchSlots,
+  );
+  const maxRounds = dynasty
+    ? maxConfigurableDynastyDraftRounds({
+        rosterCap,
+        keepersMax: dynasty.keepersMax,
+        isStartup: isDynastyStartupSeason(dynasty),
+      })
+    : rosterCap;
+  const nextRounds = dynasty
+    ? isDynastyStartupSeason(dynasty)
+      ? maxRounds
+      : Math.min(Math.max(0, next.draftRounds ?? maxRounds), maxRounds)
+    : undefined;
+  const nextPool =
+    dynasty &&
+    (next.draftPlayerPool === "rookies" || next.draftPlayerPool === "all")
+      ? next.draftPlayerPool
+      : dynasty?.draftPlayerPool;
+  const nextDynasty =
+    dynasty && nextPool
+      ? { ...dynasty, draftPlayerPool: nextPool }
+      : season.settings.dynasty;
   const before = {
     draftType: season.draftType,
     draftStartAt: season.draftStartAt.toISOString(),
@@ -63,8 +98,17 @@ export async function updateDraftConfig(
     pauseWindowEnd: beforeDraft.pauseWindowEnd ?? null,
     forceAutopickAfterTwoExpires:
       beforeDraft.forceAutopickAfterTwoExpires ?? false,
+    ...(dynasty
+      ? {
+          draftRounds: beforeDraft.rounds ?? maxRounds,
+          draftPlayerPool: dynasty.draftPlayerPool,
+        }
+      : {}),
   };
-  const afterSettings = toPersistedDraftSettings(next);
+  const afterSettings = toPersistedDraftSettings({
+    ...next,
+    ...(nextRounds != null ? { draftRounds: nextRounds } : {}),
+  });
   const after = {
     draftType: next.draftType,
     draftStartAt: draftStartAt.toISOString(),
@@ -81,6 +125,12 @@ export async function updateDraftConfig(
     forceAutopickAfterTwoExpires: Boolean(
       afterSettings.forceAutopickAfterTwoExpires,
     ),
+    ...(dynasty
+      ? {
+          draftRounds: nextRounds ?? maxRounds,
+          draftPlayerPool: nextPool ?? dynasty.draftPlayerPool,
+        }
+      : {}),
   };
 
   await db
@@ -92,6 +142,7 @@ export async function updateDraftConfig(
       settings: {
         ...season.settings,
         draft: withPreservedAutopickBackfill(afterSettings, beforeDraft),
+        ...(isDynasty ? { dynasty: nextDynasty } : {}),
       },
     })
     .where(eq(leagueSeasons.id, season.id));
@@ -146,6 +197,13 @@ export async function updateDraftConfig(
       {
         path: "forceAutopickAfterTwoExpires",
         label: "Force autopick after two missed picks",
+      },
+      { path: "draftRounds", label: "Draft rounds" },
+      {
+        path: "draftPlayerPool",
+        label: "Draft player pool",
+        format: (value) =>
+          value === "all" ? "All available players" : "Rookies only",
       },
     ]),
   });

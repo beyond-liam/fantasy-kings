@@ -7,6 +7,7 @@ import {
   getPlayoffWeekRange,
   isFantasyLeaguePreseason,
   isNflSeasonUnderway,
+  isRegularSeasonFinishedByNfl,
   isScheduleEditable,
   listPlayoffWeeksFromCalendar,
   resolveLeagueSeasonMaxWeek,
@@ -161,6 +162,35 @@ describe("playoff calendar helpers", () => {
         { season: "2026", season_type: "pre", week: 1, display_week: 1 },
         schedule,
       ),
+      true,
+    );
+  });
+});
+
+describe("isRegularSeasonFinishedByNfl", () => {
+  it("is true once the NFL week is past the league's regular-season end", () => {
+    assert.equal(
+      isRegularSeasonFinishedByNfl(2026, 14, {
+        season: "2026",
+        season_type: "regular",
+        week: 15,
+      }),
+      true,
+    );
+    assert.equal(
+      isRegularSeasonFinishedByNfl(2026, 14, {
+        season: "2026",
+        season_type: "regular",
+        week: 14,
+      }),
+      false,
+    );
+    assert.equal(
+      isRegularSeasonFinishedByNfl(2026, 14, {
+        season: "2026",
+        season_type: "post",
+        week: 1,
+      }),
       true,
     );
   });

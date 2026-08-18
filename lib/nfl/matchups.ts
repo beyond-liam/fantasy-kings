@@ -1,6 +1,8 @@
 import type { ScheduleGame } from "@/lib/espn/scoreboard";
 import { UK_TIME_ZONE } from "@/lib/datetime/uk-time";
 import { resolvePlayerByeWeek } from "@/lib/nfl/bye-weeks";
+import type { PositionalSosMatchup, PositionalSosTable } from "@/lib/players/matchup-difficulty";
+import { lookupPositionalSos } from "@/lib/players/matchup-difficulty";
 
 /** ESPN uses WSH; players/Sleeper often use WAS. */
 const TEAM_ALIASES: Record<string, string> = {
@@ -30,24 +32,38 @@ export type TeamMatchup = {
   detailLabel: string | null;
   hasPossession: boolean;
   inRedZone: boolean;
+  /** ESPN event id for `/scores/[gameId]`. */
+  gameId: string;
 };
 
 export type PlayerOpponent = {
   label: string;
+  /** Opposing NFL team abbrev; null for BYE. */
+  abbrev: string | null;
   /** e.g. "Sun 1pm" or "24-17" — null for BYE */
   kickoffLabel: string | null;
   gameStatus: ScheduleGame["status"] | null;
   hasPossession: boolean;
   inRedZone: boolean;
+  /** ESPN event id; null for BYE. */
+  gameId: string | null;
+  /** Positional SoS vs this opponent; omitted when unknown. */
+  matchup?: PositionalSosMatchup | null;
 };
+
+export function nflGamePath(gameId: string) {
+  return `/scores/${gameId}`;
+}
 
 function idleOpponent(label: string): PlayerOpponent {
   return {
     label,
+    abbrev: null,
     kickoffLabel: null,
     gameStatus: null,
     hasPossession: false,
     inRedZone: false,
+    gameId: null,
   };
 }
 
@@ -133,6 +149,7 @@ export function buildOpponentByTeam(
       detailLabel,
       hasPossession: homeHasBall,
       inRedZone: redZone,
+      gameId: game.id,
     });
     map.set(away, {
       label: `@ ${home}`,
@@ -143,6 +160,7 @@ export function buildOpponentByTeam(
       detailLabel,
       hasPossession: awayHasBall,
       inRedZone: redZone,
+      gameId: game.id,
     });
   }
 
@@ -189,9 +207,27 @@ export function resolvePlayerOpponent(input: {
 
   return {
     label: matchup.label,
+    abbrev: matchup.opponent,
     kickoffLabel: matchup.detailLabel,
     gameStatus: matchup.gameStatus,
     hasPossession: matchup.hasPossession,
     inRedZone: matchup.inRedZone,
+    gameId: matchup.gameId,
   };
+}
+
+/** Stamp Easy/Average/Hard SoS onto an opponent when the table has a rank. */
+export function withPositionalSos(
+  opponent: PlayerOpponent | null,
+  positionId: string | null | undefined,
+  table: PositionalSosTable | null | undefined,
+): PlayerOpponent | null {
+  if (!opponent) return null;
+  const matchup = lookupPositionalSos(
+    table,
+    positionId,
+    normalizeNflTeamAbbrev(opponent.abbrev),
+  );
+  if (!matchup || !positionId) return opponent;
+  return { ...opponent, matchup: { ...matchup, positionId } };
 }

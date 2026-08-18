@@ -61,6 +61,10 @@ export type LeagueActivityMetadata = {
   draftSource?: "manual" | "commissioner" | "autopick";
   keeperCount?: number;
   keeperPlayerIds?: string[];
+  setByCommissioner?: boolean;
+  clearedCount?: number;
+  clearanceSource?: "commissioner" | "deadline" | "draft_start";
+  seasonYear?: number;
 };
 
 export const leagueActivity = pgTable(

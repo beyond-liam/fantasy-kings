@@ -106,6 +106,7 @@ export async function getLeagueMatchupBoardLivePatch(input: {
 
   const scoreboardGames = scoreboard?.games ?? [];
   const games = await enrichWeekMatchupBoard({
+    leagueSeasonId: season.id,
     matchups,
     week,
     currentWeek: resolved.currentWeek,

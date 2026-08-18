@@ -52,10 +52,11 @@ import {
   getTeamRosterPlayers,
 } from "@/lib/queries/team-roster";
 import { getUserTeamForLeague } from "@/lib/queries/watchlist";
+import { parseWeekQueryParam } from "@/lib/leagues/matchup-week";
 
 type MyTeamPageProps = {
   params: Promise<{ leagueId: string }>;
-  searchParams: Promise<{ tab?: string; mock?: string }>;
+  searchParams: Promise<{ tab?: string; mock?: string; week?: string }>;
 };
 
 export async function generateMetadata({
@@ -96,7 +97,7 @@ export default async function MyTeamPage({
   searchParams,
 }: MyTeamPageProps) {
   const { leagueId: slug } = await params;
-  const { tab, mock } = await searchParams;
+  const { tab, mock, week } = await searchParams;
   const useChartsMock =
     process.env.NODE_ENV === "development" && (mock === "1" || mock === "true");
   const user = await getSessionUser();
@@ -153,6 +154,8 @@ export default async function MyTeamPage({
             benchSlots: season.benchSlots,
             irEnabled: season.irEnabled,
             taxiEnabled: season.taxiEnabled,
+            leagueSeasonId: season.id,
+            schedule: season.settings.schedule,
           }).then(() => getTeamRosterPlayers(team.id))
         : Promise.resolve([]),
     ]);
@@ -213,6 +216,7 @@ export default async function MyTeamPage({
           taxiSlots: season.taxiSlots,
           waiversEnabled: season.waiversEnabled,
           tradesEnabled: season.tradesEnabled,
+          regularSeasonEndWeek: season.regularSeasonEndWeek,
           settings: {
             rosterSlots: season.settings.rosterSlots,
             irEligibleStatuses: season.settings.irEligibleStatuses,
@@ -227,6 +231,7 @@ export default async function MyTeamPage({
         actionsEnabled={actionsEnabled}
         lineupEnabled={lineupEnabled}
         tradesEnabled={tradesEnabled}
+        requestedWeek={parseWeekQueryParam(week)}
       />,
     );
   } else if (activeTab === "keepers" && team && season.leagueType === "dynasty") {
@@ -317,7 +322,20 @@ export default async function MyTeamPage({
     );
   } else if (activeTab === "draft-picks" && team) {
     draftPicksPanel = wrapActivePanel(
-      <MyTeamDraftPicksPanel teamId={team.id} leagueSlug={slug} />,
+      <MyTeamDraftPicksPanel
+        teamId={team.id}
+        leagueSlug={slug}
+        leagueId={data.league.id}
+        leagueType={season.leagueType}
+        seasonYear={season.seasonYear}
+        tradesEnabled={tradesEnabled}
+        variant="mine"
+        partners={resolveTradePartners({
+          myTeamId: team.id,
+          members: data.members,
+          seasonTeams: data.standingsTeams,
+        })}
+      />,
     );
   } else if (activeTab === "settings" && team) {
     settingsPanel = wrapActivePanel(

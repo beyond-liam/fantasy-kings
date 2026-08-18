@@ -11,6 +11,7 @@ import { lastKickoffAt, isNflSlateComplete } from "@/lib/nfl/game-week";
 import { resolvePlayerAcquisitionKind } from "@/lib/leagues/waivers/resolve-kind";
 import { getRankedPlayers, getWeekProjectedFantasyPoints } from "@/lib/queries/players";
 import { getPlayerRosterRatesMap } from "@/lib/queries/player-roster-rates";
+import { getPositionalSosTable } from "@/lib/queries/positional-sos";
 import {
   getRosterTableStatMap,
   withRosterTableStats,
@@ -94,7 +95,8 @@ export async function MyTeamWatchlistPanel({
       ...watchlistPlayers.map((player) => player.id),
     ]),
   ];
-  const [rosterRates, projectedById, weekStats, tableStats] = await Promise.all([
+  const [rosterRates, projectedById, weekStats, tableStats, sos] =
+    await Promise.all([
     getPlayerRosterRatesMap(ratePlayerIds),
     getWeekProjectedFantasyPoints({
       season: nflSeason,
@@ -118,6 +120,11 @@ export async function MyTeamWatchlistPanel({
       nfl: nflState,
       schedule,
     }).catch(() => new Map()),
+    getPositionalSosTable({
+      season: nflSeason,
+      positionIds: watchlistPlayers.map((player) => player.primaryPositionId),
+      rules: scoringRules,
+    }),
   ]);
 
   const actualById = new Map(
@@ -159,7 +166,7 @@ export async function MyTeamWatchlistPanel({
       ),
       nflWeek,
       opponentsByTeam,
-      { seasonYear, seasonType: nflSeasonType },
+      { seasonYear, seasonType: nflSeasonType, sos },
     );
   });
 

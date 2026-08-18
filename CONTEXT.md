@@ -16,6 +16,7 @@ Shared vocabulary for product and architecture. Prefer these names over file-lev
 | **Matchup week scoring** | Starter totals + finality (`lib/leagues/matchups/week-scoring.ts`); finals reads in `finals.ts`; persist/cron in `finalize.ts` |
 | **Team acquisition** | Shared add/cut capacity + lineup-lock slotting (`lib/leagues/roster/acquisition.ts`) used by FA actions and Waiver awards |
 | **Team week history** | Finals + OPF + snapshots for Team Stats (`lib/leagues/team-week-history.ts`) |
+| **Lineup plan** | Future-week slot assignments (`team_week_lineup_plans`); applied to the live roster when that week becomes current |
 | **League Alert** | Domain event fan-out: resolve recipients once, then in-app + email adapters |
 
 ## League Alert

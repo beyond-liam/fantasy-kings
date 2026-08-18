@@ -35,6 +35,7 @@ import { updateTeamKeepers } from "@/lib/actions/keepers";
 import type { DynastySettings } from "@/db/schema/league-seasons";
 import {
   countKeepersTowardMax,
+  formatKeeperDeadlineLabel,
   keeperSlotCountsTowardMax,
 } from "@/lib/leagues/dynasty-settings";
 import { defaultSlotLabel } from "@/lib/leagues/roster-display";
@@ -59,6 +60,9 @@ type KeepersSelectionProps = {
   players: KeeperSelectionPlayer[];
   dynasty: DynastySettings;
   locked?: boolean;
+  /** When set, commissioner is saving keepers for this team. */
+  targetTeamId?: string;
+  actor?: "manager" | "commissioner";
 };
 
 function selectedFingerprint(ids: Set<string>) {
@@ -82,6 +86,8 @@ export function KeepersSelection({
   players,
   dynasty,
   locked = false,
+  targetTeamId,
+  actor = "manager",
 }: KeepersSelectionProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -106,6 +112,10 @@ export function KeepersSelection({
   const hasChanges = selectedFingerprint(selected) !== serverKey;
   const maxConfigured = allowed != null;
   const atMax = maxConfigured && counting >= allowed;
+  const deadlineLabel =
+    !locked && dynasty.keeperDeadlineAt
+      ? formatKeeperDeadlineLabel(dynasty.keeperDeadlineAt)
+      : null;
 
   const toggle = (player: KeeperSelectionPlayer) => {
     if (locked) return;
@@ -133,7 +143,11 @@ export function KeepersSelection({
 
   const handleSave = () => {
     startTransition(async () => {
-      const result = await updateTeamKeepers(slug, [...selected]);
+      const result = await updateTeamKeepers(
+        slug,
+        [...selected],
+        actor === "commissioner" ? targetTeamId : undefined,
+      );
       if (!result.success) {
         toast.error(result.error ?? "Could not save keepers.");
         return;
@@ -160,6 +174,12 @@ export function KeepersSelection({
             Keepers are locked until the draft completes.
           </AlertDescription>
         </Alert>
+      ) : deadlineLabel ? (
+        <Alert>
+          <AlertDescription>
+            {`Deadline ${deadlineLabel}. Non-keepers clear automatically.`}
+          </AlertDescription>
+        </Alert>
       ) : null}
 
       {sorted.length === 0 ? (
@@ -170,8 +190,9 @@ export function KeepersSelection({
             </EmptyMedia>
             <EmptyTitle>No players to keep yet</EmptyTitle>
             <EmptyDescription>
-              Once players are on your roster — usually after the draft — you
-              can mark keepers here to carry into next season.
+              {actor === "commissioner"
+                ? "This team has no rostered players."
+                : "Once players are on your roster — usually after the draft — you can mark keepers here to carry into next season."}
             </EmptyDescription>
           </EmptyHeader>
         </Empty>

@@ -1,14 +1,15 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { ArrowLeft02Icon, ArrowLeftRightIcon } from "@hugeicons/core-free-icons";
+import { ArrowLeft02Icon, ArrowLeftRightIcon, LicenseDraftIcon, UserMultipleIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
 import { PlayerAvatar } from "@/components/rankings/player-avatar";
 import { PlayerIdentity } from "@/components/rankings/player-identity";
 import { TradeConfirmDialog } from "@/components/trades/trade-confirm-dialog";
+import { TradePicksTable, type TradePickRow } from "@/components/trades/trade-picks-table";
 import { TradeRosterTable } from "@/components/trades/trade-roster-table";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,6 +23,8 @@ import {
   PopoverTitle,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   classifyDropCandidatesForMinimums,
   wouldOfferingBreachRosterMinimums,
@@ -29,6 +32,7 @@ import {
 import { listDropCandidates } from "@/lib/leagues/trades/validate";
 import { hasUpcomingKickoffWithinHours } from "@/lib/leagues/trades/week-hold";
 import { myTeamPath } from "@/lib/leagues/utils";
+import { teamInitials } from "@/lib/leagues/standings";
 import { stashPendingTradePropose } from "@/lib/trades/pending-propose";
 import type { TradePlayerRow } from "@/lib/queries/trades";
 import type { RosterSlotConfig } from "@/db/schema/league-seasons";
@@ -56,6 +60,11 @@ type TradeComposerProps = {
   partnerRoster: TradePlayerRow[];
   initialWantIds: string[];
   initialOfferIds: string[];
+  initialWantPickIds?: string[];
+  initialOfferPickIds?: string[];
+  myPicks?: TradePickRow[];
+  partnerPicks?: TradePickRow[];
+  showPicks?: boolean;
   counterOfTradeId?: string | null;
   rosterSlots: RosterSlotConfig[] | null | undefined;
   benchSlots: number;
@@ -87,34 +96,45 @@ function toggleSet(set: Set<string>, id: string) {
 
 function TradeSideChips({
   players,
+  picks = [],
   label,
   sectionLabel,
   leagueSlug,
 }: {
   players: TradePlayerRow[];
+  picks?: TradePickRow[];
   label: string;
   sectionLabel: string;
   leagueSlug: string;
 }) {
-  const visible = players.slice(0, VISIBLE_CHIPS);
-  const overflow = players.length - visible.length;
+  const visiblePlayers = players.slice(0, VISIBLE_CHIPS);
+  const overflowPlayers = players.length - visiblePlayers.length;
+  const visiblePicks = picks.slice(0, players.length === 0 ? VISIBLE_CHIPS : 2);
 
   return (
     <>
-      {visible.map((player) => (
+      {visiblePlayers.map((player) => (
         <TradePlayerChip
           key={player.id}
           player={player}
           leagueSlug={leagueSlug}
         />
       ))}
-      {overflow > 0 ? (
+      {visiblePicks.map((pick) => (
+        <span
+          key={pick.id}
+          className="max-w-20 truncate rounded-full bg-muted px-2 py-1 text-[10px] font-medium tabular-nums text-foreground"
+        >
+          {pick.primary}
+        </span>
+      ))}
+      {overflowPlayers > 0 ? (
         <Popover>
           <PopoverTrigger
             className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium tabular-nums text-foreground transition-colors hover:bg-muted/80 active:scale-[0.96]"
-            aria-label={`Show all ${players.length} players`}
+            aria-label={`Show all ${players.length + picks.length} assets`}
           >
-            +{overflow}
+            +{overflowPlayers + Math.max(0, picks.length - visiblePicks.length)}
           </PopoverTrigger>
           <PopoverContent
             side="top"
@@ -138,11 +158,16 @@ function TradeSideChips({
                   />
                 </li>
               ))}
+              {picks.map((pick) => (
+                <li key={pick.id} className="text-sm tabular-nums">
+                  {pick.primary}
+                </li>
+              ))}
             </ul>
           </PopoverContent>
         </Popover>
       ) : null}
-      {players.length === 0 ? (
+      {players.length === 0 && picks.length === 0 ? (
         <span className="text-xs text-muted-foreground">{label}</span>
       ) : null}
     </>
@@ -194,6 +219,11 @@ export function TradeComposer({
   partnerRoster,
   initialWantIds,
   initialOfferIds,
+  initialWantPickIds = [],
+  initialOfferPickIds = [],
+  myPicks = [],
+  partnerPicks = [],
+  showPicks = false,
   counterOfTradeId = null,
   rosterSlots,
   benchSlots,
@@ -207,6 +237,12 @@ export function TradeComposer({
   const [theirOfferIds, setTheirOfferIds] = useState(
     () => new Set(initialWantIds),
   );
+  const [myPickIds, setMyPickIds] = useState(
+    () => new Set(initialOfferPickIds),
+  );
+  const [theirPickIds, setTheirPickIds] = useState(
+    () => new Set(initialWantPickIds),
+  );
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [proposingDropIds, setProposingDropIds] = useState<string[]>([]);
   const [receivingDropIds, setReceivingDropIds] = useState<string[]>([]);
@@ -218,6 +254,14 @@ export function TradeComposer({
   const theirOfferPlayers = useMemo(
     () => partnerRoster.filter((player) => theirOfferIds.has(player.id)),
     [partnerRoster, theirOfferIds],
+  );
+  const myOfferPicks = useMemo(
+    () => myPicks.filter((pick) => myPickIds.has(pick.id)),
+    [myPicks, myPickIds],
+  );
+  const theirOfferPicks = useMemo(
+    () => partnerPicks.filter((pick) => theirPickIds.has(pick.id)),
+    [partnerPicks, theirPickIds],
   );
 
   const myMinimumBlockedOfferIds = useMemo(() => {
@@ -272,7 +316,8 @@ export function TradeComposer({
     });
 
   const canContinue =
-    myOfferPlayers.length > 0 && theirOfferPlayers.length > 0;
+    (myOfferPlayers.length > 0 || myOfferPicks.length > 0) &&
+    (theirOfferPlayers.length > 0 || theirOfferPicks.length > 0);
 
   const dropPreview = useMemo(() => {
     const myRosterSim = myRoster.map((player) => ({
@@ -351,6 +396,8 @@ export function TradeComposer({
       receivingOfferIds: [...theirOfferIds],
       proposingDropIds,
       receivingDropIds,
+      proposingPickIds: [...myPickIds],
+      receivingPickIds: [...theirPickIds],
       comment: input.comment,
       expiresAt: input.expiresAt?.toISOString() ?? null,
       ...(counterOfTradeId ? { counterOfTradeId } : {}),
@@ -383,29 +430,75 @@ export function TradeComposer({
           </h1>
           <p className="text-sm text-pretty text-muted-foreground">
             {counterOfTradeId
-              ? "Adjust the players, then send your counter-offer."
-              : "Select players from each roster, then review before sending."}
+              ? "Adjust the players and picks, then send your counter-offer."
+              : showPicks
+                ? "Select players or picks from each team, then review before sending."
+                : "Select players from each roster, then review before sending."}
           </p>
         </div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <TradeRosterTable
+        <ComposerTeamColumn
           teamName={myTeam.name}
-          players={myRoster}
-          selectedIds={myOfferIds}
-          onToggle={(id) => setMyOfferIds((current) => toggleSet(current, id))}
-          leagueSlug={leagueSlug}
-          blockedIds={myMinimumBlockedOfferIds}
-        />
-        <TradeRosterTable
-          teamName={partner.name}
-          players={partnerRoster}
-          selectedIds={theirOfferIds}
-          onToggle={(id) =>
-            setTheirOfferIds((current) => toggleSet(current, id))
+          showPicks={showPicks}
+          defaultTab={
+            initialOfferPickIds.length > 0 && initialOfferIds.length === 0
+              ? "picks"
+              : "roster"
           }
-          leagueSlug={leagueSlug}
+          roster={
+            <TradeRosterTable
+              teamName={showPicks ? null : myTeam.name}
+              players={myRoster}
+              selectedIds={myOfferIds}
+              onToggle={(id) =>
+                setMyOfferIds((current) => toggleSet(current, id))
+              }
+              leagueSlug={leagueSlug}
+              blockedIds={myMinimumBlockedOfferIds}
+            />
+          }
+          picks={
+            <TradePicksTable
+              teamName={null}
+              picks={myPicks}
+              selectedIds={myPickIds}
+              onToggle={(id) =>
+                setMyPickIds((current) => toggleSet(current, id))
+              }
+            />
+          }
+        />
+        <ComposerTeamColumn
+          teamName={partner.name}
+          showPicks={showPicks}
+          defaultTab={
+            initialWantPickIds.length > 0 && initialWantIds.length === 0
+              ? "picks"
+              : "roster"
+          }
+          roster={
+            <TradeRosterTable
+              teamName={showPicks ? null : partner.name}
+              players={partnerRoster}
+              selectedIds={theirOfferIds}
+              onToggle={(id) =>
+                setTheirOfferIds((current) => toggleSet(current, id))
+              }
+              leagueSlug={leagueSlug}
+            />
+          }
+          picks={
+            <TradePicksTable
+              teamName={null}
+              picks={partnerPicks}
+              selectedIds={theirPickIds}
+              onToggle={(id) =>
+                setTheirPickIds((current) => toggleSet(current, id))
+              }
+            />
+          }
         />
       </div>
 
@@ -413,6 +506,7 @@ export function TradeComposer({
         <FloatingActionBarSection label="You offer">
           <TradeSideChips
             players={myOfferPlayers}
+            picks={myOfferPicks}
             label="None selected"
             sectionLabel="You offer"
             leagueSlug={leagueSlug}
@@ -421,6 +515,7 @@ export function TradeComposer({
         <FloatingActionBarSection label="You receive">
           <TradeSideChips
             players={theirOfferPlayers}
+            picks={theirOfferPicks}
             label="None selected"
             sectionLabel="You receive"
             leagueSlug={leagueSlug}
@@ -450,6 +545,8 @@ export function TradeComposer({
         onOpenChange={setConfirmOpen}
         receivingPlayers={theirOfferPlayers}
         offeringPlayers={myOfferPlayers}
+        receivingPicks={theirOfferPicks}
+        offeringPicks={myOfferPicks}
         proposingDropCandidates={dropPreview.proposing.candidates
           .map((player) => myRoster.find((row) => row.id === player.id))
           .filter((row): row is TradePlayerRow => Boolean(row))}
@@ -464,6 +561,59 @@ export function TradeComposer({
         warnWeekEndFromKickoff={warnWeekEndFromKickoff}
         onConfirm={handlePropose}
       />
+    </div>
+  );
+}
+
+function ComposerTeamColumn({
+  teamName,
+  showPicks,
+  defaultTab,
+  roster,
+  picks,
+}: {
+  teamName: string;
+  showPicks: boolean;
+  defaultTab: "roster" | "picks";
+  roster: ReactNode;
+  picks: ReactNode;
+}) {
+  if (!showPicks) {
+    return roster;
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex min-w-0 items-center gap-2.5">
+        <Avatar size="sm" className="shrink-0">
+          <AvatarFallback>{teamInitials(teamName)}</AvatarFallback>
+        </Avatar>
+        <h2 className="truncate text-lg font-semibold tracking-tight">
+          {teamName}
+        </h2>
+      </div>
+      <Tabs defaultValue={defaultTab} className="gap-3">
+        <TabsList>
+          <TabsTrigger value="roster">
+            <HugeiconsIcon
+              icon={UserMultipleIcon}
+              strokeWidth={2}
+              data-icon="inline-start"
+            />
+            Roster
+          </TabsTrigger>
+          <TabsTrigger value="picks">
+            <HugeiconsIcon
+              icon={LicenseDraftIcon}
+              strokeWidth={2}
+              data-icon="inline-start"
+            />
+            Picks
+          </TabsTrigger>
+        </TabsList>
+        <TabsContent value="roster">{roster}</TabsContent>
+        <TabsContent value="picks">{picks}</TabsContent>
+      </Tabs>
     </div>
   );
 }

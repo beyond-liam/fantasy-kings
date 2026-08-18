@@ -225,6 +225,34 @@
       "when": 1786896000000,
       "tag": "0031_forced_autopick_after_expires",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1787068800000,
+      "tag": "0032_activity_keepers_cleared",
+      "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1787241600000,
+      "tag": "0033_draft_pick_assets",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1787328000000,
+      "tag": "0034_trade_picks",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1787414400000,
+      "tag": "0035_team_week_lineup_plans",
+      "breakpoints": true
     }
   ]
 }

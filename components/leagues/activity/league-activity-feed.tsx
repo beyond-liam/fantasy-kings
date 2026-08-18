@@ -5,6 +5,7 @@ import Link from "next/link";
 import {
   CarTaxiFrontIcon,
   Hospital01Icon,
+  Calendar03Icon,
   RefreshIcon,
   Settings01Icon,
   StudentCardIcon,
@@ -120,12 +121,13 @@ const ACTIVITY_FILTER_GROUPS = [
       "taxi_added",
       "taxi_removed",
       "keepers_set",
+      "keepers_cleared",
     ],
   },
   {
     value: "league",
     label: "Settings changes",
-    types: ["settings_updated", "score_corrected", "member_removed"],
+    types: ["settings_updated", "score_corrected", "member_removed", "season_started"],
   },
 ] as const satisfies ReadonlyArray<{
   value: string;
@@ -238,6 +240,16 @@ const ACTIVITY_META: Record<
     icon: LoyaltyCardIcon,
     tone: "info",
   },
+  keepers_cleared: {
+    label: "Keepers cleared",
+    icon: UserMinus01Icon,
+    tone: "warning",
+  },
+  season_started: {
+    label: "New season",
+    icon: Calendar03Icon,
+    tone: "info",
+  },
 };
 
 const ACTIVITY_TONE_CLASS: Record<
@@ -257,6 +269,14 @@ function resolveActivityTypeLabel(item: LeagueActivityRow): string {
     }
     if (item.metadata?.draftSource === "autopick") {
       return "Drafted by autopick";
+    }
+  }
+  if (item.type === "keepers_cleared") {
+    if (item.metadata?.clearanceSource === "deadline") {
+      return "Deadline";
+    }
+    if (item.metadata?.clearanceSource === "draft_start") {
+      return "Draft start";
     }
   }
   return ACTIVITY_META[item.type as FeedActivityType]?.label ?? "Activity";
@@ -326,7 +346,11 @@ function resolveActivitySummary(item: LeagueActivityRow): string {
   if (item.type === "keepers_set") {
     const count = meta?.keeperCount;
     if (typeof count === "number" && Number.isFinite(count)) {
-      return `${liveName} set ${count} keeper${count === 1 ? "" : "s"}`;
+      const countLabel = `${count} keeper${count === 1 ? "" : "s"}`;
+      if (meta?.setByCommissioner) {
+        return `Commissioner set ${countLabel} for ${liveName}`;
+      }
+      return `${liveName} set ${countLabel}`;
     }
   }
 

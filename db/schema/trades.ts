@@ -9,6 +9,7 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 
+import { draftPickAssets } from "./draft-pick-assets";
 import { tradeStatusEnum } from "./league-enums";
 import { leagueSeasons } from "./league-seasons";
 import { players } from "./players";
@@ -96,6 +97,30 @@ export const tradePlayers = pgTable(
     ),
     index("trade_players_team_id_idx").on(table.teamId),
     index("trade_players_player_id_idx").on(table.playerId),
+  ],
+);
+
+export const tradePicks = pgTable(
+  "trade_picks",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tradeId: uuid("trade_id")
+      .notNull()
+      .references(() => trades.id, { onDelete: "cascade" }),
+    teamId: uuid("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    draftPickAssetId: uuid("draft_pick_asset_id")
+      .notNull()
+      .references(() => draftPickAssets.id, { onDelete: "restrict" }),
+  },
+  (table) => [
+    uniqueIndex("trade_picks_trade_asset_idx").on(
+      table.tradeId,
+      table.draftPickAssetId,
+    ),
+    index("trade_picks_team_id_idx").on(table.teamId),
+    index("trade_picks_asset_id_idx").on(table.draftPickAssetId),
   ],
 );
 

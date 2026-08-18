@@ -101,6 +101,8 @@ type DraftPlayerPoolProps = {
   isCommissioner: boolean;
   /** Hide the queue column (e.g. mock drafts). */
   showQueue?: boolean;
+  /** When true, the pool is rookies-only and the filter cannot be turned off. */
+  rookiesOnlyLocked?: boolean;
   /** Local draft handler — skips league server actions when set. */
   onDraftPlayer?: (playerId: string) => void;
   /** League roster positions for filters. Defaults to all. */
@@ -397,6 +399,7 @@ export function DraftPlayerPool({
   isMyTurn,
   isCommissioner,
   showQueue = true,
+  rookiesOnlyLocked = false,
   onDraftPlayer,
   positions = POSITION_FILTERS,
   projectedPicks = EMPTY_PROJECTED_PICKS,
@@ -422,7 +425,7 @@ export function DraftPlayerPool({
   );
   const [position, setPosition] = useState<DraftPoolPosition>("ALL");
   const [team, setTeam] = useState("ALL");
-  const [rookiesOnly, setRookiesOnly] = useState(false);
+  const [rookiesOnly, setRookiesOnly] = useState(rookiesOnlyLocked);
   const [hideDrafted, setHideDrafted] = useState(true);
   const [search, setSearch] = useState("");
   const [sorting, setSorting] = useState<SortingState>(DEFAULT_SORTING);
@@ -819,6 +822,7 @@ export function DraftPlayerPool({
                 <Switch
                   id="draft-pool-rookies"
                   checked={rookiesOnly}
+                  disabled={rookiesOnlyLocked}
                   onCheckedChange={setRookiesOnly}
                 />
               </Field>
@@ -859,6 +863,7 @@ export function DraftPlayerPool({
             id="draft-pool-desktop-rookies"
             size="sm"
             checked={rookiesOnly}
+            disabled={rookiesOnlyLocked}
             onCheckedChange={setRookiesOnly}
           />
           <FieldLabel

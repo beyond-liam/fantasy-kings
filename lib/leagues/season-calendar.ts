@@ -245,3 +245,37 @@ export function isFantasyLeaguePreseason(
 ): boolean {
   return !isNflSeasonUnderway(seasonYear, nfl, schedule);
 }
+
+type NflCalendarState = {
+  season: string;
+  season_type: string;
+  week: number;
+};
+
+/**
+ * True when the NFL calendar has moved past this league's regular-season end
+ * (same gate as commissioner settings `regularSeasonFinished`).
+ */
+export function isRegularSeasonFinishedByNfl(
+  seasonYear: number,
+  regularSeasonEndWeek: number,
+  nfl: NflCalendarState | null | undefined,
+): boolean {
+  if (!nfl) return false;
+  const nflYear = Number(nfl.season);
+  if (!Number.isFinite(nflYear)) return false;
+  if (
+    nflYear > seasonYear &&
+    nfl.season_type !== "pre" &&
+    nfl.season_type !== "off"
+  ) {
+    return true;
+  }
+  if (nflYear !== seasonYear) return false;
+  return (
+    nfl.season_type === "post" ||
+    nfl.season_type === "playoffs" ||
+    (nfl.season_type === "regular" &&
+      Number(nfl.week) > regularSeasonEndWeek)
+  );
+}

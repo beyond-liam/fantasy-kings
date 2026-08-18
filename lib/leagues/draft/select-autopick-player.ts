@@ -7,8 +7,9 @@ import type { LeagueSeasonSettings } from "@/db/schema/league-seasons";
 import { db } from "@/lib/db";
 import {
   buildDraftSchedule,
-  getDraftRounds,
+  draftRoundsForSeason,
 } from "@/lib/leagues/draft/board";
+import { dynastyDraftPoolRestrictsToRookies, isEligibleForDraftPlayerPool } from "@/lib/leagues/draft/pool";
 import { resolveDraftSettings } from "@/lib/leagues/draft-settings";
 
 type AutopickSeasonTeam = {
@@ -43,7 +44,10 @@ export async function selectAutopickPlayerId(input: {
       draftSlot: team.draftSlot as number,
     }));
 
-  const rounds = getDraftRounds(input.settings.rosterSlots, input.benchSlots);
+  const rounds = draftRoundsForSeason({
+    settings: input.settings,
+    benchSlots: input.benchSlots,
+  });
   const schedule = buildDraftSchedule({
     teams: teamsWithSlots,
     rounds,
@@ -68,14 +72,26 @@ export async function selectAutopickPlayerId(input: {
       byeWeek: row.byeWeek,
     }));
 
+  const restrictToRookies = dynastyDraftPoolRestrictsToRookies(
+    input.settings.dynasty,
+  );
+
   const queueRows = await db
-    .select({ playerId: draftQueue.playerId })
+    .select({
+      playerId: draftQueue.playerId,
+      yearsExp: players.yearsExp,
+    })
     .from(draftQueue)
+    .innerJoin(players, eq(players.id, draftQueue.playerId))
     .where(eq(draftQueue.teamId, input.teamId))
     .orderBy(asc(draftQueue.sortOrder));
 
   const queued =
-    queueRows.find((row) => !drafted.has(row.playerId))?.playerId ?? null;
+    queueRows.find(
+      (row) =>
+        !drafted.has(row.playerId) &&
+        isEligibleForDraftPlayerPool(row.yearsExp, restrictToRookies),
+    )?.playerId ?? null;
   if (queued) {
     return queued;
   }
@@ -108,7 +124,11 @@ export async function selectAutopickPlayerId(input: {
   }).catch(() => []);
 
   const available = ranked
-    .filter((player) => !drafted.has(player.id))
+    .filter(
+      (player) =>
+        !drafted.has(player.id) &&
+        isEligibleForDraftPlayerPool(player.yearsExp, restrictToRookies),
+    )
     .map((player) => ({
       id: player.id,
       fullName: player.fullName,

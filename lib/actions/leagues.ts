@@ -44,6 +44,7 @@ import { getNflState } from "@/lib/sleeper/api";
 import {
   getLeagueByInviteCode,
   getLeagueBySlug,
+  getLeagueSeason,
   isLeagueMember,
 } from "@/lib/queries/leagues";
 import { ensureSeasonTeamSlots } from "@/lib/leagues/ensure-team-slots";
@@ -299,12 +300,7 @@ export async function claimTeam(
     redirect(`/league/${league.publicId}`);
   }
 
-  const [season] = await db
-    .select()
-    .from(leagueSeasons)
-    .where(eq(leagueSeasons.leagueId, league.id))
-    .orderBy(leagueSeasons.createdAt)
-    .limit(1);
+  const season = await getLeagueSeason(league.id);
 
   if (!season) {
     return { success: false, error: "League is not ready to accept members yet." };

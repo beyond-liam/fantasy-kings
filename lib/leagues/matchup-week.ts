@@ -1,12 +1,13 @@
 import type { ScheduleSettings } from "@/db/schema/league-seasons";
+import { calendarSeasonTypesForSchedule } from "@/lib/account/schedule-settings";
 import { getNflScoreboard, type ScheduleWeek } from "@/lib/espn/scoreboard";
 import {
-  espnPreseasonWeekToUser,
   espnSeasonTypeForNfl,
   fantasyRegularSeasonEndWeek,
   fantasyWeekFromNflState,
   fantasyWeekToNfl,
   MAX_FANTASY_WEEK,
+  type NflCalendarPoint,
 } from "@/lib/leagues/schedule/fantasy-week-map";
 import { resolveScheduleSettings } from "@/lib/leagues/schedule/settings";
 import { getDefaultScheduleWeek } from "@/lib/nfl/schedule-week";
@@ -17,6 +18,20 @@ export type FantasyWeekOption = {
   label: string;
   rangeLabel: string;
 };
+
+export function rangeLabelForNflWeek(
+  calendarWeeks: ScheduleWeek[],
+  nfl: NflCalendarPoint | null,
+): string {
+  if (!nfl) return "";
+  const seasonType = espnSeasonTypeForNfl(nfl.seasonType);
+  return (
+    calendarWeeks.find(
+      (entry) =>
+        entry.number === nfl.week && entry.seasonType === seasonType,
+    )?.rangeLabel ?? ""
+  );
+}
 
 /**
  * Resolve the fantasy schedule week. Fantasy week numbers may include leading
@@ -41,23 +56,13 @@ export async function resolveFantasyMatchupWeek(options: {
     1,
     fantasyRegularSeasonEndWeek(options.nflRegularSeasonEndWeek, settings),
   );
-
-  const weeks: FantasyWeekOption[] = [];
-  for (let number = 1; number <= maxWeek; number++) {
-    const nfl = fantasyWeekToNfl(number, settings);
-    weeks.push({
-      number,
-      label: `Week ${number}`,
-      rangeLabel:
-        nfl?.seasonType === "pre"
-          ? `NFL Preseason ${espnPreseasonWeekToUser(nfl.week) ?? nfl.week}`
-          : nfl
-            ? `NFL Week ${nfl.week}`
-            : "",
-    });
-  }
+  const calendarSeasonTypes = calendarSeasonTypesForSchedule({
+    includePreseason: settings.includePreseason ?? false,
+    preseasonStartWeek: settings.preseasonStartWeek ?? 1,
+  });
 
   let defaultWeek = 1;
+  let calendarWeeks: ScheduleWeek[] = [];
   try {
     const state = await getNflState();
     if (Number(state.season) === options.seasonYear) {
@@ -65,13 +70,19 @@ export async function resolveFantasyMatchupWeek(options: {
       if (mapped != null) {
         defaultWeek = Math.min(Math.max(1, mapped), maxWeek);
       }
-    } else {
-      const bootstrap = await getNflScoreboard({
-        season: options.seasonYear,
-        week: 1,
-        seasonType: 2,
-      });
-      const regularWeeks = bootstrap.weeks.filter(
+    }
+
+    const bootstrapNfl = fantasyWeekToNfl(defaultWeek, settings);
+    const board = await getNflScoreboard({
+      season: options.seasonYear,
+      week: bootstrapNfl?.week ?? 1,
+      seasonType: espnSeasonTypeForNfl(bootstrapNfl?.seasonType ?? "regular"),
+      calendarSeasonTypes,
+    });
+    calendarWeeks = board.weeks;
+
+    if (Number(state.season) !== options.seasonYear) {
+      const regularWeeks = calendarWeeks.filter(
         (entry) =>
           entry.seasonType === 2 &&
           entry.number >= 1 &&
@@ -89,27 +100,21 @@ export async function resolveFantasyMatchupWeek(options: {
     defaultWeek = 1;
   }
 
+  const weeks: FantasyWeekOption[] = [];
+  for (let number = 1; number <= maxWeek; number++) {
+    const nfl = fantasyWeekToNfl(number, settings);
+    weeks.push({
+      number,
+      label: `Week ${number}`,
+      rangeLabel: rangeLabelForNflWeek(calendarWeeks, nfl),
+    });
+  }
+
   const requested = options.requestedWeek;
   const week =
     requested != null && weeks.some((entry) => entry.number === requested)
       ? requested
       : defaultWeek;
-
-  // Optional ESPN windows for the selected week (range labels / refresh).
-  let calendarWeeks: ScheduleWeek[] = [];
-  const selectedNfl = fantasyWeekToNfl(week, settings);
-  if (selectedNfl) {
-    try {
-      const board = await getNflScoreboard({
-        season: options.seasonYear,
-        week: selectedNfl.week,
-        seasonType: espnSeasonTypeForNfl(selectedNfl.seasonType),
-      });
-      calendarWeeks = board.weeks;
-    } catch {
-      calendarWeeks = [];
-    }
-  }
 
   return { week, weeks, calendarWeeks, currentWeek: defaultWeek };
 }

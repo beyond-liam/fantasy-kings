@@ -91,6 +91,9 @@ export function tradeComposerPath(
     want?: string | string[];
     offer?: string | string[];
     counter?: string;
+    /** Dynasty pick asset ids — consumed by the composer. */
+    wantPick?: string | string[];
+    offerPick?: string | string[];
   },
 ) {
   const base = `/league/${leagueId}/trades/new`;
@@ -106,6 +109,8 @@ export function tradeComposerPath(
   if (params.counter) {
     search.set("counter", params.counter);
   }
+  setComposerIds(search, "wantPick", params.wantPick);
+  setComposerIds(search, "offerPick", params.offerPick);
   const query = search.toString();
   return query ? `${base}?${query}` : base;
 }

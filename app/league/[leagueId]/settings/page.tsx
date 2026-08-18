@@ -9,6 +9,13 @@ import {
   isLeagueCommissioner,
 } from "@/lib/queries/leagues";
 import { getNflState } from "@/lib/sleeper/api";
+import { resolveDynastySettings } from "@/lib/leagues/dynasty-settings";
+import { processDueKeeperDeadline } from "@/lib/leagues/keepers/process";
+import { isRegularSeasonFinishedByNfl } from "@/lib/leagues/season-calendar";
+import {
+  getNonKeeperClearancePreview,
+  listKeeperTeamOptions,
+} from "@/lib/queries/keepers";
 
 type LeagueSettingsPageProps = {
   params: Promise<{ leagueId: string }>;
@@ -46,15 +53,11 @@ export default async function LeagueSettingsPage({
   const nfl = season ? await getNflState().catch(() => null) : null;
   const regularSeasonFinished = Boolean(
     season &&
-      nfl &&
-      ((Number(nfl.season) > season.seasonYear &&
-        nfl.season_type !== "pre" &&
-        nfl.season_type !== "off") ||
-        (Number(nfl.season) === season.seasonYear &&
-          (nfl.season_type === "post" ||
-            nfl.season_type === "playoffs" ||
-            (nfl.season_type === "regular" &&
-              Number(nfl.week) > season.regularSeasonEndWeek)))),
+      isRegularSeasonFinishedByNfl(
+        season.seasonYear,
+        season.regularSeasonEndWeek,
+        nfl,
+      ),
   );
   const boxScoresEditable = Boolean(
     season &&
@@ -74,6 +77,23 @@ export default async function LeagueSettingsPage({
     }))
     .toSorted((a, b) => a.displayName.localeCompare(b.displayName));
 
+  const isDynasty = season?.leagueType === "dynasty";
+  const deadline = isDynasty
+    ? await processDueKeeperDeadline(slug)
+    : { dynasty: null };
+  const dynasty =
+    deadline.dynasty ??
+    (isDynasty && season
+      ? resolveDynastySettings(season.settings.dynasty)
+      : null);
+  const [keeperTeams, clearanceTeams] =
+    isDynasty && season
+      ? await Promise.all([
+          listKeeperTeamOptions(season.id),
+          getNonKeeperClearancePreview(season.id),
+        ])
+      : [[], []];
+
   return (
     <LeagueSettings
       league={data.league}
@@ -82,6 +102,10 @@ export default async function LeagueSettingsPage({
       regularSeasonFinished={regularSeasonFinished}
       boxScoresEditable={boxScoresEditable}
       owners={owners}
+      keeperTeams={keeperTeams}
+      clearanceTeams={clearanceTeams}
+      keepersLocked={dynasty?.keepersLocked ?? false}
+      keepersMaxConfigured={dynasty?.keepersMax != null}
     />
   );
 }

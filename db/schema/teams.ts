@@ -11,6 +11,11 @@ export const teams = pgTable(
     leagueSeasonId: uuid("league_season_id")
       .notNull()
       .references(() => leagueSeasons.id, { onDelete: "cascade" }),
+    /**
+     * Stable franchise id across seasons. Copied when starting a new season
+     * so future picks can follow the same team.
+     */
+    lineageId: uuid("lineage_id").notNull().defaultRandom(),
     /** Null until a manager claims this slot. */
     userId: uuid("user_id").references(() => profiles.id, {
       onDelete: "set null",
@@ -57,6 +62,10 @@ export const teams = pgTable(
     uniqueIndex("teams_season_public_id_idx").on(
       table.leagueSeasonId,
       table.publicId,
+    ),
+    uniqueIndex("teams_season_lineage_idx").on(
+      table.leagueSeasonId,
+      table.lineageId,
     ),
   ],
 );

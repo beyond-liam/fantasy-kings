@@ -237,7 +237,7 @@ export function DynastySettingsForm({
               </Field>
               <Field>
                 <FieldLabel htmlFor="keeperDeadlineTime">
-                  Deadline time
+                  Deadline time ({zone})
                 </FieldLabel>
                 <TimePicker
                   id="keeperDeadlineTime"

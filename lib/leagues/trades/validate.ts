@@ -8,6 +8,7 @@ import {
   validateActiveRosterCaps,
 } from "@/lib/leagues/roster-capacity";
 import { validateRosterMinimums } from "@/lib/leagues/roster-minimums";
+import { tradeSideHasOffer } from "@/lib/leagues/trades/picks";
 
 export type TradeRosterPlayer = {
   id: string;
@@ -389,18 +390,31 @@ export function validateTradeProposal(input: {
   receivingOfferIds: string[];
   proposingDropIds: string[];
   receivingDropIds: string[];
+  proposingPickIds?: string[];
+  receivingPickIds?: string[];
   rosterSlots: RosterSlotConfig[] | null | undefined;
   benchSlots: number;
   enforceRosterMinimums: boolean;
 }): TradeValidationResult {
   const errors: string[] = [];
+  const proposingPickIds = input.proposingPickIds ?? [];
+  const receivingPickIds = input.receivingPickIds ?? [];
 
-  if (input.proposingOfferIds.length === 0 && input.receivingOfferIds.length === 0) {
-    errors.push("Select at least one player to trade.");
+  const proposingHasOffer = tradeSideHasOffer({
+    playerIds: input.proposingOfferIds,
+    pickIds: proposingPickIds,
+  });
+  const receivingHasOffer = tradeSideHasOffer({
+    playerIds: input.receivingOfferIds,
+    pickIds: receivingPickIds,
+  });
+
+  if (!proposingHasOffer && !receivingHasOffer) {
+    errors.push("Select at least one player or pick to trade.");
   }
 
-  if (input.proposingOfferIds.length === 0 || input.receivingOfferIds.length === 0) {
-    errors.push("Each team must offer at least one player.");
+  if (!proposingHasOffer || !receivingHasOffer) {
+    errors.push("Each team must offer at least one player or pick.");
   }
 
   const proposingReceiving = input.receivingRoster.filter((player) =>

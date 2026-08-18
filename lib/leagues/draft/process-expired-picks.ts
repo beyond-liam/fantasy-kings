@@ -7,7 +7,7 @@ import { drafts, leagueSeasons, leagues } from "@/db/schema";
 import { db } from "@/lib/db";
 import {
   buildDraftSchedule,
-  getDraftRounds,
+  draftRoundsForSeason,
 } from "@/lib/leagues/draft/board";
 import { commitDraftPick } from "@/lib/leagues/draft/pick";
 import { isDraftAutopickDue } from "@/lib/leagues/draft/autopick-due";
@@ -95,7 +95,10 @@ export async function runDraftAutopick(input: {
       userId: team.userId,
     }));
 
-  const rounds = getDraftRounds(season.settings.rosterSlots, season.benchSlots);
+  const rounds = draftRoundsForSeason({
+    settings: season.settings,
+    benchSlots: season.benchSlots,
+  });
   const schedule = buildDraftSchedule({
     teams: teamsWithSlots,
     rounds,

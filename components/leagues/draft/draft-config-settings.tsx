@@ -55,15 +55,29 @@ const DRAFT_STYLE_ITEMS = [
   { value: "linear", label: "Linear" },
 ] as const;
 
+const DRAFT_POOL_ITEMS = [
+  { value: "rookies", label: "Rookies only" },
+  { value: "all", label: "All available players" },
+] as const;
+
+type DynastyDraftConfigMeta = {
+  isStartup: boolean;
+  maxRounds: number;
+  rosterCap: number;
+  keepersMax: number | null;
+};
+
 type DraftConfigSettingsProps = {
   slug: string;
   leagueName: string;
   initialValues: DraftConfigFormValues;
+  dynasty?: DynastyDraftConfigMeta | null;
 };
 
 export function DraftConfigSettings({
   slug,
   initialValues,
+  dynasty = null,
 }: DraftConfigSettingsProps) {
   const router = useRouter();
   const [baseline, setBaseline] = useState(() =>
@@ -252,6 +266,55 @@ export function DraftConfigSettings({
           </FieldDescription>
         </Field>
 
+        {dynasty ? (
+          <>
+            <Field data-disabled={dynasty.isStartup || dynasty.maxRounds === 0}>
+              <FieldLabel htmlFor="draftRounds">Number of rounds</FieldLabel>
+              <NumberInput
+                id="draftRounds"
+                min={dynasty.maxRounds === 0 ? 0 : 1}
+                max={dynasty.maxRounds}
+                value={values.draftRounds ?? dynasty.maxRounds}
+                disabled={dynasty.isStartup || dynasty.maxRounds === 0}
+                onValueChange={(draftRounds) => patch({ draftRounds })}
+              />
+              <FieldDescription>
+                {dynastyRoundsDescription(dynasty)}
+              </FieldDescription>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="draftPlayerPool">Player pool</FieldLabel>
+              <Select
+                items={[...DRAFT_POOL_ITEMS]}
+                value={values.draftPlayerPool ?? "rookies"}
+                onValueChange={(value) => {
+                  if (value === "rookies" || value === "all") {
+                    patch({ draftPlayerPool: value });
+                  }
+                }}
+              >
+                <SelectTrigger id="draftPlayerPool" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    {DRAFT_POOL_ITEMS.map((item) => (
+                      <SelectItem key={item.value} value={item.value}>
+                        {item.label}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+              <FieldDescription>
+                {dynasty.isStartup
+                  ? "Startup drafts include all available players. This applies to later drafts after keepers."
+                  : "Who can be drafted after keepers are set."}
+              </FieldDescription>
+            </Field>
+          </>
+        ) : null}
+
         {values.draftType === "email" ? (
           <SwitchField
             id="pickTimeLimitEnabled"
@@ -386,4 +449,19 @@ export function DraftConfigSettings({
       </SettingsFormCard>
     </div>
   );
+}
+
+function dynastyRoundsDescription(dynasty: DynastyDraftConfigMeta): string {
+  if (dynasty.isStartup) {
+    const spare = Math.max(0, dynasty.rosterCap - (dynasty.keepersMax ?? 0));
+    const later =
+      dynasty.keepersMax != null
+        ? ` Later drafts cap at ${spare} round${spare === 1 ? "" : "s"} after keepers.`
+        : "";
+    return `Startup draft fills every roster spot (${dynasty.rosterCap} rounds).${later}`;
+  }
+  if (dynasty.keepersMax == null) {
+    return "Set keepers max in Dynasty Rules to cap rounds at spare roster spots.";
+  }
+  return `At most ${dynasty.maxRounds} round${dynasty.maxRounds === 1 ? "" : "s"} (roster minus keepers max).`;
 }

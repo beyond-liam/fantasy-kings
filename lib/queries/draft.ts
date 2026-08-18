@@ -15,7 +15,7 @@ import { formatPersonName } from "@/lib/account/person-name";
 import { db } from "@/lib/db";
 import {
   buildDraftSchedule,
-  getDraftRounds,
+  draftRoundsForSeason,
   type DraftScheduleSlot,
   type DraftTeamSlot,
 } from "@/lib/leagues/draft/board";
@@ -259,7 +259,10 @@ export async function getDraftRoomData(input: {
       forcedAutoPick: team.forcedAutoPick,
     }));
 
-  const rounds = getDraftRounds(input.settings.rosterSlots, input.benchSlots);
+  const rounds = draftRoundsForSeason({
+    settings: input.settings,
+    benchSlots: input.benchSlots,
+  });
   const schedule = buildDraftSchedule({
     teams: teamsWithSlots,
     rounds,

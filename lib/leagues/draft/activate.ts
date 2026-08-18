@@ -1,8 +1,10 @@
 import { eq, inArray } from "drizzle-orm";
 
-import { drafts, leagueSeasons, teams } from "@/db/schema";
+import { drafts, leagueSeasons, leagues, teams } from "@/db/schema";
 import { db } from "@/lib/db";
 import { computeTurnExpiresAt } from "@/lib/leagues/draft/clock";
+import { draftRoundsForSeason } from "@/lib/leagues/draft/board";
+import { resolveDynastySettings, withKeepersLocked } from "@/lib/leagues/dynasty-settings";
 import { getDraftBySeasonId } from "@/lib/queries/draft";
 
 type SeasonTeamSlot = {
@@ -105,6 +107,39 @@ export async function activateDraftLive(input: {
   const now = new Date();
   const resumed = existing?.status === "paused";
 
+  const [season] = await db
+    .select()
+    .from(leagueSeasons)
+    .where(eq(leagueSeasons.id, seasonId))
+    .limit(1);
+
+  let seasonSettings = season?.settings;
+
+  if (!resumed && season?.leagueType === "dynasty") {
+    const [league] = await db
+      .select({ publicId: leagues.publicId })
+      .from(leagues)
+      .where(eq(leagues.id, season.leagueId))
+      .limit(1);
+    if (league) {
+      const { clearNonKeepersForSeason } = await import(
+        "@/lib/leagues/keepers/process"
+      );
+      const cleared = await clearNonKeepersForSeason({
+        leagueSeasonId: seasonId,
+        leaguePublicId: league.publicId,
+        source: "draft_start",
+        now,
+      });
+      if (cleared.ok) {
+        seasonSettings = {
+          ...season.settings,
+          dynasty: cleared.dynasty,
+        };
+      }
+    }
+  }
+
   if (resumed && existing) {
     const remaining =
       existing.pausedSecondsRemaining ??
@@ -149,6 +184,44 @@ export async function activateDraftLive(input: {
     await db
       .update(leagueSeasons)
       .set({ status: "draft" })
+      .where(eq(leagueSeasons.id, seasonId));
+  }
+
+  const rounds =
+    season && seasonSettings
+      ? draftRoundsForSeason({
+          settings: seasonSettings,
+          benchSlots: season.benchSlots,
+        })
+      : 1;
+  if (!resumed && rounds <= 0 && season && seasonSettings) {
+    const draftRow = await getDraftBySeasonId(seasonId);
+    if (draftRow) {
+      await db
+        .update(drafts)
+        .set({
+          status: "complete",
+          completedAt: now,
+          turnExpiresAt: null,
+          pausedAt: null,
+          pausedSecondsRemaining: null,
+        })
+        .where(eq(drafts.id, draftRow.id));
+    }
+    const dynasty = resolveDynastySettings(seasonSettings.dynasty);
+    await db
+      .update(leagueSeasons)
+      .set({
+        status: "active",
+        ...(dynasty.keepersLocked
+          ? {
+              settings: {
+                ...seasonSettings,
+                dynasty: withKeepersLocked(dynasty, false),
+              },
+            }
+          : {}),
+      })
       .where(eq(leagueSeasons.id, seasonId));
   }
 

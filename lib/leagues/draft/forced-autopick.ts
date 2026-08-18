@@ -6,7 +6,7 @@ import { drafts, leagueSeasons, teams } from "@/db/schema";
 import { db } from "@/lib/db";
 import {
   buildDraftSchedule,
-  getDraftRounds,
+  draftRoundsForSeason,
 } from "@/lib/leagues/draft/board";
 import { resolveTurnExpiresAt } from "@/lib/leagues/draft/clock";
 import { resolveDraftSettings } from "@/lib/leagues/draft-settings";
@@ -88,7 +88,10 @@ export async function releaseForcedAutopickForUser(
 
       const schedule = buildDraftSchedule({
         teams: teamsWithSlots,
-        rounds: getDraftRounds(season.settings.rosterSlots, season.benchSlots),
+        rounds: draftRoundsForSeason({
+          settings: season.settings,
+          benchSlots: season.benchSlots,
+        }),
         style: resolveDraftSettings(season.settings.draft).style,
       });
       const onClock = schedule[draft.currentPickIndex];

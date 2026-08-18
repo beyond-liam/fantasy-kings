@@ -85,6 +85,8 @@ type DraftRoomProps = {
   pausedSecondsRemaining: number | null;
   /** League roster positions for the player pool filter. */
   positions?: readonly PositionFilter[];
+  /** Year-2+ dynasty rookies-only pool. */
+  rookiesOnlyLocked?: boolean;
 };
 
 const DRAFT_TABS: readonly MobileTabDrawerItem[] = [
@@ -179,6 +181,7 @@ export function DraftRoom({
   turnExpiresAt,
   pausedSecondsRemaining,
   positions,
+  rookiesOnlyLocked = false,
 }: DraftRoomProps) {
   const router = useRouter();
   const [tab, setTab] = useState("board");
@@ -712,6 +715,7 @@ export function DraftRoom({
                 isCommissioner={isCommissioner}
                 positions={positions}
                 projectedPicks={projectedPicks}
+                rookiesOnlyLocked={rookiesOnlyLocked}
               />
             ) : null}
           </TabsContent>

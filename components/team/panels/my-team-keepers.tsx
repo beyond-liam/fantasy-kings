@@ -1,5 +1,6 @@
 import { KeepersSelection } from "@/components/team/keepers-selection";
 import { resolveDynastySettings } from "@/lib/leagues/dynasty-settings";
+import { processDueKeeperDeadline } from "@/lib/leagues/keepers/process";
 import type { DynastySettings } from "@/db/schema/league-seasons";
 import {
   ensureTeamRosterSlotsAssigned,
@@ -26,6 +27,7 @@ export async function MyTeamKeepersPanel({
   irEnabled,
   taxiEnabled,
 }: MyTeamKeepersPanelProps) {
+  const deadline = await processDueKeeperDeadline(slug);
   await ensureTeamRosterSlotsAssigned({
     teamId,
     rosterSlots,
@@ -34,7 +36,7 @@ export async function MyTeamKeepersPanel({
     taxiEnabled,
   });
   const players = await getTeamRosterPlayers(teamId);
-  const settings = resolveDynastySettings(dynasty);
+  const settings = deadline.dynasty ?? resolveDynastySettings(dynasty);
 
   return (
     <KeepersSelection
@@ -42,7 +44,7 @@ export async function MyTeamKeepersPanel({
       leagueSlug={slug}
       players={players}
       dynasty={settings}
-      locked={false}
+      locked={settings.keepersLocked}
     />
   );
 }

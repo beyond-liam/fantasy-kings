@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { players, rosterPlayers, teams } from "@/db/schema";
+import type { ScheduleSettings } from "@/db/schema/league-seasons";
 import { db } from "@/lib/db";
 import { logLeagueActivity, logReservePlacementFromAcquisition } from "@/lib/leagues/activity-log";
 import {
@@ -57,6 +58,9 @@ import {
 import { findBlockedLineupMoves } from "@/lib/leagues/lineup-lock-enforce";
 import { parseLineupLockMode } from "@/lib/leagues/lineup-lock";
 import { loadStartedNflTeamsForLineupLock } from "@/lib/leagues/lineup-lock-started";
+import { lineupWeekRelation } from "@/lib/leagues/lineup-plans";
+import { resolveFantasyMatchupWeek } from "@/lib/leagues/matchup-week";
+import { replaceTeamLineupPlan } from "@/lib/queries/lineup-plans";
 import { getAcquisitionKind } from "@/lib/leagues/waivers/acquisition";
 import { getDropWaiverClearsAt } from "@/lib/leagues/waivers/daily-drops";
 import {
@@ -141,6 +145,8 @@ export type RosterActionResult = {
   cutCandidates?: RosterCutCandidate[];
   pendingPlayerId?: string;
   pendingPlayerName?: string;
+  /** Set when the lineup was saved for a future week instead of the live roster. */
+  scheduledWeek?: number;
 };
 
 async function getRosterActionContext(slug: string) {
@@ -880,6 +886,7 @@ export async function assignPlayerSlot(
 export async function updateRosterSlots(
   slug: string,
   assignments: Array<{ playerId: string; slotPositionId: string }>,
+  week?: number,
 ): Promise<RosterActionResult> {
   const parsed = rosterSlotsSchema.safeParse({ slotAssignments: assignments });
   if (!parsed.success) {
@@ -908,6 +915,7 @@ export async function updateRosterSlots(
     actorUserId: user.id,
     assignments: validated,
     notOnRosterError: "Player is not on your roster.",
+    targetWeek: week,
   });
 }
 
@@ -919,6 +927,7 @@ export async function commissionerUpdateRosterSlots(
   slug: string,
   teamId: string,
   assignments: Array<{ playerId: string; slotPositionId: string }>,
+  week?: number,
 ): Promise<RosterActionResult> {
   if (!Array.isArray(assignments) || assignments.length === 0) {
     return { success: false, error: "No roster changes to save." };
@@ -957,6 +966,7 @@ export async function commissionerUpdateRosterSlots(
     notOnRosterError: "Player is not on this team's roster.",
     /** Commissioner can override lineup locks. */
     bypassLineupLock: true,
+    targetWeek: week,
   });
 }
 
@@ -1027,6 +1037,8 @@ async function applyRosterSlotAssignments(input: {
   leagueSlug: string;
   season: {
     id: string;
+    seasonYear: number;
+    regularSeasonEndWeek: number;
     settings: {
       rosterSlots: Parameters<typeof getSlotCapacity>[0];
       irEligibleStatuses?: string[] | null;
@@ -1034,6 +1046,7 @@ async function applyRosterSlotAssignments(input: {
       taxiMaxYearsExp?: 0 | 1 | 2 | 3 | 4 | 5 | null;
       taxiPreventReaddAfterActivation?: boolean;
       transactionRules?: Parameters<typeof resolveTransactionRules>[0];
+      schedule?: ScheduleSettings | null;
     };
     benchSlots: number;
   };
@@ -1043,6 +1056,7 @@ async function applyRosterSlotAssignments(input: {
   assignments: Array<{ playerId: string; slotPositionId: string }>;
   notOnRosterError: string;
   bypassLineupLock?: boolean;
+  targetWeek?: number;
 }): Promise<RosterActionResult> {
   const {
     leagueSlug,
@@ -1053,6 +1067,7 @@ async function applyRosterSlotAssignments(input: {
     assignments,
     notOnRosterError,
     bypassLineupLock = false,
+    targetWeek,
   } = input;
   const irEligibleStatuses = resolveIrEligibleStatuses(
     season.settings.irEligibleStatuses,
@@ -1186,7 +1201,24 @@ async function applyRosterSlotAssignments(input: {
     return { success: false, error: caps.error };
   }
 
-  if (!bypassLineupLock) {
+  let scheduledWeek: number | undefined;
+  if (targetWeek != null) {
+    const resolved = await resolveFantasyMatchupWeek({
+      seasonYear: season.seasonYear,
+      nflRegularSeasonEndWeek: season.regularSeasonEndWeek,
+      schedule: season.settings.schedule,
+      requestedWeek: targetWeek,
+    });
+    const relation = lineupWeekRelation(targetWeek, resolved.currentWeek);
+    if (relation === "past") {
+      return { success: false, error: "Can't edit a past week's lineup." };
+    }
+    if (relation === "future") {
+      scheduledWeek = targetWeek;
+    }
+  }
+
+  if (scheduledWeek == null && !bypassLineupLock) {
     const lockError = await assertLineupLockAllowsChanges({
       seasonSettings: season.settings,
       current: rosteredOnTeam,
@@ -1195,6 +1227,20 @@ async function applyRosterSlotAssignments(input: {
     if (lockError) {
       return { success: false, error: lockError };
     }
+  }
+
+  if (scheduledWeek != null) {
+    await replaceTeamLineupPlan({
+      leagueSeasonId: season.id,
+      teamId,
+      week: scheduledWeek,
+      assignments: nextPlayers.map((player) => ({
+        playerId: player.id,
+        slotPositionId: player.slotPositionId ?? player.primaryPositionId,
+      })),
+    });
+    revalidateRosterPaths(leagueSlug);
+    return { success: true, scheduledWeek };
   }
 
   return persistRosterSlotAssignments(

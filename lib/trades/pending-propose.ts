@@ -7,6 +7,8 @@ export type PendingTradePropose = {
   receivingOfferIds: string[];
   proposingDropIds: string[];
   receivingDropIds: string[];
+  proposingPickIds?: string[];
+  receivingPickIds?: string[];
   comment: string;
   /** ISO timestamp; omit / null = never expires. */
   expiresAt?: string | null;

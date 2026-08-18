@@ -16,12 +16,14 @@ import type { LeagueSeasonSettings } from "@/db/schema/league-seasons";
 import { db } from "@/lib/db";
 import {
   buildDraftSchedule,
-  getDraftRounds,
+  draftRoundsForSeason,
   type DraftScheduleSlot,
 } from "@/lib/leagues/draft/board";
+import { dynastyDraftPoolRestrictsToRookies, isEligibleForDraftPlayerPool } from "@/lib/leagues/draft/pool";
 import { resolveTurnExpiresAt } from "@/lib/leagues/draft/clock";
 import { nextExpiredPickStreak } from "@/lib/leagues/draft/expired-pick-streak";
 import { resolveDraftSettings } from "@/lib/leagues/draft-settings";
+import { resolveDynastySettings, withKeepersLocked } from "@/lib/leagues/dynasty-settings";
 import { resolveIrEligibleStatuses } from "@/lib/leagues/ir-eligibility";
 import {
   countActivePositionPlayers,
@@ -95,7 +97,10 @@ export async function commitDraftPick(
       draftSlot: team.draftSlot as number,
     }));
 
-  const rounds = getDraftRounds(input.settings.rosterSlots, input.benchSlots);
+  const rounds = draftRoundsForSeason({
+    settings: input.settings,
+    benchSlots: input.benchSlots,
+  });
   const schedule = buildDraftSchedule({
     teams: teamsWithSlots,
     rounds,
@@ -121,6 +126,7 @@ export async function commitDraftPick(
       fullName: players.fullName,
       primaryPositionId: players.primaryPositionId,
       injuryStatus: players.injuryStatus,
+      yearsExp: players.yearsExp,
     })
     .from(players)
     .where(eq(players.id, input.playerId))
@@ -128,6 +134,15 @@ export async function commitDraftPick(
 
   if (!player) {
     return { ok: false, error: "Player not found." };
+  }
+
+  if (
+    !isEligibleForDraftPlayerPool(
+      player.yearsExp,
+      dynastyDraftPoolRestrictsToRookies(input.settings.dynasty),
+    )
+  ) {
+    return { ok: false, error: "This draft is rookies only." };
   }
 
   const existingPick = await db
@@ -334,9 +349,20 @@ export async function commitDraftPick(
         .where(eq(drafts.id, input.draftId));
 
       if (isComplete) {
+        const dynasty = resolveDynastySettings(input.settings.dynasty);
         await tx
           .update(leagueSeasons)
-          .set({ status: "active" })
+          .set({
+            status: "active",
+            ...(dynasty.keepersLocked
+              ? {
+                  settings: {
+                    ...input.settings,
+                    dynasty: withKeepersLocked(dynasty, false),
+                  },
+                }
+              : {}),
+          })
           .where(eq(leagueSeasons.id, input.leagueSeasonId));
       }
 

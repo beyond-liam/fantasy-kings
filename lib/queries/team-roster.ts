@@ -2,10 +2,14 @@ import { and, eq } from "drizzle-orm";
 import { cache } from "react";
 
 import { playerExternalIds, players, rosterPlayers } from "@/db/schema";
-import type { RosterSlotConfig } from "@/db/schema/league-seasons";
+import type { RosterSlotConfig, ScheduleSettings } from "@/db/schema/league-seasons";
 import { db } from "@/lib/db";
 import type { TeamRosterPlayer } from "@/lib/leagues/roster-fill";
 import { assignDefaultSlotsToUnassignedPlayers } from "@/lib/leagues/roster-writes";
+import { applyDueLineupPlans } from "@/lib/queries/lineup-plans";
+import { fantasyWeekFromNflState } from "@/lib/leagues/schedule/fantasy-week-map";
+import { resolveScheduleSettings } from "@/lib/leagues/schedule/settings";
+import { getNflState } from "@/lib/sleeper/api";
 
 export type {
   FilledRosterSections,
@@ -24,8 +28,27 @@ export async function ensureTeamRosterSlotsAssigned(input: {
   benchSlots: number;
   irEnabled?: boolean;
   taxiEnabled?: boolean;
+  leagueSeasonId?: string;
+  schedule?: ScheduleSettings | null;
 }) {
   await assignDefaultSlotsToUnassignedPlayers(input);
+  if (!input.leagueSeasonId) return;
+
+  const nflState = await getNflState();
+  const currentWeek = Math.max(
+    1,
+    fantasyWeekFromNflState(
+      nflState,
+      resolveScheduleSettings(input.schedule),
+    ) ?? 1,
+  );
+  await applyDueLineupPlans({
+    leagueSeasonId: input.leagueSeasonId,
+    currentWeek,
+    rosterSlots: input.rosterSlots,
+    benchSlots: input.benchSlots,
+    teamId: input.teamId,
+  });
 }
 export const getTeamRosterPlayers = cache(
   async (teamId: string): Promise<TeamRosterPlayer[]> => {

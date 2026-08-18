@@ -87,9 +87,11 @@ export function WeekFilter({ weeks, value, seasonType }: WeekFilterProps) {
             >
               <span className="flex flex-col gap-0.5 text-left">
                 <span>{week.label}</span>
-                <span className="text-xs text-muted-foreground">
-                  {week.rangeLabel}
-                </span>
+                {week.rangeLabel ? (
+                  <span className="text-xs text-muted-foreground">
+                    {week.rangeLabel}
+                  </span>
+                ) : null}
               </span>
             </SelectItem>
           ))}

@@ -3,7 +3,7 @@
 Canonical product + implementation spec for dynasty format.
 Update this file when dynasty decisions change. Cross-link from [`PROJECT_SPEC.md`](PROJECT_SPEC.md).
 
-**Status:** D0–D2 shipped (settings + manager Keepers tab). D3+ not started.
+**Status:** D0–D9 shipped (settings, Keepers, clearance, configure-draft, Start new season + pick minting, team Draft Picks tab, pick trades, commish Edit Rosters).
 
 ---
 
@@ -42,7 +42,7 @@ Update this file when dynasty decisions change. Cross-link from [`PROJECT_SPEC.m
 | Traded future pick slot | A pick for draft year **Y** resolves from the **original team’s finish in season Y−1**. |
 | Pick trading | Allowed per normal **trade settings / deadline** (not a separate dynasty-only gate). |
 | Commish edit roster | Allowed **any time** (dynasty leagues). |
-| Activity | Log keeper sets, clear non-keepers, commish roster edits, pick trades. |
+| Activity | Log keeper sets, clear non-keepers, Start new season, commish roster edits, pick trades. |
 | Email | Stay within locked Brevo set (draft + trade). No new dynasty-only email types required for v1. |
 
 ---
@@ -110,7 +110,12 @@ Redraft continues to derive rounds from full roster size (no keeper subtraction)
 
 ### 4.2 Start new season (commissioner)
 
-**Entry:** League home **alert** + **Start new season** button (commissioner only), shown when the current season is in a completed / rollable state (champion crowned or equivalent “season over” gate — implement against existing season status).
+**Entry:** League home **alert** + **Start new season** button (commissioner only). Shown when this is the latest season, status is `active`, the next year does not exist yet, and:
+
+- Playoffs **on**: a champion is crowned, or
+- Playoffs **off**: the NFL calendar is past the league’s regular-season end (same as settings `regularSeasonFinished`).
+
+Redraft leagues never see this.
 
 **Effects (atomic where possible):**
 
@@ -119,8 +124,8 @@ Redraft continues to derive rounds from full roster size (no keeper subtraction)
 3. **Reset FAAB** to league starting budget.
 4. Set **waiver order** from the **new draft order** (reverse finish of the season just ended, with tiebreakers).
 5. Persist **finish / draft order** inputs for the upcoming draft.
-6. **Mint** future draft pick assets for each team for years within `futurePickTradeYears` (create DB rows for tradable picks that do not yet exist). Roll the window forward each season.
-7. Open configure-draft / recruiting-or-pre-draft state as appropriate.
+6. **Mint** `draft_pick_assets` for each team for years `upcoming … upcoming + futurePickTradeYears` (insert rows that do not yet exist). Round count is the year-2+ **cap** (`rosterCap − keepersMax`), not a shortened configure-draft value. `teams.lineage_id` is copied onto new-season teams; existing pick FKs remap to the new team rows.
+7. New season is `recruiting` with `settings.dynasty.isStartupSeason = false` and `keepersLocked = false` so configure-draft / rookies pool apply. Draft start is last year’s start + 1 year (or two weeks out if that instant is already past).
 
 **Mint** = insert (or ensure) `draft_pick_assets` rows so picks appear on team pages and in trade UI.
 
@@ -182,8 +187,9 @@ Unique on `(league, draft_year, round, original_team)` (or equivalent).
 Replace/extend today’s “players you drafted” list for dynasty:
 
 - Breakdown by **year** (filter years within minted horizon).
-- Show unresolved labels (`2027 1st (via X)`) and resolved slots when known.
-- Affordance to **trade** (deep-link or open composer with pick preselected).
+- Show unresolved labels (`2027 1st (via X)`) and resolved slots when known (`1.04`).
+- Affordance to **trade** (deep-link to the composer with `offerPick` / `wantPick`; pick legs land in D8).
+- **Players drafted** stays a sub-section under Draft Picks when this season’s draft has results.
 
 Redraft can keep the current “historical draft results” panel.
 
@@ -247,15 +253,13 @@ Ship in small increments; stop for approval after each.
 | **D0** | ✅ Settings shape + zod + create defaults (`lib/leagues/dynasty-settings.ts`) |
 | **D1** | ✅ Dynasty rules settings UI + persistence; redraft isolation |
 | **D2** | ✅ Keeper flag + manager Keepers tab + validation (max/min/IR/Taxi counting) |
-| **D3** | Commish Set keepers + Clear non-keepers (+ activity) |
-| **D4** | Keeper deadline (UK) + auto-clear job/path |
-| **D5** | Configure draft: rounds cap + pool; clear on draft start |
-| **D6** | `draft_pick_assets` + mint on Start new season; league home alert |
-| **D7** | Team future picks UI (year filter, unresolved labels) |
-| **D8** | Trade composer Roster \| Picks + execute pick transfers |
-| **D9** | Commish Edit rosters |
-
-Do not start D6–D8 until D2–D5 clearance rules are stable.
+| **D3** | ✅ Commish Set keepers + Clear non-keepers (+ activity) |
+| **D4** | ✅ Keeper deadline (UK) + auto-clear job/path |
+| **D5** | ✅ Configure draft: rounds cap + pool; clear on draft start |
+| **D6** | ✅ `draft_pick_assets` + mint on Start new season; league home alert |
+| **D7** | ✅ Team future picks UI (year filter, unresolved labels) — reads minted D6 rows |
+| **D8** | ✅ Trade composer Roster \| Picks + execute pick transfers |
+| **D9** | ✅ Commish Edit rosters |
 
 ---
 
@@ -272,8 +276,7 @@ Do not start D6–D8 until D2–D5 clearance rules are stable.
 
 ## 12. Open implementation notes (non-blocking)
 
-- Exact season status that enables **Start new season** (align with champion crowning / `completed`).
-- Whether historical “players drafted” remains a sub-view under Draft Picks for dynasty.
-- Cron vs page-load for keeper deadline (prefer shared process helper + cron like trades/waivers).
+- Start new season gate: playoffs on → champion crowned; playoffs off → NFL calendar past regular-season end. No `completed` season status.
+- Year-2+ draft order is reverse **regular-season standings + tiebreakers** (not a full playoff-finish ladder).
 
 Ask before changing locked decisions in §2.

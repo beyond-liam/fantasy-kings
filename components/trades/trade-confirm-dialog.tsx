@@ -56,6 +56,7 @@ import {
   isDropPlayerSelectable,
   type TradeDropAnalysis,
 } from "@/lib/leagues/trades/validate";
+import type { TradePickRow } from "@/components/trades/trade-picks-table";
 import type { TradePlayerRow } from "@/lib/queries/trades";
 import { cn } from "@/lib/utils";
 
@@ -64,6 +65,8 @@ type TradeConfirmDialogProps = {
   onOpenChange: (open: boolean) => void;
   receivingPlayers: TradePlayerRow[];
   offeringPlayers: TradePlayerRow[];
+  receivingPicks?: TradePickRow[];
+  offeringPicks?: TradePickRow[];
   proposingDropCandidates: TradePlayerRow[];
   proposingDropAnalysis: TradeDropAnalysis;
   proposingMinimumBlockedIds?: Set<string>;
@@ -80,6 +83,36 @@ type TradeConfirmDialogProps = {
     expiresAt: Date | null;
   }) => void;
 };
+
+function PickLine({
+  pick,
+  direction,
+}: {
+  pick: TradePickRow;
+  direction: "in" | "out";
+}) {
+  const icon = direction === "in" ? ArrowRight02Icon : ArrowLeft02Icon;
+  const arrowClass =
+    direction === "in" ? "text-success" : "text-destructive";
+
+  return (
+    <li className="flex items-center gap-2 py-1.5">
+      <HugeiconsIcon
+        icon={icon}
+        strokeWidth={2}
+        className={cn("size-4 shrink-0", arrowClass)}
+      />
+      <div className="min-w-0">
+        <p className="text-sm font-medium tabular-nums">{pick.primary}</p>
+        {pick.secondary ? (
+          <p className="text-xs text-pretty text-muted-foreground">
+            {pick.secondary}
+          </p>
+        ) : null}
+      </div>
+    </li>
+  );
+}
 
 function PlayerLine({
   player,
@@ -248,6 +281,8 @@ export function TradeConfirmDialog({
   onOpenChange,
   receivingPlayers,
   offeringPlayers,
+  receivingPicks = [],
+  offeringPicks = [],
   proposingDropCandidates,
   proposingDropAnalysis,
   proposingMinimumBlockedIds,
@@ -321,6 +356,9 @@ export function TradeConfirmDialog({
                     leagueSlug={leagueSlug}
                   />
                 ))}
+                {receivingPicks.map((pick) => (
+                  <PickLine key={pick.id} pick={pick} direction="in" />
+                ))}
               </ul>
             </div>
             <div className="border-t pt-4">
@@ -333,6 +371,9 @@ export function TradeConfirmDialog({
                     direction="out"
                     leagueSlug={leagueSlug}
                   />
+                ))}
+                {offeringPicks.map((pick) => (
+                  <PickLine key={pick.id} pick={pick} direction="out" />
                 ))}
               </ul>
             </div>

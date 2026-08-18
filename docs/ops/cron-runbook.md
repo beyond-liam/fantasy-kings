@@ -103,6 +103,29 @@ curl -X POST "https://<your-app>/api/cron/process-trades" \
   -H "Authorization: Bearer $CRON_SECRET"
 ```
 
+### `/api/cron/process-keeper-deadlines` (GET or POST)
+
+Clears non-keepers in dynasty leagues whose keeper deadline has passed.
+Vercel Hobby is a daily backup; use cron-job.org every 15 minutes so deadlines
+fire close to the UK wall-clock time. League home, Keepers, and settings also
+process on page load.
+
+**Expected response (200):**
+```json
+{
+  "ok": true,
+  "checked": 1,
+  "processed": 1,
+  "results": [{ "seasonId": "...", "slug": "...", "clearedCount": 8 }]
+}
+```
+
+**Manual trigger:**
+```bash
+curl -X POST "https://<your-app>/api/cron/process-keeper-deadlines" \
+  -H "Authorization: Bearer $CRON_SECRET"
+```
+
 ### `/api/cron/start-drafts` (GET or POST)
 
 Auto-starts drafts that are due. Run every 1–5 minutes near draft windows.
@@ -185,6 +208,7 @@ Recommended schedule for game days (all times UTC):
 | `sync-scores` | Every 15 minutes on game days | Start 30 minutes before first kickoff, stop 30 minutes after last game ends. |
 | `process-waivers` | Every hour | Run overnight Tuesday/Wednesday when waivers clear. |
 | `process-trades` | Every hour | Can run 24/7 or gate to business hours. |
+| `process-keeper-deadlines` | Every 15 minutes | Dynasty keeper deadline auto-clear. Page-load is the timely fallback. |
 | `start-drafts` | Every 1–5 minutes | Only during draft season; narrow to draft windows if possible. |
 | `process-draft-picks` | Every 1–5 minutes | While drafts are live / on a pick clock. Critical for 6h+ email drafts. |
 | `draft-reminders` | Every 5 minutes | Only during draft season. |

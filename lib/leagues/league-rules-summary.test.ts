@@ -119,6 +119,10 @@ describe("buildLeagueRulesSummary", () => {
       "Snake",
     );
     assert.equal(
+      byTitle.Draft.find((row) => row.label === "Draft Rounds")?.value,
+      "15",
+    );
+    assert.equal(
       byTitle.Draft.find((row) => row.label === "Two missed picks")?.value,
       "Force autopick until back online",
     );

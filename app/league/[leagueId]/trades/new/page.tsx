@@ -7,12 +7,14 @@ import {
   resolveScoringRuleDefinitions,
   type ScoringPreset,
 } from "@/lib/leagues/scoring";
+import { dynastyPickLabel } from "@/lib/leagues/draft-pick-label";
 import { canProposeTrades } from "@/lib/leagues/trades/guards";
 import { resolveTransactionRules } from "@/lib/leagues/transaction-rules";
 import {
   parseTradeComposerIds,
   tradeComposerPath,
 } from "@/lib/leagues/utils";
+import { getOwnedDraftPickAssets } from "@/lib/queries/draft-pick-assets";
 import { getLeagueHomeData } from "@/lib/queries/leagues";
 import { getTradeById, getTradeComposerRoster } from "@/lib/queries/trades";
 import { getUserTeamForLeague } from "@/lib/queries/watchlist";
@@ -26,6 +28,8 @@ type NewTradePageProps = {
     want?: string;
     offer?: string;
     counter?: string;
+    wantPick?: string;
+    offerPick?: string;
   }>;
 };
 
@@ -108,6 +112,8 @@ export default async function NewTradePage({
           with: partners[0]!.slug,
           want: query.want,
           offer: query.offer,
+          wantPick: query.wantPick,
+          offerPick: query.offerPick,
         }),
       );
     }
@@ -131,19 +137,32 @@ export default async function NewTradePage({
     season.settings.scoringRules,
   );
 
-  const [myRoster, partnerRoster, kickoffs] = await Promise.all([
-    getTradeComposerRoster({
-      teamId: team.id,
-      seasonYear: nflState.season,
-      scoringRules,
-    }),
-    getTradeComposerRoster({
-      teamId: initialPartner.id,
-      seasonYear: nflState.season,
-      scoringRules,
-    }),
-    loadNflKickoffsThisWeek(season.settings.schedule),
-  ]);
+  const [myRoster, partnerRoster, kickoffs, myPickAssets, partnerPickAssets] =
+    await Promise.all([
+      getTradeComposerRoster({
+        teamId: team.id,
+        seasonYear: nflState.season,
+        scoringRules,
+      }),
+      getTradeComposerRoster({
+        teamId: initialPartner.id,
+        seasonYear: nflState.season,
+        scoringRules,
+      }),
+      loadNflKickoffsThisWeek(season.settings.schedule),
+      season.leagueType === "dynasty"
+        ? getOwnedDraftPickAssets({
+            leagueId: data.league.id,
+            ownerTeamId: team.id,
+          })
+        : Promise.resolve([]),
+      season.leagueType === "dynasty"
+        ? getOwnedDraftPickAssets({
+            leagueId: data.league.id,
+            ownerTeamId: initialPartner.id,
+          })
+        : Promise.resolve([]),
+    ]);
 
   const kickoffsByNflTeam = Object.fromEntries(
     [...kickoffs.entries()].map(([abbr, date]) => [abbr, date.toISOString()]),
@@ -161,11 +180,37 @@ export default async function NewTradePage({
   const initialOfferIds = parseTradeComposerIds(query.offer).filter((id) =>
     myRoster.some((player) => player.id === id),
   );
+  const toPickRow = (
+    asset: (typeof myPickAssets)[number],
+  ) => {
+    const label = dynastyPickLabel({
+      draftYear: asset.draftYear,
+      round: asset.round,
+      slot: asset.slot,
+      originalTeamName: asset.originalTeamName,
+      isOriginalOwner: asset.originalTeamId === asset.ownerTeamId,
+      currentSeasonYear: season.seasonYear,
+      originalTeamDraftSlot: asset.originalTeamDraftSlot,
+    });
+    return {
+      id: asset.id,
+      primary: label.primary,
+      secondary: label.secondary,
+    };
+  };
+  const myPicks = myPickAssets.map(toPickRow);
+  const partnerPicks = partnerPickAssets.map(toPickRow);
+  const initialWantPickIds = parseTradeComposerIds(query.wantPick).filter(
+    (id) => partnerPicks.some((pick) => pick.id === id),
+  );
+  const initialOfferPickIds = parseTradeComposerIds(query.offerPick).filter(
+    (id) => myPicks.some((pick) => pick.id === id),
+  );
 
   return (
     <div className="flex flex-1 flex-col p-4">
       <TradeComposer
-        key={`${initialPartner.id}:${initialWantIds.join(",")}:${initialOfferIds.join(",")}:${counterOfTradeId ?? ""}`}
+        key={`${initialPartner.id}:${initialWantIds.join(",")}:${initialOfferIds.join(",")}:${initialWantPickIds.join(",")}:${initialOfferPickIds.join(",")}:${counterOfTradeId ?? ""}`}
         leagueSlug={slug}
         myTeam={{ id: team.id, name: team.name }}
         partner={initialPartner}
@@ -173,6 +218,11 @@ export default async function NewTradePage({
         partnerRoster={partnerRoster}
         initialWantIds={initialWantIds}
         initialOfferIds={initialOfferIds}
+        initialWantPickIds={initialWantPickIds}
+        initialOfferPickIds={initialOfferPickIds}
+        myPicks={myPicks}
+        partnerPicks={partnerPicks}
+        showPicks={season.leagueType === "dynasty"}
         counterOfTradeId={counterOfTradeId}
         rosterSlots={season.settings.rosterSlots}
         benchSlots={season.benchSlots}

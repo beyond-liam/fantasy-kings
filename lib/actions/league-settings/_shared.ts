@@ -1,12 +1,8 @@
 import { revalidatePath } from "next/cache";
 
-import { eq } from "drizzle-orm";
-
-import { leagueSeasons } from "@/db/schema";
 import { requireSessionUser } from "@/lib/auth/session";
-import { db } from "@/lib/db";
 import { isScheduleEditable } from "@/lib/leagues/season-calendar";
-import { getLeagueBySlug, isLeagueCommissioner } from "@/lib/queries/leagues";
+import { getLeagueBySlug, getLeagueSeason, isLeagueCommissioner } from "@/lib/queries/leagues";
 import { getNflState } from "@/lib/sleeper/api";
 
 export type ActionResult = {
@@ -34,11 +30,7 @@ export async function getCommissionerSeason(slug: string) {
     };
   }
 
-  const [season] = await db
-    .select()
-    .from(leagueSeasons)
-    .where(eq(leagueSeasons.leagueId, league.id))
-    .limit(1);
+  const season = await getLeagueSeason(league.id);
 
   if (!season) {
     return { error: "League season not found." as const };
@@ -76,6 +68,7 @@ export function revalidateSettingsPaths(slug: string) {
   revalidatePath(`/league/${slug}/settings/draft-order`);
   revalidatePath(`/league/${slug}/settings/waiver-order`);
   revalidatePath(`/league/${slug}/settings/lineups`);
+  revalidatePath(`/league/${slug}/settings/keepers`);
   revalidatePath(`/league/${slug}/settings/league-size`);
   revalidatePath(`/league/${slug}/settings/realign-divisions`);
   revalidatePath(`/league/${slug}/settings/co-commissioners`);
