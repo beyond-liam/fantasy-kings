@@ -25,8 +25,6 @@ const LeaguePresenceContext =
   createContext<LeaguePresenceContextValue | null>(null);
 
 const PRESENCE_POLL_INTERVAL_MS = 60_000;
-/** Avoid racing the league page's first DB waterfalls on free-tier max:1. */
-const PRESENCE_INITIAL_DELAY_MS = 4_000;
 const EMPTY_MAP: ReadonlyMap<string, LeaguePresenceEntry> = new Map();
 
 function toMap(
@@ -44,14 +42,20 @@ function toMap(
 
 export function LeaguePresenceProvider({
   slug,
+  initialSnapshot,
   children,
 }: {
   slug: string;
+  initialSnapshot?: LeaguePresenceSnapshot | null;
   children: ReactNode;
 }) {
-  const [byUserId, setByUserId] =
-    useState<ReadonlyMap<string, LeaguePresenceEntry>>(EMPTY_MAP);
-  const [nflSeasonType, setNflSeasonType] = useState<string | null>(null);
+  const [byUserId, setByUserId] = useState<
+    ReadonlyMap<string, LeaguePresenceEntry>
+  >(() => (initialSnapshot ? toMap(initialSnapshot.members) : EMPTY_MAP));
+  const [nflSeasonType, setNflSeasonType] = useState<string | null>(
+    () => initialSnapshot?.nflSeasonType ?? null,
+  );
+  const seeded = initialSnapshot != null;
 
   useEffect(() => {
     let cancelled = false;
@@ -99,7 +103,7 @@ export function LeaguePresenceProvider({
       }
     };
 
-    scheduleNext(PRESENCE_INITIAL_DELAY_MS);
+    scheduleNext(seeded ? PRESENCE_POLL_INTERVAL_MS : 0);
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
@@ -107,7 +111,7 @@ export function LeaguePresenceProvider({
       window.clearTimeout(timeoutId);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [slug]);
+  }, [slug, seeded]);
 
   return (
     <LeaguePresenceContext.Provider value={{ byUserId, nflSeasonType }}>

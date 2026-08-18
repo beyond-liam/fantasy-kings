@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
 import { DraftGradeDialogSlot } from "@/components/leagues/draft/draft-grade-dialog-slot";
+import { LeaguePresenceProvider } from "@/components/leagues/presence/league-presence-provider";
 import { Spinner } from "@/components/ui/spinner";
 import { getSessionUser } from "@/lib/auth/session";
 import { resolveDraftSettings } from "@/lib/leagues/draft-settings";
@@ -23,6 +24,7 @@ import {
   getLeagueSeason,
 } from "@/lib/queries/leagues";
 import { getNflTeams, getRankedPlayers, type RankedPlayerRow } from "@/lib/queries/players";
+import { getLeaguePresence } from "@/lib/queries/presence";
 import { positionFiltersFromRosterSlots } from "@/lib/rankings/column-config";
 import {
   draftStatAllowlist,
@@ -75,7 +77,7 @@ export default async function LeagueDraftRoomPage({
     season.settings.scoringRules,
   );
 
-  const [room, nflState, seasonTeams] = await Promise.all([
+  const [room, nflState, seasonTeams, presence] = await Promise.all([
     getDraftRoomData({
       leagueSeasonId: season.id,
       settings: season.settings,
@@ -84,6 +86,7 @@ export default async function LeagueDraftRoomPage({
     }),
     getNflState(),
     getSeasonDraftTeams(season.id),
+    getLeaguePresence(league.id),
   ]);
 
   const draftSettings = resolveDraftSettings(season.settings.draft);
@@ -134,37 +137,39 @@ export default async function LeagueDraftRoomPage({
           leagueSeasonId={season.id}
         />
       </Suspense>
-      <DraftRoom
-        slug={slug}
-        isCommissioner={isCommissioner}
-        myTeamId={myTeam?.id ?? null}
-        status={room.draft?.status ?? null}
-        currentPickIndex={room.draft?.currentPickIndex ?? 0}
-        onTheClock={room.onTheClock}
-        startHint={startHint}
-        schedule={room.schedule}
-        picks={room.picks}
-        teams={room.teams}
-        rounds={room.rounds}
-        poolPlayers={slimPool}
-        nflTeams={nflTeams}
-        queuedItems={queuedItems}
-        draftedPlayerIds={[...room.draftedPlayerIds]}
-        myDraftedPlayers={myDraftedRanked}
-        pickByPlayerId={pickByPlayerId}
-        draftType={season.draftType}
-        pickTimeLimitSeconds={season.pickTimeLimitSeconds}
-        pickTimeLimitEnabled={
-          season.draftType === "live"
-            ? true
-            : Boolean(draftSettings.pickTimeLimitEnabled) &&
-              season.pickTimeLimitSeconds > 0
-        }
-        draftStartAt={toIso(season.draftStartAt)}
-        turnExpiresAt={toIso(room.draft?.turnExpiresAt)}
-        pausedSecondsRemaining={room.draft?.pausedSecondsRemaining ?? null}
-        positions={positionFiltersFromRosterSlots(season.settings.rosterSlots)}
-      />
+      <LeaguePresenceProvider slug={slug} initialSnapshot={presence}>
+        <DraftRoom
+          slug={slug}
+          isCommissioner={isCommissioner}
+          myTeamId={myTeam?.id ?? null}
+          status={room.draft?.status ?? null}
+          currentPickIndex={room.draft?.currentPickIndex ?? 0}
+          onTheClock={room.onTheClock}
+          startHint={startHint}
+          schedule={room.schedule}
+          picks={room.picks}
+          teams={room.teams}
+          rounds={room.rounds}
+          poolPlayers={slimPool}
+          nflTeams={nflTeams}
+          queuedItems={queuedItems}
+          draftedPlayerIds={[...room.draftedPlayerIds]}
+          myDraftedPlayers={myDraftedRanked}
+          pickByPlayerId={pickByPlayerId}
+          draftType={season.draftType}
+          pickTimeLimitSeconds={season.pickTimeLimitSeconds}
+          pickTimeLimitEnabled={
+            season.draftType === "live"
+              ? true
+              : Boolean(draftSettings.pickTimeLimitEnabled) &&
+                season.pickTimeLimitSeconds > 0
+          }
+          draftStartAt={toIso(season.draftStartAt)}
+          turnExpiresAt={toIso(room.draft?.turnExpiresAt)}
+          pausedSecondsRemaining={room.draft?.pausedSecondsRemaining ?? null}
+          positions={positionFiltersFromRosterSlots(season.settings.rosterSlots)}
+        />
+      </LeaguePresenceProvider>
     </div>
   );
 }

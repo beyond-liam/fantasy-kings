@@ -213,7 +213,6 @@ export async function MyTeamRosterPanel({
           ? formatWaiverPriority(team.waiverPriority)
           : null,
         ownerName: formatPersonName(profile),
-        ownerUserId: user.id,
         previous,
         current,
         myTeamSlug: team.publicId ?? team.slug,

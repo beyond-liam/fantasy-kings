@@ -8,7 +8,6 @@ import {
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
-import { ManagerPresenceIndicator } from "@/components/leagues/presence/manager-presence-badge";
 import {
   SETTINGS_MENU_ITEM_CLASS,
   SettingsMenuChevron,
@@ -151,13 +150,10 @@ export function RemoveOwnerMenuItem({
                   <SelectGroup>
                     {removable.map((owner) => (
                       <SelectItem key={owner.userId} value={owner.userId}>
-                        <span className="flex min-w-0 items-center gap-2 text-left">
-                          <ManagerPresenceIndicator userId={owner.userId} />
-                          <span className="flex min-w-0 flex-col gap-0.5">
-                            <span className="truncate">{owner.displayName}</span>
-                            <span className="truncate text-xs text-muted-foreground">
-                              {owner.teamName}
-                            </span>
+                        <span className="flex min-w-0 flex-col gap-0.5 text-left">
+                          <span className="truncate">{owner.displayName}</span>
+                          <span className="truncate text-xs text-muted-foreground">
+                            {owner.teamName}
                           </span>
                         </span>
                       </SelectItem>

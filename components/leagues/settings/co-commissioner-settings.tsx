@@ -6,7 +6,6 @@ import { Cancel01Icon, TickDouble02Icon, UserRemove01Icon } from "@hugeicons/cor
 import { HugeiconsIcon } from "@hugeicons/react";
 import { toast } from "sonner";
 
-import { ManagerPresenceIndicator } from "@/components/leagues/presence/manager-presence-badge";
 import { SettingsFormCard } from "@/components/leagues/settings/settings-form-card";
 import { PageFormActions } from "@/components/layout/page-form-actions";
 import type { MembershipOwnerOption } from "@/lib/leagues/membership";
@@ -158,8 +157,7 @@ export function CoCommissionerSettings({
                     htmlFor={id}
                     className="flex min-w-0 flex-1 cursor-pointer flex-col items-start gap-0.5 text-left font-normal"
                   >
-                    <span className="inline-flex min-w-0 items-center gap-1.5 truncate text-sm font-medium">
-                      <ManagerPresenceIndicator userId={owner.userId} />
+                    <span className="truncate text-sm font-medium">
                       {owner.displayName}
                     </span>
                     <span className="truncate text-xs text-muted-foreground">

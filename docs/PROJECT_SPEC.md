@@ -41,7 +41,7 @@ A mobile-first fantasy football web app for a private friend group (4–16 users
 | Messages | League threads + replies; nav unread red dot; mark all read |
 | Engagement | SOS (season/remaining), playoff chance %, playoff picture badges, Game Centre Preview, Overview (spotlights + roast), HoF (titles + roast + extremes), Team H2H tab, Team Stats charts 1–4 + KPI strip |
 | Empty states | shadcn `Empty` used for zero-data surfaces (charts, lists, spotlights, settings, dialogs, data-table) |
-| Manager presence | Online / offline / inactive badges on current-manager identities; profile `last_seen_at` + throttled heartbeat + league poll |
+| Manager presence | Online / offline / inactive badges on standings + draft board; profile `last_seen_at` + throttled heartbeat + league poll |
 | Player profiles | Canonical `/players/[playerId]`; league view uses `/league/[id]/players/[playerId]` (sidebar + Players active). `?league=` on the global route redirects into the league path. |
 
 ### Near-term product (build next)
@@ -157,7 +157,7 @@ Do not substitute without explicit approval.
 | UI reference | No mockup required — shadcn components |
 | Visual system | Dark-only shadcn + Figtree — **no separate branding track** |
 | Empty states | Always use shadcn **`Empty`** (`components/ui/empty`) wherever an empty/zero-data state is shown |
-| Manager presence | Profile-level last seen; show only on current manager identities — never unclaimed teams, historical records, or public invite previews |
+| Manager presence | Profile-level last seen; show only on league standings and the draft board — never unclaimed teams, historical records, or public invite previews |
 | Scoring | **Offense + team DEF + minimal IDP defaults**; polish gaps in [`docs/IDP.md`](IDP.md) |
 | Mock draft | Solo vs need-aware ADP bots only — **no friends lobby** |
 | Trade Analyzer | **Removed permanently** (not deferred) |
@@ -668,7 +668,7 @@ lib/
 **Near-term product**
 - [ ] **Dynasty** — keepers, clearance, Start new season, future picks + pick trades per [`docs/DYNASTY.md`](DYNASTY.md) (D0–D2 done; D3–D9 pending)
 - [ ] **Advanced player filtering** — richer filters beyond position / team / rookies / FA (DEFERRED)
-- [x] **Manager presence** — online (2-min), offline, inactive (14d in-season / 30d offseason); avatar/name badges with tooltips
+- [x] **Manager presence** — online (2-min), offline, inactive (14d in-season / 30d offseason); avatar badges on standings and draft board
 - [x] **Empty-state consistency** — use shadcn `Empty` everywhere zero-data is shown; migrate ad-hoc placeholders
 - [x] **Form guide on league table** — last 5 results (FORM column replaces OPP); tooltips with opponent/score
 - [x] **Remove rank from playoffs table** — seed only; drop redundant Rank column
@@ -954,3 +954,4 @@ lib/
 | 2026-08-17 | Standings RK shows places moved vs last week (week 1 vs draft slot; up success, down destructive) |
 | 2026-08-17 | Timed draft clocks autodraft on expiry (queue then BPA) even when Autopick is off |
 | 2026-08-18 | Dashboard: My Leagues carousel plus NFL yardage leaders, standard team of the week, and trending adds/cuts |
+| 2026-08-18 | Manager presence badges only on standings + draft board; seed from server so the status circle is immediate |

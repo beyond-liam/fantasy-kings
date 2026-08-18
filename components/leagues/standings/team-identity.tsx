@@ -16,6 +16,7 @@ type TeamIdentityProps = {
   href?: string | null;
   logoUrl?: string | null;
   className?: string;
+  showPresence?: boolean;
 };
 
 export function TeamIdentity({
@@ -26,6 +27,7 @@ export function TeamIdentity({
   href,
   logoUrl,
   className,
+  showPresence = false,
 }: TeamIdentityProps) {
   if (!claimed) {
     return (
@@ -49,7 +51,7 @@ export function TeamIdentity({
       <Avatar size="sm">
         {logoUrl ? <AvatarImage src={logoUrl} alt="" /> : null}
         <AvatarFallback>{teamInitials(teamName)}</AvatarFallback>
-        <ManagerPresenceBadge userId={ownerUserId} />
+        {showPresence ? <ManagerPresenceBadge userId={ownerUserId} /> : null}
       </Avatar>
       <div className="flex min-w-0 flex-col">
         {href ? (

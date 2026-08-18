@@ -8,7 +8,6 @@ import {
   type TextareaHTMLAttributes,
 } from "react";
 
-import { ManagerPresenceBadge } from "@/components/leagues/presence/manager-presence-badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Textarea } from "@/components/ui/textarea";
 import { formatPersonName } from "@/lib/account/person-name";
@@ -207,7 +206,6 @@ export function MentionTextarea({
                     <AvatarFallback>
                       {teamInitials(candidate.teamName ?? personName)}
                     </AvatarFallback>
-                    <ManagerPresenceBadge userId={candidate.userId} />
                   </Avatar>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate font-medium">

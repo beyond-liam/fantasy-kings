@@ -3,7 +3,6 @@ import { format } from "date-fns";
 import { Comment01Icon, MessageBlockedIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
-import { ManagerPresenceBadge } from "@/components/leagues/presence/manager-presence-badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Empty,
@@ -66,7 +65,6 @@ export function MessageThreadList({
                 <AvatarFallback>
                   {teamInitials(authorLabel)}
                 </AvatarFallback>
-                <ManagerPresenceBadge userId={thread.authorUserId} />
               </Avatar>
               <div className="min-w-0 flex-1">
                 <div className="flex items-start justify-between gap-3">

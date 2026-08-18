@@ -194,6 +194,7 @@ export default async function LeagueHomePage({
             <Suspense fallback={<PageSkeleton />}>
               <LeagueHomeStandingsTab
                 bundleInput={bundleInput}
+                leagueId={league.id}
                 leagueSlug={league.publicId}
                 myTeamPublicId={myTeamPublicId}
                 showFaabBudget={showFaabBudget}

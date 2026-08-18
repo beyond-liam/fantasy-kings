@@ -451,6 +451,7 @@ function getStandingsColumns(
             claimed={team.claimed}
             logoUrl={team.logoUrl}
             href={href}
+            showPresence
           />
         );
       },

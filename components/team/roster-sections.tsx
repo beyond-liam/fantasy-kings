@@ -69,7 +69,6 @@ type TeamRosterSectionsProps = {
   summary?: {
     waiverPriorityLabel: string | null;
     ownerName: string | null;
-    ownerUserId?: string | null;
     previous: TeamSummaryMatchupRef | null;
     current: TeamSummaryMatchupRef | null;
     myTeamSlug?: string | null;
@@ -346,7 +345,6 @@ export function TeamRosterSections({
           leagueSlug={leagueSlug}
           waiverPriorityLabel={summary.waiverPriorityLabel}
           ownerName={summary.ownerName}
-          ownerUserId={summary.ownerUserId}
           previous={summary.previous}
           current={summary.current}
           breakdown={rosterBreakdown}

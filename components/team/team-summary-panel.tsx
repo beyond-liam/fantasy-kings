@@ -2,8 +2,6 @@
 
 import type { ReactNode } from "react";
 import Link from "next/link";
-
-import { ManagerPresenceIndicator } from "@/components/leagues/presence/manager-presence-badge";
 import {
   Card,
   CardContent,
@@ -23,7 +21,6 @@ type TeamSummaryPanelProps = {
   leagueSlug: string;
   waiverPriorityLabel: string | null;
   ownerName: string | null;
-  ownerUserId?: string | null;
   previous: TeamSummaryMatchupRef | null;
   current: TeamSummaryMatchupRef | null;
   breakdown: TeamSummaryRosterBreakdown;
@@ -150,7 +147,6 @@ export function TeamSummaryPanel({
   leagueSlug,
   waiverPriorityLabel,
   ownerName,
-  ownerUserId,
   previous,
   current,
   breakdown,
@@ -167,8 +163,7 @@ export function TeamSummaryPanel({
             <MetaRow label="Waiver Priority">{waiverPriorityLabel}</MetaRow>
           ) : null}
           <MetaRow label="Owner">
-            <span className="inline-flex min-w-0 items-center justify-end gap-1.5 truncate text-foreground">
-              <ManagerPresenceIndicator userId={ownerUserId} />
+            <span className="truncate text-foreground">
               {ownerName?.trim() || "—"}
             </span>
           </MetaRow>
