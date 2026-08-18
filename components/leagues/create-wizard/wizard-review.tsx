@@ -163,6 +163,10 @@ export function WizardReview({ values, onEdit }: WizardReviewProps) {
           raw
         />
         <ReviewRow label="Pick clock" value={pickClockLabel} />
+        {values.forceAutopickAfterTwoExpires &&
+        (values.draftType === "live" || values.pickTimeLimitEnabled) ? (
+          <ReviewRow label="Two missed picks" value="Force autopick" />
+        ) : null}
         {values.draftType === "email" &&
         values.pickTimeLimitEnabled &&
         values.pauseWindowEnabled ? (

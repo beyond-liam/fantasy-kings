@@ -3,6 +3,17 @@ import { and, eq, lt, sql } from "drizzle-orm";
 import { profiles } from "@/db/schema";
 import { db } from "@/lib/db";
 
+export async function getProfileLastSeenAt(
+  userId: string,
+): Promise<Date | null> {
+  const [row] = await db
+    .select({ lastSeenAt: profiles.lastSeenAt })
+    .from(profiles)
+    .where(eq(profiles.id, userId))
+    .limit(1);
+  return row?.lastSeenAt ?? null;
+}
+
 /**
  * Skip the write while the stored value is this fresh. Keeps heartbeat traffic
  * off the single pooled connection without coarsening the online window.

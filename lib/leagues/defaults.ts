@@ -58,6 +58,7 @@ export const WIZARD_DEFAULTS = {
   pauseWindowEnabled: false,
   pauseWindowStart: "22:00",
   pauseWindowEnd: "08:00",
+  forceAutopickAfterTwoExpires: false,
 };
 
 export function buildStandardRosterSlots(

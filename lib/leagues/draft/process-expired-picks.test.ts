@@ -51,4 +51,17 @@ describe("isDraftAutopickDue", () => {
       false,
     );
   });
+
+  it("autodrafts clock-exempt seats without waiting", () => {
+    assert.equal(
+      isDraftAutopickDue({
+        isOpenSlot: false,
+        enforceExpiry: true,
+        hasTurnClock: true,
+        clockExpired: false,
+        clockExempt: true,
+      }),
+      true,
+    );
+  });
 });

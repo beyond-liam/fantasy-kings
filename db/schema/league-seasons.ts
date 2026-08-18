@@ -118,6 +118,16 @@ export type DraftSettings = {
   pauseWindowEnabled?: boolean;
   pauseWindowStart?: string;
   pauseWindowEnd?: string;
+  /**
+   * When true, two consecutive clock-expiry autodrafts put that team on
+   * Autopick with no pick timer until the manager comes back online.
+   */
+  forceAutopickAfterTwoExpires?: boolean;
+  /**
+   * Internal: pick-history streak applied once so coming back online is not
+   * re-forced from the same historical autopicks.
+   */
+  forceAutopickStreaksBackfilled?: boolean;
 };
 
 /** How many times each pair should ideally face off over the regular season. */

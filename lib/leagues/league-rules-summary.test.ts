@@ -54,6 +54,7 @@ describe("buildLeagueRulesSummary", () => {
             style: "snake",
             autoPickEnabled: false,
             pickTimeLimitEnabled: true,
+            forceAutopickAfterTwoExpires: true,
           },
           schedule: { playEachOtherTimes: 1 },
           playoffs: {
@@ -116,6 +117,10 @@ describe("buildLeagueRulesSummary", () => {
     assert.equal(
       byTitle.Draft.find((row) => row.label === "Draft Style")?.value,
       "Snake",
+    );
+    assert.equal(
+      byTitle.Draft.find((row) => row.label === "Two missed picks")?.value,
+      "Force autopick until back online",
     );
     assert.equal(
       byTitle.Draft.find((row) => row.label === "Time Per Pick")?.value,

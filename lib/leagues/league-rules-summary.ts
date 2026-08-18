@@ -426,6 +426,17 @@ export function buildLeagueRulesSummary(input: {
             },
           ]
         : []),
+      ...(draft.forceAutopickAfterTwoExpires &&
+      (season.draftType === "live" ||
+        ((draft.pickTimeLimitEnabled ?? true) &&
+          season.pickTimeLimitSeconds > 0))
+        ? [
+            {
+              label: "Two missed picks",
+              value: "Force autopick until back online",
+            },
+          ]
+        : []),
     ],
   });
 

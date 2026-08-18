@@ -8,6 +8,7 @@ import {
   formatPresenceLabel,
   getInactivityWindowMs,
   isInSeasonNflPhase,
+  isUserOnline,
   resolvePresenceStatus,
 } from "./presence";
 
@@ -99,6 +100,15 @@ describe("presence status", () => {
       }),
       "inactive",
     );
+  });
+
+  it("treats last-seen within two minutes as online", () => {
+    assert.equal(isUserOnline(ago(PRESENCE_ONLINE_WINDOW_MS), NOW), true);
+    assert.equal(
+      isUserOnline(ago(PRESENCE_ONLINE_WINDOW_MS + 1), NOW),
+      false,
+    );
+    assert.equal(isUserOnline(null, NOW), false);
   });
 
   it("treats future server timestamps as online", () => {

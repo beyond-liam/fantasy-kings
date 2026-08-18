@@ -19,7 +19,8 @@ import {
   getDraftRounds,
   type DraftScheduleSlot,
 } from "@/lib/leagues/draft/board";
-import { computeTurnExpiresAt } from "@/lib/leagues/draft/clock";
+import { resolveTurnExpiresAt } from "@/lib/leagues/draft/clock";
+import { nextExpiredPickStreak } from "@/lib/leagues/draft/expired-pick-streak";
 import { resolveDraftSettings } from "@/lib/leagues/draft-settings";
 import { resolveIrEligibleStatuses } from "@/lib/leagues/ir-eligibility";
 import {
@@ -37,6 +38,8 @@ export type SeasonDraftTeam = {
   name: string;
   draftSlot: number | null;
   userId: string | null;
+  consecutiveExpiredPicks?: number;
+  forcedAutoPick?: boolean;
 };
 
 export type CommitDraftPickInput = {
@@ -57,6 +60,8 @@ export type CommitDraftPickInput = {
    * Omit for commissioner / autopick sources.
    */
   actingTeamId?: string | null;
+  /** True when this autopick is filling a clock that expired (counts as a miss). */
+  missedClock?: boolean;
 };
 
 export type CommitDraftPickResult =
@@ -274,6 +279,42 @@ export async function commitDraftPick(
           );
       }
 
+      const [teamRow] = await tx
+        .select({
+          consecutiveExpiredPicks: teams.consecutiveExpiredPicks,
+          forcedAutoPick: teams.forcedAutoPick,
+        })
+        .from(teams)
+        .where(eq(teams.id, slot.teamId))
+        .limit(1);
+
+      const streak = nextExpiredPickStreak({
+        source: input.source,
+        missedClock: Boolean(input.missedClock),
+        consecutiveExpiredPicks: teamRow?.consecutiveExpiredPicks ?? 0,
+        forcedAutoPick: Boolean(teamRow?.forcedAutoPick),
+        forceAutopickAfterTwoExpires: Boolean(
+          draftSettings.forceAutopickAfterTwoExpires,
+        ),
+      });
+      const nextSlot = isComplete ? null : schedule[nextIndex];
+      const nextTeam =
+        nextSlot && nextSlot.teamId === slot.teamId
+          ? { forcedAutoPick: streak.forcedAutoPick }
+          : input.seasonTeams.find((team) => team.id === nextSlot?.teamId);
+      const nextClockExempt = Boolean(nextTeam?.forcedAutoPick);
+
+      await tx
+        .update(teams)
+        .set({
+          consecutiveExpiredPicks: streak.consecutiveExpiredPicks,
+          forcedAutoPick: streak.forcedAutoPick,
+          ...(streak.autoPickEnabled !== undefined
+            ? { autoPickEnabled: streak.autoPickEnabled }
+            : {}),
+        })
+        .where(eq(teams.id, slot.teamId));
+
       await tx
         .update(drafts)
         .set({
@@ -282,7 +323,11 @@ export async function commitDraftPick(
           completedAt: isComplete ? new Date() : null,
           turnExpiresAt: isComplete
             ? null
-            : computeTurnExpiresAt(acquiredAt, input.pickTimeLimitSeconds),
+            : resolveTurnExpiresAt({
+                now: acquiredAt,
+                pickTimeLimitSeconds: input.pickTimeLimitSeconds,
+                clockExempt: nextClockExempt,
+              }),
           pausedSecondsRemaining: null,
           pausedAt: null,
         })

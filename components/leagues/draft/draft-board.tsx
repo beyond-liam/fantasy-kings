@@ -8,6 +8,7 @@ import { LicenseDraftIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
 import { ManagerPresenceBadge } from "@/components/leagues/presence/manager-presence-badge";
+import { DraftTeamNameWithForcedAutopick } from "@/components/leagues/draft/draft-forced-autopick-indicator";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Empty,
@@ -41,6 +42,8 @@ type DraftBoardProps = {
     draftSlot: number;
     logoUrl?: string | null;
     userId?: string | null;
+    autoPickEnabled?: boolean;
+    forcedAutoPick?: boolean;
   }>;
   rounds: number;
   currentPickIndex: number;
@@ -129,9 +132,13 @@ export function DraftBoard({
                       <AvatarFallback>{teamInitials(team.name)}</AvatarFallback>
                       <ManagerPresenceBadge userId={team.userId} />
                     </Avatar>
-                    <span className="line-clamp-2 w-full truncate text-[11px] leading-tight">
-                      {team.name}
-                    </span>
+                    <DraftTeamNameWithForcedAutopick
+                      name={team.name}
+                      forcedAutoPick={team.forcedAutoPick}
+                      autoPickEnabled={team.autoPickEnabled}
+                      claimed={team.userId != null}
+                      nameClassName="line-clamp-2 w-full text-center text-[11px] leading-tight"
+                    />
                   </div>
                 </th>
               ))}

@@ -4,6 +4,7 @@ import { describe, it } from "node:test";
 import {
   computeTurnExpiresAt,
   formatPickClock,
+  resolveTurnExpiresAt,
   secondsUntil,
 } from "@/lib/leagues/draft/clock";
 
@@ -37,5 +38,17 @@ describe("computeTurnExpiresAt", () => {
     const expires = computeTurnExpiresAt(now, 120);
     assert.equal(expires?.toISOString(), "2026-08-05T12:02:00.000Z");
     assert.equal(secondsUntil(expires!, now), 120);
+  });
+});
+
+describe("resolveTurnExpiresAt", () => {
+  it("expires immediately when the seat is clock-exempt", () => {
+    const now = new Date("2026-08-05T12:00:00.000Z");
+    const expires = resolveTurnExpiresAt({
+      now,
+      pickTimeLimitSeconds: 120,
+      clockExempt: true,
+    });
+    assert.equal(expires?.toISOString(), now.toISOString());
   });
 });

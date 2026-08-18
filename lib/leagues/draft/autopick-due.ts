@@ -4,8 +4,13 @@ export function isDraftAutopickDue(input: {
   enforceExpiry: boolean;
   hasTurnClock: boolean;
   clockExpired: boolean;
+  /** Forced Autopick after consecutive missed clocks — timer does not apply. */
+  clockExempt?: boolean;
 }): boolean {
   if (!input.enforceExpiry) {
+    return true;
+  }
+  if (input.clockExempt) {
     return true;
   }
   if (input.hasTurnClock) {

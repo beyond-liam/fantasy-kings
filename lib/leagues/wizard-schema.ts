@@ -146,6 +146,7 @@ export const draftStepSchema = z
     pauseWindowEnabled: z.boolean(),
     pauseWindowStart: ukTimeOfDaySchema,
     pauseWindowEnd: ukTimeOfDaySchema,
+    forceAutopickAfterTwoExpires: z.boolean(),
   })
   .superRefine((data, ctx) => {
     if (

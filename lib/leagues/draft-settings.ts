@@ -32,7 +32,21 @@ export type DraftConfigFormValues = {
   pauseWindowEnabled: boolean;
   pauseWindowStart: string;
   pauseWindowEnd: string;
+  forceAutopickAfterTwoExpires: boolean;
 };
+
+export const FORCE_AUTOPICK_AFTER_TWO_EXPIRES_COPY = {
+  label: "Force Autopick after two missed picks",
+  description:
+    "If a team lets the clock expire twice in a row, they go on Autopick and skip the pick timer until they come back online.",
+} as const;
+
+export function pickClockApplies(input: {
+  draftType: "live" | "email";
+  pickTimeLimitEnabled: boolean;
+}): boolean {
+  return input.draftType === "live" || input.pickTimeLimitEnabled;
+}
 
 /** Normalize stored/form draft type; defaults to live. */
 export function resolveDraftType(
@@ -55,6 +69,7 @@ export const DEFAULT_DRAFT_SETTINGS: DraftSettings = {
   pauseWindowEnabled: false,
   pauseWindowStart: DEFAULT_PAUSE_WINDOW_START,
   pauseWindowEnd: DEFAULT_PAUSE_WINDOW_END,
+  forceAutopickAfterTwoExpires: false,
 };
 
 function pauseWindowAllowed(input: {
@@ -76,6 +91,7 @@ export const draftConfigFormSchema = z
     pauseWindowEnabled: z.boolean(),
     pauseWindowStart: ukTimeOfDaySchema,
     pauseWindowEnd: ukTimeOfDaySchema,
+    forceAutopickAfterTwoExpires: z.boolean(),
   })
   .superRefine((data, ctx) => {
     const start = new Date(data.draftStartAt);
@@ -117,6 +133,10 @@ export function resolveDraftSettings(
       stored?.pauseWindowEnd && HH_MM_REGEX.test(stored.pauseWindowEnd)
         ? stored.pauseWindowEnd
         : DEFAULT_PAUSE_WINDOW_END,
+    forceAutopickAfterTwoExpires: Boolean(stored?.forceAutopickAfterTwoExpires),
+    forceAutopickStreaksBackfilled: Boolean(
+      stored?.forceAutopickStreaksBackfilled,
+    ),
   };
 }
 
@@ -153,6 +173,7 @@ export function toDraftConfigFormValues(input: {
     pauseWindowEnabled: pauseAllowed ? Boolean(draft.pauseWindowEnabled) : false,
     pauseWindowStart: draft.pauseWindowStart ?? DEFAULT_PAUSE_WINDOW_START,
     pauseWindowEnd: draft.pauseWindowEnd ?? DEFAULT_PAUSE_WINDOW_END,
+    forceAutopickAfterTwoExpires: Boolean(draft.forceAutopickAfterTwoExpires),
   };
 }
 
@@ -179,6 +200,23 @@ export function toPersistedDraftSettings(
     pauseWindowEnd: pauseWindowEnabled
       ? values.pauseWindowEnd
       : DEFAULT_PAUSE_WINDOW_END,
+    forceAutopickAfterTwoExpires: Boolean(values.forceAutopickAfterTwoExpires),
+  };
+}
+
+/** Keep the one-shot backfill flag when rewriting draft settings from the form. */
+export function withPreservedAutopickBackfill(
+  next: DraftSettings,
+  stored?: DraftSettings | null,
+): DraftSettings {
+  if (!next.forceAutopickAfterTwoExpires) {
+    return next;
+  }
+  return {
+    ...next,
+    forceAutopickStreaksBackfilled: Boolean(
+      stored?.forceAutopickStreaksBackfilled,
+    ),
   };
 }
 
@@ -207,6 +245,9 @@ export function normalizeDraftConfigFormValues(
     pauseWindowStart:
       persisted.pauseWindowStart ?? DEFAULT_PAUSE_WINDOW_START,
     pauseWindowEnd: persisted.pauseWindowEnd ?? DEFAULT_PAUSE_WINDOW_END,
+    forceAutopickAfterTwoExpires: Boolean(
+      persisted.forceAutopickAfterTwoExpires,
+    ),
   };
 }
 

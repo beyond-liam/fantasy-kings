@@ -727,9 +727,8 @@ lib/
 
 ## 13. Changelog
 
-| Date | Change |
-|---|---|
-| 2026-08-16 | Activity: autopick draft picks show “Drafted by Autopick” |
+| 2026-08-18 | Draft: backfill forced Autopick from consecutive historical autopicks on live boards |
+| 2026-08-18 | Draft setting: two consecutive missed clocks force Autopick and skip the pick timer until the manager comes back online |
 | 2026-08-16 | Per-team Autopick: with a queue, pick immediately when on the clock (not on expiry); empty queue waits (no BPA). Open seats still queue→BPA on expiry |
 | 2026-08-16 | Per-team Autopick restored: on clock expiry pick from queue only; empty queue waits (no BPA). League autopick toggle stays removed |
 | 2026-08-16 | Activity: commissioner-on-behalf draft picks show “Drafted by Commissioner” |

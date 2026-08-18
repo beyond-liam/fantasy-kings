@@ -3,8 +3,9 @@ import { before, describe, it } from "node:test";
 
 import { eq } from "drizzle-orm";
 
-import { drafts, leagueSeasons, rosterPlayers } from "@/db/schema";
+import { drafts, leagueSeasons, rosterPlayers, teams } from "@/db/schema";
 import { commitDraftPick } from "@/lib/leagues/draft/pick";
+import { DEFAULT_DRAFT_SETTINGS } from "@/lib/leagues/draft-settings";
 import { createTestDb, type TestDb } from "@/lib/test/harness";
 import {
   seedDraft,
@@ -241,5 +242,75 @@ describe("commitDraftPick", () => {
       .from(leagueSeasons)
       .where(eq(leagueSeasons.id, season.id));
     assert.equal(seasonRow?.status, "active");
+  });
+
+  it("forces Autopick after two consecutive missed clocks", async () => {
+    const { season } = await seedLeagueSeason(testDb, {
+      teamCount: 2,
+      settings: {
+        draft: {
+          ...DEFAULT_DRAFT_SETTINGS,
+          forceAutopickAfterTwoExpires: true,
+        },
+      },
+    });
+    const seasonTeams = await seedTeams(testDb, {
+      leagueSeasonId: season.id,
+      count: 2,
+    });
+    const drafted = await seedPlayers(testDb, [
+      { fullName: "Pick One", primaryPositionId: "QB" },
+      { fullName: "Pick Two", primaryPositionId: "RB" },
+      { fullName: "Pick Three", primaryPositionId: "WR" },
+    ]);
+    const draft = await seedDraft(testDb, { leagueSeasonId: season.id });
+    const base = {
+      leagueSeasonId: season.id,
+      draftId: draft.id,
+      pickTimeLimitSeconds: season.pickTimeLimitSeconds,
+      settings: season.settings,
+      benchSlots: season.benchSlots,
+      irEnabled: season.irEnabled,
+      taxiEnabled: season.taxiEnabled,
+      seasonTeams,
+    };
+
+    const first = await commitDraftPick({
+      ...base,
+      currentPickIndex: 0,
+      playerId: drafted[0]!.id,
+      madeByUserId: seasonTeams[0]!.userId,
+      source: "manual",
+      actingTeamId: seasonTeams[0]!.id,
+    });
+    assert.equal(first.ok, true);
+
+    const missOne = await commitDraftPick({
+      ...base,
+      currentPickIndex: 1,
+      playerId: drafted[1]!.id,
+      madeByUserId: null,
+      source: "autopick",
+      missedClock: true,
+    });
+    assert.equal(missOne.ok, true);
+
+    const missTwo = await commitDraftPick({
+      ...base,
+      currentPickIndex: 2,
+      playerId: drafted[2]!.id,
+      madeByUserId: null,
+      source: "autopick",
+      missedClock: true,
+    });
+    assert.equal(missTwo.ok, true);
+
+    const [teamTwo] = await testDb
+      .select()
+      .from(teams)
+      .where(eq(teams.id, seasonTeams[1]!.id));
+    assert.equal(teamTwo?.consecutiveExpiredPicks, 2);
+    assert.equal(teamTwo?.forcedAutoPick, true);
+    assert.equal(teamTwo?.autoPickEnabled, true);
   });
 });

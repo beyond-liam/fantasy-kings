@@ -51,6 +51,8 @@ export function getInitialWizardValues(): CreateLeagueWizardValues {
     pauseWindowEnabled: WIZARD_DEFAULTS.pauseWindowEnabled,
     pauseWindowStart: WIZARD_DEFAULTS.pauseWindowStart,
     pauseWindowEnd: WIZARD_DEFAULTS.pauseWindowEnd,
+    forceAutopickAfterTwoExpires:
+      WIZARD_DEFAULTS.forceAutopickAfterTwoExpires,
   };
 }
 

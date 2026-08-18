@@ -22,6 +22,7 @@
     "db:seed:scores": "tsx db/seed/player-scores-sleeper.ts",
     "db:seed:scores:stats": "SEED_SCORES_MODE=stats tsx db/seed/player-scores-sleeper.ts",
     "db:backfill:draft-activity": "tsx db/seed/backfill-draft-pick-activity.ts",
+    "db:backfill:forced-autopick": "tsx db/seed/backfill-forced-autopick.ts",
     "db:backfill:waiver-drop-activity": "tsx db/seed/backfill-waiver-drop-activity.ts",
     "db:backfill:waiver-claim-resolution": "tsx db/seed/backfill-waiver-claim-resolution.ts",
     "db:backfill:reserve-acquisition-activity": "tsx db/seed/backfill-reserve-acquisition-activity.ts",

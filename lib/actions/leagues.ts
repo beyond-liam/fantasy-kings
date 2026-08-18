@@ -173,6 +173,7 @@ export async function createLeague(input: CreateLeagueWizardValues) {
           pauseWindowEnabled: values.pauseWindowEnabled,
           pauseWindowStart: values.pauseWindowStart,
           pauseWindowEnd: values.pauseWindowEnd,
+          forceAutopickAfterTwoExpires: values.forceAutopickAfterTwoExpires,
         }),
         emailNotificationsEnabled: true,
         settings: {
@@ -192,6 +193,7 @@ export async function createLeague(input: CreateLeagueWizardValues) {
             pauseWindowEnabled: values.pauseWindowEnabled,
             pauseWindowStart: values.pauseWindowStart,
             pauseWindowEnd: values.pauseWindowEnd,
+            forceAutopickAfterTwoExpires: values.forceAutopickAfterTwoExpires,
           }),
           schedule: DEFAULT_SCHEDULE_SETTINGS,
           playoffs: DEFAULT_PLAYOFF_SETTINGS,

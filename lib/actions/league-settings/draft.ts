@@ -10,6 +10,7 @@ import {
   resolveDraftSettings,
   resolveDraftType,
   toPersistedDraftSettings,
+  withPreservedAutopickBackfill,
   type DraftConfigFormValues,
 } from "@/lib/leagues/draft-settings";
 import {
@@ -60,6 +61,8 @@ export async function updateDraftConfig(
     pauseWindowEnabled: beforeDraft.pauseWindowEnabled ?? false,
     pauseWindowStart: beforeDraft.pauseWindowStart ?? null,
     pauseWindowEnd: beforeDraft.pauseWindowEnd ?? null,
+    forceAutopickAfterTwoExpires:
+      beforeDraft.forceAutopickAfterTwoExpires ?? false,
   };
   const afterSettings = toPersistedDraftSettings(next);
   const after = {
@@ -75,6 +78,9 @@ export async function updateDraftConfig(
     pauseWindowEnd: afterSettings.pauseWindowEnabled
       ? (afterSettings.pauseWindowEnd ?? null)
       : null,
+    forceAutopickAfterTwoExpires: Boolean(
+      afterSettings.forceAutopickAfterTwoExpires,
+    ),
   };
 
   await db
@@ -85,7 +91,7 @@ export async function updateDraftConfig(
       pickTimeLimitSeconds: draftConfigPickTimeSeconds(next),
       settings: {
         ...season.settings,
-        draft: afterSettings,
+        draft: withPreservedAutopickBackfill(afterSettings, beforeDraft),
       },
     })
     .where(eq(leagueSeasons.id, season.id));
@@ -101,6 +107,19 @@ export async function updateDraftConfig(
     liveDraft &&
     (liveDraft.status === "live" || liveDraft.status === "paused")
   ) {
+    if (afterSettings.forceAutopickAfterTwoExpires) {
+      const { ensureForcedAutopickStreakBackfill } = await import(
+        "@/lib/leagues/draft/backfill-forced-autopick"
+      );
+      await ensureForcedAutopickStreakBackfill({
+        leagueSeasonId: season.id,
+        draftId: liveDraft.id,
+        settings: {
+          ...season.settings,
+          draft: withPreservedAutopickBackfill(afterSettings, beforeDraft),
+        },
+      });
+    }
     await ensureDraftTurnClock({
       draft: liveDraft,
       pickTimeLimitSeconds: after.pickTimeLimitSeconds,
@@ -124,6 +143,10 @@ export async function updateDraftConfig(
       { path: "pauseWindowEnabled", label: "Pause window enabled" },
       { path: "pauseWindowStart", label: "Pause window start (UK)" },
       { path: "pauseWindowEnd", label: "Pause window end (UK)" },
+      {
+        path: "forceAutopickAfterTwoExpires",
+        label: "Force autopick after two missed picks",
+      },
     ]),
   });
 

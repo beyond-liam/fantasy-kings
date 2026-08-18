@@ -26,6 +26,16 @@ export function formatPresenceLabel({
     : `Last seen ${date}`;
 }
 
+export function isUserOnline(
+  lastSeenAt: Date | null | undefined,
+  now = new Date(),
+): boolean {
+  if (!lastSeenAt) {
+    return false;
+  }
+  return Math.max(0, now.getTime() - lastSeenAt.getTime()) <= PRESENCE_ONLINE_WINDOW_MS;
+}
+
 export function isInSeasonNflPhase(seasonType: string): boolean {
   return seasonType === "regular" || seasonType === "post";
 }

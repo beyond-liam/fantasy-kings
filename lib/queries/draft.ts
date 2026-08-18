@@ -63,6 +63,7 @@ export type DraftRoomData = {
     DraftTeamSlot & {
       userId: string | null;
       autoPickEnabled: boolean;
+      forcedAutoPick: boolean;
     }
   >;
   schedule: DraftScheduleSlot[];
@@ -91,6 +92,8 @@ export async function getSeasonDraftTeams(leagueSeasonId: string) {
       draftSlot: teams.draftSlot,
       userId: teams.userId,
       autoPickEnabled: teams.autoPickEnabled,
+      forcedAutoPick: teams.forcedAutoPick,
+      consecutiveExpiredPicks: teams.consecutiveExpiredPicks,
     })
     .from(teams)
     .where(eq(teams.leagueSeasonId, leagueSeasonId))
@@ -220,22 +223,27 @@ export async function getDraftRoomData(input: {
   /** When set, backfill a missing live/paused pick clock for timed drafts. */
   pickTimeLimitSeconds?: number;
 }): Promise<DraftRoomData> {
-  const [draftRow, seasonTeams] = await Promise.all([
+  const [draftRow, seasonTeamsRows] = await Promise.all([
     getDraftBySeasonId(input.leagueSeasonId),
     getSeasonDraftTeams(input.leagueSeasonId),
   ]);
 
-  let draft = draftRow;
+  let seasonTeams = seasonTeamsRows;
   if (
-    draft &&
-    input.pickTimeLimitSeconds != null &&
-    (draft.status === "live" || draft.status === "paused")
+    draftRow &&
+    (draftRow.status === "live" || draftRow.status === "paused")
   ) {
-    const ensured = await ensureDraftTurnClock({
-      draft,
-      pickTimeLimitSeconds: input.pickTimeLimitSeconds,
+    const { ensureForcedAutopickStreakBackfill } = await import(
+      "@/lib/leagues/draft/backfill-forced-autopick"
+    );
+    const applied = await ensureForcedAutopickStreakBackfill({
+      leagueSeasonId: input.leagueSeasonId,
+      draftId: draftRow.id,
+      settings: input.settings,
     });
-    draft = { ...draft, ...ensured };
+    if (applied) {
+      seasonTeams = await getSeasonDraftTeams(input.leagueSeasonId);
+    }
   }
 
   const draftSettings = resolveDraftSettings(input.settings.draft);
@@ -248,6 +256,7 @@ export async function getDraftRoomData(input: {
       draftSlot: team.draftSlot as number,
       userId: team.userId,
       autoPickEnabled: team.autoPickEnabled,
+      forcedAutoPick: team.forcedAutoPick,
     }));
 
   const rounds = getDraftRounds(input.settings.rosterSlots, input.benchSlots);
@@ -256,6 +265,24 @@ export async function getDraftRoomData(input: {
     rounds,
     style: draftSettings.style,
   });
+
+  let draft = draftRow;
+  if (
+    draft &&
+    input.pickTimeLimitSeconds != null &&
+    (draft.status === "live" || draft.status === "paused")
+  ) {
+    const onClock = schedule[draft.currentPickIndex];
+    const onClockTeam = onClock
+      ? seasonTeams.find((team) => team.id === onClock.teamId)
+      : undefined;
+    const ensured = await ensureDraftTurnClock({
+      draft,
+      pickTimeLimitSeconds: input.pickTimeLimitSeconds,
+      clockExempt: Boolean(onClockTeam?.forcedAutoPick),
+    });
+    draft = { ...draft, ...ensured };
+  }
 
   const picks = draft ? await getDraftPicks(draft.id) : [];
   const draftedPlayerIds = new Set(picks.map((pick) => pick.playerId));

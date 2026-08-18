@@ -15,6 +15,10 @@ import {
 } from "@/components/draft/draft-clock-card";
 import { DraftBoard } from "@/components/leagues/draft/draft-board";
 import {
+  DraftAutopickStatusIcon,
+  DraftTeamNameWithForcedAutopick,
+} from "@/components/leagues/draft/draft-forced-autopick-indicator";
+import {
   DraftClockToggle,
   DraftRevertControl,
 } from "@/components/leagues/draft/draft-controls";
@@ -61,6 +65,7 @@ type DraftRoomProps = {
     logoUrl?: string | null;
     userId?: string | null;
     autoPickEnabled?: boolean;
+    forcedAutoPick?: boolean;
   }>;
   rounds: number;
   poolPlayers: RankedPlayerRow[];
@@ -520,9 +525,14 @@ export function DraftRoom({
     return () => window.clearTimeout(timer);
   }, [draftStartAt, waitingToStart, slug, router]);
 
-  const onClockLabel = onTheClockLive
-    ? `${onTheClockLive.teamName}${onClockIsOpenSlot ? " (open)" : ""}`
-    : null;
+  const onClockLabel = onTheClockLive ? (
+    <DraftTeamNameWithForcedAutopick
+      name={`${onTheClockLive.teamName}${onClockIsOpenSlot ? " (open)" : ""}`}
+      forcedAutoPick={onClockTeam?.forcedAutoPick}
+      autoPickEnabled={onClockTeam?.autoPickEnabled}
+      claimed={!onClockIsOpenSlot}
+    />
+  ) : null;
 
   const clockCardTitle = waitingToStart
     ? "Waiting to start"
@@ -537,7 +547,15 @@ export function DraftRoom({
     : effectiveStatus === "paused"
       ? onClockLabel
       : isMyTurn
-        ? `You · Pick #${onTheClockLive?.overall ?? ""}`
+        ? (
+            <span className="inline-flex items-center gap-1.5">
+              <span>{`You · Pick #${onTheClockLive?.overall ?? ""}`}</span>
+              <DraftAutopickStatusIcon
+                forcedAutoPick={onClockTeam?.forcedAutoPick}
+                autoPickEnabled={onClockTeam?.autoPickEnabled}
+              />
+            </span>
+          )
         : onClockLabel;
 
   const waitingMessage = (() => {

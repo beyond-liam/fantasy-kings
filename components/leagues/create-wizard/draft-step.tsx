@@ -24,6 +24,8 @@ import { applyLocalTime, formatLocalTime } from "@/lib/datetime/local-time";
 import {
   DEFAULT_PAUSE_WINDOW_END,
   DEFAULT_PAUSE_WINDOW_START,
+  FORCE_AUTOPICK_AFTER_TWO_EXPIRES_COPY,
+  pickClockApplies,
 } from "@/lib/leagues/draft-settings";
 import type { DraftStepValues } from "@/lib/leagues/wizard-schema";
 
@@ -189,6 +191,18 @@ export function DraftStep({ values, errors, onChange }: DraftStepProps) {
             </Select>
           </Field>
         </div>
+      ) : null}
+
+      {pickClockApplies(values) ? (
+        <SwitchField
+          id="forceAutopickAfterTwoExpires"
+          label={FORCE_AUTOPICK_AFTER_TWO_EXPIRES_COPY.label}
+          description={FORCE_AUTOPICK_AFTER_TWO_EXPIRES_COPY.description}
+          checked={values.forceAutopickAfterTwoExpires}
+          onCheckedChange={(forceAutopickAfterTwoExpires) =>
+            onChange({ forceAutopickAfterTwoExpires })
+          }
+        />
       ) : null}
 
       {values.draftType === "email" && values.pickTimeLimitEnabled ? (

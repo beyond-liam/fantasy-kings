@@ -28,6 +28,15 @@ export const teams = pgTable(
     draftSlot: integer("draft_slot"),
     /** When true, autopick runs for this team when on the clock. */
     autoPickEnabled: boolean("auto_pick_enabled").notNull().default(false),
+    /** Consecutive clock-expiry autodrafts for this team; reset on a non-miss pick. */
+    consecutiveExpiredPicks: integer("consecutive_expired_picks")
+      .notNull()
+      .default(0),
+    /**
+     * Commissioner setting: this team skips the pick clock and autodrafts
+     * until the owner comes back online.
+     */
+    forcedAutoPick: boolean("forced_auto_pick").notNull().default(false),
     /** Lower number = higher priority (1 processes first). */
     waiverPriority: integer("waiver_priority").notNull().default(1),
     /** Remaining FAAB; null when league uses priority waivers. */

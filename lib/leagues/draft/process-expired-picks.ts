@@ -36,6 +36,7 @@ export type RunDraftAutopickResult =
  *
  * Claimed + Autopick on: pick from the queue immediately (do not wait).
  * Timed clock expired: queue then best available, even if Autopick is off.
+ * Forced Autopick (two missed clocks): skip the timer until they return online.
  * Open / unclaimed seats: queue then BPA after expiry, or immediately if untimed.
  */
 export async function runDraftAutopick(input: {
@@ -90,6 +91,7 @@ export async function runDraftAutopick(input: {
       name: team.name,
       draftSlot: team.draftSlot as number,
       autoPickEnabled: team.autoPickEnabled,
+      forcedAutoPick: team.forcedAutoPick,
       userId: team.userId,
     }));
 
@@ -136,15 +138,18 @@ export async function runDraftAutopick(input: {
     }
   }
 
+  const clockExempt = Boolean(onClockTeam?.forcedAutoPick);
+
   if (
     !isDraftAutopickDue({
       isOpenSlot,
       enforceExpiry: input.enforceExpiry,
       hasTurnClock,
       clockExpired,
+      clockExempt,
     })
   ) {
-    if (!isOpenSlot && onClockTeam?.autoPickEnabled) {
+    if (!isOpenSlot && onClockTeam?.autoPickEnabled && !clockExempt) {
       return {
         ok: false,
         error: "Queue is empty — waiting for a manual pick.",
@@ -185,6 +190,7 @@ export async function runDraftAutopick(input: {
     draft,
     seasonTeams,
     playerId,
+    missedClock: clockExpired && !clockExempt,
   });
 }
 
@@ -210,8 +216,9 @@ async function commitAutopickPlayer(args: {
   draft: NonNullable<Awaited<ReturnType<typeof getDraftBySeasonId>>>;
   seasonTeams: Awaited<ReturnType<typeof getSeasonDraftTeams>>;
   playerId: string;
+  missedClock?: boolean;
 }): Promise<RunDraftAutopickResult> {
-  const { input, season, draft, seasonTeams, playerId } = args;
+  const { input, season, draft, seasonTeams, playerId, missedClock } = args;
 
   const committed = await commitDraftPick({
     leagueSeasonId: season.id,
@@ -226,6 +233,7 @@ async function commitAutopickPlayer(args: {
     playerId,
     madeByUserId: input.madeByUserId,
     source: "autopick",
+    missedClock,
   });
 
   if (!committed.ok) {
@@ -304,6 +312,27 @@ export async function drainDraftAutopick(input: {
   madeByUserId?: string | null;
   syncAlerts?: boolean;
 }): Promise<{ picked: number; skipped: boolean; error?: string }> {
+  const [seasonRow] = await db
+    .select({ settings: leagueSeasons.settings })
+    .from(leagueSeasons)
+    .where(eq(leagueSeasons.id, input.leagueSeasonId))
+    .limit(1);
+  const draftRow = await getDraftBySeasonId(input.leagueSeasonId);
+  if (
+    seasonRow &&
+    draftRow &&
+    (draftRow.status === "live" || draftRow.status === "paused")
+  ) {
+    const { ensureForcedAutopickStreakBackfill } = await import(
+      "@/lib/leagues/draft/backfill-forced-autopick"
+    );
+    await ensureForcedAutopickStreakBackfill({
+      leagueSeasonId: input.leagueSeasonId,
+      draftId: draftRow.id,
+      settings: seasonRow.settings,
+    });
+  }
+
   let picked = 0;
   while (picked < MAX_PICKS_PER_DRAFT) {
     const draft = await getDraftBySeasonId(input.leagueSeasonId);

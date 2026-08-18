@@ -146,7 +146,12 @@ export async function updateTeamAutoPick(
   const enabled = Boolean(autoPickEnabled);
   await db
     .update(teams)
-    .set({ autoPickEnabled: enabled })
+    .set({
+      autoPickEnabled: enabled,
+      ...(enabled
+        ? {}
+        : { forcedAutoPick: false, consecutiveExpiredPicks: 0 }),
+    })
     .where(eq(teams.id, team.id));
 
   if (enabled) {

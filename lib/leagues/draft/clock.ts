@@ -9,6 +9,21 @@ export function computeTurnExpiresAt(
   return new Date(now.getTime() + pickTimeLimitSeconds * 1000);
 }
 
+/** Clock-exempt seats expire immediately so autodraft can drain without waiting. */
+export function resolveTurnExpiresAt(input: {
+  now: Date;
+  pickTimeLimitSeconds: number;
+  clockExempt: boolean;
+}): Date | null {
+  if (input.pickTimeLimitSeconds <= 0) {
+    return null;
+  }
+  if (input.clockExempt) {
+    return input.now;
+  }
+  return computeTurnExpiresAt(input.now, input.pickTimeLimitSeconds);
+}
+
 export function secondsUntil(expiresAt: Date, now = new Date()): number {
   return Math.max(0, Math.ceil((expiresAt.getTime() - now.getTime()) / 1000));
 }
