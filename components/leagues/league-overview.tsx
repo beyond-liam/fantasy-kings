@@ -2,8 +2,8 @@ import Link from "next/link";
 import { ArrowRight01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
+import { TeamSpotlight } from "@/components/leagues/team-spotlight";
 import { PlayerAvatar } from "@/components/rankings/player-avatar";
-import { PlayerProfileTrigger } from "@/components/rankings/player-identity";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -80,13 +80,9 @@ function OverviewCard({
 }) {
   return (
     <Card size="sm" className="gap-0 py-0">
-      <CardHeader variant="panel" className="flex flex-row items-center justify-between">
+      <CardHeader variant="panel">
         <CardTitle className="text-base text-balance">{title}</CardTitle>
-        {action ? (
-          <CardAction className="static row-auto justify-self-auto">
-            {action}
-          </CardAction>
-        ) : null}
+        {action ? <CardAction>{action}</CardAction> : null}
       </CardHeader>
       <CardContent className="py-4">{children}</CardContent>
     </Card>
@@ -103,14 +99,9 @@ function TeamMark({
   size?: "sm" | "hero";
 }) {
   return (
-    <Avatar
-      size={size === "sm" ? "sm" : "lg"}
-      className={cn(size === "hero" && "size-20!")}
-    >
+    <Avatar size={size === "sm" ? "sm" : "hero"}>
       {logoUrl ? <AvatarImage src={logoUrl} alt="" /> : null}
-      <AvatarFallback className={cn(size === "hero" && "text-2xl!")}>
-        {teamInitials(name)}
-      </AvatarFallback>
+      <AvatarFallback>{teamInitials(name)}</AvatarFallback>
     </Avatar>
   );
 }
@@ -184,69 +175,13 @@ function SpotlightMetric({
   );
 }
 
-function TeamSpotlight({
-  row,
-  leagueSlug,
-  emptyTitle = "No data yet",
-  empty,
-  formatValue,
-  valueClassName,
-  valueHint,
-}: {
-  row: OverviewTeamMetric | null;
-  leagueSlug: string;
-  emptyTitle?: string;
-  empty: string;
-  formatValue: (value: number) => string;
-  valueClassName?: string;
-  valueHint?: string;
-}) {
-  if (!row) {
-    return (
-      <Empty size="sm">
-        <EmptyHeader>
-          <EmptyTitle>{emptyTitle}</EmptyTitle>
-          <EmptyDescription>{empty}</EmptyDescription>
-        </EmptyHeader>
-      </Empty>
-    );
-  }
-
-  const href = row.teamPublicId
-    ? `/league/${leagueSlug}/team/${row.teamPublicId}`
-    : `/league/${leagueSlug}`;
-
-  return (
-    <div className="flex flex-col items-center gap-4 py-2 text-center">
-      <Link
-        href={href}
-        className="flex flex-col items-center gap-2 outline-none transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-ring/50"
-      >
-        <TeamMark name={row.teamName} logoUrl={row.logoUrl} size="hero" />
-        <div className="min-w-0 max-w-full text-center">
-          <p className="truncate text-sm font-semibold text-balance underline-offset-2 hover:underline">
-            {row.teamName}
-          </p>
-          <p className="truncate text-xs text-muted-foreground">{row.ownerName}</p>
-        </div>
-      </Link>
-      <SpotlightMetric
-        value={formatValue(row.value)}
-        hint={valueHint}
-        valueClassName={valueClassName}
-      />
-    </div>
-  );
-}
-
 function PlayerSpotlight({
   player,
-  leagueSlug,
   emptyTitle = "No data yet",
   empty,
 }: {
   player: OverviewPlayerHighlight | null;
-  leagueSlug: string;
+  leagueSlug?: string;
   emptyTitle?: string;
   empty: string;
 }) {
@@ -263,12 +198,7 @@ function PlayerSpotlight({
 
   return (
     <div className="flex flex-col items-center gap-4 py-2 text-center">
-      <PlayerProfileTrigger
-        playerId={player.id}
-        leagueSlug={leagueSlug}
-        aria-label={`View ${player.fullName}`}
-        className="flex flex-col items-center gap-2"
-      >
+      <div className="flex flex-col items-center gap-2">
         <PlayerAvatar
           fullName={player.fullName}
           sleeperId={player.sleeperId}
@@ -278,7 +208,7 @@ function PlayerSpotlight({
           className="size-20! [&_[data-slot=avatar-fallback]]:text-2xl!"
         />
         <div className="min-w-0 max-w-full text-center">
-          <p className="truncate text-sm font-semibold text-balance underline-offset-2 group-hover/player-identity:underline group-focus-visible/player-identity:underline">
+          <p className="truncate text-sm font-semibold text-balance">
             {player.fullName}
           </p>
           <p className="truncate text-xs text-muted-foreground">
@@ -287,7 +217,7 @@ function PlayerSpotlight({
               .join(" · ")}
           </p>
         </div>
-      </PlayerProfileTrigger>
+      </div>
       <SpotlightMetric
         value={formatPoints(player.points)}
         hint="fantasy pts"

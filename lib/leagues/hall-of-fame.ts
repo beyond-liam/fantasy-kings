@@ -157,29 +157,39 @@ export function pickWinningScoreExtremes(
 
   for (const m of finals) {
     if (m.homePts == null || m.awayPts == null) continue;
-    if (m.homePts === m.awayPts) continue;
 
-    const homeWon = m.homePts > m.awayPts;
-    const winnerId = homeWon ? m.homeTeamId : m.awayTeamId;
-    const loserId = homeWon ? m.awayTeamId : m.homeTeamId;
-    const winnerPts = homeWon ? m.homePts : m.awayPts;
-    const winner = teamById.get(winnerId);
-    const loser = teamById.get(loserId);
-    if (!winner?.claimed) continue;
+    const home = teamById.get(m.homeTeamId);
+    const away = teamById.get(m.awayTeamId);
 
-    const row: HofWinningScore = {
-      teamId: winner.teamId,
-      teamPublicId: winner.teamPublicId,
-      teamName: winner.teamName,
-      ownerName: winner.ownerName,
-      logoUrl: winner.logoUrl,
-      value: Math.round(winnerPts * 10) / 10,
-      week: m.week,
-      opponentName: loser?.teamName ?? "Opponent",
-    };
+    if (home?.claimed) {
+      const row: HofWinningScore = {
+        teamId: home.teamId,
+        teamPublicId: home.teamPublicId,
+        teamName: home.teamName,
+        ownerName: home.ownerName,
+        logoUrl: home.logoUrl,
+        value: Math.round(m.homePts * 10) / 10,
+        week: m.week,
+        opponentName: away?.teamName ?? "Opponent",
+      };
+      if (!highest || row.value > highest.value) highest = row;
+      if (!lowest || row.value < lowest.value) lowest = row;
+    }
 
-    if (!highest || row.value > highest.value) highest = row;
-    if (!lowest || row.value < lowest.value) lowest = row;
+    if (away?.claimed) {
+      const row: HofWinningScore = {
+        teamId: away.teamId,
+        teamPublicId: away.teamPublicId,
+        teamName: away.teamName,
+        ownerName: away.ownerName,
+        logoUrl: away.logoUrl,
+        value: Math.round(m.awayPts * 10) / 10,
+        week: m.week,
+        opponentName: home?.teamName ?? "Opponent",
+      };
+      if (!highest || row.value > highest.value) highest = row;
+      if (!lowest || row.value < lowest.value) lowest = row;
+    }
   }
 
   return { highest, lowest };
@@ -235,6 +245,14 @@ export function pickTopCount(
     }
   }
   return best;
+}
+
+/** #1 / division titles lock in only after the last regular-season week has finals. */
+export function hasCompletedRegularSeason(
+  finals: Array<{ week: number }>,
+  regularSeasonEndWeek: number,
+): boolean {
+  return finals.some((matchup) => matchup.week === regularSeasonEndWeek);
 }
 
 /**

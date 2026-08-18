@@ -4,6 +4,7 @@ import { describe, it } from "node:test";
 import {
   buildAllTimeTable,
   countLuckyWinsByTeam,
+  hasCompletedRegularSeason,
   pickMostRegularSeasonWins,
   pickWinningScoreExtremes,
 } from "@/lib/leagues/hall-of-fame";
@@ -61,7 +62,7 @@ describe("hall of fame helpers", () => {
     assert.equal(pickMostRegularSeasonWins(table)?.value, 2);
   });
 
-  it("picks highest and lowest winning scores", () => {
+  it("picks highest and lowest scores regardless of win/loss", () => {
     const { highest, lowest } = pickWinningScoreExtremes(teams, [
       {
         id: "1",
@@ -82,8 +83,8 @@ describe("hall of fame helpers", () => {
     ]);
     assert.equal(highest?.value, 150);
     assert.equal(highest?.teamId, "a");
-    assert.equal(lowest?.value, 72);
-    assert.equal(lowest?.teamId, "b");
+    assert.equal(lowest?.value, 70);
+    assert.equal(lowest?.teamId, "a");
   });
 
   it("counts lucky wins when opponent OPF would have won", () => {
@@ -101,5 +102,16 @@ describe("hall of fame helpers", () => {
     ]);
     assert.equal(counts.get("a"), 1);
     assert.equal(counts.get("b"), undefined);
+  });
+
+  it("treats regular season as complete only after the last week has finals", () => {
+    assert.equal(
+      hasCompletedRegularSeason([{ week: 1 }, { week: 13 }], 14),
+      false,
+    );
+    assert.equal(
+      hasCompletedRegularSeason([{ week: 1 }, { week: 14 }], 14),
+      true,
+    );
   });
 });

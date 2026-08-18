@@ -193,6 +193,7 @@ export function DraftBoard({
                     }
 
                     const pick = pickByOverall.get(slot.overall);
+                    const isHoveredColumn = hoveredTeamId === team.id;
                     const isOnClock =
                       (status === "live" || status === "paused") &&
                       slot.overall - 1 === currentPickIndex;
@@ -204,10 +205,13 @@ export function DraftBoard({
                       : null;
 
                     const cellClass = cn(
-                      "relative flex h-14 w-full min-w-0 items-center justify-center overflow-hidden rounded-md px-1.5 py-1 pr-5 ring-1 ring-inset transition-colors",
+                      "relative flex h-14 w-full min-w-0 items-center justify-center overflow-hidden rounded-md px-1.5 py-1 pr-5 ring-1 ring-inset transition-[color,background-color,box-shadow] duration-150",
                       pick
                         ? positionToneClass(pick.playerPositionId)
-                        : "bg-muted/15 text-muted-foreground ring-border/40",
+                        : cn(
+                            "bg-muted/15 text-muted-foreground ring-border/40",
+                            isHoveredColumn && "bg-muted/30 ring-foreground/20",
+                          ),
                       isOnClock && "bg-muted/50 text-foreground",
                       pick &&
                         "cursor-pointer hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
@@ -215,7 +219,12 @@ export function DraftBoard({
 
                     const cellInner = (
                       <>
-                        <span className="absolute top-1.5 right-1.5 text-[9px] leading-none tabular-nums opacity-55">
+                        <span
+                          className={cn(
+                            "absolute top-1.5 right-1.5 text-[9px] leading-none tabular-nums opacity-55",
+                            !pick && isHoveredColumn && "opacity-80",
+                          )}
+                        >
                           {slot.overall}
                         </span>
                         {isOnClock && !pick ? (

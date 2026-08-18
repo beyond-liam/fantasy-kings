@@ -4,6 +4,7 @@ import {
   buildAllTimeTable,
   countDivisionTitlesByTeam,
   countLuckyWinsByTeam,
+  hasCompletedRegularSeason,
   pickDivisionWinnersForSeason,
   pickMostRegularSeasonWins,
   pickTopCount,
@@ -138,8 +139,12 @@ export async function loadLeagueHallOfFame(input: {
   let middleHonor: LeagueHallOfFameData["middleHonor"] = null;
   const middleHonorKind: LeagueHallOfFameData["middleHonorKind"] =
     multiDivision ? "division_titles" : "regular_season_titles";
+  const regularSeasonComplete = hasCompletedRegularSeason(
+    regularFinals,
+    input.regularSeasonEndWeek,
+  );
 
-  if (multiDivision) {
+  if (regularSeasonComplete && multiDivision) {
     const winners = pickDivisionWinnersForSeason({
       seasonYear: input.seasonYear,
       divisions: seasonDivisions,
@@ -150,7 +155,11 @@ export async function loadLeagueHallOfFame(input: {
       claimed,
       countDivisionTitlesByTeam(winners),
     );
-  } else if (allTimeTable[0] && allTimeTable[0].wins > 0) {
+  } else if (
+    regularSeasonComplete &&
+    allTimeTable[0] &&
+    allTimeTable[0].wins > 0
+  ) {
     const top = allTimeTable[0];
     middleHonor = {
       teamId: top.teamId,

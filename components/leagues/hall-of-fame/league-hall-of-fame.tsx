@@ -58,7 +58,7 @@ function ViewAllLink({ href }: { href: string }) {
       className="h-7 shrink-0 px-2 text-xs"
       render={<Link href={href} />}
     >
-      View All
+      View all
       <HugeiconsIcon
         icon={ArrowRight01Icon}
         strokeWidth={2}
@@ -218,7 +218,12 @@ export function LeagueHallOfFame({ leagueSlug, data }: LeagueHallOfFameProps) {
       </HofCard>
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <HofCard title="Choke Artist">
+        <HofCard
+          title="Choke Artist"
+          action={
+            <ViewAllLink href={`/league/${leagueSlug}/hall-of-fame/choke-artist`} />
+          }
+        >
           <TeamSpotlight
             row={data.chokeArtist}
             leagueSlug={leagueSlug}
@@ -229,7 +234,12 @@ export function LeagueHallOfFame({ leagueSlug, data }: LeagueHallOfFameProps) {
             valueHint="late collapses"
           />
         </HofCard>
-        <HofCard title="Fergie Time">
+        <HofCard
+          title="Fergie Time"
+          action={
+            <ViewAllLink href={`/league/${leagueSlug}/hall-of-fame/fergie-time`} />
+          }
+        >
           <TeamSpotlight
             row={data.fergieTime}
             leagueSlug={leagueSlug}
@@ -239,7 +249,14 @@ export function LeagueHallOfFame({ leagueSlug, data }: LeagueHallOfFameProps) {
             valueHint="late comebacks"
           />
         </HofCard>
-        <HofCard title="Luckiest Man Alive">
+        <HofCard
+          title="Luckiest Man Alive"
+          action={
+            <ViewAllLink
+              href={`/league/${leagueSlug}/hall-of-fame/luckiest-man-alive`}
+            />
+          }
+        >
           <TeamSpotlight
             row={data.luckiest}
             leagueSlug={leagueSlug}
@@ -252,7 +269,14 @@ export function LeagueHallOfFame({ leagueSlug, data }: LeagueHallOfFameProps) {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <HofCard title="Highest Winning Score">
+        <HofCard
+          title="Highest Score"
+          action={
+            <ViewAllLink
+              href={`/league/${leagueSlug}/hall-of-fame/highest-winning-score`}
+            />
+          }
+        >
           <TeamSpotlight
             row={data.highestWinningScore}
             leagueSlug={leagueSlug}
@@ -261,12 +285,17 @@ export function LeagueHallOfFame({ leagueSlug, data }: LeagueHallOfFameProps) {
             formatValue={(value) => formatPoints(value)}
             valueHint={
               data.highestWinningScore
-                ? `W${data.highestWinningScore.week} vs ${data.highestWinningScore.opponentName}`
+                ? `Wk ${data.highestWinningScore.week} vs ${data.highestWinningScore.opponentName}`
                 : "single game"
             }
           />
         </HofCard>
-        <HofCard title="Lowest Winning Score">
+        <HofCard
+          title="Lowest Score"
+          action={
+            <ViewAllLink href={`/league/${leagueSlug}/hall-of-fame/lowest-score`} />
+          }
+        >
           <TeamSpotlight
             row={data.lowestWinningScore}
             leagueSlug={leagueSlug}
@@ -275,7 +304,7 @@ export function LeagueHallOfFame({ leagueSlug, data }: LeagueHallOfFameProps) {
             formatValue={(value) => formatPoints(value)}
             valueHint={
               data.lowestWinningScore
-                ? `W${data.lowestWinningScore.week} vs ${data.lowestWinningScore.opponentName}`
+                ? `Wk ${data.lowestWinningScore.week} vs ${data.lowestWinningScore.opponentName}`
                 : "single game"
             }
           />

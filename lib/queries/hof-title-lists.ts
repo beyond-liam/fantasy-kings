@@ -2,6 +2,7 @@ import "server-only";
 
 import {
   buildAllTimeTable,
+  hasCompletedRegularSeason,
   pickDivisionWinnersForSeason,
   type HofDivision,
   type HofTeamIdentity,
@@ -99,20 +100,27 @@ export async function loadHofTitleLists(input: {
     (m) => m.week <= season.regularSeasonEndWeek,
   );
   const allTimeTable = buildAllTimeTable(claimed, regularFinals);
-  const rsTitle = buildRegularSeasonTitleRow({
-    seasonYear: season.seasonYear,
-    allTimeTable,
-  });
-  const divisionTitles = multiDivision
-    ? toDivisionTitleSeasons(
-        pickDivisionWinnersForSeason({
-          seasonYear: season.seasonYear,
-          divisions: seasonDivisions,
-          allTimeTable,
-          teams: claimed,
-        }),
-      )
-    : [];
+  const regularSeasonComplete = hasCompletedRegularSeason(
+    regularFinals,
+    season.regularSeasonEndWeek,
+  );
+  const rsTitle = regularSeasonComplete
+    ? buildRegularSeasonTitleRow({
+        seasonYear: season.seasonYear,
+        allTimeTable,
+      })
+    : null;
+  const divisionTitles =
+    regularSeasonComplete && multiDivision
+      ? toDivisionTitleSeasons(
+          pickDivisionWinnersForSeason({
+            seasonYear: season.seasonYear,
+            divisions: seasonDivisions,
+            allTimeTable,
+            teams: claimed,
+          }),
+        )
+      : [];
 
   const playoffSettings = resolvePlayoffSettings(season.settings.playoffs);
   const playoffTeamCount = clampPlayoffTeamCount(

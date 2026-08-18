@@ -27,7 +27,8 @@ const cardHeaderVariants = cva(
     variants: {
       variant: {
         default: "",
-        panel: "border-b bg-muted/40 py-3 [.border-b]:pb-3",
+        panel:
+          "border-b bg-muted/40 py-3 [.border-b]:pb-3 has-data-[slot=card-action]:flex has-data-[slot=card-action]:flex-row has-data-[slot=card-action]:items-center has-data-[slot=card-action]:justify-between has-data-[slot=card-action]:gap-3",
         destructive: "border-b bg-destructive/5 py-3 [.border-b]:pb-3",
       },
     },
