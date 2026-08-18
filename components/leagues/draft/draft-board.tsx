@@ -56,6 +56,15 @@ function shortName(fullName: string) {
   return `${parts[0]![0]}. ${parts.slice(1).join(" ")}`;
 }
 
+function columnDimClass(hoveredTeamId: string | null, teamId: string) {
+  return cn(
+    "transition-opacity duration-150",
+    hoveredTeamId != null &&
+      hoveredTeamId !== teamId &&
+      "opacity-35",
+  );
+}
+
 export function DraftBoard({
   slug,
   schedule,
@@ -66,6 +75,7 @@ export function DraftBoard({
   status,
 }: DraftBoardProps) {
   const [profilePlayerId, setProfilePlayerId] = useState<string | null>(null);
+  const [hoveredTeamId, setHoveredTeamId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const onClockRef = useRef<HTMLTableCellElement>(null);
   const pickByOverall = new Map(picks.map((pick) => [pick.overall, pick]));
@@ -121,10 +131,17 @@ export function DraftBoard({
               {orderedTeams.map((team) => (
                 <th
                   key={team.id}
-                  className="overflow-hidden px-1.5 py-3 text-center font-medium"
+                  className={cn(
+                    "overflow-hidden px-1.5 py-3 text-center font-medium",
+                    columnDimClass(hoveredTeamId, team.id),
+                  )}
                   style={{ width: columnWidth, maxWidth: columnWidth }}
                 >
-                  <div className="flex flex-col items-center gap-1.5">
+                  <div
+                    className="flex cursor-default flex-col items-center gap-1.5"
+                    onMouseEnter={() => setHoveredTeamId(team.id)}
+                    onMouseLeave={() => setHoveredTeamId(null)}
+                  >
                     <Avatar size="sm" className="shrink-0">
                       {team.logoUrl ? (
                         <AvatarImage src={team.logoUrl} alt="" />
@@ -162,7 +179,10 @@ export function DraftBoard({
                       return (
                         <td
                           key={team.id}
-                          className="overflow-hidden p-1 align-middle"
+                          className={cn(
+                            "overflow-hidden p-1 align-middle",
+                            columnDimClass(hoveredTeamId, team.id),
+                          )}
                           style={{ width: columnWidth, maxWidth: columnWidth }}
                         >
                           <div className="flex h-14 w-full items-center justify-center rounded-md bg-muted/20 text-xs text-muted-foreground">
@@ -235,7 +255,10 @@ export function DraftBoard({
                       <td
                         key={team.id}
                         ref={isOnClock ? onClockRef : undefined}
-                        className="overflow-hidden p-1 align-middle"
+                        className={cn(
+                          "overflow-hidden p-1 align-middle",
+                          columnDimClass(hoveredTeamId, team.id),
+                        )}
                         style={{ width: columnWidth, maxWidth: columnWidth }}
                       >
                         {pick ? (
