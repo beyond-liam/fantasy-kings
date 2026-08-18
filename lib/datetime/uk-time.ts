@@ -31,3 +31,12 @@ export function ukTimezoneAbbrev(date = new Date()): "GMT" | "BST" {
   const name = parts.find((part) => part.type === "timeZoneName")?.value;
   return name === "BST" ? "BST" : "GMT";
 }
+
+/** UK wall-clock date and time with no zone abbrev (e.g. `17 Aug 2026, 21:24`). */
+export function formatUkDateTime(date: Date): string {
+  return new Intl.DateTimeFormat("en-GB", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: UK_TIME_ZONE,
+  }).format(date);
+}

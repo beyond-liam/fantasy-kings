@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { ukMinutesOfDay, ukTimezoneAbbrev } from "@/lib/datetime/uk-time";
+import { formatUkDateTime, ukMinutesOfDay, ukTimezoneAbbrev } from "@/lib/datetime/uk-time";
 
 describe("ukMinutesOfDay", () => {
   it("uses BST offset in summer", () => {
@@ -33,6 +33,15 @@ describe("ukTimezoneAbbrev", () => {
     assert.equal(
       ukTimezoneAbbrev(new Date("2026-01-15T12:00:00.000Z")),
       "GMT",
+    );
+  });
+});
+
+describe("formatUkDateTime", () => {
+  it("formats BST wall clock without a zone label", () => {
+    assert.equal(
+      formatUkDateTime(new Date("2026-08-17T20:24:00.000Z")),
+      "17 Aug 2026, 21:24",
     );
   });
 });

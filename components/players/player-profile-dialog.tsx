@@ -32,6 +32,7 @@ import {
   TABLE_SHELL_CLASSNAME,
 } from "@/components/ui/table";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { formatUkDateTime } from "@/lib/datetime/uk-time";
 import { cn } from "@/lib/utils";
 import { loadPlayerProfile } from "@/lib/actions/player-profile";
 import { resolvePlayerByeWeek } from "@/lib/nfl/bye-weeks";
@@ -430,12 +431,7 @@ export function PlayerProfileContent({
                       {item.summary}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {new Intl.DateTimeFormat("en-GB", {
-                        dateStyle: "medium",
-                        timeStyle: "short",
-                        timeZone: "UTC",
-                      }).format(new Date(item.createdAt))}{" "}
-                      UTC
+                      {formatUkDateTime(new Date(item.createdAt))}
                     </p>
                   </li>
                 ))}

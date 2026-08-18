@@ -52,6 +52,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { formatUkDateTime } from "@/lib/datetime/uk-time";
 import type { FeedActivityType } from "@/lib/leagues/activity-log";
 import { formatSettingsActivityLabel } from "@/lib/leagues/settings-activity-labels";
 import {
@@ -438,14 +439,6 @@ function ClaimResolutionMeta({ item }: { item: LeagueActivityRow }) {
   );
 }
 
-function formatActivityTime(date: Date) {
-  return new Intl.DateTimeFormat("en-GB", {
-    dateStyle: "medium",
-    timeStyle: "short",
-    timeZone: "UTC",
-  }).format(date);
-}
-
 export function LeagueActivityFeed({
   items,
   leagueSlug,
@@ -591,7 +584,7 @@ export function LeagueActivityFeed({
                       {resolveActivitySummary(item)}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {formatActivityTime(item.createdAt)} UTC ·{" "}
+                      {formatUkDateTime(item.createdAt)} ·{" "}
                       {resolveActivityTypeLabel(item)}
                       {item.type === "waiver_awarded" ? (
                         <ClaimResolutionMeta item={item} />
@@ -679,7 +672,7 @@ function SettingsChangesDialog({
             <span>Commissioner changed {label}.</span>
             {item ? (
               <span>
-                {formatActivityTime(item.createdAt)} UTC
+                {formatUkDateTime(item.createdAt)}
               </span>
             ) : null}
           </DialogDescription>
