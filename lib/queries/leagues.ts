@@ -40,6 +40,7 @@ export type UserLeagueListItem = {
   draftStartAt: Date | null;
   logoUrl: string | null;
   leagueType: string;
+  teamId: string | null;
   teamName: string | null;
   wins: number;
   losses: number;
@@ -314,6 +315,7 @@ export const getUserLeagues = cache(async function getUserLeagues(
       draftStartAt: row.draftStartAt ?? null,
       logoUrl: row.settings?.logoUrl?.trim() || null,
       leagueType: row.leagueType ?? "redraft",
+      teamId: row.teamId ?? null,
       teamName: row.teamName?.trim() || null,
       wins: record?.wins ?? 0,
       losses: record?.losses ?? 0,

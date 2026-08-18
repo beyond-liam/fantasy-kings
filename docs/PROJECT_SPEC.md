@@ -177,7 +177,7 @@ Two navigation contexts: **app-level** (user account) and **league-level** (insi
 
 | Route | Page | Description |
 |---|---|---|
-| `/dashboard` | Dashboard | Home — league picker, quick summary cards |
+| `/dashboard` | Dashboard | Home — My Leagues carousel plus NFL leaders, team of the week, and trending adds/cuts |
 | `/leagues` | Leagues | List, create, join via shareable link |
 | `/draft-room` | Mock Draft | Practice draft settings + live mock vs ADP bots |
 | `/rankings` | Rankings | Player rankings (offense-first, DB-backed) |
@@ -953,3 +953,4 @@ lib/
 | 2026-08-17 | Draft player pool shows a projected-pick line for every remaining pick |
 | 2026-08-17 | Standings RK shows places moved vs last week (week 1 vs draft slot; up success, down destructive) |
 | 2026-08-17 | Timed draft clocks autodraft on expiry (queue then BPA) even when Autopick is off |
+| 2026-08-18 | Dashboard: My Leagues carousel plus NFL yardage leaders, standard team of the week, and trending adds/cuts |
