@@ -64,6 +64,8 @@ export type CommitDraftPickInput = {
   actingTeamId?: string | null;
   /** True when this autopick is filling a clock that expired (counts as a miss). */
   missedClock?: boolean;
+  /** Keep the daily pause window (clock frozen, picks still allowed). */
+  keepClockPaused?: boolean;
 };
 
 export type CommitDraftPickResult =
@@ -318,6 +320,7 @@ export async function commitDraftPick(
           ? { forcedAutoPick: streak.forcedAutoPick }
           : input.seasonTeams.find((team) => team.id === nextSlot?.teamId);
       const nextClockExempt = Boolean(nextTeam?.forcedAutoPick);
+      const keepClockPaused = Boolean(input.keepClockPaused) && !isComplete;
 
       await tx
         .update(teams)
@@ -332,20 +335,35 @@ export async function commitDraftPick(
 
       await tx
         .update(drafts)
-        .set({
-          currentPickIndex: nextIndex,
-          status: isComplete ? "complete" : "live",
-          completedAt: isComplete ? new Date() : null,
-          turnExpiresAt: isComplete
-            ? null
-            : resolveTurnExpiresAt({
-                now: acquiredAt,
-                pickTimeLimitSeconds: input.pickTimeLimitSeconds,
-                clockExempt: nextClockExempt,
-              }),
-          pausedSecondsRemaining: null,
-          pausedAt: null,
-        })
+        .set(
+          keepClockPaused
+            ? {
+                currentPickIndex: nextIndex,
+                status: "paused" as const,
+                completedAt: null,
+                turnExpiresAt: null,
+                pausedSecondsRemaining:
+                  input.pickTimeLimitSeconds > 0
+                    ? input.pickTimeLimitSeconds
+                    : null,
+                pausedByWindow: true,
+              }
+            : {
+                currentPickIndex: nextIndex,
+                status: isComplete ? ("complete" as const) : ("live" as const),
+                completedAt: isComplete ? new Date() : null,
+                turnExpiresAt: isComplete
+                  ? null
+                  : resolveTurnExpiresAt({
+                      now: acquiredAt,
+                      pickTimeLimitSeconds: input.pickTimeLimitSeconds,
+                      clockExempt: nextClockExempt,
+                    }),
+                pausedSecondsRemaining: null,
+                pausedAt: null,
+                pausedByWindow: false,
+              },
+        )
         .where(eq(drafts.id, input.draftId));
 
       if (isComplete) {

@@ -57,6 +57,7 @@ export type DraftRoomData = {
     pausedAt: Date | null;
     turnExpiresAt: Date | null;
     pausedSecondsRemaining: number | null;
+    pausedByWindow: boolean;
     completedAt: Date | null;
   } | null;
   teams: Array<
@@ -306,6 +307,7 @@ export async function getDraftRoomData(input: {
           pausedAt: draft.pausedAt,
           turnExpiresAt: draft.turnExpiresAt,
           pausedSecondsRemaining: draft.pausedSecondsRemaining,
+          pausedByWindow: draft.pausedByWindow,
           completedAt: draft.completedAt,
         }
       : null,

@@ -4,6 +4,7 @@ import { IrLockAlert } from "@/components/team/ir-lock-alert";
 import { TaxiLockAlert } from "@/components/team/taxi-lock-alert";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import type { LeagueSeasonSettings } from "@/db/schema/league-seasons";
+import { draftAllowsPicks } from "@/lib/leagues/draft/allows-picks";
 import { isRosterTransactionsEnabled } from "@/lib/leagues/free-agency";
 import {
   formatIrLockMessage,
@@ -178,7 +179,10 @@ export async function LeaguePlayersTable({
       settings: seasonSettings,
       benchSlots,
     });
-    const draftLive = draftRoom.draft?.status === "live";
+    const draftLive = draftAllowsPicks({
+      status: draftRoom.draft?.status,
+      pausedByWindow: draftRoom.draft?.pausedByWindow,
+    });
     const myDraftTeamId =
       draftRoom.teams.find((teamRow) => teamRow.userId === userId)?.id ?? null;
     const isMyTurn = Boolean(

@@ -229,7 +229,7 @@ describe("buildLeagueRulesSummary", () => {
     );
     assert.equal(
       draft?.rows.find((row) => row.label === "Daily Pause Window")?.value,
-      "22:00–08:00 UK",
+      "22:00–08:00 UK (clock only)",
     );
   });
 });

@@ -210,7 +210,7 @@ export function DraftStep({ values, errors, onChange }: DraftStepProps) {
           <SwitchField
             id="pauseWindowEnabled"
             label="Pause during a time window"
-            description="Automatically pause the draft clock each day between these UK times (e.g. overnight)."
+            description="Automatically pause the pick clock each day between these UK times (e.g. overnight). Teams can still pick; the clock starts again when the window ends."
             checked={values.pauseWindowEnabled}
             onCheckedChange={(pauseWindowEnabled) =>
               onChange({

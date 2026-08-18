@@ -25,7 +25,7 @@ A mobile-first fantasy football web app for a private friend group (4–16 users
 | Scoring | Offense engine + commissioner scoring UI; **minimal IDP defaults** (CB/S/DT/DE/LB) |
 | Roster | Lineup / IR / taxi (eligibility), FA add/cut, lineup-lock enforce; cut/slot lock after NFL game start; future-week lineups scheduled until that week starts; optional enforce position roster minimums on cuts/claims/trades |
 | Waivers / trades | FAAB + rolling, claims (grouped by process date), vetoes, limits, crons, alerts; optional daily drop processing; FCFS only for cleared unplayed FAs (claim after kickoff or slate-complete until weekly process); trade week-end hold for started players; optional trade offer expiry |
-| Draft | Live + email/slow same room; Brevo turn emails; mock draft; timed email daily UK pause window |
+| Draft | Live + email/slow same room; Brevo turn emails; mock draft; timed email daily UK pause window (clock only — picks stay open) |
 | Matchups | Week board, Game Centre, standings from finals (held until 2h after last NFL game of the week), Live/Final badges |
 | Live scores | Sleeper near-live + ESPN athlete and team DEF boxscores → `player_scores` |
 | Official scores | nflverse post-week replace; optional `applyOfficialStatChanges` |
@@ -963,4 +963,5 @@ lib/
 | 2026-08-17 | Timed draft clocks autodraft on expiry (queue then BPA) even when Autopick is off |
 | 2026-08-18 | Dashboard: My Leagues carousel plus NFL yardage leaders, standard team of the week, and trending adds/cuts |
 | 2026-08-18 | Manager presence badges only on standings + draft board; seed from server so the status circle is immediate |
+| 2026-08-18 | Daily pause window freezes the pick clock only; teams can still pick; clock resumes when the window ends |
 | 2026-08-18 | Future-week roster lineups: slot edits unlock after current games start, save as a plan, and apply when that week becomes current |

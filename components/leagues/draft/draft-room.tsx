@@ -42,6 +42,7 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs";
 import { autoDraftCurrentPick, tryAutoStartDraft } from "@/lib/actions/draft";
+import { draftAllowsPicks } from "@/lib/leagues/draft/allows-picks";
 import { formatDraftStartsAt } from "@/lib/leagues/draft-status";
 import { getRemainingTeamPickSlots, type DraftScheduleSlot } from "@/lib/leagues/draft/board";
 import type { DraftPickRow, DraftQueueRow } from "@/lib/queries/draft";
@@ -83,6 +84,8 @@ type DraftRoomProps = {
   turnExpiresAt: string | null;
   /** Frozen remaining seconds while paused. */
   pausedSecondsRemaining: number | null;
+  /** Daily pause window freezes the clock but still allows picks. */
+  pausedByWindow?: boolean;
   /** League roster positions for the player pool filter. */
   positions?: readonly PositionFilter[];
   /** Year-2+ dynasty rookies-only pool. */
@@ -180,6 +183,7 @@ export function DraftRoom({
   draftStartAt,
   turnExpiresAt,
   pausedSecondsRemaining,
+  pausedByWindow = false,
   positions,
   rookiesOnlyLocked = false,
 }: DraftRoomProps) {
@@ -196,6 +200,8 @@ export function DraftRoom({
   const [prevPausedSeconds, setPrevPausedSeconds] = useState(
     pausedSecondsRemaining,
   );
+  const [livePausedByWindow, setLivePausedByWindow] = useState(pausedByWindow);
+  const [prevPausedByWindow, setPrevPausedByWindow] = useState(pausedByWindow);
   const [livePicks, setLivePicks] = useState(picks);
   const [liveDraftedIds, setLiveDraftedIds] = useState(draftedPlayerIds);
   const [livePickIndex, setLivePickIndex] = useState(currentPickIndex);
@@ -226,6 +232,11 @@ export function DraftRoom({
     setLivePausedSeconds(pausedSecondsRemaining);
   }
 
+  if (pausedByWindow !== prevPausedByWindow) {
+    setPrevPausedByWindow(pausedByWindow);
+    setLivePausedByWindow(pausedByWindow);
+  }
+
   const nextPropPickSig = serverPickSignature(currentPickIndex, picks);
   if (nextPropPickSig !== propPickSig) {
     setPropPickSig(nextPropPickSig);
@@ -237,7 +248,10 @@ export function DraftRoom({
   }
 
   const effectiveStatus = optimisticStatus;
-  const draftLive = effectiveStatus === "live";
+  const draftLive = draftAllowsPicks({
+    status: effectiveStatus,
+    pausedByWindow: livePausedByWindow,
+  });
   const draftComplete = effectiveStatus === "complete";
   const onTheClockLive =
     effectiveStatus === "live" || effectiveStatus === "paused"
@@ -314,6 +328,11 @@ export function DraftRoom({
           prev === detail.pausedSecondsRemaining
             ? prev
             : (detail.pausedSecondsRemaining ?? null),
+        );
+      }
+      if (detail.pausedByWindow !== undefined) {
+        setLivePausedByWindow((prev) =>
+          prev === detail.pausedByWindow ? prev : Boolean(detail.pausedByWindow),
         );
       }
       if (detail.status) {
@@ -540,7 +559,9 @@ export function DraftRoom({
   const clockCardTitle = waitingToStart
     ? "Waiting to start"
     : effectiveStatus === "paused"
-      ? "Draft paused"
+      ? livePausedByWindow
+        ? "Clock paused"
+        : "Draft paused"
       : onTheClockLive
         ? "On the clock"
         : "Up next";
@@ -612,7 +633,9 @@ export function DraftRoom({
                   {showPickClock ? (
                     <>
                       <p className="text-xs text-muted-foreground">
-                        Pick expires in
+                        {effectiveStatus === "paused"
+                          ? "Time remaining"
+                          : "Pick expires in"}
                       </p>
                       <DraftClockSeconds seconds={secondsLeft} />
                     </>
@@ -630,7 +653,9 @@ export function DraftRoom({
                 showPickClock ? (
                   <div className="flex flex-col gap-1">
                     <p className="text-xs text-muted-foreground">
-                      Pick expires in
+                      {effectiveStatus === "paused"
+                        ? "Time remaining"
+                        : "Pick expires in"}
                     </p>
                     <DraftClockSeconds seconds={secondsLeft} />
                     <p className="text-sm text-muted-foreground">
@@ -652,7 +677,9 @@ export function DraftRoom({
                   {showPickClock ? (
                     <>
                       <p className="text-xs text-muted-foreground">
-                        Pick expires in
+                        {effectiveStatus === "paused"
+                          ? "Time remaining"
+                          : "Pick expires in"}
                       </p>
                       <DraftClockSeconds seconds={secondsLeft} />
                     </>

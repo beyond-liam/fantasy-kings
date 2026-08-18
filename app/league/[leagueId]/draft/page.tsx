@@ -175,6 +175,7 @@ export default async function LeagueDraftRoomPage({
           draftStartAt={toIso(season.draftStartAt)}
           turnExpiresAt={toIso(room.draft?.turnExpiresAt)}
           pausedSecondsRemaining={room.draft?.pausedSecondsRemaining ?? null}
+          pausedByWindow={room.draft?.pausedByWindow ?? false}
           positions={positionFiltersFromRosterSlots(season.settings.rosterSlots)}
           rookiesOnlyLocked={restrictToRookies}
         />

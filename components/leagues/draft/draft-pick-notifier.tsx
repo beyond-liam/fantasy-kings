@@ -28,6 +28,7 @@ export type DraftPicksPollResponse = {
   afterOverall: number;
   turnExpiresAt?: string | null;
   pausedSecondsRemaining?: number | null;
+  pausedByWindow?: boolean;
   picks: DraftPickEventPayload[];
   error?: string;
 };

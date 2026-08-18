@@ -149,7 +149,8 @@ curl -X POST "https://<your-app>/api/cron/start-drafts" \
 
 Autopicks live draft seats that are due: claimed teams with Autopick + a queue
 pick immediately; **expired clocks always queue→BPA** (claimed or open).
-Also applies timed-email daily pause windows (auto-pause / auto-resume).
+Also applies timed-email daily pause windows (clock freeze / auto-resume;
+picks stay allowed during the window). Commissioner pause still blocks picks.
 This is the authoritative unattended path — draft start/pick/queue/autopick
 toggle and the draft room also kick the same drain when someone is in the app.
 

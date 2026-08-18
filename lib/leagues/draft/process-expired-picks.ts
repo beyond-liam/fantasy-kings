@@ -1,7 +1,7 @@
 import "server-only";
 
 import { revalidatePath } from "next/cache";
-import { eq } from "drizzle-orm";
+import { and, eq, or } from "drizzle-orm";
 
 import { drafts, leagueSeasons, leagues } from "@/db/schema";
 import { db } from "@/lib/db";
@@ -10,6 +10,7 @@ import {
   draftRoundsForSeason,
 } from "@/lib/leagues/draft/board";
 import { commitDraftPick } from "@/lib/leagues/draft/pick";
+import { draftAllowsPicks } from "@/lib/leagues/draft/allows-picks";
 import { isDraftAutopickDue } from "@/lib/leagues/draft/autopick-due";
 import { selectAutopickPlayerId } from "@/lib/leagues/draft/select-autopick-player";
 import { resolveDraftSettings } from "@/lib/leagues/draft-settings";
@@ -29,7 +30,7 @@ export type RunDraftAutopickResult =
       teamName: string;
       isComplete: boolean;
     }
-  | { ok: false; error: string; reason?: "not_due" | "disabled" | "no_queue" | "other" };
+  | { ok: false; error: string; reason?: "not_due" | "disabled" | "no_queue" | "clock_paused" | "other" };
 
 /**
  * Autopick the current on-clock seat when due.
@@ -71,7 +72,7 @@ export async function runDraftAutopick(input: {
   }
 
   const draft = await getDraftBySeasonId(season.id);
-  if (!draft || draft.status !== "live") {
+  if (!draft || !draftAllowsPicks(draft)) {
     return {
       ok: false,
       error:
@@ -81,6 +82,8 @@ export async function runDraftAutopick(input: {
       reason: "other",
     };
   }
+
+  const clockPaused = draft.status === "paused" && draft.pausedByWindow;
 
   const seasonTeams = await getSeasonDraftTeams(season.id);
   const draftSettings = resolveDraftSettings(season.settings.draft);
@@ -139,6 +142,14 @@ export async function runDraftAutopick(input: {
         playerId: queuedPlayerId,
       });
     }
+  }
+
+  if (clockPaused) {
+    return {
+      ok: false,
+      error: "The pick clock is paused.",
+      reason: "clock_paused",
+    };
   }
 
   const clockExempt = Boolean(onClockTeam?.forcedAutoPick);
@@ -237,6 +248,7 @@ async function commitAutopickPlayer(args: {
     madeByUserId: input.madeByUserId,
     source: "autopick",
     missedClock,
+    keepClockPaused: draft.status === "paused" && draft.pausedByWindow,
   });
 
   if (!committed.ok) {
@@ -305,8 +317,10 @@ export type ProcessExpiredDraftPicksResult = {
 const MAX_PICKS_PER_DRAFT = 32;
 
 /**
- * Drain eligible autopicks for one live draft (immediate queue seats, then
- * expired / open seats). Stops on not_due / disabled / no_queue / error.
+ * Drain eligible autopicks for one live or window-paused draft (immediate
+ * queue seats, then expired / open seats). Clock-expiry autodraft is skipped
+ * while the daily pause window has the clock frozen. Stops on not_due /
+ * disabled / no_queue / clock_paused / error.
  */
 export async function drainDraftAutopick(input: {
   leagueSeasonId: string;
@@ -339,7 +353,7 @@ export async function drainDraftAutopick(input: {
   let picked = 0;
   while (picked < MAX_PICKS_PER_DRAFT) {
     const draft = await getDraftBySeasonId(input.leagueSeasonId);
-    if (!draft || draft.status !== "live") {
+    if (!draft || !draftAllowsPicks(draft)) {
       break;
     }
 
@@ -373,9 +387,10 @@ export async function drainDraftAutopick(input: {
 }
 
 /**
- * Autopick live draft seats:
- * - Claimed + Autopick on + queue → pick immediately (even mid-clock)
+ * Autopick live (and window-paused) draft seats:
+ * - Claimed + Autopick on + queue → pick immediately (even mid-clock / window)
  * - Expired clock (any seat) or untimed open seat → queue then BPA
+ *   (expiry autodraft waits while the daily pause window has the clock frozen)
  * Drains consecutive due picks in one pass.
  */
 export async function processExpiredDraftPicks(
@@ -394,7 +409,12 @@ export async function processExpiredDraftPicks(
     .from(drafts)
     .innerJoin(leagueSeasons, eq(leagueSeasons.id, drafts.leagueSeasonId))
     .innerJoin(leagues, eq(leagues.id, leagueSeasons.leagueId))
-    .where(eq(drafts.status, "live"));
+    .where(
+      or(
+        eq(drafts.status, "live"),
+        and(eq(drafts.status, "paused"), eq(drafts.pausedByWindow, true)),
+      ),
+    );
 
   const result: ProcessExpiredDraftPicksResult = {
     checked: live.length,

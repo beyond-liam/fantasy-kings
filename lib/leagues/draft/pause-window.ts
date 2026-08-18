@@ -207,7 +207,8 @@ export type ApplyDraftPauseWindowsResult = {
 
 /**
  * Auto-pause / resume timed email drafts for their configured UK pause window.
- * Manual commissioner pauses (`pausedByWindow = false`) are left alone.
+ * Window pause freezes the pick clock only; commissioner pauses
+ * (`pausedByWindow = false`) still block picks and are left alone.
  */
 export async function applyDraftPauseWindows(
   now = new Date(),

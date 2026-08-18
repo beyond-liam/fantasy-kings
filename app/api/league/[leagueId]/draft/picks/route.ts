@@ -47,6 +47,7 @@ export async function GET(request: Request, context: RouteContext) {
       afterOverall: 0,
       turnExpiresAt: null,
       pausedSecondsRemaining: null,
+      pausedByWindow: false,
       picks: [],
     });
   }
@@ -64,6 +65,7 @@ export async function GET(request: Request, context: RouteContext) {
       afterOverall: draft?.currentPickIndex ?? 0,
       turnExpiresAt: draft?.turnExpiresAt?.toISOString() ?? null,
       pausedSecondsRemaining: draft?.pausedSecondsRemaining ?? null,
+      pausedByWindow: draft?.pausedByWindow ?? false,
       picks: [],
     });
   }
@@ -81,6 +83,7 @@ export async function GET(request: Request, context: RouteContext) {
     afterOverall: draft.currentPickIndex,
     turnExpiresAt: draft.turnExpiresAt?.toISOString() ?? null,
     pausedSecondsRemaining: draft.pausedSecondsRemaining,
+    pausedByWindow: draft.pausedByWindow,
     picks: picks.map((pick) => ({
       id: pick.id,
       overall: pick.overall,

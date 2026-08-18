@@ -16,6 +16,7 @@ import {
 } from "@/db/schema";
 import { db } from "@/lib/db";
 import { activateDraftLive } from "@/lib/leagues/draft/activate";
+import { draftAllowsPicks } from "@/lib/leagues/draft/allows-picks";
 import { secondsUntil } from "@/lib/leagues/draft/clock";
 import { commitDraftPick } from "@/lib/leagues/draft/pick";
 import { loadDraftActionContext } from "@/lib/leagues/action-context";
@@ -252,7 +253,7 @@ export async function makeDraftPick(
   }
 
   const draft = await getDraftBySeasonId(season.id);
-  if (!draft || draft.status !== "live") {
+  if (!draft || !draftAllowsPicks(draft)) {
     return {
       success: false,
       error:
@@ -289,6 +290,7 @@ export async function makeDraftPick(
     madeByUserId: user.id,
     source,
     actingTeamId: source === "manual" ? userTeam?.id ?? null : null,
+    keepClockPaused: draft.status === "paused" && draft.pausedByWindow,
   });
 
   if (!committed.ok) {
@@ -379,8 +381,12 @@ export async function autoDraftCurrentPick(
   });
 
   if (!outcome.ok) {
-    // Keep polling after expiry / clock skew. Stop only when a human must act.
-    const retry = outcome.reason !== "disabled" && outcome.reason !== "no_queue";
+    // Keep polling after expiry / clock skew. Stop only when a human must act
+    // or the daily pause window has frozen the clock (no expiry autodraft).
+    const retry =
+      outcome.reason !== "disabled" &&
+      outcome.reason !== "no_queue" &&
+      outcome.reason !== "clock_paused";
     return { success: false, error: outcome.error, retry };
   }
 
