@@ -5,6 +5,7 @@ import {
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
+import { AnimatedScore } from "@/components/ui/animated-score";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScheduleTeamLogo } from "@/components/scores/schedule-team-logo";
@@ -149,14 +150,14 @@ function ScoreValue({
 }) {
   return (
     <div className="flex shrink-0 flex-col items-center gap-1">
-      <p
+      <div
         className={cn(
           "text-3xl font-bold tabular-nums tracking-tight",
           side.winner === false && "text-muted-foreground",
         )}
       >
-        {side.score ?? 0}
-      </p>
+        <AnimatedScore value={side.score ?? 0} />
+      </div>
       <TimeoutDots remaining={timeouts} />
     </div>
   );
@@ -194,14 +195,14 @@ function MobileScoreboard({ game }: GameScoreboardHeaderProps) {
       <div className="flex shrink-0 items-center gap-2">
         {showScore ? (
           <div className="flex flex-col items-center gap-1">
-            <p
+            <div
               className={cn(
                 "text-xl font-bold tabular-nums tracking-tight",
                 game.away.winner === false && "text-muted-foreground",
               )}
             >
-              {game.away.score ?? 0}
-            </p>
+              <AnimatedScore value={game.away.score ?? 0} />
+            </div>
             {live ? (
               <TimeoutDots remaining={game.situation?.awayTimeouts ?? null} />
             ) : null}
@@ -225,14 +226,14 @@ function MobileScoreboard({ game }: GameScoreboardHeaderProps) {
         </div>
         {showScore ? (
           <div className="flex flex-col items-center gap-1">
-            <p
+            <div
               className={cn(
                 "text-xl font-bold tabular-nums tracking-tight",
                 game.home.winner === false && "text-muted-foreground/60",
               )}
             >
-              {game.home.score ?? 0}
-            </p>
+              <AnimatedScore value={game.home.score ?? 0} />
+            </div>
             {live ? (
               <TimeoutDots remaining={game.situation?.homeTimeouts ?? null} />
             ) : null}

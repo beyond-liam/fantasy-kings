@@ -5,6 +5,7 @@ import { Suspense, useEffect, useState } from "react";
 import { AmericanFootballIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
+import { AnimatedScore } from "@/components/ui/animated-score";
 import { MatchupStatusBadge } from "@/components/leagues/matchups/matchup-status-badge";
 import { LIVE_SCORES_BOARD_EVENT } from "@/components/scores/live-refresh";
 import {
@@ -288,10 +289,18 @@ function MatchupSide({
               muted && "text-muted-foreground",
             )}
           >
-            {formatPts(side.actualPts, 1)}
+            {side.actualPts != null && Number.isFinite(side.actualPts) ? (
+              <AnimatedScore value={side.actualPts} decimals={1} />
+            ) : (
+              PLACEHOLDER
+            )}
           </div>
           <div className="mt-0.5 text-xs text-muted-foreground">
-            {formatPts(side.projectedPts)}
+            {side.projectedPts != null && Number.isFinite(side.projectedPts) ? (
+              <AnimatedScore value={side.projectedPts} decimals={2} />
+            ) : (
+              PLACEHOLDER
+            )}
           </div>
         </div>
       </div>

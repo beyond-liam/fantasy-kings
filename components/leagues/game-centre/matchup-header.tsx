@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 
+import { AnimatedScore } from "@/components/ui/animated-score";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { MatchupStatusBadge } from "@/components/leagues/matchups/matchup-status-badge";
 import { PlayerProfileTrigger } from "@/components/rankings/player-identity";
@@ -277,7 +278,11 @@ function HeaderSide({
               muted && "text-muted-foreground",
             )}
           >
-            {formatPts(side.actualPts, 1)}
+            {side.actualPts != null && Number.isFinite(side.actualPts) ? (
+              <AnimatedScore value={side.actualPts} decimals={1} />
+            ) : (
+              PLACEHOLDER
+            )}
           </div>
           {projectedInteractive ? (
             <button
@@ -285,11 +290,19 @@ function HeaderSide({
               onClick={onProjectedClick}
               className="mt-0.5 text-xs text-muted-foreground underline-offset-2 hover:underline focus-visible:underline focus-visible:outline-none"
             >
-              {formatPts(side.projectedPts)}
+              {side.projectedPts != null && Number.isFinite(side.projectedPts) ? (
+                <AnimatedScore value={side.projectedPts} decimals={2} />
+              ) : (
+                PLACEHOLDER
+              )}
             </button>
           ) : (
             <div className="mt-0.5 text-xs text-muted-foreground">
-              {formatPts(side.projectedPts)}
+              {side.projectedPts != null && Number.isFinite(side.projectedPts) ? (
+                <AnimatedScore value={side.projectedPts} decimals={2} />
+              ) : (
+                PLACEHOLDER
+              )}
             </div>
           )}
         </div>

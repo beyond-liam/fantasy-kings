@@ -2,6 +2,7 @@ import Link from "next/link";
 import { AmericanFootballIcon, CalendarBlock01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
+import { AnimatedScore } from "@/components/ui/animated-score";
 import { ScheduleTeamLogo } from "@/components/scores/schedule-team-logo";
 import {
   Empty,
@@ -147,7 +148,11 @@ function ScoreCells({
               isTotal && !muted && "text-foreground",
             )}
           >
-            {periodValue(team, index, isTotal)}
+            {isTotal && team.score != null ? (
+              <AnimatedScore value={team.score} />
+            ) : (
+              periodValue(team, index, isTotal)
+            )}
           </span>
         );
       })}
