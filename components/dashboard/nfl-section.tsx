@@ -142,7 +142,7 @@ function TeamOfTheWeek({ data }: { data: DashboardNflData }) {
           <EmptyHeader>
             <EmptyTitle>No scores yet</EmptyTitle>
             <EmptyDescription>
-              A standard lineup appears after the week's games finish.
+              A standard lineup appears after games finish for the week.
             </EmptyDescription>
           </EmptyHeader>
         </Empty>
