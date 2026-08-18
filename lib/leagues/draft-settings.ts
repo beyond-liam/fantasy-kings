@@ -36,7 +36,7 @@ export type DraftConfigFormValues = {
 };
 
 export const FORCE_AUTOPICK_AFTER_TWO_EXPIRES_COPY = {
-  label: "Force Autopick after two missed picks",
+  label: "Force autopick after two missed picks",
   description:
     "If a team lets the clock expire twice in a row, they go on Autopick and skip the pick timer until they come back online.",
 } as const;

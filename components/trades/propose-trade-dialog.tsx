@@ -43,7 +43,7 @@ type ProposeTradeDialogProps = {
 export function ProposeTradeDialog({
   leagueSlug,
   partners,
-  label = "Propose New Trade",
+  label = "Propose Trade",
 }: ProposeTradeDialogProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
