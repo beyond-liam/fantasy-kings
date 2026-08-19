@@ -1,4 +1,7 @@
 import type { RosterSlotConfig } from "@/db/schema/league-seasons";
+import type { TeamRosterPlayer } from "@/lib/leagues/roster-fill";
+import { withPositionalSos } from "@/lib/nfl/matchups";
+import type { PositionalSosTable } from "@/lib/players/matchup-difficulty";
 
 export type RosterTableSectionId = "lineup" | "bench" | "ir" | "taxi";
 
@@ -125,4 +128,22 @@ export function defaultSlotLabel(slotPositionId: string): string {
   if (slotPositionId === "IR") return "IR";
   if (slotPositionId === "TAXI") return "Taxi";
   return slotPositionId;
+}
+
+export function applyPositionalSosToRosterPlayers(
+  players: TeamRosterPlayer[],
+  sos: PositionalSosTable | null,
+): TeamRosterPlayer[] {
+  if (!sos) {
+    return players;
+  }
+
+  return players.map((player) => ({
+    ...player,
+    opponent: withPositionalSos(
+      player.opponent ?? null,
+      player.primaryPositionId,
+      sos,
+    ),
+  }));
 }

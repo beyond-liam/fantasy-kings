@@ -61,8 +61,8 @@ export async function loadRosterEnrichment(
       }),
     ]);
 
-    const { rosterRates, tableStats, sos } = stable;
-    const { projectedById, actualById, weekStatsById } = weekData;
+    const { rosterRates, tableStats } = stable;
+    const { projectedById, actualById } = weekData;
 
     const enrichmentByPlayerId: Record<string, RosterPlayerEnrichment> = {};
     for (const player of players) {
@@ -73,7 +73,6 @@ export async function loadRosterEnrichment(
           ...player,
           actualPts: actualById.get(player.id) ?? null,
           projectedPts: projectedById.get(player.id) ?? null,
-          weekStats: weekStatsById.get(player.id),
           ownedPct: rates?.ownedPct ?? null,
           startPct: rates?.startPct ?? null,
           positionRank: tableStat?.positionRank ?? null,
@@ -85,7 +84,6 @@ export async function loadRosterEnrichment(
         {
           seasonYear,
           seasonType: nflSeasonType,
-          sos,
         },
       );
 
@@ -94,7 +92,6 @@ export async function loadRosterEnrichment(
         startPct: enriched.startPct ?? null,
         projectedPts: enriched.projectedPts ?? null,
         actualPts: enriched.actualPts ?? null,
-        weekStats: enriched.weekStats,
         positionRank: enriched.positionRank ?? null,
         fantasyPts: enriched.fantasyPts ?? null,
         avgPts: enriched.avgPts ?? null,

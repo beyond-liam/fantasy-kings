@@ -16,7 +16,7 @@ import {
 import { hasNflTeamStarted } from "@/lib/leagues/waivers/game-lock";
 import { getTeamLineupPlanSlots } from "@/lib/queries/lineup-plans";
 import { getTeamSchedule } from "@/lib/queries/matchups";
-import { getTeamRosterPlayers } from "@/lib/queries/team-roster";
+import { resolveTeamRosterForWeekDisplay } from "@/lib/queries/team-roster-display-cache";
 import { loadRosterEnrichmentWeek } from "@/lib/roster-enrichment/load-roster-enrichment-week";
 import type {
   RosterWeekDisplayPayload,
@@ -32,6 +32,7 @@ export async function loadRosterWeekDisplay(input: {
   scoringRules: ScoringRuleDefinition[];
   fantasyWeek: number;
   currentWeek: number;
+  slotsFingerprint?: string | null;
 }): Promise<RosterWeekDisplayPayload> {
   const {
     teamId,
@@ -42,11 +43,12 @@ export async function loadRosterWeekDisplay(input: {
     scoringRules,
     fantasyWeek,
     currentWeek,
+    slotsFingerprint,
   } = input;
 
   try {
     const [loadedRosterPlayers, nflContext, teamScheduleRows] = await Promise.all([
-      getTeamRosterPlayers(teamId),
+      resolveTeamRosterForWeekDisplay(teamId, slotsFingerprint),
       loadMyTeamNflContext({
         seasonYear,
         schedule,
@@ -89,7 +91,6 @@ export async function loadRosterWeekDisplay(input: {
           ...player,
           projectedPts: weekData.projectedById.get(player.id) ?? null,
           actualPts: weekData.actualById.get(player.id) ?? null,
-          weekStats: weekData.weekStatsById.get(player.id),
         },
         nflWeek,
         opponentsByTeam,
@@ -102,7 +103,6 @@ export async function loadRosterWeekDisplay(input: {
       players[player.id] = {
         projectedPts: enriched.projectedPts ?? null,
         actualPts: enriched.actualPts ?? null,
-        weekStats: enriched.weekStats,
         opponent: enriched.opponent ?? null,
         slotPositionId: player.slotPositionId,
       };

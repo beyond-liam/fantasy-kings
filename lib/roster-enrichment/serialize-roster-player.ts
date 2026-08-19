@@ -48,10 +48,6 @@ export function serializeRosterPlayersForClient(
     const opponent = trimOpponent(player.opponent);
     if (opponent) next.opponent = opponent;
 
-    if (player.weekStats && Object.keys(player.weekStats).length > 0) {
-      next.weekStats = player.weekStats;
-    }
-
     return next;
   });
 }

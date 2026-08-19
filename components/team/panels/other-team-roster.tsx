@@ -25,6 +25,7 @@ import {
 import { applyRosterPlayerEnrichment } from "@/lib/roster-enrichment/apply-enrichment";
 import { loadRosterEnrichment } from "@/lib/roster-enrichment/load-roster-enrichment";
 import { serializeRosterPlayersForClient } from "@/lib/roster-enrichment/serialize-roster-player";
+import { seedTeamRosterDisplayCache } from "@/lib/queries/team-roster-display-cache";
 
 export type OtherTeamRosterPanelProps = {
   slug: string;
@@ -118,6 +119,8 @@ export async function OtherTeamRosterPanel({
   const rosterPlayers = planSlots
     ? overlayPlanSlots(loadedRosterPlayers, planSlots)
     : loadedRosterPlayers;
+
+  seedTeamRosterDisplayCache(team.id, rosterPlayers);
 
   const shellPlayers = rosterPlayers.map((player) =>
     withPlayerOpponent(player, nflWeek, opponentsByTeam, {

@@ -46,6 +46,7 @@ export async function GET(request: Request, context: RouteContext) {
   const teamId = url.searchParams.get("teamId")?.trim() ?? "";
   const weekParam = url.searchParams.get("week");
   const currentWeekParam = url.searchParams.get("currentWeek");
+  const slotsFingerprint = url.searchParams.get("slots")?.trim() ?? null;
 
   if (!teamId) {
     return NextResponse.json({ ok: false, error: "Missing teamId." }, { status: 400 });
@@ -79,6 +80,7 @@ export async function GET(request: Request, context: RouteContext) {
     scoringRules,
     fantasyWeek,
     currentWeek,
+    slotsFingerprint,
   });
 
   if (!payload.ok) {

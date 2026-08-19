@@ -3,6 +3,7 @@ import "server-only";
 import { getCachedNflScoreboard } from "@/lib/espn/scoreboard-cache";
 import { espnSeasonTypeForNfl } from "@/lib/leagues/schedule/fantasy-week-map";
 import { clearScoreRowsCache } from "@/lib/queries/score-rows";
+import { clearRosterEnrichmentStableCache } from "@/lib/roster-enrichment/stable-enrichment-cache";
 
 /** Refresh cross-request caches after live stats sync. */
 export async function prewarmRosterCachesAfterScoreSync(input: {
@@ -11,6 +12,7 @@ export async function prewarmRosterCachesAfterScoreSync(input: {
   seasonType: "pre" | "regular" | "post";
 }) {
   clearScoreRowsCache();
+  clearRosterEnrichmentStableCache();
 
   const seasonYear = Number.parseInt(input.season, 10);
   if (!Number.isFinite(seasonYear)) {

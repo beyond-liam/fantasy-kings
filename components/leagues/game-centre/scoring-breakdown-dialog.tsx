@@ -8,6 +8,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
+import { Spinner } from "@/components/ui/spinner";
 import type { PlayerPointsExplanation } from "@/lib/leagues/scoring/calculate";
 
 type ScoringBreakdownDialogProps = {
@@ -16,6 +17,7 @@ type ScoringBreakdownDialogProps = {
   playerName: string;
   week: number;
   explanation: PlayerPointsExplanation | null;
+  loading?: boolean;
 };
 
 export function ScoringBreakdownDialog({
@@ -24,6 +26,7 @@ export function ScoringBreakdownDialog({
   playerName,
   week,
   explanation,
+  loading = false,
 }: ScoringBreakdownDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -33,7 +36,11 @@ export function ScoringBreakdownDialog({
           <DialogDescription>Week {week} scoring breakdown</DialogDescription>
         </DialogHeader>
 
-        {!explanation || explanation.lines.length === 0 ? (
+        {loading ? (
+          <div className="flex justify-center py-8">
+            <Spinner />
+          </div>
+        ) : !explanation || explanation.lines.length === 0 ? (
           <Empty className="border-none" size="sm">
             <EmptyHeader>
               <EmptyTitle>No scoring detail yet</EmptyTitle>

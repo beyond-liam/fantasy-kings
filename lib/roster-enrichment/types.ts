@@ -13,7 +13,6 @@ export type RosterPlayerEnrichment = {
   startPct: number | null;
   projectedPts: number | null;
   actualPts: number | null;
-  weekStats?: Record<string, number | null>;
   positionRank: number | null;
   fantasyPts: number | null;
   avgPts: number | null;
@@ -88,7 +87,6 @@ export type EnrichmentShellPlayer = {
 export type RosterWeekPlayerPatch = {
   projectedPts: number | null;
   actualPts: number | null;
-  weekStats?: Record<string, number | null>;
   opponent: PlayerOpponent | null;
   slotPositionId?: string | null;
 };

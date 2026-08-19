@@ -19,7 +19,6 @@ export function applyRosterPlayerEnrichment(
       startPct: enrichment.startPct,
       projectedPts: enrichment.projectedPts,
       actualPts: enrichment.actualPts,
-      weekStats: enrichment.weekStats,
       positionRank: enrichment.positionRank,
       fantasyPts: enrichment.fantasyPts,
       avgPts: enrichment.avgPts,

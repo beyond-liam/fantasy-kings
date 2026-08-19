@@ -12,6 +12,8 @@ import {
 import type { RosterSlotConfig } from "@/db/schema/league-seasons";
 import { db } from "@/lib/db";
 import { listRosteredPlayers } from "@/lib/leagues/roster-writes";
+import { invalidateTeamRosterDisplayCache } from "@/lib/queries/team-roster-display-cache";
+import { clearRosterEnrichmentStableCache } from "@/lib/roster-enrichment/stable-enrichment-cache";
 import {
   occupiedBySlot,
   pickDefaultSlotPosition,
@@ -530,6 +532,12 @@ export async function executeTrade(input: {
       };
     }
     throw error;
+  }
+
+  if (allPlayerIds.length > 0) {
+    invalidateTeamRosterDisplayCache(proposingTeamId);
+    invalidateTeamRosterDisplayCache(receivingTeamId);
+    clearRosterEnrichmentStableCache();
   }
 
   return { success: true as const };

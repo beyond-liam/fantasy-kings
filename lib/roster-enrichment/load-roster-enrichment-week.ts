@@ -3,7 +3,7 @@ import "server-only";
 import type { MyTeamNflContext } from "@/components/team/panels/load-my-team-nfl-context";
 import type { ScoringRuleDefinition } from "@/lib/leagues/scoring";
 import {
-  getRankedPlayers,
+  getPlayerFantasyPoints,
   getWeekProjectedFantasyPoints,
 } from "@/lib/queries/players";
 import type { EnrichmentShellPlayer } from "@/lib/roster-enrichment/types";
@@ -11,7 +11,6 @@ import type { EnrichmentShellPlayer } from "@/lib/roster-enrichment/types";
 export type RosterEnrichmentWeekData = {
   projectedById: Map<string, number | null>;
   actualById: Map<string, number | null>;
-  weekStatsById: Map<string, Record<string, number | null> | undefined>;
 };
 
 function warnSubqueryFailure(scope: string, error: unknown) {
@@ -35,11 +34,10 @@ export async function loadRosterEnrichmentWeek(input: {
     return {
       projectedById: new Map(),
       actualById: new Map(),
-      weekStatsById: new Map(),
     };
   }
 
-  const [projectedById, weekStats] = await Promise.all([
+  const [projectedById, actualById] = await Promise.all([
     getWeekProjectedFantasyPoints({
       season: nflSeason,
       week: nflWeek,
@@ -48,28 +46,20 @@ export async function loadRosterEnrichmentWeek(input: {
       playerIds,
     }).catch((error) => {
       warnSubqueryFailure("projections", error);
-      return new Map<string, number>();
+      return new Map<string, number | null>();
     }),
-    getRankedPlayers({
+    getPlayerFantasyPoints({
       season: nflSeason,
       week: nflWeek,
       seasonType: nflSeasonType,
       kind: "stats",
       scoringRules,
       playerIds,
-      preserveStats: true,
     }).catch((error) => {
-      warnSubqueryFailure("week stats", error);
-      return [];
+      warnSubqueryFailure("week points", error);
+      return new Map<string, number | null>();
     }),
   ]);
 
-  const actualById = new Map(
-    weekStats.map((player) => [player.id, player.fantasyPts]),
-  );
-  const weekStatsById = new Map(
-    weekStats.map((player) => [player.id, player.stats]),
-  );
-
-  return { projectedById, actualById, weekStatsById };
+  return { projectedById, actualById };
 }

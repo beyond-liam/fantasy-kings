@@ -28,6 +28,10 @@ import {
 } from "@/lib/leagues/roster-slots";
 import { compareRosterPositions } from "@/lib/leagues/roster-position-order";
 import {
+  invalidateTeamRosterDisplayCache,
+} from "@/lib/queries/team-roster-display-cache";
+import { clearRosterEnrichmentStableCache } from "@/lib/roster-enrichment/stable-enrichment-cache";
+import {
   classifyDropCandidatesForMinimums,
   firstRosterMinimumError,
   simulateRosterAfterMutation,
@@ -163,7 +167,16 @@ async function getLineupActionContext(slug: string) {
   return loadLeagueMemberTeamContext(slug);
 }
 
-function revalidateRosterPaths(slug: string) {
+function revalidateRosterPaths(
+  slug: string,
+  options?: { teamId?: string; rosterMembershipChanged?: boolean },
+) {
+  if (options?.teamId) {
+    invalidateTeamRosterDisplayCache(options.teamId);
+  }
+  if (options?.rosterMembershipChanged) {
+    clearRosterEnrichmentStableCache();
+  }
   revalidatePath(`/league/${slug}`);
   revalidatePath(`/league/${slug}/players`);
   revalidatePath(`/league/${slug}/team`);
@@ -516,7 +529,10 @@ export async function addPlayerToRoster(
     createdAt: activityAt,
   });
 
-  revalidateRosterPaths(league.publicId);
+  revalidateRosterPaths(league.publicId, {
+    teamId: team.id,
+    rosterMembershipChanged: true,
+  });
   return { success: true, playerName: prepared.player.fullName };
 }
 
@@ -673,7 +689,10 @@ export async function cutPlayerFromRoster(
     metadata: { playerName: prepared.row.fullName, teamName: team.name },
   });
 
-  revalidateRosterPaths(league.publicId);
+  revalidateRosterPaths(league.publicId, {
+    teamId: team.id,
+    rosterMembershipChanged: true,
+  });
   return { success: true, playerName: prepared.row.fullName };
 }
 
@@ -812,7 +831,10 @@ export async function cutAndAddPlayer(
     createdAt: activityAt,
   });
 
-  revalidateRosterPaths(league.publicId);
+  revalidateRosterPaths(league.publicId, {
+    teamId: team.id,
+    rosterMembershipChanged: true,
+  });
   return { success: true, playerName: addPrepared.player.fullName };
 }
 
@@ -1265,7 +1287,7 @@ async function applyRosterSlotAssignments(input: {
         slotPositionId: player.slotPositionId ?? player.primaryPositionId,
       })),
     });
-    revalidateRosterPaths(leagueSlug);
+    revalidateRosterPaths(leagueSlug, { teamId });
     return { success: true, scheduledWeek };
   }
 
@@ -1395,6 +1417,6 @@ async function persistRosterSlotAssignments(
     }
   }
 
-  revalidateRosterPaths(leagueSlug);
+  revalidateRosterPaths(leagueSlug, { teamId: activity.teamId });
   return { success: true };
 }

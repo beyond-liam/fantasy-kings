@@ -23,10 +23,12 @@ import { updateRosterSlots, commissionerUpdateRosterSlots } from "@/lib/actions/
 import type { RosterSlotConfig } from "@/db/schema/league-seasons";
 import { resolveIrEligibleStatuses } from "@/lib/leagues/ir-eligibility";
 import { buildRosterAssignmentOptions } from "@/lib/leagues/roster-display";
+import { applyPositionalSosToRosterPlayers } from "@/lib/leagues/roster-display";
 import {
   buildFilledRosterSections,
   type TeamRosterPlayer,
 } from "@/lib/leagues/roster-fill";
+import { rosterSlotsFingerprint } from "@/lib/leagues/roster-slots-fingerprint";
 import {
   applyLocalSlotAssignment,
   applyLocalSlotSwap,
@@ -43,6 +45,8 @@ import {
 } from "@/lib/leagues/team-summary";
 import type { RosterWeekPlayerPatch } from "@/lib/roster-enrichment/types";
 import type { PlayerOpponent } from "@/lib/nfl/matchups";
+import type { PositionalSosTable } from "@/lib/players/matchup-difficulty";
+import { deserializePositionalSosTable } from "@/lib/players/serialize-positional-sos";
 
 const ScoringBreakdownDialog = dynamic(
   () =>
@@ -96,13 +100,6 @@ type TeamRosterSectionsProps = {
   teamId?: string;
 };
 
-function slotsFingerprint(players: TeamRosterPlayer[]) {
-  return players
-    .map((player) => `${player.id}:${player.slotPositionId ?? ""}`)
-    .sort()
-    .join("|");
-}
-
 function weekDisplayFingerprint(players: TeamRosterPlayer[]) {
   return players
     .map((player) =>
@@ -153,7 +150,6 @@ function applyWeekDisplay(
       ...player,
       projectedPts: patch.projectedPts,
       actualPts: patch.actualPts,
-      weekStats: patch.weekStats,
       opponent: mergeWeekOpponent(player.opponent, patch.opponent),
       slotPositionId: patch.slotPositionId ?? player.slotPositionId,
     };
@@ -242,8 +238,14 @@ export function TeamRosterSections({
   const [breakdownPlayerId, setBreakdownPlayerId] = useState<string | null>(
     null,
   );
+  const [breakdownStats, setBreakdownStats] = useState<Record<
+    string,
+    number | null
+  > | null>(null);
+  const [breakdownLoading, setBreakdownLoading] = useState(false);
+  const [sosTable, setSosTable] = useState<PositionalSosTable | null>(null);
   const activeWeek = clientWeekSwitch ? viewWeek : week;
-  const serverSlotKey = slotsFingerprint(players);
+  const serverSlotKey = rosterSlotsFingerprint(players);
   const displayKey = weekDisplayFingerprint(draftPlayers);
   const resolvedIrEligible = resolveIrEligibleStatuses(irEligibleStatuses);
   const showRowActions = rowActionsEnabled ?? actionsEnabled;
@@ -279,6 +281,53 @@ export function TeamRosterSections({
     setDraftPlayers(mergeWeekDisplay(draftPlayers, players));
   }
 
+  const sosPositionKey = useMemo(
+    () =>
+      [...new Set(draftPlayers.map((player) => player.primaryPositionId))]
+        .sort()
+        .join(","),
+    [draftPlayers],
+  );
+
+  useEffect(() => {
+    if (!sosPositionKey) {
+      return;
+    }
+
+    let cancelled = false;
+    void fetch(
+      `/api/league/${leagueSlug}/positional-sos?positions=${encodeURIComponent(sosPositionKey)}`,
+      { priority: "low" },
+    )
+      .then(async (response) => {
+        const data = (await response.json()) as {
+          ok: boolean;
+          table?: Parameters<typeof deserializePositionalSosTable>[0];
+        };
+        if (!cancelled && response.ok && data.ok && data.table) {
+          setSosTable(deserializePositionalSosTable(data.table));
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, [leagueSlug, sosPositionKey]);
+
+  const tablePlayers = useMemo(
+    () => applyPositionalSosToRosterPlayers(draftPlayers, sosTable),
+    [draftPlayers, sosTable],
+  );
+
+  const buildWeekApiSearchParams = (targetWeek: number) =>
+    new URLSearchParams({
+      teamId: teamId!,
+      week: String(targetWeek),
+      currentWeek: String(currentWeek!),
+      slots: rosterSlotsFingerprint(slotBaselinePlayers),
+    });
+
   const prefetchRosterWeek = (targetWeek: number) => {
     if (
       !clientWeekSwitch ||
@@ -291,13 +340,8 @@ export function TeamRosterSections({
     }
 
     prefetchedWeeksRef.current.add(targetWeek);
-    const params = new URLSearchParams({
-      teamId,
-      week: String(targetWeek),
-      currentWeek: String(currentWeek),
-    });
     void fetch(
-      `/api/league/${leagueSlug}/team/roster-week?${params.toString()}`,
+      `/api/league/${leagueSlug}/team/roster-week?${buildWeekApiSearchParams(targetWeek).toString()}`,
       { priority: "low" },
     );
   };
@@ -317,16 +361,12 @@ export function TeamRosterSections({
     }
 
     const previousWeek = viewWeek;
+    closeBreakdown();
     setViewWeek(nextWeek);
     startWeekTransition(async () => {
       try {
-        const params = new URLSearchParams({
-          teamId,
-          week: String(nextWeek),
-          currentWeek: String(currentWeek),
-        });
         const response = await fetch(
-          `/api/league/${leagueSlug}/team/roster-week?${params.toString()}`,
+          `/api/league/${leagueSlug}/team/roster-week?${buildWeekApiSearchParams(nextWeek).toString()}`,
         );
         const data = (await response.json()) as {
           ok: boolean;
@@ -380,7 +420,7 @@ export function TeamRosterSections({
     irSlots,
     taxiEnabled,
     taxiSlots,
-    players: draftPlayers,
+    players: tablePlayers,
     irEligibleStatuses: resolvedIrEligible,
   });
   const assignmentOptions = buildRosterAssignmentOptions({
@@ -479,6 +519,50 @@ export function TeamRosterSections({
 
   const activeScoringWeek = clientWeekSwitch ? viewWeek : scoringWeek;
 
+  const closeBreakdown = () => {
+    setBreakdownPlayerId(null);
+    setBreakdownStats(null);
+    setBreakdownLoading(false);
+  };
+
+  const loadBreakdownStats = (player: TeamRosterPlayer) => {
+    if (!scoringRules || activeScoringWeek == null || player.actualPts == null) {
+      return;
+    }
+
+    setBreakdownPlayerId(player.id);
+    setBreakdownLoading(true);
+    setBreakdownStats(null);
+
+    const params = new URLSearchParams({
+      playerId: player.id,
+      week: String(activeScoringWeek),
+    });
+    void fetch(
+      `/api/league/${leagueSlug}/team/player-week-stats?${params.toString()}`,
+    )
+      .then(async (response) => {
+        const data = (await response.json()) as {
+          ok: boolean;
+          stats?: Record<string, number | null>;
+          error?: string;
+        };
+        if (!response.ok || !data.ok || !data.stats) {
+          toast.error(data.error ?? "Could not load scoring breakdown.");
+          closeBreakdown();
+          return;
+        }
+        setBreakdownStats(data.stats);
+      })
+      .catch(() => {
+        toast.error("Could not load scoring breakdown.");
+        closeBreakdown();
+      })
+      .finally(() => {
+        setBreakdownLoading(false);
+      });
+  };
+
   const tableProps = {
     assignmentOptions,
     leagueSlug,
@@ -491,7 +575,7 @@ export function TeamRosterSections({
     irEligibleStatuses: resolvedIrEligible,
     rosterSlots,
     benchSlots,
-    rosterPlayers: draftPlayers,
+    rosterPlayers: tablePlayers,
     taxiMaxYearsExp,
     taxiPreventReaddAfterActivation,
     gameLockedPlayerIds: gameLockedIdSet,
@@ -500,7 +584,7 @@ export function TeamRosterSections({
     onSwap: handleSwap,
     onActualClick:
       scoringRules && activeScoringWeek != null
-        ? (player: TeamRosterPlayer) => setBreakdownPlayerId(player.id)
+        ? loadBreakdownStats
         : undefined,
   } as const;
 
@@ -508,26 +592,33 @@ export function TeamRosterSections({
     ? (draftPlayers.find((player) => player.id === breakdownPlayerId) ?? null)
     : null;
   const breakdownExplanation = useMemo(() => {
-    if (!breakdownPlayer || !scoringRules || breakdownPlayer.actualPts == null) {
+    if (
+      !breakdownPlayer ||
+      !scoringRules ||
+      breakdownPlayer.actualPts == null ||
+      breakdownLoading ||
+      !breakdownStats
+    ) {
       return null;
     }
     return explainPlayerPoints(
-      breakdownPlayer.weekStats ?? {},
+      breakdownStats,
       breakdownPlayer.primaryPositionId,
       scoringRules,
     );
-  }, [breakdownPlayer, scoringRules]);
+  }, [breakdownLoading, breakdownPlayer, breakdownStats, scoringRules]);
 
   const breakdownDialog =
     scoringRules && activeScoringWeek != null ? (
       <ScoringBreakdownDialog
         open={breakdownPlayer != null}
         onOpenChange={(open) => {
-          if (!open) setBreakdownPlayerId(null);
+          if (!open) closeBreakdown();
         }}
         playerName={breakdownPlayer?.fullName ?? ""}
         week={activeScoringWeek}
         explanation={breakdownExplanation}
+        loading={breakdownLoading}
       />
     ) : null;
 
