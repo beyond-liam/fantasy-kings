@@ -161,7 +161,7 @@ export function DraftRoom({
   );
   const [livePausedByWindow, setLivePausedByWindow] = useState(pausedByWindow);
   const [prevPausedByWindow, setPrevPausedByWindow] = useState(pausedByWindow);
-  const statusHoldRef = useRef<"live" | "paused" | null>(null);
+  const [statusHold, setStatusHold] = useState<"live" | "paused" | null>(null);
   const [livePicks, setLivePicks] = useState(picks);
   const [liveDraftedIds, setLiveDraftedIds] = useState(draftedPlayerIds);
   const [livePickIndex, setLivePickIndex] = useState(currentPickIndex);
@@ -182,27 +182,24 @@ export function DraftRoom({
 
   if (status !== prevStatus) {
     setPrevStatus(status);
-    if (
-      !statusHoldRef.current ||
-      status === statusHoldRef.current
-    ) {
+    if (!statusHold || status === statusHold) {
       setOptimisticStatus(status);
-      if (statusHoldRef.current === status) {
-        statusHoldRef.current = null;
+      if (statusHold === status) {
+        setStatusHold(null);
       }
     }
   }
 
   if (turnExpiresAt !== prevTurnExpiresAt) {
     setPrevTurnExpiresAt(turnExpiresAt);
-    if (!statusHoldRef.current) {
+    if (!statusHold) {
       setLiveTurnExpiresAt(turnExpiresAt);
     }
   }
 
   if (pausedSecondsRemaining !== prevPausedSeconds) {
     setPrevPausedSeconds(pausedSecondsRemaining);
-    if (!statusHoldRef.current) {
+    if (!statusHold) {
       setLivePausedSeconds(pausedSecondsRemaining);
     }
   }
@@ -253,7 +250,7 @@ export function DraftRoom({
   const handleStatusOptimistic = useCallback(
     (next: DraftRoomProps["status"]) => {
       if (next === "live" || next === "paused") {
-        statusHoldRef.current = next;
+        setStatusHold(next);
       }
       setOptimisticStatus(next);
     },
@@ -289,7 +286,7 @@ export function DraftRoom({
         return;
       }
 
-      const hold = statusHoldRef.current;
+      const hold = statusHold;
       const staleClock =
         Boolean(hold) && Boolean(detail.status) && detail.status !== hold;
 
@@ -316,7 +313,7 @@ export function DraftRoom({
             prev === detail.status ? prev : detail.status,
           );
           if (hold && detail.status === hold) {
-            statusHoldRef.current = null;
+            setStatusHold(null);
           }
         }
       }
@@ -394,7 +391,7 @@ export function DraftRoom({
     return () => {
       window.removeEventListener(DRAFT_PICKS_EVENT, onDraftPicks);
     };
-  }, [myTeamId, poolById]);
+  }, [myTeamId, poolById, statusHold]);
 
   // Cue sound when it becomes your turn.
   useEffect(() => {

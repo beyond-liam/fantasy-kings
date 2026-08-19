@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import {
   DraftClockCard,
@@ -54,6 +54,11 @@ type LocalClock = {
   frozenSeconds: number | null;
 };
 
+type ClockHold =
+  | { kind: "paused"; frozenSeconds: number }
+  | { kind: "live"; expiresAtMs: number }
+  | null;
+
 function secondsFromExpiry(expiresAtMs: number, nowMs: number) {
   return Math.max(0, Math.ceil((expiresAtMs - nowMs) / 1000));
 }
@@ -95,6 +100,42 @@ function clockFromServer(input: {
   return { running: false, expiresAtMs: null, frozenSeconds: null };
 }
 
+function resolveActiveClock(clockHold: ClockHold, serverClock: LocalClock): LocalClock {
+  if (clockHold?.kind === "paused") {
+    return {
+      running: false,
+      expiresAtMs: null,
+      frozenSeconds: clockHold.frozenSeconds,
+    };
+  }
+  if (clockHold?.kind === "live") {
+    return {
+      running: true,
+      expiresAtMs: clockHold.expiresAtMs,
+      frozenSeconds: null,
+    };
+  }
+  return serverClock;
+}
+
+function resolveDisplayedSeconds(input: {
+  clockEnabled: boolean;
+  activeClock: LocalClock;
+  nowMs: number;
+  fallbackSeconds: number | null;
+}): number | null {
+  if (!input.clockEnabled) {
+    return null;
+  }
+  if (!input.activeClock.running) {
+    return input.activeClock.frozenSeconds ?? input.fallbackSeconds;
+  }
+  if (input.activeClock.expiresAtMs == null) {
+    return input.fallbackSeconds;
+  }
+  return secondsFromExpiry(input.activeClock.expiresAtMs, input.nowMs);
+}
+
 export function DraftRoomClockCard({
   slug,
   isCommissioner,
@@ -118,34 +159,42 @@ export function DraftRoomClockCard({
   onClockExpired,
 }: DraftRoomClockCardProps) {
   const [nowMs, setNowMs] = useState(() => Date.now());
+  const [clockHold, setClockHold] = useState<ClockHold>(null);
+  const [fallbackSeconds, setFallbackSeconds] = useState<number | null>(null);
+  const [boundPickIndex, setBoundPickIndex] = useState(livePickIndex);
   const expiredForTurnRef = useRef<number | null>(null);
-  const lastSecondsRef = useRef<number | null>(null);
-  const clockHoldRef = useRef<"live" | "paused" | null>(null);
-  const [localClock, setLocalClock] = useState<LocalClock>(() =>
-    clockFromServer({
-      status: effectiveStatus,
-      turnExpiresAt,
-      pausedSecondsRemaining,
-      nowMs: Date.now(),
-    }),
+
+  if (livePickIndex !== boundPickIndex) {
+    setBoundPickIndex(livePickIndex);
+    setClockHold(null);
+  }
+
+  const serverClock = useMemo(
+    () =>
+      clockFromServer({
+        status: effectiveStatus,
+        turnExpiresAt,
+        pausedSecondsRemaining,
+        nowMs,
+      }),
+    [effectiveStatus, turnExpiresAt, pausedSecondsRemaining, boundPickIndex, nowMs],
   );
 
-  const displayedSeconds = (() => {
-    if (!clockEnabled) {
-      return null;
-    }
-    if (!localClock.running) {
-      return localClock.frozenSeconds ?? lastSecondsRef.current;
-    }
-    if (localClock.expiresAtMs == null) {
-      return lastSecondsRef.current;
-    }
-    return secondsFromExpiry(localClock.expiresAtMs, nowMs);
-  })();
+  const activeClock = useMemo(
+    () => resolveActiveClock(clockHold, serverClock),
+    [clockHold, serverClock],
+  );
 
-  if (displayedSeconds != null) {
-    lastSecondsRef.current = displayedSeconds;
-  }
+  const displayedSeconds = useMemo(
+    () =>
+      resolveDisplayedSeconds({
+        clockEnabled,
+        activeClock,
+        nowMs,
+        fallbackSeconds,
+      }),
+    [clockEnabled, activeClock, nowMs, fallbackSeconds],
+  );
 
   const showPickClock =
     clockEnabled &&
@@ -153,71 +202,17 @@ export function DraftRoomClockCard({
     displayedSeconds != null;
 
   useEffect(() => {
-    if (!localClock.running) {
+    if (!activeClock.running) {
       return;
     }
     const tick = () => setNowMs(Date.now());
     tick();
     const timer = window.setInterval(tick, 250);
     return () => window.clearInterval(timer);
-  }, [localClock.running, localClock.expiresAtMs]);
+  }, [activeClock.running, activeClock.expiresAtMs]);
 
   useEffect(() => {
-    if (clockHoldRef.current) {
-      return;
-    }
-    setLocalClock(
-      clockFromServer({
-        status: effectiveStatus,
-        turnExpiresAt,
-        pausedSecondsRemaining,
-        nowMs: Date.now(),
-      }),
-    );
-  }, [
-    effectiveStatus,
-    turnExpiresAt,
-    pausedSecondsRemaining,
-  ]);
-
-  useEffect(() => {
-    clockHoldRef.current = null;
-    setLocalClock(
-      clockFromServer({
-        status: effectiveStatus,
-        turnExpiresAt,
-        pausedSecondsRemaining,
-        nowMs: Date.now(),
-      }),
-    );
-    // New pick: take the server clock. Pause/resume must not reset it.
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- pick index only
-  }, [livePickIndex]);
-
-  const handleStatusOptimistic = (next: DraftStatus) => {
-    const remaining = displayedSeconds ?? lastSecondsRef.current ?? 0;
-    if (next === "paused") {
-      clockHoldRef.current = "paused";
-      setLocalClock({
-        running: false,
-        expiresAtMs: null,
-        frozenSeconds: remaining,
-      });
-    } else if (next === "live") {
-      clockHoldRef.current = "live";
-      const expiresAtMs = Date.now() + remaining * 1000;
-      setNowMs(Date.now());
-      setLocalClock({
-        running: true,
-        expiresAtMs,
-        frozenSeconds: null,
-      });
-    }
-    onStatusOptimistic(next);
-  };
-
-  useEffect(() => {
-    if (!localClock.running) {
+    if (!activeClock.running) {
       return;
     }
     if (displayedSeconds == null || displayedSeconds > 0 || !onTheClockLive) {
@@ -231,7 +226,21 @@ export function DraftRoomClockCard({
     }
     expiredForTurnRef.current = onTheClockLive.overall;
     onClockExpired();
-  }, [localClock.running, displayedSeconds, onTheClockLive, onClockExpired]);
+  }, [activeClock.running, displayedSeconds, onTheClockLive, onClockExpired]);
+
+  const handleStatusOptimistic = (next: DraftStatus) => {
+    const remaining = displayedSeconds ?? fallbackSeconds ?? 0;
+    if (next === "paused") {
+      setFallbackSeconds(remaining);
+      setClockHold({ kind: "paused", frozenSeconds: remaining });
+    } else if (next === "live") {
+      const expiresAtMs = Date.now() + remaining * 1000;
+      setFallbackSeconds(remaining);
+      setNowMs(Date.now());
+      setClockHold({ kind: "live", expiresAtMs });
+    }
+    onStatusOptimistic(next);
+  };
 
   if (draftComplete) {
     return null;
