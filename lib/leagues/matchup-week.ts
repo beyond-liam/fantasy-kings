@@ -15,10 +15,7 @@ import {
   type NflCalendarPoint,
 } from "@/lib/leagues/schedule/fantasy-week-map";
 import { resolveScheduleSettings } from "@/lib/leagues/schedule/settings";
-import {
-  getDefaultScheduleWeek,
-  getDefaultScheduleWeekEntry,
-} from "@/lib/nfl/schedule-week";
+import { getDefaultScheduleWeek } from "@/lib/nfl/schedule-week";
 import { getFantasyWeekStartUtc } from "@/lib/leagues/waivers/calendar";
 import { getNflState } from "@/lib/sleeper/api";
 
@@ -30,46 +27,64 @@ function nflSeasonTypeFromEspn(
   return "regular";
 }
 
+function espnEntryToFantasyWeek(
+  entry: ScheduleWeek,
+  settings: ScheduleSettings | null | undefined,
+): number | null {
+  return nflToFantasyWeek(
+    { seasonType: nflSeasonTypeFromEspn(entry.seasonType), week: entry.number },
+    settings,
+  );
+}
+
 /**
- * Current fantasy week from ESPN Wed→Tue schedule windows (same calendar
- * waivers use). Sleeper's NFL state often lags a week after slate finalize.
+ * Current fantasy week derived from ESPN calendar windows + the Wed 00:01 UTC
+ * fantasy-week boundary (same clock waivers use).
+ *
+ * ESPN windows run roughly Thu→Wed. Fantasy weeks roll on Wednesday 00:01 UTC.
+ * After that boundary we show the *next* ESPN week's matchups, even though
+ * ESPN still considers the previous window active.
  */
 export function fantasyWeekFromCalendarWeeks(
   calendarWeeks: ScheduleWeek[],
   settings: ScheduleSettings | null | undefined,
   now: Date = new Date(),
 ): number | null {
-  // Match waivers’ “fantasy week rolls at Wed 00:01 UTC” boundary.
-  const weekStart = getFantasyWeekStartUtc(now);
+  const eligible = calendarWeeks
+    .filter((entry) => espnEntryToFantasyWeek(entry, settings) != null)
+    .sort((a, b) => a.startDate.getTime() - b.startDate.getTime());
 
-  const eligible = calendarWeeks.filter((entry) => {
-    const seasonType = nflSeasonTypeFromEspn(entry.seasonType);
-    return nflToFantasyWeek({ seasonType, week: entry.number }, settings) != null;
-  });
+  if (eligible.length === 0) return null;
 
-  const anchored = eligible.find(
-    (entry) => weekStart >= entry.startDate && weekStart < entry.endDate,
-  );
+  // The Wednesday 00:01 UTC boundary that started the current fantasy week.
+  const wedBoundary = getFantasyWeekStartUtc(now);
 
-  if (anchored) {
-    const seasonType = nflSeasonTypeFromEspn(anchored.seasonType);
-    return (
-      nflToFantasyWeek({ seasonType, week: anchored.number }, settings) ?? null
-    );
+  // Find the ESPN window that contains `now`.
+  let currentIdx = -1;
+  for (let i = eligible.length - 1; i >= 0; i--) {
+    if (now >= eligible[i].startDate) {
+      currentIdx = i;
+      break;
+    }
+  }
+  if (currentIdx === -1) {
+    return espnEntryToFantasyWeek(eligible[0], settings);
   }
 
-  // Fallback: if calendar windows don't cover the boundary exactly, choose the
-  // default ESPN window based on `now`.
-  const current = getDefaultScheduleWeekEntry(eligible, now);
-  if (!current) return null;
+  const currentEntry = eligible[currentIdx];
 
-  return nflToFantasyWeek(
-    {
-      seasonType: nflSeasonTypeFromEspn(current.seasonType),
-      week: current.number,
-    },
-    settings,
-  );
+  // If the Wed 00:01 boundary for THIS week is strictly after the ESPN window
+  // start, then we've rolled past this NFL week into the next fantasy week.
+  // Example: ESPN Pre Wk1 starts Thu Aug 13, Wed boundary is Aug 19 00:01 —
+  // that's past the start, so we should show the next week's matchups.
+  if (wedBoundary > currentEntry.startDate) {
+    const next = eligible[currentIdx + 1];
+    if (next) {
+      return espnEntryToFantasyWeek(next, settings);
+    }
+  }
+
+  return espnEntryToFantasyWeek(currentEntry, settings);
 }
 
 export type FantasyWeekOption = {
@@ -107,7 +122,7 @@ export async function resolveFantasyMatchupWeek(options: {
   week: number;
   weeks: FantasyWeekOption[];
   calendarWeeks: ScheduleWeek[];
-  /** Fantasy week that is “now” for the league calendar. */
+  /** Fantasy week that is "now" for the league calendar. */
   currentWeek: number;
 }> {
   const settings = resolveScheduleSettings(options.schedule);
