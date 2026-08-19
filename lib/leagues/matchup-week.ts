@@ -1,17 +1,76 @@
 import type { ScheduleSettings } from "@/db/schema/league-seasons";
 import { calendarSeasonTypesForSchedule } from "@/lib/account/schedule-settings";
-import { getNflScoreboard, type ScheduleWeek } from "@/lib/espn/scoreboard";
+import {
+  getNflScoreboard,
+  type EspnSeasonType,
+  type ScheduleWeek,
+} from "@/lib/espn/scoreboard";
 import {
   espnSeasonTypeForNfl,
   fantasyRegularSeasonEndWeek,
   fantasyWeekFromNflState,
   fantasyWeekToNfl,
   MAX_FANTASY_WEEK,
+  nflToFantasyWeek,
   type NflCalendarPoint,
 } from "@/lib/leagues/schedule/fantasy-week-map";
 import { resolveScheduleSettings } from "@/lib/leagues/schedule/settings";
-import { getDefaultScheduleWeek } from "@/lib/nfl/schedule-week";
+import {
+  getDefaultScheduleWeek,
+  getDefaultScheduleWeekEntry,
+} from "@/lib/nfl/schedule-week";
+import { getFantasyWeekStartUtc } from "@/lib/leagues/waivers/calendar";
 import { getNflState } from "@/lib/sleeper/api";
+
+function nflSeasonTypeFromEspn(
+  seasonType: EspnSeasonType,
+): NflCalendarPoint["seasonType"] {
+  if (seasonType === 1) return "pre";
+  if (seasonType === 3) return "post";
+  return "regular";
+}
+
+/**
+ * Current fantasy week from ESPN Wed→Tue schedule windows (same calendar
+ * waivers use). Sleeper's NFL state often lags a week after slate finalize.
+ */
+export function fantasyWeekFromCalendarWeeks(
+  calendarWeeks: ScheduleWeek[],
+  settings: ScheduleSettings | null | undefined,
+  now: Date = new Date(),
+): number | null {
+  // Match waivers’ “fantasy week rolls at Wed 00:01 UTC” boundary.
+  const weekStart = getFantasyWeekStartUtc(now);
+
+  const eligible = calendarWeeks.filter((entry) => {
+    const seasonType = nflSeasonTypeFromEspn(entry.seasonType);
+    return nflToFantasyWeek({ seasonType, week: entry.number }, settings) != null;
+  });
+
+  const anchored = eligible.find(
+    (entry) => weekStart >= entry.startDate && weekStart < entry.endDate,
+  );
+
+  if (anchored) {
+    const seasonType = nflSeasonTypeFromEspn(anchored.seasonType);
+    return (
+      nflToFantasyWeek({ seasonType, week: anchored.number }, settings) ?? null
+    );
+  }
+
+  // Fallback: if calendar windows don't cover the boundary exactly, choose the
+  // default ESPN window based on `now`.
+  const current = getDefaultScheduleWeekEntry(eligible, now);
+  if (!current) return null;
+
+  return nflToFantasyWeek(
+    {
+      seasonType: nflSeasonTypeFromEspn(current.seasonType),
+      week: current.number,
+    },
+    settings,
+  );
+}
 
 export type FantasyWeekOption = {
   number: number;
@@ -65,14 +124,12 @@ export async function resolveFantasyMatchupWeek(options: {
   let calendarWeeks: ScheduleWeek[] = [];
   try {
     const state = await getNflState();
-    if (Number(state.season) === options.seasonYear) {
-      const mapped = fantasyWeekFromNflState(state, settings);
-      if (mapped != null) {
-        defaultWeek = Math.min(Math.max(1, mapped), maxWeek);
-      }
-    }
+    const sleeperWeek =
+      Number(state.season) === options.seasonYear
+        ? fantasyWeekFromNflState(state, settings)
+        : null;
 
-    const bootstrapNfl = fantasyWeekToNfl(defaultWeek, settings);
+    const bootstrapNfl = fantasyWeekToNfl(sleeperWeek ?? 1, settings);
     const board = await getNflScoreboard({
       season: options.seasonYear,
       week: bootstrapNfl?.week ?? 1,
@@ -81,7 +138,12 @@ export async function resolveFantasyMatchupWeek(options: {
     });
     calendarWeeks = board.weeks;
 
-    if (Number(state.season) !== options.seasonYear) {
+    const calendarWeek = fantasyWeekFromCalendarWeeks(calendarWeeks, settings);
+    if (calendarWeek != null) {
+      defaultWeek = Math.min(Math.max(1, calendarWeek), maxWeek);
+    } else if (sleeperWeek != null) {
+      defaultWeek = Math.min(Math.max(1, sleeperWeek), maxWeek);
+    } else {
       const regularWeeks = calendarWeeks.filter(
         (entry) =>
           entry.seasonType === 2 &&

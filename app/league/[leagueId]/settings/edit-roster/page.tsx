@@ -68,6 +68,8 @@ export default async function CommishEditRosterPage({
       taxiEnabled: season.taxiEnabled,
       leagueSeasonId: season.id,
       schedule: season.settings.schedule,
+      seasonYear: season.seasonYear,
+      regularSeasonEndWeek: season.regularSeasonEndWeek,
     });
   }
 

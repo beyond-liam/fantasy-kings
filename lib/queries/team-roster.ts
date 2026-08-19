@@ -7,9 +7,7 @@ import { db } from "@/lib/db";
 import type { TeamRosterPlayer } from "@/lib/leagues/roster-fill";
 import { assignDefaultSlotsToUnassignedPlayers } from "@/lib/leagues/roster-writes";
 import { applyDueLineupPlans } from "@/lib/queries/lineup-plans";
-import { fantasyWeekFromNflState } from "@/lib/leagues/schedule/fantasy-week-map";
-import { resolveScheduleSettings } from "@/lib/leagues/schedule/settings";
-import { getNflState } from "@/lib/sleeper/api";
+import { resolveFantasyMatchupWeek } from "@/lib/leagues/matchup-week";
 
 export type {
   FilledRosterSections,
@@ -30,18 +28,29 @@ export async function ensureTeamRosterSlotsAssigned(input: {
   taxiEnabled?: boolean;
   leagueSeasonId?: string;
   schedule?: ScheduleSettings | null;
+  seasonYear?: number;
+  regularSeasonEndWeek?: number;
+  currentWeek?: number;
 }) {
   await assignDefaultSlotsToUnassignedPlayers(input);
   if (!input.leagueSeasonId) return;
 
-  const nflState = await getNflState();
-  const currentWeek = Math.max(
-    1,
-    fantasyWeekFromNflState(
-      nflState,
-      resolveScheduleSettings(input.schedule),
-    ) ?? 1,
-  );
+  let currentWeek = input.currentWeek;
+  if (
+    currentWeek == null &&
+    input.seasonYear != null &&
+    input.regularSeasonEndWeek != null
+  ) {
+    const resolved = await resolveFantasyMatchupWeek({
+      seasonYear: input.seasonYear,
+      nflRegularSeasonEndWeek: input.regularSeasonEndWeek,
+      schedule: input.schedule,
+    });
+    currentWeek = resolved.currentWeek;
+  }
+  if (currentWeek == null) {
+    currentWeek = 1;
+  }
   await applyDueLineupPlans({
     leagueSeasonId: input.leagueSeasonId,
     currentWeek,

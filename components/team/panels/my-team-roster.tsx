@@ -88,6 +88,13 @@ export async function MyTeamRosterPanel({
   tradesEnabled,
   requestedWeek = null,
 }: MyTeamRosterPanelProps) {
+  const { week: fantasyWeek, weeks, currentWeek } = await resolveFantasyMatchupWeek({
+    seasonYear: season.seasonYear,
+    nflRegularSeasonEndWeek: season.regularSeasonEndWeek,
+    schedule: season.settings.schedule,
+    requestedWeek,
+  });
+
   await ensureTeamRosterSlotsAssigned({
     teamId: team.id,
     rosterSlots: season.settings.rosterSlots,
@@ -96,13 +103,9 @@ export async function MyTeamRosterPanel({
     taxiEnabled: season.taxiEnabled,
     leagueSeasonId: season.id,
     schedule: season.settings.schedule,
-  });
-
-  const { week: fantasyWeek, weeks, currentWeek } = await resolveFantasyMatchupWeek({
     seasonYear: season.seasonYear,
-    nflRegularSeasonEndWeek: season.regularSeasonEndWeek,
-    schedule: season.settings.schedule,
-    requestedWeek,
+    regularSeasonEndWeek: season.regularSeasonEndWeek,
+    currentWeek,
   });
 
   const [

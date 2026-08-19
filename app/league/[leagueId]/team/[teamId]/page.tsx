@@ -188,6 +188,9 @@ export default async function LeagueTeamPage({
       taxiEnabled: season.taxiEnabled,
       leagueSeasonId: season.id,
       schedule: season.settings.schedule,
+      seasonYear: season.seasonYear,
+      regularSeasonEndWeek: season.regularSeasonEndWeek,
+      currentWeek: rosterWeek?.currentWeek,
     });
   }
 
