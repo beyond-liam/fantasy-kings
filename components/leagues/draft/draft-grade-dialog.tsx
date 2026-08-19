@@ -144,9 +144,9 @@ export function DraftGradeDialog({
       }}
     >
       <DialogContent className="gap-0 sm:max-w-md">
-        <DialogHeader className="gap-3 text-center sm:text-center">
-          <div className="flex items-center justify-center gap-3">
-            <Avatar size="sm">
+        <DialogHeader className="gap-3">
+          <div className="flex items-center gap-3">
+            <Avatar size="default">
               {grade.teamLogoUrl ? (
                 <AvatarImage src={grade.teamLogoUrl} alt="" />
               ) : null}

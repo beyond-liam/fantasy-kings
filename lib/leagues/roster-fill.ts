@@ -72,14 +72,17 @@ function sortSlotsByActualPoints(slots: FilledRosterSlot[]): FilledRosterSlot[] 
   }
 
   withPlayers.sort((a, b) => {
+    const positionDiff =
+      benchPositionRank(a.player!.primaryPositionId) -
+      benchPositionRank(b.player!.primaryPositionId);
+    if (positionDiff !== 0) return positionDiff;
+
     const aActual = a.player!.actualPts;
     const bActual = b.player!.actualPts;
     if (aActual != null || bActual != null) {
       if (aActual == null) return 1;
       if (bActual == null) return -1;
-      if (bActual !== aActual) {
-        return bActual - aActual;
-      }
+      if (bActual !== aActual) return bActual - aActual;
     }
 
     const aProj = a.player!.projectedPts;
@@ -87,17 +90,9 @@ function sortSlotsByActualPoints(slots: FilledRosterSlot[]): FilledRosterSlot[] 
     if (aProj != null || bProj != null) {
       if (aProj == null) return 1;
       if (bProj == null) return -1;
-      if (bProj !== aProj) {
-        return bProj - aProj;
-      }
+      if (bProj !== aProj) return bProj - aProj;
     }
 
-    const positionDiff =
-      benchPositionRank(a.player!.primaryPositionId) -
-      benchPositionRank(b.player!.primaryPositionId);
-    if (positionDiff !== 0) {
-      return positionDiff;
-    }
     return a.player!.fullName.localeCompare(b.player!.fullName);
   });
 
