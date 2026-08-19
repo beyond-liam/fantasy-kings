@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { Suspense, useMemo, useState, useTransition } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   IterationCwIcon,
@@ -31,13 +31,18 @@ import {
   applyLocalSlotAssignment,
   applyLocalSlotSwap,
 } from "@/lib/leagues/roster-slots";
-import { lineupWeekRelation } from "@/lib/leagues/lineup-plans";
+import {
+  isLineupWeekFullyLocked,
+  lineupWeekRelation,
+} from "@/lib/leagues/lineup-plans";
 import { explainPlayerPoints } from "@/lib/leagues/scoring/calculate";
 import type { ScoringRuleDefinition } from "@/lib/leagues/scoring/types";
 import {
   buildTeamSummaryRosterBreakdown,
   type TeamSummaryMatchupRef,
 } from "@/lib/leagues/team-summary";
+import type { RosterWeekPlayerPatch } from "@/lib/roster-enrichment/types";
+import type { PlayerOpponent } from "@/lib/nfl/matchups";
 
 const ScoringBreakdownDialog = dynamic(
   () =>
@@ -71,6 +76,8 @@ type TeamRosterSectionsProps = {
   commissionerTeamId?: string;
   /** Player IDs locked after their NFL game has started (cut + slot). */
   gameLockedPlayerIds?: string[];
+  /** When true, the viewed week's NFL slate is fully closed. */
+  slateFinalized?: boolean;
   /** When set, shows the sticky team summary beside the roster. */
   summary?: {
     waiverPriorityLabel: string | null;
@@ -84,6 +91,9 @@ type TeamRosterSectionsProps = {
   week?: number;
   currentWeek?: number;
   weeks?: WeekFilterOption[];
+  /** Enables client-side week switching without a full page reload (my team roster). */
+  clientWeekSwitch?: boolean;
+  teamId?: string;
 };
 
 function slotsFingerprint(players: TeamRosterPlayer[]) {
@@ -121,6 +131,35 @@ function mergeWeekDisplay(
   });
 }
 
+function mergeWeekOpponent(
+  current: PlayerOpponent | null | undefined,
+  patch: PlayerOpponent | null,
+): PlayerOpponent | null {
+  if (!patch) return current ?? null;
+  return {
+    ...patch,
+    matchup: patch.matchup ?? current?.matchup ?? null,
+  };
+}
+
+function applyWeekDisplay(
+  draft: TeamRosterPlayer[],
+  patches: Record<string, RosterWeekPlayerPatch>,
+): TeamRosterPlayer[] {
+  return draft.map((player) => {
+    const patch = patches[player.id];
+    if (!patch) return player;
+    return {
+      ...player,
+      projectedPts: patch.projectedPts,
+      actualPts: patch.actualPts,
+      weekStats: patch.weekStats,
+      opponent: mergeWeekOpponent(player.opponent, patch.opponent),
+      slotPositionId: patch.slotPositionId ?? player.slotPositionId,
+    };
+  });
+}
+
 export function TeamRosterSections({
   rosterSlots,
   benchSlots,
@@ -141,51 +180,193 @@ export function TeamRosterSections({
   tradesEnabled = true,
   commissionerTeamId,
   gameLockedPlayerIds = [],
+  slateFinalized = false,
   summary,
   scoringRules,
   scoringWeek,
   week,
   currentWeek,
   weeks,
+  clientWeekSwitch = false,
+  teamId,
 }: TeamRosterSectionsProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const [isWeekLoading, startWeekTransition] = useTransition();
+  const [viewWeek, setViewWeek] = useState(week ?? 1);
+  const [syncedWeekProp, setSyncedWeekProp] = useState(week);
+  if (week !== syncedWeekProp) {
+    setSyncedWeekProp(week);
+    if (week != null) {
+      setViewWeek(week);
+    }
+  }
+
+  const [summaryMatchups, setSummaryMatchups] = useState<{
+    previous: TeamSummaryMatchupRef | null;
+    current: TeamSummaryMatchupRef | null;
+  }>({
+    previous: summary?.previous ?? null,
+    current: summary?.current ?? null,
+  });
+  const [syncedSummary, setSyncedSummary] = useState(summary);
+  if (summary !== syncedSummary) {
+    setSyncedSummary(summary);
+    if (summary) {
+      setSummaryMatchups({
+        previous: summary.previous,
+        current: summary.current,
+      });
+    }
+  }
+
   const [draftPlayers, setDraftPlayers] = useState(players);
+  const [slotBaselinePlayers, setSlotBaselinePlayers] = useState(players);
+  const draftPlayersRef = useRef(draftPlayers);
+  useEffect(() => {
+    draftPlayersRef.current = draftPlayers;
+  }, [draftPlayers]);
+  const prefetchedWeeksRef = useRef(new Set<number>());
+  const [viewGameLockedIds, setViewGameLockedIds] =
+    useState(gameLockedPlayerIds);
+  const [viewSlateFinalized, setViewSlateFinalized] = useState(slateFinalized);
+  const [syncedLockStateKey, setSyncedLockStateKey] = useState(
+    `${slateFinalized}:${gameLockedPlayerIds.join(",")}`,
+  );
+  const lockStateKey = `${slateFinalized}:${gameLockedPlayerIds.join(",")}`;
+  if (lockStateKey !== syncedLockStateKey) {
+    setSyncedLockStateKey(lockStateKey);
+    setViewGameLockedIds(gameLockedPlayerIds);
+    setViewSlateFinalized(slateFinalized);
+  }
   const [breakdownPlayerId, setBreakdownPlayerId] = useState<string | null>(
     null,
   );
-  const serverKey = `${week ?? ""}:${slotsFingerprint(players)}`;
-  const displayKey = `${week ?? ""}:${weekDisplayFingerprint(players)}`;
+  const activeWeek = clientWeekSwitch ? viewWeek : week;
+  const serverSlotKey = slotsFingerprint(players);
+  const displayKey = weekDisplayFingerprint(draftPlayers);
   const resolvedIrEligible = resolveIrEligibleStatuses(irEligibleStatuses);
   const showRowActions = rowActionsEnabled ?? actionsEnabled;
   const canCut = cutActionsEnabled ?? actionsEnabled;
-  const gameLockedIdSet = new Set(gameLockedPlayerIds);
   const weekRelation =
-    week != null && currentWeek != null
-      ? lineupWeekRelation(week, currentWeek)
+    activeWeek != null && currentWeek != null
+      ? lineupWeekRelation(activeWeek, currentWeek)
       : "current";
   const slotLockedIdSet =
     weekRelation === "future"
       ? new Set<string>()
-      : weekRelation === "past"
+      : isLineupWeekFullyLocked(viewSlateFinalized)
         ? new Set(draftPlayers.map((player) => player.id))
-        : gameLockedIdSet;
+        : new Set(viewGameLockedIds);
+  const gameLockedIdSet = new Set(viewGameLockedIds);
 
   // Reset the draft when persisted slots change. Overlay Opp/PTS when the
   // selected week (or live scores) updates so unsaved lineup edits stay.
-  const [syncedServerKey, setSyncedServerKey] = useState(serverKey);
+  const [syncedServerSlotKey, setSyncedServerSlotKey] = useState(serverSlotKey);
   const [syncedDisplayKey, setSyncedDisplayKey] = useState(displayKey);
-  if (serverKey !== syncedServerKey) {
-    setSyncedServerKey(serverKey);
-    setSyncedDisplayKey(displayKey);
+  if (serverSlotKey !== syncedServerSlotKey) {
+    setSyncedServerSlotKey(serverSlotKey);
+    setSyncedDisplayKey(weekDisplayFingerprint(players));
     setDraftPlayers(players);
-  } else if (displayKey !== syncedDisplayKey) {
+    setSlotBaselinePlayers(players);
+    setViewGameLockedIds(gameLockedPlayerIds);
+    setViewSlateFinalized(slateFinalized);
+    if (week != null) {
+      setViewWeek(week);
+    }
+  } else if (!clientWeekSwitch && displayKey !== syncedDisplayKey) {
     setSyncedDisplayKey(displayKey);
     setDraftPlayers(mergeWeekDisplay(draftPlayers, players));
   }
 
+  const prefetchRosterWeek = (targetWeek: number) => {
+    if (
+      !clientWeekSwitch ||
+      !teamId ||
+      currentWeek == null ||
+      targetWeek < 1 ||
+      prefetchedWeeksRef.current.has(targetWeek)
+    ) {
+      return;
+    }
+
+    prefetchedWeeksRef.current.add(targetWeek);
+    const params = new URLSearchParams({
+      teamId,
+      week: String(targetWeek),
+      currentWeek: String(currentWeek),
+    });
+    void fetch(
+      `/api/league/${leagueSlug}/team/roster-week?${params.toString()}`,
+      { priority: "low" },
+    );
+  };
+
+  const handleWeekPrefetch = (prefetchWeek: number) => {
+    prefetchRosterWeek(prefetchWeek);
+    prefetchRosterWeek(prefetchWeek - 1);
+    prefetchRosterWeek(prefetchWeek + 1);
+  };
+
+  const handleWeekChange = (nextWeek: number) => {
+    if (!clientWeekSwitch || !teamId || currentWeek == null) {
+      return;
+    }
+    if (nextWeek === viewWeek) {
+      return;
+    }
+
+    const previousWeek = viewWeek;
+    setViewWeek(nextWeek);
+    startWeekTransition(async () => {
+      try {
+        const params = new URLSearchParams({
+          teamId,
+          week: String(nextWeek),
+          currentWeek: String(currentWeek),
+        });
+        const response = await fetch(
+          `/api/league/${leagueSlug}/team/roster-week?${params.toString()}`,
+        );
+        const data = (await response.json()) as {
+          ok: boolean;
+          error?: string;
+          players?: Record<string, RosterWeekPlayerPatch>;
+          gameLockedPlayerIds?: string[];
+          slateFinalized?: boolean;
+          summary?: {
+            previous: TeamSummaryMatchupRef | null;
+            current: TeamSummaryMatchupRef | null;
+          };
+        };
+
+        if (!response.ok || !data.ok || !data.players || !data.summary) {
+          toast.error(data.error ?? "Could not load that week.");
+          setViewWeek(previousWeek);
+          return;
+        }
+
+        setSummaryMatchups(data.summary);
+        setViewGameLockedIds(data.gameLockedPlayerIds ?? []);
+        setViewSlateFinalized(data.slateFinalized ?? false);
+        const nextPlayers = applyWeekDisplay(
+          draftPlayersRef.current,
+          data.players!,
+        );
+        setDraftPlayers(nextPlayers);
+        setSlotBaselinePlayers(nextPlayers);
+        setSyncedDisplayKey(weekDisplayFingerprint(nextPlayers));
+        prefetchRosterWeek(nextWeek - 1);
+        prefetchRosterWeek(nextWeek + 1);
+      } catch {
+        toast.error("Could not load that week.");
+        setViewWeek(previousWeek);
+      }
+    });
+  };
+
   const serverSlots = new Map(
-    players.map((player) => [player.id, player.slotPositionId ?? ""]),
+    slotBaselinePlayers.map((player) => [player.id, player.slotPositionId ?? ""]),
   );
   const isDirty = draftPlayers.some(
     (player) =>
@@ -263,7 +444,7 @@ export function TeamRosterSections({
   };
 
   const handleReset = () => {
-    setDraftPlayers(players);
+    setDraftPlayers(slotBaselinePlayers);
   };
 
   const handleUpdate = () => {
@@ -280,9 +461,9 @@ export function TeamRosterSections({
             leagueSlug,
             commissionerTeamId,
             assignments,
-            week,
+            activeWeek,
           )
-        : await updateRosterSlots(leagueSlug, assignments, week);
+        : await updateRosterSlots(leagueSlug, assignments, activeWeek);
       if (!result.success) {
         toast.error(result.error ?? "Could not update roster.");
         return;
@@ -295,6 +476,8 @@ export function TeamRosterSections({
       router.refresh();
     });
   };
+
+  const activeScoringWeek = clientWeekSwitch ? viewWeek : scoringWeek;
 
   const tableProps = {
     assignmentOptions,
@@ -316,7 +499,7 @@ export function TeamRosterSections({
     onSlotChange: handleSlotChange,
     onSwap: handleSwap,
     onActualClick:
-      scoringRules && scoringWeek != null
+      scoringRules && activeScoringWeek != null
         ? (player: TeamRosterPlayer) => setBreakdownPlayerId(player.id)
         : undefined,
   } as const;
@@ -336,27 +519,40 @@ export function TeamRosterSections({
   }, [breakdownPlayer, scoringRules]);
 
   const breakdownDialog =
-    scoringRules && scoringWeek != null ? (
+    scoringRules && activeScoringWeek != null ? (
       <ScoringBreakdownDialog
         open={breakdownPlayer != null}
         onOpenChange={(open) => {
           if (!open) setBreakdownPlayerId(null);
         }}
         playerName={breakdownPlayer?.fullName ?? ""}
-        week={scoringWeek}
+        week={activeScoringWeek}
         explanation={breakdownExplanation}
       />
     ) : null;
 
   const weekFilter =
-    weeks && weeks.length > 0 && week != null ? (
+    weeks && weeks.length > 0 && activeWeek != null ? (
       <Suspense fallback={<Spinner />}>
-        <WeekFilter weeks={weeks} value={week} />
+        <WeekFilter
+          weeks={weeks}
+          value={activeWeek}
+          currentWeek={currentWeek}
+          disabled={isWeekLoading}
+          onWeekChange={
+            clientWeekSwitch && teamId ? handleWeekChange : undefined
+          }
+          onWeekPrefetch={
+            clientWeekSwitch && teamId ? handleWeekPrefetch : undefined
+          }
+        />
       </Suspense>
     ) : null;
 
   const rosterColumn = (
-    <div className="flex min-w-0 flex-1 flex-col gap-8">
+    <div
+      className={`flex min-w-0 flex-1 flex-col gap-8${isWeekLoading ? " opacity-70" : ""}`}
+    >
       <TeamRosterTable
         section="lineup"
         slots={sections.lineup}
@@ -370,7 +566,7 @@ export function TeamRosterSections({
       {sections.taxi ? (
         <TeamRosterTable section="taxi" slots={sections.taxi} {...tableProps} />
       ) : null}
-      {actionsEnabled ? (
+      {actionsEnabled && isDirty && !isWeekLoading ? (
         <PageFormActions float={isDirty}>
           <Button
             type="button"
@@ -420,8 +616,8 @@ export function TeamRosterSections({
           leagueSlug={leagueSlug}
           waiverPriorityLabel={summary.waiverPriorityLabel}
           ownerName={summary.ownerName}
-          previous={summary.previous}
-          current={summary.current}
+          previous={summaryMatchups.previous}
+          current={summaryMatchups.current}
           breakdown={rosterBreakdown}
         />
       </div>

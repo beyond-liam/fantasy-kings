@@ -2,7 +2,11 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import type { ScheduleWeek } from "@/lib/espn/scoreboard";
-import { rangeLabelForNflWeek, fantasyWeekFromCalendarWeeks } from "@/lib/leagues/matchup-week";
+import {
+  fantasyWeekFromCalendarWeeks,
+  rangeLabelForNflWeek,
+  resolveCurrentFantasyWeekFromSources,
+} from "@/lib/leagues/matchup-week";
 
 function week(
   number: number,
@@ -134,6 +138,87 @@ describe("fantasyWeekFromCalendarWeeks", () => {
         withPre,
         new Date("2026-08-13T12:00:00Z"),
       ),
+      1,
+    );
+  });
+});
+
+describe("resolveCurrentFantasyWeekFromSources", () => {
+  const baseSettings = {
+    playEachOtherTimes: 1 as const,
+    includePreseason: false,
+    preseasonStartWeek: 1,
+  };
+
+  const withPreseason = {
+    playEachOtherTimes: 1 as const,
+    includePreseason: true,
+    preseasonStartWeek: 1,
+  };
+
+  it("prefers mapped calendar week when available", () => {
+    const calendar = [
+      week(1, 2, "RS Wk 1", "2026-09-06T07:00:00Z", "2026-09-16T06:59:00Z"),
+      week(2, 2, "RS Wk 2", "2026-09-16T07:00:00Z", "2026-09-23T06:59:00Z"),
+    ];
+
+    assert.equal(
+      resolveCurrentFantasyWeekFromSources({
+        calendarWeeks: calendar,
+        settings: baseSettings,
+        sleeperWeek: 9,
+        maxWeek: 14,
+        nflRegularSeasonEndWeek: 14,
+      }),
+      1,
+    );
+  });
+
+  it("falls back to sleeper week when calendar mapping is unavailable", () => {
+    assert.equal(
+      resolveCurrentFantasyWeekFromSources({
+        calendarWeeks: [],
+        settings: baseSettings,
+        sleeperWeek: 6,
+        maxWeek: 14,
+        nflRegularSeasonEndWeek: 14,
+      }),
+      6,
+    );
+  });
+
+  it("falls back to regular ESPN default and maps when preseason is included", () => {
+    const calendar = [
+      week(1, 2, "RS Wk 1", "2030-09-01T07:00:00Z", "2030-09-08T06:59:00Z"),
+      week(2, 2, "RS Wk 2", "2030-09-08T07:00:00Z", "2030-09-15T06:59:00Z"),
+      week(3, 2, "RS Wk 3", "2030-09-15T07:00:00Z", "2030-09-22T06:59:00Z"),
+    ];
+
+    assert.equal(
+      resolveCurrentFantasyWeekFromSources({
+        calendarWeeks: calendar,
+        settings: withPreseason,
+        sleeperWeek: null,
+        maxWeek: 17,
+        nflRegularSeasonEndWeek: 14,
+      }),
+      4,
+    );
+  });
+
+  it("returns week 1 when no source can resolve current week", () => {
+    const preseasonOnly = [
+      week(2, 1, "Pre Wk 1", "2030-08-01T07:00:00Z", "2030-08-08T06:59:00Z"),
+    ];
+
+    assert.equal(
+      resolveCurrentFantasyWeekFromSources({
+        calendarWeeks: preseasonOnly,
+        settings: baseSettings,
+        sleeperWeek: null,
+        maxWeek: 14,
+        nflRegularSeasonEndWeek: 14,
+      }),
       1,
     );
   });

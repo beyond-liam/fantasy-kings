@@ -19,44 +19,107 @@ export {
   fillRosterSections,
 } from "@/lib/leagues/roster-fill";
 
-/** Persist slots for trade leftovers with null `slotPositionId` before roster reads. */
-export async function ensureTeamRosterSlotsAssigned(input: {
+type EnsureTeamRosterSlotsAssignedBaseInput = {
   teamId: string;
   rosterSlots: RosterSlotConfig[];
   benchSlots: number;
   irEnabled?: boolean;
   taxiEnabled?: boolean;
   leagueSeasonId?: string;
+};
+
+type EnsureTeamRosterSlotsAssignedInput =
+  EnsureTeamRosterSlotsAssignedBaseInput & {
   schedule?: ScheduleSettings | null;
   seasonYear?: number;
   regularSeasonEndWeek?: number;
   currentWeek?: number;
-}) {
-  await assignDefaultSlotsToUnassignedPlayers(input);
-  if (!input.leagueSeasonId) return;
+};
 
-  let currentWeek = input.currentWeek;
-  if (
-    currentWeek == null &&
-    input.seasonYear != null &&
-    input.regularSeasonEndWeek != null
-  ) {
-    const resolved = await resolveFantasyMatchupWeek({
+type ResolveCurrentWeekInput = Pick<
+  EnsureTeamRosterSlotsAssignedInput,
+  "currentWeek" | "schedule" | "seasonYear" | "regularSeasonEndWeek"
+> & {
+  resolveWeek?: typeof resolveFantasyMatchupWeek;
+};
+
+export async function resolveCurrentWeekForTeamRoster(
+  input: ResolveCurrentWeekInput,
+): Promise<number> {
+  if (input.currentWeek != null) {
+    return input.currentWeek;
+  }
+
+  if (input.seasonYear != null && input.regularSeasonEndWeek != null) {
+    const resolveWeek = input.resolveWeek ?? resolveFantasyMatchupWeek;
+    const resolved = await resolveWeek({
       seasonYear: input.seasonYear,
       nflRegularSeasonEndWeek: input.regularSeasonEndWeek,
       schedule: input.schedule,
     });
-    currentWeek = resolved.currentWeek;
+    return resolved.currentWeek;
   }
-  if (currentWeek == null) {
-    currentWeek = 1;
-  }
-  await applyDueLineupPlans({
-    leagueSeasonId: input.leagueSeasonId,
-    currentWeek,
+
+  return 1;
+}
+
+/** Persist slots for trade leftovers with null `slotPositionId` before roster reads. */
+const ensureTeamRosterSlotsAssignedForWeekCached = cache(
+  async (
+    teamId: string,
+    leagueSeasonId: string,
+    currentWeek: number,
+    benchSlots: number,
+    irEnabled: boolean,
+    taxiEnabled: boolean,
+    rosterSlotsKey: string,
+  ) => {
+    const rosterSlots = JSON.parse(rosterSlotsKey) as RosterSlotConfig[];
+    await assignDefaultSlotsToUnassignedPlayers({
+      teamId,
+      rosterSlots,
+      benchSlots,
+      irEnabled,
+      taxiEnabled,
+    });
+    if (!leagueSeasonId) return;
+    await applyDueLineupPlans({
+      leagueSeasonId,
+      currentWeek,
+      rosterSlots,
+      benchSlots,
+      teamId,
+    });
+  },
+);
+
+export async function ensureTeamRosterSlotsAssignedForWeek(
+  input: EnsureTeamRosterSlotsAssignedBaseInput & { currentWeek: number },
+) {
+  return ensureTeamRosterSlotsAssignedForWeekCached(
+    input.teamId,
+    input.leagueSeasonId ?? "",
+    input.currentWeek,
+    input.benchSlots,
+    input.irEnabled ?? false,
+    input.taxiEnabled ?? false,
+    JSON.stringify(input.rosterSlots),
+  );
+}
+
+/** Persist slots for trade leftovers with null `slotPositionId` before roster reads. */
+export async function ensureTeamRosterSlotsAssigned(
+  input: EnsureTeamRosterSlotsAssignedInput,
+) {
+  const currentWeek = await resolveCurrentWeekForTeamRoster(input);
+  await ensureTeamRosterSlotsAssignedForWeek({
+    teamId: input.teamId,
     rosterSlots: input.rosterSlots,
     benchSlots: input.benchSlots,
-    teamId: input.teamId,
+    irEnabled: input.irEnabled,
+    taxiEnabled: input.taxiEnabled,
+    leagueSeasonId: input.leagueSeasonId,
+    currentWeek,
   });
 }
 export const getTeamRosterPlayers = cache(
@@ -84,6 +147,36 @@ export const getTeamRosterPlayers = cache(
           eq(playerExternalIds.provider, "sleeper"),
         ),
       )
+      .where(
+        and(
+          eq(rosterPlayers.teamId, teamId),
+          eq(rosterPlayers.status, "rostered"),
+        ),
+      );
+  },
+);
+
+export type TeamRosterLockSnapshot = {
+  id: string;
+  fullName: string;
+  injuryStatus: string | null;
+  slotPositionId: string | null;
+  yearsExp: number | null;
+};
+
+/** Minimal roster read for IR/Taxi acquisition lock banners. */
+export const getTeamRosterLockSnapshot = cache(
+  async (teamId: string): Promise<TeamRosterLockSnapshot[]> => {
+    return db
+      .select({
+        id: players.id,
+        fullName: players.fullName,
+        injuryStatus: players.injuryStatus,
+        slotPositionId: rosterPlayers.slotPositionId,
+        yearsExp: players.yearsExp,
+      })
+      .from(rosterPlayers)
+      .innerJoin(players, eq(rosterPlayers.playerId, players.id))
       .where(
         and(
           eq(rosterPlayers.teamId, teamId),

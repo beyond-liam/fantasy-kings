@@ -1,5 +1,8 @@
+import { cache } from "react";
+
 import type { ScheduleSettings } from "@/db/schema/league-seasons";
 import { calendarSeasonTypesForSchedule } from "@/lib/account/schedule-settings";
+import { createProcessCache } from "@/lib/cache/process-cache";
 import {
   getNflScoreboard,
   type EspnSeasonType,
@@ -93,6 +96,14 @@ export type FantasyWeekOption = {
   rangeLabel: string;
 };
 
+export type FantasyMatchupWeekResolution = {
+  week: number;
+  weeks: FantasyWeekOption[];
+  calendarWeeks: ScheduleWeek[];
+  /** Fantasy week that is "now" for the league calendar. */
+  currentWeek: number;
+};
+
 export function rangeLabelForNflWeek(
   calendarWeeks: ScheduleWeek[],
   nfl: NflCalendarPoint | null,
@@ -107,6 +118,220 @@ export function rangeLabelForNflWeek(
   );
 }
 
+export function resolveCurrentFantasyWeekFromSources(options: {
+  calendarWeeks: ScheduleWeek[];
+  settings: ScheduleSettings;
+  sleeperWeek: number | null;
+  maxWeek: number;
+  nflRegularSeasonEndWeek: number;
+}): number {
+  const {
+    calendarWeeks,
+    settings,
+    sleeperWeek,
+    maxWeek,
+    nflRegularSeasonEndWeek,
+  } = options;
+
+  const calendarWeek = fantasyWeekFromCalendarWeeks(calendarWeeks, settings);
+  if (calendarWeek != null) {
+    return Math.min(Math.max(1, calendarWeek), maxWeek);
+  }
+
+  if (sleeperWeek != null) {
+    return Math.min(Math.max(1, sleeperWeek), maxWeek);
+  }
+
+  const regularWeeks = calendarWeeks.filter(
+    (entry) =>
+      entry.seasonType === 2 &&
+      entry.number >= 1 &&
+      entry.number <= nflRegularSeasonEndWeek,
+  );
+  if (regularWeeks.length === 0) {
+    return 1;
+  }
+
+  const espnDefault = getDefaultScheduleWeek(regularWeeks);
+  const mapped = fantasyWeekToNfl(1, settings)
+    ? espnDefault + (maxWeek - nflRegularSeasonEndWeek)
+    : espnDefault;
+  return Math.min(Math.max(1, mapped), maxWeek);
+}
+
+type SerializedScheduleWeek = {
+  number: number;
+  label: string;
+  rangeLabel: string;
+  seasonType: ScheduleWeek["seasonType"];
+  startDate: string;
+  endDate: string;
+};
+
+type FantasyWeekCalendarBase = {
+  calendarWeeks: ScheduleWeek[];
+  currentWeek: number;
+  weeks: FantasyWeekOption[];
+};
+
+type SerializedFantasyWeekCalendarBase = {
+  calendarWeeks: SerializedScheduleWeek[];
+  currentWeek: number;
+  weeks: FantasyWeekOption[];
+};
+
+function serializeScheduleWeeks(
+  weeks: ScheduleWeek[],
+): SerializedScheduleWeek[] {
+  return weeks.map((week) => ({
+    number: week.number,
+    label: week.label,
+    rangeLabel: week.rangeLabel,
+    seasonType: week.seasonType,
+    startDate: week.startDate.toISOString(),
+    endDate: week.endDate.toISOString(),
+  }));
+}
+
+function deserializeScheduleWeeks(
+  weeks: SerializedScheduleWeek[],
+): ScheduleWeek[] {
+  return weeks.map((week) => ({
+    number: week.number,
+    label: week.label,
+    rangeLabel: week.rangeLabel,
+    seasonType: week.seasonType,
+    startDate: new Date(week.startDate),
+    endDate: new Date(week.endDate),
+  }));
+}
+
+function fantasyWeekCalendarProcessKey(input: {
+  seasonYear: number;
+  nflRegularSeasonEndWeek: number;
+  includePreseason: boolean;
+  preseasonStartWeek: number;
+}): string {
+  return [
+    input.seasonYear,
+    input.nflRegularSeasonEndWeek,
+    input.includePreseason ? 1 : 0,
+    input.preseasonStartWeek,
+  ].join(":");
+}
+
+const getCachedFantasyWeekCalendar = createProcessCache<
+  SerializedFantasyWeekCalendarBase
+>({
+  ttlMs: 5 * 60 * 1000,
+  maxEntries: 16,
+});
+
+async function loadFantasyWeekCalendarBase(input: {
+  seasonYear: number;
+  nflRegularSeasonEndWeek: number;
+  settings: ScheduleSettings;
+}): Promise<FantasyWeekCalendarBase> {
+  const calendarSeasonTypes = calendarSeasonTypesForSchedule({
+    includePreseason: input.settings.includePreseason ?? false,
+    preseasonStartWeek: input.settings.preseasonStartWeek ?? 1,
+  });
+  const maxWeek = Math.max(
+    1,
+    fantasyRegularSeasonEndWeek(input.nflRegularSeasonEndWeek, input.settings),
+  );
+
+  const serialized = await getCachedFantasyWeekCalendar(
+    fantasyWeekCalendarProcessKey({
+      seasonYear: input.seasonYear,
+      nflRegularSeasonEndWeek: input.nflRegularSeasonEndWeek,
+      includePreseason: input.settings.includePreseason ?? false,
+      preseasonStartWeek: input.settings.preseasonStartWeek ?? 1,
+    }),
+    async () => {
+      let currentWeek = 1;
+      let calendarWeeks: ScheduleWeek[] = [];
+      try {
+        const state = await getNflState();
+        const sleeperWeek =
+          Number(state.season) === input.seasonYear
+            ? fantasyWeekFromNflState(state, input.settings)
+            : null;
+
+        const bootstrapNfl = fantasyWeekToNfl(sleeperWeek ?? 1, input.settings);
+        const board = await getNflScoreboard({
+          season: input.seasonYear,
+          week: bootstrapNfl?.week ?? 1,
+          seasonType: espnSeasonTypeForNfl(bootstrapNfl?.seasonType ?? "regular"),
+          calendarSeasonTypes,
+        });
+        calendarWeeks = board.weeks;
+
+        currentWeek = resolveCurrentFantasyWeekFromSources({
+          calendarWeeks,
+          settings: input.settings,
+          sleeperWeek,
+          maxWeek,
+          nflRegularSeasonEndWeek: input.nflRegularSeasonEndWeek,
+        });
+      } catch {
+        currentWeek = 1;
+      }
+
+      const weeks: FantasyWeekOption[] = [];
+      for (let number = 1; number <= maxWeek; number++) {
+        const nfl = fantasyWeekToNfl(number, input.settings);
+        weeks.push({
+          number,
+          label: `Week ${number}`,
+          rangeLabel: rangeLabelForNflWeek(calendarWeeks, nfl),
+        });
+      }
+
+      return {
+        calendarWeeks: serializeScheduleWeeks(calendarWeeks),
+        currentWeek,
+        weeks,
+      };
+    },
+  );
+
+  return {
+    calendarWeeks: deserializeScheduleWeeks(serialized.calendarWeeks),
+    currentWeek: serialized.currentWeek,
+    weeks: serialized.weeks,
+  };
+}
+
+function pickFantasyMatchupWeek(
+  base: FantasyWeekCalendarBase,
+  requestedWeek?: number | null,
+): number {
+  const requested = requestedWeek;
+  return requested != null &&
+    base.weeks.some((entry) => entry.number === requested)
+    ? requested
+    : base.currentWeek;
+}
+
+const loadFantasyWeekCalendarCached = cache(
+  async (
+    seasonYear: number,
+    nflRegularSeasonEndWeek: number,
+    includePreseason: boolean,
+    preseasonStartWeek: number,
+  ): Promise<FantasyWeekCalendarBase> =>
+    loadFantasyWeekCalendarBase({
+      seasonYear,
+      nflRegularSeasonEndWeek,
+      settings: {
+        playEachOtherTimes: 1,
+        includePreseason,
+        preseasonStartWeek,
+      },
+    }),
+);
+
 /**
  * Resolve the fantasy schedule week. Fantasy week numbers may include leading
  * NFL preseason weeks when the league extends into preseason; championship
@@ -118,82 +343,16 @@ export async function resolveFantasyMatchupWeek(options: {
   nflRegularSeasonEndWeek: number;
   schedule?: ScheduleSettings | null;
   requestedWeek?: number | null;
-}): Promise<{
-  week: number;
-  weeks: FantasyWeekOption[];
-  calendarWeeks: ScheduleWeek[];
-  /** Fantasy week that is "now" for the league calendar. */
-  currentWeek: number;
-}> {
+}): Promise<FantasyMatchupWeekResolution> {
   const settings = resolveScheduleSettings(options.schedule);
-  const maxWeek = Math.max(
-    1,
-    fantasyRegularSeasonEndWeek(options.nflRegularSeasonEndWeek, settings),
+  const base = await loadFantasyWeekCalendarCached(
+    options.seasonYear,
+    options.nflRegularSeasonEndWeek,
+    settings.includePreseason ?? false,
+    settings.preseasonStartWeek ?? 1,
   );
-  const calendarSeasonTypes = calendarSeasonTypesForSchedule({
-    includePreseason: settings.includePreseason ?? false,
-    preseasonStartWeek: settings.preseasonStartWeek ?? 1,
-  });
-
-  let defaultWeek = 1;
-  let calendarWeeks: ScheduleWeek[] = [];
-  try {
-    const state = await getNflState();
-    const sleeperWeek =
-      Number(state.season) === options.seasonYear
-        ? fantasyWeekFromNflState(state, settings)
-        : null;
-
-    const bootstrapNfl = fantasyWeekToNfl(sleeperWeek ?? 1, settings);
-    const board = await getNflScoreboard({
-      season: options.seasonYear,
-      week: bootstrapNfl?.week ?? 1,
-      seasonType: espnSeasonTypeForNfl(bootstrapNfl?.seasonType ?? "regular"),
-      calendarSeasonTypes,
-    });
-    calendarWeeks = board.weeks;
-
-    const calendarWeek = fantasyWeekFromCalendarWeeks(calendarWeeks, settings);
-    if (calendarWeek != null) {
-      defaultWeek = Math.min(Math.max(1, calendarWeek), maxWeek);
-    } else if (sleeperWeek != null) {
-      defaultWeek = Math.min(Math.max(1, sleeperWeek), maxWeek);
-    } else {
-      const regularWeeks = calendarWeeks.filter(
-        (entry) =>
-          entry.seasonType === 2 &&
-          entry.number >= 1 &&
-          entry.number <= options.nflRegularSeasonEndWeek,
-      );
-      if (regularWeeks.length > 0) {
-        const espnDefault = getDefaultScheduleWeek(regularWeeks);
-        const mapped = fantasyWeekToNfl(1, settings)
-          ? espnDefault + (maxWeek - options.nflRegularSeasonEndWeek)
-          : espnDefault;
-        defaultWeek = Math.min(Math.max(1, mapped), maxWeek);
-      }
-    }
-  } catch {
-    defaultWeek = 1;
-  }
-
-  const weeks: FantasyWeekOption[] = [];
-  for (let number = 1; number <= maxWeek; number++) {
-    const nfl = fantasyWeekToNfl(number, settings);
-    weeks.push({
-      number,
-      label: `Week ${number}`,
-      rangeLabel: rangeLabelForNflWeek(calendarWeeks, nfl),
-    });
-  }
-
-  const requested = options.requestedWeek;
-  const week =
-    requested != null && weeks.some((entry) => entry.number === requested)
-      ? requested
-      : defaultWeek;
-
-  return { week, weeks, calendarWeeks, currentWeek: defaultWeek };
+  const week = pickFantasyMatchupWeek(base, options.requestedWeek);
+  return { ...base, week };
 }
 
 export function parseWeekQueryParam(raw: string | undefined): number | null {

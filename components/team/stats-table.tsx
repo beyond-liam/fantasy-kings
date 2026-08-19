@@ -4,8 +4,6 @@ import { useMemo, useState } from "react";
 import type { ColumnDef, SortingState } from "@tanstack/react-table";
 
 import { createStickyPlayerColumns } from "@/components/rankings/sticky-player-columns";
-import { OpponentCell } from "@/components/team/opponent-cell";
-import { TeamTableColumnHeader } from "@/components/team/team-table-column-header";
 import {
   DataTable,
   DataTableColumnHeader,
@@ -69,24 +67,8 @@ export function TeamStatsTable({
           nflTeam: row.nflTeam,
           byeWeek: row.byeWeek,
           injuryStatus: row.injuryStatus,
-          hasPossession: row.opponent?.hasPossession,
-          inRedZone: row.opponent?.inRedZone,
-          isLive: row.opponent?.gameStatus === "in",
         }),
       }),
-      {
-        id: "opp",
-        accessorFn: (row) => row.opponent?.label ?? "",
-        enableSorting: false,
-        header: () => (
-          <TeamTableColumnHeader title="Opp" tooltip="Opponent" />
-        ),
-        cell: ({ row }) => <OpponentCell opponent={row.original.opponent} />,
-        // Fixed so Opp/Rank line up across QB/RB/WR, K, DEF tables (different
-        // stat column counts would otherwise stretch these unequally).
-        // 144 matches roster Opp (w-36) so live down/distance fits.
-        meta: { width: 144 },
-      },
       {
         id: "rank",
         accessorFn: (row) => sortableRankValue(row.positionRank),

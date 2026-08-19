@@ -26,7 +26,32 @@ function resolveRuntimeDatabaseUrl(): string {
   );
 }
 
+function resolvePostgresSsl(connectionString: string): "require" | "prefer" {
+  try {
+    const { hostname, port } = new URL(connectionString);
+    // Supabase transaction pooler (IPv4) negotiates TLS after connect; `require`
+    // can fail TLS handshake on some pooler hosts/networks.
+    if (hostname.includes(".pooler.supabase.com") && port === "6543") {
+      return "prefer";
+    }
+    // Direct db.*.supabase.co is IPv6-only — prefer fails closed on many networks.
+    if (hostname.startsWith("db.") && hostname.endsWith(".supabase.co")) {
+      throw new Error(
+        "DATABASE_URL uses Supabase direct host db.*.supabase.co, which is IPv6-only. " +
+          "Use the transaction pooler from Supabase Dashboard → Connect (port 6543, " +
+          "user postgres.[project-ref], host aws-*-[region].pooler.supabase.com).",
+      );
+    }
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("IPv6-only")) {
+      throw error;
+    }
+  }
+  return "require";
+}
+
 const connectionString = resolveRuntimeDatabaseUrl();
+const postgresSsl = resolvePostgresSsl(connectionString);
 
 const globalForDb = globalThis as unknown as {
   client: ReturnType<typeof postgres> | undefined;
@@ -44,7 +69,7 @@ const client =
     : postgres(connectionString, {
         max: 1,
         prepare: false,
-        ssl: "require",
+        ssl: postgresSsl,
         // Fail fast on dead sockets; recycle before Supabase kills idle clients.
         connect_timeout: 10,
         idle_timeout: 20,

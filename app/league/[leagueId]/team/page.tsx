@@ -47,12 +47,17 @@ import { isWaiverClaimOrderLocked } from "@/lib/leagues/waivers/calendar";
 import { getUnseenTeamWaiverResults } from "@/lib/queries/activity";
 import { getLeagueHomeData } from "@/lib/queries/leagues";
 import { getIncomingTradeActionCount } from "@/lib/queries/trades";
+import type { TeamRosterPlayer } from "@/lib/leagues/roster-fill";
 import {
-  ensureTeamRosterSlotsAssigned,
+  ensureTeamRosterSlotsAssignedForWeek,
+  getTeamRosterLockSnapshot,
   getTeamRosterPlayers,
 } from "@/lib/queries/team-roster";
 import { getUserTeamForLeague } from "@/lib/queries/watchlist";
-import { parseWeekQueryParam } from "@/lib/leagues/matchup-week";
+import {
+  parseWeekQueryParam,
+  resolveFantasyMatchupWeek,
+} from "@/lib/leagues/matchup-week";
 
 type MyTeamPageProps = {
   params: Promise<{ leagueId: string }>;
@@ -120,6 +125,15 @@ export default async function MyTeamPage({
   }
 
   const activeTab = resolveActiveTab(tab, season.leagueType);
+  const requestedWeek =
+    activeTab === "roster" ? parseWeekQueryParam(week) : null;
+  const matchupWeek = await resolveFantasyMatchupWeek({
+    seasonYear: season.seasonYear,
+    nflRegularSeasonEndWeek: season.regularSeasonEndWeek,
+    schedule: season.settings.schedule,
+    requestedWeek,
+  });
+  const { currentWeek } = matchupWeek;
 
   const scoringPreset = season.scoringPreset as ScoringPreset;
   const scoringRules = resolveScoringRuleDefinitions(
@@ -138,7 +152,7 @@ export default async function MyTeamPage({
       member.userId === user.id && member.role === "commissioner",
   );
 
-  const [incomingTradeCount, unseenWaiverResults, rosterPlayers] =
+  const [incomingTradeCount, unseenWaiverResults, rosterForAlerts] =
     await Promise.all([
       team ? getIncomingTradeActionCount(team.id) : Promise.resolve(0),
       team
@@ -148,26 +162,26 @@ export default async function MyTeamPage({
           })
         : Promise.resolve([]),
       team
-        ? ensureTeamRosterSlotsAssigned({
-            teamId: team.id,
-            rosterSlots: season.settings.rosterSlots,
-            benchSlots: season.benchSlots,
-            irEnabled: season.irEnabled,
-            taxiEnabled: season.taxiEnabled,
-            leagueSeasonId: season.id,
-            schedule: season.settings.schedule,
-            seasonYear: season.seasonYear,
-            regularSeasonEndWeek: season.regularSeasonEndWeek,
-          }).then(() => getTeamRosterPlayers(team.id))
+        ? activeTab === "roster"
+          ? ensureTeamRosterSlotsAssignedForWeek({
+              teamId: team.id,
+              rosterSlots: season.settings.rosterSlots,
+              benchSlots: season.benchSlots,
+              irEnabled: season.irEnabled,
+              taxiEnabled: season.taxiEnabled,
+              leagueSeasonId: season.id,
+              currentWeek,
+            }).then(() => getTeamRosterPlayers(team.id))
+          : getTeamRosterLockSnapshot(team.id)
         : Promise.resolve([]),
     ]);
 
   const irViolations = getIrLockViolations(
-    rosterPlayers,
+    rosterForAlerts,
     season.settings.irEligibleStatuses,
   );
   const taxiViolations = getTaxiLockViolations(
-    rosterPlayers,
+    rosterForAlerts,
     resolveTaxiMaxYearsExp(season.settings.taxiMaxYearsExp),
   );
   const acquisitionsLocked =
@@ -233,7 +247,13 @@ export default async function MyTeamPage({
         actionsEnabled={actionsEnabled}
         lineupEnabled={lineupEnabled}
         tradesEnabled={tradesEnabled}
-        requestedWeek={parseWeekQueryParam(week)}
+        requestedWeek={requestedWeek}
+        matchupWeek={matchupWeek}
+        preloadedRosterPlayers={
+          activeTab === "roster"
+            ? (rosterForAlerts as TeamRosterPlayer[])
+            : undefined
+        }
       />,
     );
   } else if (activeTab === "keepers" && team && season.leagueType === "dynasty") {
@@ -246,6 +266,7 @@ export default async function MyTeamPage({
         benchSlots={season.benchSlots}
         irEnabled={season.irEnabled}
         taxiEnabled={season.taxiEnabled}
+        currentWeek={currentWeek}
       />,
     );
   } else if (activeTab === "stats" && team) {

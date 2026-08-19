@@ -7,6 +7,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { CommishEditRoster } from "@/components/leagues/dynasty/commish-edit-roster";
 import { Button } from "@/components/ui/button";
 import { getSessionUser } from "@/lib/auth/session";
+import { resolveFantasyMatchupWeek } from "@/lib/leagues/matchup-week";
 import { settingsHref } from "@/lib/leagues/settings-tabs";
 import {
   getLeagueHomeData,
@@ -14,7 +15,7 @@ import {
 } from "@/lib/queries/leagues";
 import { listKeeperTeamOptions } from "@/lib/queries/keepers";
 import {
-  ensureTeamRosterSlotsAssigned,
+  ensureTeamRosterSlotsAssignedForWeek,
   getTeamRosterPlayers,
 } from "@/lib/queries/team-roster";
 
@@ -53,6 +54,11 @@ export default async function CommishEditRosterPage({
   }
 
   const season = data.season;
+  const { currentWeek } = await resolveFantasyMatchupWeek({
+    seasonYear: season.seasonYear,
+    nflRegularSeasonEndWeek: season.regularSeasonEndWeek,
+    schedule: season.settings.schedule,
+  });
   const teams = await listKeeperTeamOptions(season.id);
   const selectedTeamId =
     (teamParam && teams.some((team) => team.teamId === teamParam)
@@ -60,16 +66,14 @@ export default async function CommishEditRosterPage({
       : teams[0]?.teamId) ?? "";
 
   if (selectedTeamId) {
-    await ensureTeamRosterSlotsAssigned({
+    await ensureTeamRosterSlotsAssignedForWeek({
       teamId: selectedTeamId,
       rosterSlots: season.settings.rosterSlots,
       benchSlots: season.benchSlots,
       irEnabled: season.irEnabled,
       taxiEnabled: season.taxiEnabled,
       leagueSeasonId: season.id,
-      schedule: season.settings.schedule,
-      seasonYear: season.seasonYear,
-      regularSeasonEndWeek: season.regularSeasonEndWeek,
+      currentWeek,
     });
   }
 

@@ -31,6 +31,7 @@ import {
   formatWaiverAwardSummary,
   formatWaiverFailSummary,
 } from "@/lib/leagues/waivers/activity";
+import { evaluateRosterMinimumDrop } from "@/lib/leagues/waivers/evaluate-roster-minimum-drop";
 import { DEFAULT_WAIVER_WIRE_SETTINGS } from "@/lib/leagues/waiver-wire";
 
 describe("waiver calendar", () => {
@@ -851,5 +852,47 @@ describe("claim process schedule", () => {
       now,
     });
     assert.equal(processAt?.toISOString(), "2026-07-16T10:00:00.000Z");
+  });
+});
+
+describe("evaluateRosterMinimumDrop", () => {
+  const rosterSlots = [
+    {
+      positionId: "QB",
+      slotCount: 1,
+      minSlots: 1,
+      maxSlots: 2,
+      isStarter: true,
+    },
+    {
+      positionId: "RB",
+      slotCount: 2,
+      minSlots: 0,
+      maxSlots: 6,
+      isStarter: true,
+    },
+  ];
+
+  it("returns the same minimum error for claim drop validation", () => {
+    const result = evaluateRosterMinimumDrop({
+      roster: [
+        { id: "qb-1", primaryPositionId: "QB", slotPositionId: "QB" },
+        { id: "rb-1", primaryPositionId: "RB", slotPositionId: "RB" },
+        { id: "rb-2", primaryPositionId: "RB", slotPositionId: "BN" },
+      ],
+      dropPlayerId: "qb-1",
+      incoming: {
+        id: "wr-1",
+        primaryPositionId: "WR",
+        slotPositionId: null,
+      },
+      rosterSlots,
+      enforce: true,
+    });
+
+    assert.deepEqual(result, {
+      ok: false,
+      error: "Roster would be below the minimum QB count (1).",
+    });
   });
 });

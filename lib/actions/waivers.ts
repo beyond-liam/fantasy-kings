@@ -22,12 +22,10 @@ import {
 import { compareRosterPositions } from "@/lib/leagues/roster-position-order";
 import {
   classifyDropCandidatesForMinimums,
-  firstRosterMinimumError,
-  simulateRosterAfterMutation,
-  wouldBreachRosterMinimums,
 } from "@/lib/leagues/roster-minimums";
 import { pickOpenReserveAcquisitionSlot } from "@/lib/leagues/roster/acquisition";
 import { getAcquisitionKind } from "@/lib/leagues/waivers/acquisition";
+import { evaluateRosterMinimumDrop } from "@/lib/leagues/waivers/evaluate-roster-minimum-drop";
 import { hasNflTeamStarted } from "@/lib/leagues/waivers/game-lock";
 import { processSeasonWaivers } from "@/lib/leagues/waivers/process";
 import { isFantasyLeaguePreseason } from "@/lib/leagues/season-calendar";
@@ -431,41 +429,26 @@ export async function fileWaiverClaim(
     }
 
     const rules = resolveTransactionRules(season.settings.transactionRules);
-    if (
-      rules.enforceRosterMinimums &&
-      wouldBreachRosterMinimums({
+    if (rules.enforceRosterMinimums) {
+      const minimumCheck = evaluateRosterMinimumDrop({
         roster: rosteredOnTeam,
-        removeIds: [dropPlayerId],
-        add: [
-          {
-            id: player.id,
-            primaryPositionId: player.primaryPositionId,
-            slotPositionId: null,
-          },
-        ],
+        dropPlayerId,
+        incoming: {
+          id: player.id,
+          primaryPositionId: player.primaryPositionId,
+          slotPositionId: null,
+        },
         rosterSlots: season.settings.rosterSlots,
         enforce: true,
-      })
-    ) {
+      });
+      if (!minimumCheck.ok) {
       return {
         success: false,
         error:
-          firstRosterMinimumError(
-            simulateRosterAfterMutation({
-              roster: rosteredOnTeam,
-              removeIds: [dropPlayerId],
-              add: [
-                {
-                  id: player.id,
-                  primaryPositionId: player.primaryPositionId,
-                  slotPositionId: null,
-                },
-              ],
-            }),
-            season.settings.rosterSlots,
-            true,
-          ) ?? "That drop would leave you under a roster minimum.",
+          minimumCheck.error ??
+          "That drop would leave you under a roster minimum.",
       };
+      }
     }
   }
 

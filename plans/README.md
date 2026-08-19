@@ -41,6 +41,11 @@ pnpm build
 | 023 | Ship Team Stats scoring concentration chart | P2 | M | — | DONE (`advisor/023-team-stats-concentration`) |
 | 024 | Spike season rewind (design; defer full build) | P3 | M | real season weeks | TODO |
 | 025 | Split league-settings server action module | P3 | L | after P1; prefer after 014 | DONE (`advisor/025-split-league-settings` @ bb63527) |
+| 026 | Make `ensureTeamRosterSlotsAssigned` require explicit `currentWeek` | P1 | M | — | DONE |
+| 027 | Share roster-minimum enforcement for waiver drop/add | P1 | M | — | DONE |
+| 028 | Decouple roster shell from enrichment hydration | P1 | L | — | DONE |
+| 029 | Make positional SoS failures explicit (Result API) | P2 | M | — | DONE |
+| 030 | Split fantasy week resolver into pure mapping + adapter | P2 | S | — | DONE |
 
 Status values: `TODO` | `IN PROGRESS` | `DONE` | `BLOCKED (reason)` | `REJECTED (rationale)`
 

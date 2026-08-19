@@ -57,7 +57,10 @@ import {
 } from "@/lib/leagues/taxi-eligibility";
 import { findBlockedLineupMoves } from "@/lib/leagues/lineup-lock-enforce";
 import { parseLineupLockMode } from "@/lib/leagues/lineup-lock";
-import { loadStartedNflTeamsForLineupLock } from "@/lib/leagues/lineup-lock-started";
+import {
+  loadFantasyWeekLineupLockState,
+  loadStartedNflTeamsForLineupLock,
+} from "@/lib/leagues/lineup-lock-started";
 import { lineupWeekRelation } from "@/lib/leagues/lineup-plans";
 import { resolveFantasyMatchupWeek } from "@/lib/leagues/matchup-week";
 import { replaceTeamLineupPlan } from "@/lib/queries/lineup-plans";
@@ -976,6 +979,8 @@ async function assertLineupLockAllowsChanges(input: {
     transactionRules?: Parameters<typeof resolveTransactionRules>[0];
     schedule?: Parameters<typeof loadStartedNflTeamsForLineupLock>[0];
   };
+  fantasyWeek?: number;
+  seasonYear?: number;
   current: Array<{
     id: string;
     fullName: string;
@@ -1013,9 +1018,18 @@ async function assertLineupLockAllowsChanges(input: {
     return null;
   }
 
-  const startedTeams = await loadStartedNflTeamsForLineupLock(
-    input.seasonSettings.schedule,
-  );
+  const startedTeams =
+    input.fantasyWeek != null
+      ? (
+          await loadFantasyWeekLineupLockState({
+            schedule: input.seasonSettings.schedule,
+            fantasyWeek: input.fantasyWeek,
+            seasonYear: input.seasonYear,
+          })
+        ).startedNflTeams
+      : await loadStartedNflTeamsForLineupLock(
+          input.seasonSettings.schedule,
+        );
   if (!startedTeams) {
     // Fail open if scoreboard is unavailable — same posture as acquisition locks.
     return null;
@@ -1211,7 +1225,17 @@ async function applyRosterSlotAssignments(input: {
     });
     const relation = lineupWeekRelation(targetWeek, resolved.currentWeek);
     if (relation === "past") {
-      return { success: false, error: "Can't edit a past week's lineup." };
+      const lockState = await loadFantasyWeekLineupLockState({
+        schedule: season.settings.schedule,
+        fantasyWeek: targetWeek,
+        seasonYear: season.seasonYear,
+      });
+      if (lockState.slateFinalized) {
+        return {
+          success: false,
+          error: "Can't edit a past week's lineup.",
+        };
+      }
     }
     if (relation === "future") {
       scheduledWeek = targetWeek;
@@ -1221,6 +1245,8 @@ async function applyRosterSlotAssignments(input: {
   if (scheduledWeek == null && !bypassLineupLock) {
     const lockError = await assertLineupLockAllowsChanges({
       seasonSettings: season.settings,
+      fantasyWeek: targetWeek ?? undefined,
+      seasonYear: season.seasonYear,
       current: rosteredOnTeam,
       next: nextPlayers,
     });

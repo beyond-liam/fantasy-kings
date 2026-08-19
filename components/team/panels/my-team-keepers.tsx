@@ -3,7 +3,7 @@ import { resolveDynastySettings } from "@/lib/leagues/dynasty-settings";
 import { processDueKeeperDeadline } from "@/lib/leagues/keepers/process";
 import type { DynastySettings } from "@/db/schema/league-seasons";
 import {
-  ensureTeamRosterSlotsAssigned,
+  ensureTeamRosterSlotsAssignedForWeek,
   getTeamRosterPlayers,
 } from "@/lib/queries/team-roster";
 import type { RosterSlotConfig } from "@/db/schema/league-seasons";
@@ -16,6 +16,7 @@ type MyTeamKeepersPanelProps = {
   benchSlots: number;
   irEnabled: boolean;
   taxiEnabled: boolean;
+  currentWeek: number;
 };
 
 export async function MyTeamKeepersPanel({
@@ -26,14 +27,16 @@ export async function MyTeamKeepersPanel({
   benchSlots,
   irEnabled,
   taxiEnabled,
+  currentWeek,
 }: MyTeamKeepersPanelProps) {
   const deadline = await processDueKeeperDeadline(slug);
-  await ensureTeamRosterSlotsAssigned({
+  await ensureTeamRosterSlotsAssignedForWeek({
     teamId,
     rosterSlots,
     benchSlots,
     irEnabled,
     taxiEnabled,
+    currentWeek,
   });
   const players = await getTeamRosterPlayers(teamId);
   const settings = deadline.dynasty ?? resolveDynastySettings(dynasty);

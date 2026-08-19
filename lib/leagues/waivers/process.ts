@@ -25,9 +25,9 @@ import {
   listRosteredPlayers,
   waiveOrDeleteRosterRow,
 } from "@/lib/leagues/roster-writes";
-import { firstRosterMinimumError, wouldBreachRosterMinimums } from "@/lib/leagues/roster-minimums";
 import { resolveTransactionRules } from "@/lib/leagues/transaction-rules";
 import { resolveWaiverWireSettings } from "@/lib/leagues/waiver-wire";
+import { evaluateRosterMinimumDrop } from "@/lib/leagues/waivers/evaluate-roster-minimum-drop";
 import {
   adjudicateWaiverClaims,
   moveWinnersToBottom,
@@ -690,35 +690,22 @@ async function applyAwardedClaim(input: {
     }
 
     const rules = resolveTransactionRules(season.settings.transactionRules);
-    if (
-      wouldBreachRosterMinimums({
-        roster: rosteredOnTeam,
-        removeIds: [claim.dropPlayerId],
-        add: [
-          {
-            id: player.id,
-            primaryPositionId: player.primaryPositionId,
-            slotPositionId: null,
-          },
-        ],
-        rosterSlots: season.settings.rosterSlots,
-        enforce: rules.enforceRosterMinimums,
-      })
-    ) {
+    const minimumCheck = evaluateRosterMinimumDrop({
+      roster: rosteredOnTeam,
+      dropPlayerId: claim.dropPlayerId,
+      incoming: {
+        id: player.id,
+        primaryPositionId: player.primaryPositionId,
+        slotPositionId: null,
+      },
+      rosterSlots: season.settings.rosterSlots,
+      enforce: rules.enforceRosterMinimums,
+    });
+    if (!minimumCheck.ok) {
       return {
         error:
-          firstRosterMinimumError(
-            [
-              ...rosteredOnTeam.filter((row) => row.id !== claim.dropPlayerId),
-              {
-                id: player.id,
-                primaryPositionId: player.primaryPositionId,
-                slotPositionId: null,
-              },
-            ],
-            season.settings.rosterSlots,
-            true,
-          ) ?? "Drop would leave the roster under a position minimum.",
+          minimumCheck.error ??
+          "Drop would leave the roster under a position minimum.",
       };
     }
 

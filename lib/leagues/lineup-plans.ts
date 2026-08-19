@@ -13,6 +13,11 @@ export function lineupWeekRelation(
   return "current";
 }
 
+/** Lock all slots once the viewed week's NFL slate has fully closed. */
+export function isLineupWeekFullyLocked(slateFinalized: boolean): boolean {
+  return slateFinalized;
+}
+
 export function overlayPlanSlots<
   T extends { id: string; slotPositionId: string | null },
 >(players: T[], slotsByPlayerId: Map<string, string>): T[] {

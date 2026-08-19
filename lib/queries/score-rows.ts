@@ -314,6 +314,180 @@ export async function loadScoreRows(
   return mapped;
 }
 
+function scoreRowsMultiWeekCacheKey(
+  filters: Omit<LoadScoreRowsFilters, "week"> & { weeks: number[] },
+) {
+  const {
+    season,
+    kind,
+    seasonType,
+    playerIds,
+    excludePlayerIds,
+    limit,
+    offset,
+    position,
+    team,
+    rookiesOnly,
+    search,
+    columns,
+    statKeys,
+    weeks,
+  } = filters;
+  const weekKey = [...weeks].sort((a, b) => a - b).join(",");
+  let key = `multi|${season}|${weekKey}|${seasonType ?? "regular"}|${kind}|cols:${columns ?? "full"}|lim:${limit ?? "all"}|off:${offset ?? 0}`;
+  if (position) key += `|pos:${position}`;
+  if (team && team !== "ALL") key += `|team:${team}`;
+  if (rookiesOnly) key += `|rookies`;
+  if (search?.trim()) key += `|q:${search.trim().toLowerCase()}`;
+  if (statKeys != null && statKeys.length > 0) {
+    key += `|sk:${statKeys.length}:${hashFingerprint(statKeys.join(","))}`;
+  }
+  if (playerIds != null) {
+    const fingerprint = [...playerIds].sort().join(",");
+    key += `|ids:${playerIds.length}:${hashFingerprint(fingerprint)}`;
+  }
+  if (excludePlayerIds != null && excludePlayerIds.length > 0) {
+    const fingerprint = [...excludePlayerIds].sort().join(",");
+    key += `|ex:${excludePlayerIds.length}:${hashFingerprint(fingerprint)}`;
+  }
+  return key;
+}
+
+/** Load stats/projections for many weeks in one DB round trip (SoS, season rollups). */
+export async function loadScoreRowsForWeeks(
+  filters: Omit<LoadScoreRowsFilters, "week"> & { weeks: number[] },
+): Promise<Map<number, ScoreRow[]>> {
+  const weeks = [...new Set(filters.weeks)]
+    .filter((week) => Number.isFinite(week) && week >= 1)
+    .sort((a, b) => a - b);
+  if (weeks.length === 0) {
+    return new Map();
+  }
+  if (filters.playerIds != null && filters.playerIds.length === 0) {
+    return new Map();
+  }
+
+  const effectiveLimit = Math.min(
+    resolveScoreRowsLimit({ ...filters, week: weeks[0]! }) * weeks.length,
+    SCORE_ROWS_HARD_CAP * weeks.length,
+  );
+  const key = scoreRowsMultiWeekCacheKey({ ...filters, weeks });
+  const cached = scoreRowsCache.get(key);
+  if (
+    cached &&
+    Date.now() - cached.loadedAt < SCORE_CACHE_TTL_MS[filters.kind]
+  ) {
+    const grouped = new Map<number, ScoreRow[]>();
+    for (const row of cached.rows) {
+      const week = (row as ScoreRow & { week: number }).week;
+      const list = grouped.get(week) ?? [];
+      list.push(row);
+      grouped.set(week, list);
+    }
+    return grouped;
+  }
+
+  const joinConditions = [
+    eq(playerScores.playerId, players.id),
+    eq(playerScores.season, filters.season),
+    inArray(playerScores.week, weeks),
+    eq(playerScores.kind, filters.kind),
+    eq(playerScores.seasonType, filters.seasonType ?? "regular"),
+  ];
+  if (filters.playerIds != null) {
+    joinConditions.push(inArray(playerScores.playerId, filters.playerIds));
+  }
+
+  const whereConditions = [];
+  if (filters.position) {
+    whereConditions.push(eq(players.primaryPositionId, filters.position));
+  }
+  if (filters.team && filters.team !== "ALL") {
+    whereConditions.push(eq(players.nflTeam, filters.team));
+  }
+  if (filters.rookiesOnly) {
+    whereConditions.push(eq(players.yearsExp, 0));
+  }
+  if (filters.excludePlayerIds != null && filters.excludePlayerIds.length > 0) {
+    whereConditions.push(notInArray(players.id, filters.excludePlayerIds));
+  }
+  const search = filters.search?.trim();
+  if (search) {
+    whereConditions.push(ilike(players.fullName, `%${search}%`));
+  }
+
+  const slim = filters.columns === "rank" || filters.columns === "pts";
+  const statsSelect = projectStatsSelect(
+    slim ? filters.statKeys : undefined,
+  );
+
+  let query = db
+    .select({
+      id: players.id,
+      fullName: players.fullName,
+      nflTeam: players.nflTeam,
+      primaryPositionId: players.primaryPositionId,
+      stats: statsSelect,
+      ptsPpr: playerScores.ptsPpr,
+      ptsStd: playerScores.ptsStd,
+      week: playerScores.week,
+    })
+    .from(players)
+    .innerJoin(playerScores, and(...joinConditions))
+    .$dynamic();
+
+  if (whereConditions.length > 0) {
+    query = query.where(and(...whereConditions));
+  }
+
+  query = query.orderBy(
+    asc(playerScores.week),
+    desc(sql`coalesce(${playerScores.ptsPpr}, ${playerScores.ptsStd}, 0)`),
+    asc(players.fullName),
+  );
+
+  const rows = await query.limit(effectiveLimit);
+  const mapped: Array<ScoreRow & { week: number }> = rows.map((row) => ({
+    id: row.id,
+    fullName: row.fullName,
+    nflTeam: filters.columns === "pts" ? row.nflTeam : null,
+    primaryPositionId: row.primaryPositionId,
+    sleeperId: null,
+    yearsExp: null,
+    byeWeek: null,
+    injuryStatus: null,
+    rookieYear: null,
+    stats: normalizeStats(row.stats, filters.kind),
+    ptsPpr: row.ptsPpr,
+    ptsStd: row.ptsStd,
+    week: row.week,
+  }));
+
+  if (scoreRowsCache.size >= SCORE_CACHE_MAX_ENTRIES) {
+    let oldestKey: string | null = null;
+    let oldestAt = Number.POSITIVE_INFINITY;
+    for (const [entryKey, entry] of scoreRowsCache) {
+      if (entry.loadedAt < oldestAt) {
+        oldestAt = entry.loadedAt;
+        oldestKey = entryKey;
+      }
+    }
+    if (oldestKey) {
+      scoreRowsCache.delete(oldestKey);
+    }
+  }
+  scoreRowsCache.set(key, { rows: mapped, loadedAt: Date.now() });
+
+  const grouped = new Map<number, ScoreRow[]>();
+  for (const row of mapped) {
+    const { week, ...scoreRow } = row;
+    const list = grouped.get(week) ?? [];
+    list.push(scoreRow);
+    grouped.set(week, list);
+  }
+  return grouped;
+}
+
 /** Overlay stats/pts from `overlay` onto a stable player universe (projection pool). */
 export function overlayScoreKind(
   universe: ScoreRow[],

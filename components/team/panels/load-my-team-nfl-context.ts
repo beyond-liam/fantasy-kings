@@ -3,7 +3,7 @@ import {
   calendarSeasonTypesForSchedule,
   type ScheduleSettingsValues,
 } from "@/lib/account/schedule-settings";
-import { getNflScoreboard } from "@/lib/espn/scoreboard";
+import { getCachedNflScoreboard } from "@/lib/espn/scoreboard-cache";
 import {
   espnSeasonTypeForNfl,
   fantasyWeekFromNflState,
@@ -55,7 +55,7 @@ export async function loadMyTeamNflContext(
     week: Math.max(1, Number(nflState.display_week ?? nflState.week) || 1),
   };
 
-  const scoreboard = await getNflScoreboard({
+  const scoreboard = await getCachedNflScoreboard({
     season: seasonYear,
     week: nflPoint.week,
     seasonType: espnSeasonTypeForNfl(nflPoint.seasonType),
@@ -77,6 +77,8 @@ export async function loadMyTeamNflContext(
     opponentsByTeam,
   };
 }
+
+export type MyTeamNflContext = Awaited<ReturnType<typeof loadMyTeamNflContext>>;
 
 export function withPlayerOpponent<
   T extends {

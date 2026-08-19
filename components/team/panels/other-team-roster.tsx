@@ -3,23 +3,19 @@ import {
   loadMyTeamNflContext,
   withPlayerOpponent,
 } from "@/components/team/panels/load-my-team-nfl-context";
-import { formatPersonName } from "@/lib/account/person-name";
-import { ensureProfile } from "@/lib/auth/session";
 import type { RosterSlotConfig, ScheduleSettings } from "@/db/schema/league-seasons";
-import { loadFantasyWeekLineupLockState } from "@/lib/leagues/lineup-lock-started";
 import { overlayPlanSlots } from "@/lib/leagues/lineup-plans";
 import type { ScoringRuleDefinition } from "@/lib/leagues/scoring";
-import { resolveTransactionRules } from "@/lib/leagues/transaction-rules";
 import {
   formatWaiverPriority,
   resolveTeamSummaryMatchups,
   type TeamSummaryScheduleRow,
 } from "@/lib/leagues/team-summary";
-import { hasNflTeamStarted } from "@/lib/leagues/waivers/game-lock";
 import {
   resolveFantasyMatchupWeek,
   type FantasyMatchupWeekResolution,
 } from "@/lib/leagues/matchup-week";
+import type { TeamRosterPlayer } from "@/lib/leagues/roster-fill";
 import { getTeamSchedule } from "@/lib/queries/matchups";
 import { getTeamLineupPlanSlots } from "@/lib/queries/lineup-plans";
 import {
@@ -29,66 +25,54 @@ import {
 import { applyRosterPlayerEnrichment } from "@/lib/roster-enrichment/apply-enrichment";
 import { loadRosterEnrichment } from "@/lib/roster-enrichment/load-roster-enrichment";
 import { serializeRosterPlayersForClient } from "@/lib/roster-enrichment/serialize-roster-player";
-import type { TeamRosterPlayer } from "@/lib/leagues/roster-fill";
 
-export type MyTeamRosterPanelProps = {
+export type OtherTeamRosterPanelProps = {
   slug: string;
-  user: {
-    id: string;
-    email?: string;
-    user_metadata?: { full_name?: string; name?: string };
-  };
   team: {
     id: string;
     name: string;
     publicId: string | null;
     slug: string | null;
     waiverPriority: number | null;
+    ownerName: string | null;
   };
   season: {
     id: string;
     seasonYear: number;
+    regularSeasonEndWeek: number;
     benchSlots: number;
     irEnabled: boolean;
     irSlots: number;
     taxiEnabled: boolean;
     taxiSlots: number;
     waiversEnabled: boolean;
-    tradesEnabled: boolean;
-    regularSeasonEndWeek: number;
     settings: {
       rosterSlots: RosterSlotConfig[];
       irEligibleStatuses?: string[];
       taxiMaxYearsExp?: 0 | 1 | 2 | 3 | 4 | 5 | null;
       taxiPreventReaddAfterActivation?: boolean;
       schedule?: ScheduleSettings | null;
-      transactionRules?: Parameters<typeof resolveTransactionRules>[0];
     };
   };
   scoringRules: ScoringRuleDefinition[];
-  actionsEnabled: boolean;
-  lineupEnabled: boolean;
   tradesEnabled: boolean;
+  myTeamSlug?: string | null;
   requestedWeek?: number | null;
-  /** When provided (e.g. from my-team page), skips duplicate week resolution. */
   matchupWeek?: FantasyMatchupWeekResolution;
-  /** When provided, skips the roster DB read (page already loaded players). */
   preloadedRosterPlayers?: TeamRosterPlayer[];
 };
 
-export async function MyTeamRosterPanel({
+export async function OtherTeamRosterPanel({
   slug,
-  user,
   team,
   season,
   scoringRules,
-  actionsEnabled,
-  lineupEnabled,
   tradesEnabled,
+  myTeamSlug = null,
   requestedWeek = null,
   matchupWeek: matchupWeekProp,
   preloadedRosterPlayers,
-}: MyTeamRosterPanelProps) {
+}: OtherTeamRosterPanelProps) {
   const matchupWeek =
     matchupWeekProp ??
     (await resolveFantasyMatchupWeek({
@@ -109,12 +93,7 @@ export async function MyTeamRosterPanel({
     currentWeek,
   });
 
-  const [
-    nflContext,
-    loadedRosterPlayers,
-    teamScheduleRows,
-    profile,
-  ] = await Promise.all([
+  const [nflContext, loadedRosterPlayers, teamScheduleRows] = await Promise.all([
     loadMyTeamNflContext({
       seasonYear: season.seasonYear,
       schedule: season.settings.schedule,
@@ -124,7 +103,6 @@ export async function MyTeamRosterPanel({
       ? Promise.resolve(preloadedRosterPlayers)
       : getTeamRosterPlayers(team.id),
     getTeamSchedule(season.id, team.id),
-    ensureProfile(user),
   ]);
 
   const { nflWeek, nflSeasonType, opponentsByTeam } = nflContext;
@@ -148,35 +126,19 @@ export async function MyTeamRosterPanel({
     }),
   );
 
-  const preventCutsAfterGameStart = resolveTransactionRules(
-    season.settings.transactionRules,
-  ).preventCutsAfterGameStart;
-
-  const [enrichment, lockState] = await Promise.all([
-    loadRosterEnrichment({
-      seasonYear: season.seasonYear,
-      schedule: season.settings.schedule,
-      scoringRules,
-      fantasyWeek,
-      nflContext,
-      players: rosterPlayers.map((player) => ({
-        id: player.id,
-        nflTeam: player.nflTeam,
-        byeWeek: player.byeWeek,
-        primaryPositionId: player.primaryPositionId,
-      })),
-    }),
-    preventCutsAfterGameStart && fantasyWeek <= currentWeek
-      ? loadFantasyWeekLineupLockState({
-          schedule: season.settings.schedule,
-          fantasyWeek,
-          seasonYear: season.seasonYear,
-        })
-      : Promise.resolve({
-          startedNflTeams: null as Set<string> | null,
-          slateFinalized: false,
-        }),
-  ]);
+  const enrichment = await loadRosterEnrichment({
+    seasonYear: season.seasonYear,
+    schedule: season.settings.schedule,
+    scoringRules,
+    fantasyWeek,
+    nflContext,
+    players: rosterPlayers.map((player) => ({
+      id: player.id,
+      nflTeam: player.nflTeam,
+      byeWeek: player.byeWeek,
+      primaryPositionId: player.primaryPositionId,
+    })),
+  });
 
   const players = serializeRosterPlayersForClient(
     enrichment.ok
@@ -201,15 +163,6 @@ export async function MyTeamRosterPanel({
     fantasyWeek,
   );
 
-  const gameLockedPlayerIds =
-    lockState.startedNflTeams != null
-      ? players
-          .filter((player) =>
-            hasNflTeamStarted(player.nflTeam, lockState.startedNflTeams!),
-          )
-          .map((player) => player.id)
-      : [];
-
   return (
     <TeamRosterSections
       players={players}
@@ -225,12 +178,12 @@ export async function MyTeamRosterPanel({
         season.settings.taxiPreventReaddAfterActivation === true
       }
       leagueSlug={slug}
-      actionsEnabled={lineupEnabled}
-      rowActionsEnabled={actionsEnabled || tradesEnabled}
-      cutActionsEnabled={actionsEnabled}
+      actionsEnabled={false}
+      rowActionsEnabled={tradesEnabled}
+      cutActionsEnabled={false}
+      actionsVariant="opponent"
+      partnerTeamSlug={team.publicId ?? team.slug ?? undefined}
       tradesEnabled={tradesEnabled}
-      gameLockedPlayerIds={gameLockedPlayerIds}
-      slateFinalized={lockState.slateFinalized}
       scoringRules={scoringRules}
       scoringWeek={fantasyWeek}
       week={fantasyWeek}
@@ -242,10 +195,10 @@ export async function MyTeamRosterPanel({
         waiverPriorityLabel: season.waiversEnabled
           ? formatWaiverPriority(team.waiverPriority)
           : null,
-        ownerName: formatPersonName(profile),
+        ownerName: team.ownerName,
         previous,
         current,
-        myTeamSlug: team.publicId ?? team.slug,
+        myTeamSlug,
       }}
     />
   );

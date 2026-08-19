@@ -215,7 +215,7 @@ export const getMatchupByKey = cache(
 );
 
 /** One team's full regular-season schedule (opponent + home/away). */
-export async function getTeamSchedule(
+async function loadTeamScheduleUncached(
   leagueSeasonId: string,
   teamId: string,
 ): Promise<TeamScheduleRow[]> {
@@ -251,4 +251,14 @@ export async function getTeamSchedule(
       opponentLogoUrl: isHome ? mapped.awayTeamLogoUrl : mapped.homeTeamLogoUrl,
     };
   });
+}
+
+export async function getTeamSchedule(
+  leagueSeasonId: string,
+  teamId: string,
+): Promise<TeamScheduleRow[]> {
+  const { getCachedTeamSchedule } = await import("@/lib/queries/team-schedule-cache");
+  return getCachedTeamSchedule(leagueSeasonId, teamId, () =>
+    loadTeamScheduleUncached(leagueSeasonId, teamId),
+  );
 }

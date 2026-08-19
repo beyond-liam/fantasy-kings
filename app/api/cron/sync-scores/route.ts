@@ -9,6 +9,7 @@ import { syncEspnLiveScores } from "@/lib/scores/sync-espn-scores";
 import { shouldAutoRunNflverse } from "@/lib/scores/nflverse-run-gate";
 import { syncNflverseWeekScores } from "@/lib/scores/sync-nflverse-scores";
 import { syncCurrentWeekScores } from "@/lib/scores/sync-sleeper-scores";
+import { prewarmRosterCachesAfterScoreSync } from "@/lib/roster-enrichment/prewarm-stable-caches";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -130,6 +131,14 @@ async function handle(request: Request) {
       finalize = await finalizeDueMatchupsAfterScoreSync({
         seasonYear: sleeper.season,
         week: sleeper.week,
+      });
+    }
+
+    if (!sleeper.skipped) {
+      await prewarmRosterCachesAfterScoreSync({
+        season: sleeper.season,
+        week: sleeper.week,
+        seasonType: sleeper.seasonType,
       });
     }
 

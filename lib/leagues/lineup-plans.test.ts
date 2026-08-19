@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import {
+  isLineupWeekFullyLocked,
   lineupWeekRelation,
   overlayPlanSlots,
 } from "./lineup-plans";
@@ -11,6 +12,13 @@ describe("lineupWeekRelation", () => {
     assert.equal(lineupWeekRelation(1, 2), "past");
     assert.equal(lineupWeekRelation(2, 2), "current");
     assert.equal(lineupWeekRelation(3, 2), "future");
+  });
+});
+
+describe("isLineupWeekFullyLocked", () => {
+  it("locks only after the NFL slate closes", () => {
+    assert.equal(isLineupWeekFullyLocked(false), false);
+    assert.equal(isLineupWeekFullyLocked(true), true);
   });
 });
 
