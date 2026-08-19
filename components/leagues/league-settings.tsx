@@ -12,6 +12,7 @@ type LeagueSettingsProps = {
   league: typeof leagues.$inferSelect;
   season: typeof leagueSeasons.$inferSelect | undefined;
   memberCount: number;
+  vacantSlotCount: number;
   regularSeasonFinished: boolean;
   boxScoresEditable: boolean;
   owners: MembershipOwnerOption[];
@@ -25,6 +26,7 @@ export function LeagueSettings({
   league,
   season,
   memberCount,
+  vacantSlotCount,
   regularSeasonFinished,
   boxScoresEditable,
   owners,
@@ -49,6 +51,7 @@ export function LeagueSettings({
           leagueName={league.name}
           seasonStatus={season?.status ?? "setup"}
           freeAgencyOpen={season?.freeAgencyOpen ?? false}
+          vacantSlotCount={vacantSlotCount}
           divisionCount={season?.divisionCount ?? 1}
           leagueType={season?.leagueType ?? "redraft"}
           regularSeasonFinished={regularSeasonFinished}

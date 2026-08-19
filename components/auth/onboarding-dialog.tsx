@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Tick02Icon } from "@hugeicons/core-free-icons";
@@ -26,33 +26,26 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  completeOnboarding,
-  getOnboardingState,
-} from "@/lib/actions/onboarding";
+import { completeOnboarding } from "@/lib/actions/onboarding";
 import { NFL_TEAM_LABELS, NFL_TEAMS } from "@/lib/nfl/teams";
 
-export function OnboardingDialog() {
+type OnboardingDialogProps = {
+  email: string | null;
+  needsOnboarding: boolean;
+};
+
+export function OnboardingDialog({
+  email,
+  needsOnboarding,
+}: OnboardingDialogProps) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
-  const [email, setEmail] = useState("");
+  const [completed, setCompleted] = useState(false);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [favouriteNflTeam, setFavouriteNflTeam] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
-
-  useEffect(() => {
-    let cancelled = false;
-    void getOnboardingState().then((state) => {
-      if (cancelled || !state) return;
-      setEmail(state.email ?? "");
-      setOpen(state.needsOnboarding);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const open = needsOnboarding && !completed;
 
   function onSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -67,7 +60,7 @@ export function OnboardingDialog() {
         setError(result.error ?? "Could not save profile.");
         return;
       }
-      setOpen(false);
+      setCompleted(true);
       router.refresh();
     });
   }
@@ -85,7 +78,7 @@ export function OnboardingDialog() {
           <FieldGroup>
             <Field>
               <FieldLabel htmlFor="onboarding-email">Email</FieldLabel>
-              <Input id="onboarding-email" value={email} disabled />
+              <Input id="onboarding-email" value={email ?? ""} disabled />
             </Field>
             <Field>
               <FieldLabel htmlFor="onboarding-first-name">First name</FieldLabel>

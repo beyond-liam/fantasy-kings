@@ -28,6 +28,7 @@ type DraftStatus = "scheduled" | "live" | "paused" | "complete" | null;
 type DraftActionOptions = {
   successMessage?: string;
   optimisticStatus?: DraftStatus;
+  refresh?: boolean;
 };
 
 function useDraftActions(
@@ -58,7 +59,9 @@ function useDraftActions(
       if (options?.successMessage) {
         toast.success(options.successMessage);
       }
-      router.refresh();
+      if (options?.refresh !== false) {
+        router.refresh();
+      }
     });
   };
 
@@ -138,7 +141,7 @@ export function DraftClockToggle({
   startHint,
   onStatusOptimistic,
 }: DraftClockToggleProps) {
-  const { isPending, run } = useDraftActions(
+  const { run } = useDraftActions(
     slug,
     status,
     onStatusOptimistic,
@@ -169,13 +172,13 @@ export function DraftClockToggle({
       type="button"
       variant="default"
       size="icon-sm"
-      disabled={isPending}
       aria-label={label}
       onClick={() => {
         if (isLive) {
           run(() => pauseDraft(slug), {
             optimisticStatus: "paused",
             successMessage: "Draft paused.",
+            refresh: false,
           });
           return;
         }
@@ -183,6 +186,7 @@ export function DraftClockToggle({
           optimisticStatus: "live",
           successMessage:
             status === "paused" ? "Draft resumed." : "Draft started.",
+          refresh: status === "paused" ? false : true,
         });
       }}
     >

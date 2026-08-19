@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   DashboardSquare01Icon,
@@ -10,23 +10,17 @@ import {
 } from "@hugeicons/core-free-icons";
 
 import {
-  DraftClockCard,
-  DraftClockSeconds,
-} from "@/components/draft/draft-clock-card";
+  playDraftSound,
+  useDraftSoundUnlock,
+} from "@/components/draft/draft-sounds";
 import { DraftBoard } from "@/components/leagues/draft/draft-board";
-import {
-  DraftAutopickStatusIcon,
-  DraftTeamNameWithForcedAutopick,
-} from "@/components/leagues/draft/draft-forced-autopick-indicator";
-import {
-  DraftClockToggle,
-  DraftRevertControl,
-} from "@/components/leagues/draft/draft-controls";
 import {
   DRAFT_PICKS_EVENT,
   type DraftPickEventPayload,
   type DraftPicksPollResponse,
+  requestDraftPickPoll,
 } from "@/components/leagues/draft/draft-pick-notifier";
+import { DraftRoomClockCard } from "@/components/leagues/draft/draft-room-clock-card";
 import { DraftPlayerPool } from "@/components/leagues/draft/draft-player-pool";
 import { DraftQueuePanel } from "@/components/leagues/draft/draft-queue-panel";
 import { DraftQueueProvider } from "@/components/leagues/draft/draft-queue-provider";
@@ -43,7 +37,6 @@ import {
 } from "@/components/ui/tabs";
 import { autoDraftCurrentPick, tryAutoStartDraft } from "@/lib/actions/draft";
 import { draftAllowsPicks } from "@/lib/leagues/draft/allows-picks";
-import { formatDraftStartsAt } from "@/lib/leagues/draft-status";
 import { getRemainingTeamPickSlots, type DraftScheduleSlot } from "@/lib/leagues/draft/board";
 import type { DraftPickRow, DraftQueueRow } from "@/lib/queries/draft";
 import type { RankedPlayerRow } from "@/lib/queries/players";
@@ -99,41 +92,6 @@ const DRAFT_TABS: readonly MobileTabDrawerItem[] = [
   { value: "roster", label: "Roster", icon: StudentCardIcon },
 ];
 
-function playDraftSound(src: string) {
-  try {
-    const audio = new Audio(src);
-    void audio.play();
-  } catch {
-    // Ignore autoplay / missing file failures.
-  }
-}
-
-function computeSecondsLeft(input: {
-  status: DraftRoomProps["status"];
-  clockEnabled: boolean;
-  turnExpiresAt: string | null;
-  pausedSecondsRemaining: number | null;
-  nowMs: number | null;
-}): number | null {
-  if (!input.clockEnabled) {
-    return null;
-  }
-  if (input.status === "paused") {
-    return input.pausedSecondsRemaining;
-  }
-  if (input.status !== "live" || !input.turnExpiresAt) {
-    return null;
-  }
-  if (input.nowMs == null) {
-    return null;
-  }
-  const expiresMs = new Date(input.turnExpiresAt).getTime();
-  if (Number.isNaN(expiresMs)) {
-    return null;
-  }
-  return Math.max(0, Math.ceil((expiresMs - input.nowMs) / 1000));
-}
-
 function pickRowFromEvent(event: DraftPickEventPayload): DraftPickRow {
   return {
     id: event.id,
@@ -188,8 +146,9 @@ export function DraftRoom({
   rookiesOnlyLocked = false,
 }: DraftRoomProps) {
   const router = useRouter();
+  useDraftSoundUnlock();
   const [tab, setTab] = useState("board");
-  const [nowMs, setNowMs] = useState<number | null>(null);
+  const [clockExpiredSignal, setClockExpiredSignal] = useState(0);
   const [optimisticStatus, setOptimisticStatus] = useState(status);
   const [prevStatus, setPrevStatus] = useState(status);
   const [liveTurnExpiresAt, setLiveTurnExpiresAt] = useState(turnExpiresAt);
@@ -202,6 +161,7 @@ export function DraftRoom({
   );
   const [livePausedByWindow, setLivePausedByWindow] = useState(pausedByWindow);
   const [prevPausedByWindow, setPrevPausedByWindow] = useState(pausedByWindow);
+  const statusHoldRef = useRef<"live" | "paused" | null>(null);
   const [livePicks, setLivePicks] = useState(picks);
   const [liveDraftedIds, setLiveDraftedIds] = useState(draftedPlayerIds);
   const [livePickIndex, setLivePickIndex] = useState(currentPickIndex);
@@ -212,6 +172,9 @@ export function DraftRoom({
   );
   const autopickRef = useRef(false);
   const lastTurnCueRef = useRef<number | null>(null);
+  const lastPickSoundOverallRef = useRef(
+    picks.reduce((max, pick) => Math.max(max, pick.overall), 0),
+  );
   const poolById = useMemo(
     () => new Map(poolPlayers.map((player) => [player.id, player])),
     [poolPlayers],
@@ -219,17 +182,29 @@ export function DraftRoom({
 
   if (status !== prevStatus) {
     setPrevStatus(status);
-    setOptimisticStatus(status);
+    if (
+      !statusHoldRef.current ||
+      status === statusHoldRef.current
+    ) {
+      setOptimisticStatus(status);
+      if (statusHoldRef.current === status) {
+        statusHoldRef.current = null;
+      }
+    }
   }
 
   if (turnExpiresAt !== prevTurnExpiresAt) {
     setPrevTurnExpiresAt(turnExpiresAt);
-    setLiveTurnExpiresAt(turnExpiresAt);
+    if (!statusHoldRef.current) {
+      setLiveTurnExpiresAt(turnExpiresAt);
+    }
   }
 
   if (pausedSecondsRemaining !== prevPausedSeconds) {
     setPrevPausedSeconds(pausedSecondsRemaining);
-    setLivePausedSeconds(pausedSecondsRemaining);
+    if (!statusHoldRef.current) {
+      setLivePausedSeconds(pausedSecondsRemaining);
+    }
   }
 
   if (pausedByWindow !== prevPausedByWindow) {
@@ -268,26 +243,22 @@ export function DraftRoom({
     pickTimeLimitSeconds > 0 &&
     (draftType === "live" || pickTimeLimitEnabled);
 
-  const secondsLeft = computeSecondsLeft({
-    status: effectiveStatus,
-    clockEnabled,
-    turnExpiresAt: liveTurnExpiresAt,
-    pausedSecondsRemaining: livePausedSeconds,
-    nowMs,
-  });
-
   const onClockTeam = onTheClockLive
     ? (teams.find((team) => team.id === onTheClockLive.teamId) ?? null)
     : null;
   const onClockIsOpenSlot = Boolean(onClockTeam && onClockTeam.userId == null);
-  // Always attempt on expiry / open seats — server reads live autoPickEnabled +
-  // queue. Do not gate on SSR team flags (stale after My Team toggle).
-  const pickClockExpired = secondsLeft != null && secondsLeft <= 0;
-  const showPickClock =
-    secondsLeft != null ||
-    Boolean(
-      clockEnabled && effectiveStatus === "live" && liveTurnExpiresAt,
-    );
+  const handleClockExpired = useCallback(() => {
+    setClockExpiredSignal((value) => value + 1);
+  }, []);
+  const handleStatusOptimistic = useCallback(
+    (next: DraftRoomProps["status"]) => {
+      if (next === "live" || next === "paused") {
+        statusHoldRef.current = next;
+      }
+      setOptimisticStatus(next);
+    },
+    [],
+  );
 
   const queuedPlayerIds = useMemo(
     () => queuedItems.map((item) => item.playerId),
@@ -318,27 +289,36 @@ export function DraftRoom({
         return;
       }
 
-      if (detail.turnExpiresAt !== undefined) {
-        setLiveTurnExpiresAt((prev) =>
-          prev === detail.turnExpiresAt ? prev : (detail.turnExpiresAt ?? null),
-        );
-      }
-      if (detail.pausedSecondsRemaining !== undefined) {
-        setLivePausedSeconds((prev) =>
-          prev === detail.pausedSecondsRemaining
-            ? prev
-            : (detail.pausedSecondsRemaining ?? null),
-        );
-      }
-      if (detail.pausedByWindow !== undefined) {
-        setLivePausedByWindow((prev) =>
-          prev === detail.pausedByWindow ? prev : Boolean(detail.pausedByWindow),
-        );
-      }
-      if (detail.status) {
-        setOptimisticStatus((prev) =>
-          prev === detail.status ? prev : detail.status,
-        );
+      const hold = statusHoldRef.current;
+      const staleClock =
+        Boolean(hold) && Boolean(detail.status) && detail.status !== hold;
+
+      if (!staleClock) {
+        if (detail.turnExpiresAt !== undefined) {
+          setLiveTurnExpiresAt((prev) =>
+            prev === detail.turnExpiresAt ? prev : (detail.turnExpiresAt ?? null),
+          );
+        }
+        if (detail.pausedSecondsRemaining !== undefined) {
+          setLivePausedSeconds((prev) =>
+            prev === detail.pausedSecondsRemaining
+              ? prev
+              : (detail.pausedSecondsRemaining ?? null),
+          );
+        }
+        if (detail.pausedByWindow !== undefined) {
+          setLivePausedByWindow((prev) =>
+            prev === detail.pausedByWindow ? prev : Boolean(detail.pausedByWindow),
+          );
+        }
+        if (detail.status) {
+          setOptimisticStatus((prev) =>
+            prev === detail.status ? prev : detail.status,
+          );
+          if (hold && detail.status === hold) {
+            statusHoldRef.current = null;
+          }
+        }
       }
 
       if (typeof detail.afterOverall === "number") {
@@ -348,6 +328,16 @@ export function DraftRoom({
       const incoming = detail.picks ?? [];
       if (incoming.length === 0) {
         return;
+      }
+
+      for (const eventPick of incoming) {
+        if (eventPick.overall <= lastPickSoundOverallRef.current) {
+          continue;
+        }
+        lastPickSoundOverallRef.current = eventPick.overall;
+        if (!myTeamId || eventPick.teamId !== myTeamId) {
+          playDraftSound("/sound-draft-pick.mp3");
+        }
       }
 
       setLivePicks((prev) => {
@@ -406,18 +396,6 @@ export function DraftRoom({
     };
   }, [myTeamId, poolById]);
 
-  // Tick the pick clock on the client only — Date.now() during SSR/hydrate
-  // mismatches by a second and trips a recoverable hydration error.
-  useEffect(() => {
-    if (!clockEnabled || effectiveStatus !== "live") {
-      return;
-    }
-    const tick = () => setNowMs(Date.now());
-    tick();
-    const timer = window.setInterval(tick, 250);
-    return () => window.clearInterval(timer);
-  }, [clockEnabled, effectiveStatus, liveTurnExpiresAt, livePickIndex]);
-
   // Cue sound when it becomes your turn.
   useEffect(() => {
     if (!draftLive || !isMyTurn || !onTheClockLive) {
@@ -443,6 +421,7 @@ export function DraftRoom({
       void (async () => {
         const result = await autoDraftCurrentPick(slug);
         if (result.success) {
+          requestDraftPickPoll();
           return;
         }
         autopickRef.current = false;
@@ -480,6 +459,7 @@ export function DraftRoom({
         return;
       }
       if (result.success) {
+        requestDraftPickPoll();
         return;
       }
       if (result.retry === false) {
@@ -502,7 +482,7 @@ export function DraftRoom({
     livePickIndex,
     liveTurnExpiresAt,
     onTheClockLive?.overall,
-    pickClockExpired,
+    clockExpiredSignal,
   ]);
 
   // Auto-start when the scheduled draft time is reached (also covered by cron).
@@ -547,50 +527,6 @@ export function DraftRoom({
     return () => window.clearTimeout(timer);
   }, [draftStartAt, waitingToStart, slug, router]);
 
-  const onClockLabel = onTheClockLive ? (
-    <DraftTeamNameWithForcedAutopick
-      name={`${onTheClockLive.teamName}${onClockIsOpenSlot ? " (open)" : ""}`}
-      forcedAutoPick={onClockTeam?.forcedAutoPick}
-      autoPickEnabled={onClockTeam?.autoPickEnabled}
-      claimed={!onClockIsOpenSlot}
-    />
-  ) : null;
-
-  const clockCardTitle = waitingToStart
-    ? "Waiting to start"
-    : effectiveStatus === "paused"
-      ? livePausedByWindow
-        ? "Clock paused"
-        : "Draft paused"
-      : onTheClockLive
-        ? "On the clock"
-        : "Up next";
-
-  const clockCardSubtitle = waitingToStart
-    ? null
-    : effectiveStatus === "paused"
-      ? onClockLabel
-      : isMyTurn
-        ? (
-            <span className="inline-flex items-center gap-1.5">
-              <span>{`You · Pick #${onTheClockLive?.overall ?? ""}`}</span>
-              <DraftAutopickStatusIcon
-                forcedAutoPick={onClockTeam?.forcedAutoPick}
-                autoPickEnabled={onClockTeam?.autoPickEnabled}
-              />
-            </span>
-          )
-        : onClockLabel;
-
-  const waitingMessage = (() => {
-    if (!draftStartAt) {
-      return isCommissioner
-        ? (startHint ?? "You can start the draft anytime.")
-        : "Waiting for the commissioner to start.";
-    }
-    return formatDraftStartsAt(new Date(draftStartAt));
-  })();
-
   return (
     <DraftQueueProvider slug={slug} initialQueuedIds={queuedPlayerIds}>
       <div className="flex flex-col gap-6">
@@ -601,101 +537,28 @@ export function DraftRoom({
             </h1>
           </div>
 
-          {!draftComplete ? (
-            <DraftClockCard
-              title={clockCardTitle}
-              subtitle={clockCardSubtitle}
-              className="max-md:w-full max-md:min-w-0"
-              showStopwatch
-              headerAction={
-                <div className="flex items-center gap-1.5">
-                  <DraftRevertControl
-                    slug={slug}
-                    isCommissioner={isCommissioner}
-                    status={effectiveStatus}
-                    canRevert={livePickIndex > 0}
-                    onStatusOptimistic={setOptimisticStatus}
-                  />
-                  <DraftClockToggle
-                    slug={slug}
-                    isCommissioner={isCommissioner}
-                    status={effectiveStatus}
-                    startHint={startHint}
-                    onStatusOptimistic={setOptimisticStatus}
-                  />
-                </div>
-              }
-            >
-              {waitingToStart ? (
-                <p className="text-sm text-muted-foreground">{waitingMessage}</p>
-              ) : isMyTurn && onTheClockLive ? (
-                <div className="flex flex-col gap-1">
-                  {showPickClock ? (
-                    <>
-                      <p className="text-xs text-muted-foreground">
-                        {effectiveStatus === "paused"
-                          ? "Time remaining"
-                          : "Pick expires in"}
-                      </p>
-                      <DraftClockSeconds seconds={secondsLeft} />
-                    </>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">
-                      {clockEnabled
-                        ? `Round ${onTheClockLive.round} · Pick ${onTheClockLive.overall}`
-                        : "No time limit — pick when ready"}
-                    </p>
-                  )}
-                </div>
-              ) : onTheClockLive &&
-                picksUntilUser != null &&
-                picksUntilUser > 0 ? (
-                showPickClock ? (
-                  <div className="flex flex-col gap-1">
-                    <p className="text-xs text-muted-foreground">
-                      {effectiveStatus === "paused"
-                        ? "Time remaining"
-                        : "Pick expires in"}
-                    </p>
-                    <DraftClockSeconds seconds={secondsLeft} />
-                    <p className="text-sm text-muted-foreground">
-                      You&apos;re up in {picksUntilUser}{" "}
-                      {picksUntilUser === 1 ? "pick" : "picks"}
-                    </p>
-                  </div>
-                ) : (
-                  <p className="text-sm">
-                    You&apos;re up in {picksUntilUser}{" "}
-                    {picksUntilUser === 1 ? "pick" : "picks"}
-                  </p>
-                )
-              ) : onTheClockLive ? (
-                <div className="flex flex-col gap-1">
-                  <p className="text-sm text-muted-foreground">
-                    Round {onTheClockLive.round} · Pick #{onTheClockLive.overall}
-                  </p>
-                  {showPickClock ? (
-                    <>
-                      <p className="text-xs text-muted-foreground">
-                        {effectiveStatus === "paused"
-                          ? "Time remaining"
-                          : "Pick expires in"}
-                      </p>
-                      <DraftClockSeconds seconds={secondsLeft} />
-                    </>
-                  ) : !clockEnabled ? (
-                    <p className="text-sm text-muted-foreground">
-                      No time limit
-                    </p>
-                  ) : null}
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  No more picks for you.
-                </p>
-              )}
-            </DraftClockCard>
-          ) : null}
+          <DraftRoomClockCard
+            slug={slug}
+            isCommissioner={isCommissioner}
+            effectiveStatus={effectiveStatus}
+            waitingToStart={waitingToStart}
+            draftComplete={draftComplete}
+            draftStartAt={draftStartAt}
+            startHint={startHint}
+            clockEnabled={clockEnabled}
+            turnExpiresAt={liveTurnExpiresAt}
+            pausedSecondsRemaining={livePausedSeconds}
+            pausedByWindow={livePausedByWindow}
+            livePickIndex={livePickIndex}
+            onTheClockLive={onTheClockLive}
+            onClockTeam={onClockTeam}
+            onClockIsOpenSlot={onClockIsOpenSlot}
+            isMyTurn={isMyTurn}
+            picksUntilUser={picksUntilUser}
+            canRevert={livePickIndex > 0}
+            onStatusOptimistic={handleStatusOptimistic}
+            onClockExpired={handleClockExpired}
+          />
         </div>
 
         <Tabs value={tab} onValueChange={(value) => setTab(String(value))}>

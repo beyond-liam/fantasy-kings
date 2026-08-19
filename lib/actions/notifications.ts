@@ -5,29 +5,12 @@ import { and, eq, isNull } from "drizzle-orm";
 import { notifications } from "@/db/schema";
 import { requireSessionUser } from "@/lib/auth/session";
 import { db } from "@/lib/db";
-import {
-  getUnreadNotificationCount,
-  getUserNotifications,
-  type NotificationListItem,
-} from "@/lib/queries/notifications";
+import type { NotificationListItem } from "@/lib/queries/notifications";
 
 export type NotificationsPayload = {
   items: NotificationListItem[];
   unreadCount: number;
 };
-
-export async function getSessionNotifications(): Promise<NotificationsPayload | null> {
-  try {
-    const user = await requireSessionUser();
-    const [items, unreadCount] = await Promise.all([
-      getUserNotifications(user.id),
-      getUnreadNotificationCount(user.id),
-    ]);
-    return { items, unreadCount };
-  } catch {
-    return null;
-  }
-}
 
 export async function markNotificationRead(
   notificationId: string,

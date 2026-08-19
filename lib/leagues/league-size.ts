@@ -29,3 +29,8 @@ export function nextBotTeamName(
   }
   return `Bot Team ${index + 1}`;
 }
+
+/** Profile label written by commissioner “fill with bots”. */
+export function isBotManagerDisplayName(name: string | null | undefined): boolean {
+  return /^Bot Manager \d+$/.test(name?.trim() ?? "");
+}

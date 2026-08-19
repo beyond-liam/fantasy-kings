@@ -69,22 +69,6 @@ export async function completeOnboarding(
   return { success: true };
 }
 
-export async function getOnboardingState(): Promise<{
-  email: string | null;
-  needsOnboarding: boolean;
-} | null> {
-  try {
-    const user = await requireSessionUser();
-    const profile = await getProfileByUserId(user.id);
-    return {
-      email: user.email ?? null,
-      needsOnboarding: !profile?.onboardedAt,
-    };
-  } catch {
-    return null;
-  }
-}
-
 export async function markProfileEnsured() {
   const user = await requireSessionUser();
   const [existing] = await db

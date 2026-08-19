@@ -33,6 +33,7 @@ import type { IconSvgElement } from "@hugeicons/react";
 import { ClearNonKeepersMenuItem } from "@/components/leagues/settings/clear-non-keepers-menu-item";
 import { DangerZoneMenuItems } from "@/components/leagues/settings/danger-zone-menu-items";
 import { EditRostersMenuItem } from "@/components/leagues/settings/edit-rosters-menu-item";
+import { FillBotTeamsMenuItem } from "@/components/leagues/settings/fill-bot-teams-menu-item";
 import { OpenFreeAgencyMenuItem } from "@/components/leagues/settings/open-free-agency-menu-item";
 import { RemoveOwnerMenuItem } from "@/components/leagues/settings/remove-owner-menu-item";
 import { SetKeepersMenuItem } from "@/components/leagues/settings/set-keepers-menu-item";
@@ -257,6 +258,7 @@ type LeagueSettingsTabsProps = {
   leagueName: string;
   seasonStatus: string;
   freeAgencyOpen: boolean;
+  vacantSlotCount: number;
   divisionCount: number;
   leagueType: string;
   regularSeasonFinished: boolean;
@@ -273,6 +275,7 @@ export function LeagueSettingsTabs({
   leagueName,
   seasonStatus,
   freeAgencyOpen,
+  vacantSlotCount,
   divisionCount,
   leagueType,
   regularSeasonFinished,
@@ -390,11 +393,17 @@ export function LeagueSettingsTabs({
               )}
               variant={tab.variant}
               footer={
-                <OpenFreeAgencyMenuItem
-                  slug={slug}
-                  seasonStatus={seasonStatus}
-                  freeAgencyOpen={freeAgencyOpen}
-                />
+                <div className="flex flex-col gap-0.5">
+                  <FillBotTeamsMenuItem
+                    slug={slug}
+                    vacantSlotCount={vacantSlotCount}
+                  />
+                  <OpenFreeAgencyMenuItem
+                    slug={slug}
+                    seasonStatus={seasonStatus}
+                    freeAgencyOpen={freeAgencyOpen}
+                  />
+                </div>
               }
             />
           ) : tab.value === "commish" ? (

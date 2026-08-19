@@ -41,8 +41,17 @@ type DraftPickNotifierProps = {
   intervalMs?: number;
 };
 
-const DRAFT_ROUTE_INTERVAL_MS = 4_000;
+export const DRAFT_POLL_NOW_EVENT = "draft-poll-now";
+
+const DRAFT_ROUTE_INTERVAL_MS = 1_500;
 const OFF_DRAFT_INTERVAL_MS = 12_000;
+
+export function requestDraftPickPoll() {
+  if (typeof window === "undefined") {
+    return;
+  }
+  window.dispatchEvent(new Event(DRAFT_POLL_NOW_EVENT));
+}
 
 function isDraftRoute(pathname: string | null, slug: string) {
   return Boolean(pathname?.includes(`/league/${slug}/draft`));
@@ -61,6 +70,7 @@ export function DraftPickNotifier({
   const statusRef = useRef<DraftPicksPollResponse["status"] | undefined>(
     undefined,
   );
+  const pollRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     afterOverallRef.current = initialAfterOverall;
@@ -154,13 +164,26 @@ export function DraftPickNotifier({
       scheduleNext(delayMs);
     };
 
+    pollRef.current = () => {
+      void poll();
+    };
+
     void poll();
 
     return () => {
       cancelled = true;
+      pollRef.current = null;
       window.clearTimeout(timeoutId);
     };
   }, [enabled, intervalMs, router, slug]);
+
+  useEffect(() => {
+    const onPollNow = () => {
+      pollRef.current?.();
+    };
+    window.addEventListener(DRAFT_POLL_NOW_EVENT, onPollNow);
+    return () => window.removeEventListener(DRAFT_POLL_NOW_EVENT, onPollNow);
+  }, []);
 
   return null;
 }

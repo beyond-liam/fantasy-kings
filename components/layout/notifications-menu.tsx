@@ -28,7 +28,6 @@ import {
 } from "@/components/ui/empty";
 import {
   clearAllNotifications,
-  getSessionNotifications,
   markNotificationRead,
   type NotificationsPayload,
 } from "@/lib/actions/notifications";
@@ -55,25 +54,43 @@ function formatNotificationTime(date: Date) {
   return `${Math.max(1, years)}y`;
 }
 
-export function NotificationsMenu() {
+function reviveNotifications(
+  payload: NotificationsPayload,
+): NotificationsPayload {
+  return {
+    unreadCount: payload.unreadCount,
+    items: payload.items.map((item) => ({
+      ...item,
+      createdAt: new Date(item.createdAt),
+      readAt: item.readAt ? new Date(item.readAt) : null,
+    })),
+  };
+}
+
+async function fetchNotifications(): Promise<NotificationsPayload | null> {
+  const response = await fetch("/api/notifications", { cache: "no-store" });
+  if (!response.ok) return null;
+  const payload = (await response.json()) as NotificationsPayload;
+  return reviveNotifications(payload);
+}
+
+export function NotificationsMenu({
+  initialPayload,
+}: {
+  initialPayload: NotificationsPayload | null;
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [payload, setPayload] = useState<NotificationsPayload | null>(null);
+  const [payload, setPayload] = useState<NotificationsPayload | null>(
+    initialPayload,
+  );
   const [pending, startTransition] = useTransition();
 
   function loadNotifications() {
-    return getSessionNotifications().then(setPayload);
-  }
-
-  useEffect(() => {
-    let cancelled = false;
-    void getSessionNotifications().then((next) => {
-      if (!cancelled) setPayload(next);
+    return fetchNotifications().then((next) => {
+      if (next) setPayload(next);
     });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  }
 
   useEffect(() => {
     function onRefresh() {
@@ -88,8 +105,8 @@ export function NotificationsMenu() {
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
-    void getSessionNotifications().then((next) => {
-      if (!cancelled) setPayload(next);
+    void fetchNotifications().then((next) => {
+      if (!cancelled && next) setPayload(next);
     });
     return () => {
       cancelled = true;

@@ -1,9 +1,12 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import { eq } from "drizzle-orm";
 
 import { LeagueSettings } from "@/components/leagues/league-settings";
+import { teams } from "@/db/schema";
 import { formatPersonName } from "@/lib/account/person-name";
 import { getSessionUser } from "@/lib/auth/session";
+import { db } from "@/lib/db";
 import {
   getLeagueHomeData,
   isLeagueCommissioner,
@@ -86,19 +89,33 @@ export default async function LeagueSettingsPage({
     (isDynasty && season
       ? resolveDynastySettings(season.settings.dynasty)
       : null);
-  const [keeperTeams, clearanceTeams] =
+  const [keeperTeams, clearanceTeams, seasonTeams] = await Promise.all([
     isDynasty && season
-      ? await Promise.all([
-          listKeeperTeamOptions(season.id),
-          getNonKeeperClearancePreview(season.id),
-        ])
-      : [[], []];
+      ? listKeeperTeamOptions(season.id)
+      : Promise.resolve([]),
+    isDynasty && season
+      ? getNonKeeperClearancePreview(season.id)
+      : Promise.resolve([]),
+    season
+      ? db
+          .select({ userId: teams.userId })
+          .from(teams)
+          .where(eq(teams.leagueSeasonId, season.id))
+      : Promise.resolve([]),
+  ]);
+
+  const openTeamSlots = seasonTeams.filter((team) => !team.userId).length;
+  const missingTeamRows = season
+    ? Math.max(0, season.teamCount - seasonTeams.length)
+    : 0;
+  const vacantSlotCount = openTeamSlots + missingTeamRows;
 
   return (
     <LeagueSettings
       league={data.league}
       season={season}
       memberCount={memberCount}
+      vacantSlotCount={vacantSlotCount}
       regularSeasonFinished={regularSeasonFinished}
       boxScoresEditable={boxScoresEditable}
       owners={owners}

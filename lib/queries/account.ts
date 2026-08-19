@@ -7,6 +7,7 @@ export type SessionAccountSummary = {
   email: string | null;
   avatarUrl: string | null;
   username: string | null;
+  needsOnboarding: boolean;
 };
 
 /** Account chrome for the top nav — query helper, not a server action. */
@@ -19,6 +20,7 @@ export const getSessionAccountSummary = cache(
       email: user.email ?? null,
       avatarUrl: profile?.avatarUrl ?? null,
       username: profile?.username ?? profile?.displayName ?? null,
+      needsOnboarding: !profile?.onboardedAt,
     };
   },
 );

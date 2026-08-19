@@ -40,9 +40,15 @@ import {
 } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
 import { NotificationsMenu } from "@/components/layout/notifications-menu";
+import type { NotificationsPayload } from "@/lib/actions/notifications";
 import { signOut } from "@/lib/actions/leagues";
 import { formatRecord, teamInitials } from "@/lib/leagues/standings";
 import type { UserLeagueNavItem } from "@/lib/queries/leagues";
+
+const EMPTY_NOTIFICATIONS: NotificationsPayload = {
+  items: [],
+  unreadCount: 0,
+};
 
 export type AppAccountSummary = {
   email: string | null;
@@ -397,9 +403,11 @@ function AppMobileNav({
 export function AppTopNav({
   initialAccount,
   initialLeagues,
+  initialNotifications = EMPTY_NOTIFICATIONS,
 }: {
   initialAccount: AppAccountSummary;
   initialLeagues: UserLeagueNavItem[];
+  initialNotifications?: NotificationsPayload;
 }) {
   const pathname = usePathname();
   const account = initialAccount;
@@ -455,7 +463,7 @@ export function AppTopNav({
         <div className="relative z-10 ml-auto flex shrink-0 items-center gap-0.5">
           {account ? (
             <>
-              <NotificationsMenu />
+              <NotificationsMenu initialPayload={initialNotifications} />
               <div className="hidden md:block">
                 <UserMenu
                   email={account.email}

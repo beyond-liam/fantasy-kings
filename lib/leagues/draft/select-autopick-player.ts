@@ -21,8 +21,8 @@ type AutopickSeasonTeam = {
 
 /**
  * Queue-first autopick. When `queueOnly` is true, never falls back to BPA
- * (claimed seats with the manager autopick toggle). Open seats omit that flag
- * so they still take need-aware ADP when the queue is empty.
+ * (claimed seats with the manager autopick toggle). Bot managers and open
+ * seats omit that flag so they still take need-aware ADP when the queue is empty.
  */
 export async function selectAutopickPlayerId(input: {
   draftId: string;

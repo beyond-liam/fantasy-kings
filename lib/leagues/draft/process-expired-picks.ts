@@ -12,6 +12,7 @@ import {
 import { commitDraftPick } from "@/lib/leagues/draft/pick";
 import { draftAllowsPicks } from "@/lib/leagues/draft/allows-picks";
 import { isDraftAutopickDue } from "@/lib/leagues/draft/autopick-due";
+import { isBotManagerUserId } from "@/lib/leagues/bot-teams";
 import { selectAutopickPlayerId } from "@/lib/leagues/draft/select-autopick-player";
 import { resolveDraftSettings } from "@/lib/leagues/draft-settings";
 import {
@@ -36,6 +37,7 @@ export type RunDraftAutopickResult =
  * Autopick the current on-clock seat when due.
  *
  * Claimed + Autopick on: pick from the queue immediately (do not wait).
+ * Bot managers (fill-with-bots): queue then BPA immediately — no clock wait.
  * Timed clock expired: queue then best available, even if Autopick is off.
  * Forced Autopick (two missed clocks): skip the timer until they return online.
  * Open / unclaimed seats: queue then BPA after expiry, or immediately if untimed.
@@ -115,14 +117,19 @@ export async function runDraftAutopick(input: {
 
   const onClockTeam = teamsWithSlots.find((team) => team.id === slot.teamId);
   const isOpenSlot = onClockTeam?.userId == null;
+  const isBotSeat =
+    !isOpenSlot &&
+    Boolean(onClockTeam?.autoPickEnabled) &&
+    (await isBotManagerUserId(onClockTeam?.userId));
   const now = Date.now();
   const turnExpiresAt = draft.turnExpiresAt;
   const hasTurnClock = turnExpiresAt != null;
   const clockExpired = hasTurnClock && turnExpiresAt.getTime() <= now;
 
-  // Claimed + Autopick on: take the queue as soon as this seat is on the clock.
+  // Claimed + Autopick on: queue immediately; bot seats also take BPA without
+  // waiting for the pick clock when the queue is empty.
   if (!isOpenSlot && onClockTeam?.autoPickEnabled) {
-    const queuedPlayerId = await selectAutopickPlayerId({
+    const playerId = await selectAutopickPlayerId({
       draftId: draft.id,
       currentPickIndex: draft.currentPickIndex,
       teamId: slot.teamId,
@@ -130,17 +137,25 @@ export async function runDraftAutopick(input: {
       settings: season.settings,
       benchSlots: season.benchSlots,
       scoringPreset: season.scoringPreset,
-      queueOnly: true,
+      queueOnly: !isBotSeat,
     });
 
-    if (queuedPlayerId) {
+    if (playerId) {
       return commitAutopickPlayer({
         input,
         season,
         draft,
         seasonTeams,
-        playerId: queuedPlayerId,
+        playerId,
       });
+    }
+
+    if (isBotSeat) {
+      return {
+        ok: false,
+        error: "No players left to autopick.",
+        reason: "other",
+      };
     }
   }
 
