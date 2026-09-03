@@ -23,12 +23,15 @@ Syncs player scores from Sleeper, ESPN boxscores, and nflverse. Finalizes matchu
 **Query params:**
 - `week` (optional) — NFL calendar week 1–18 (ESPN numbering). Defaults to current week.
 - `season` (optional) — Four-digit year (e.g., `2024`). Defaults to current season.
+- `force=1` — Bypass the automatic game-window guard for a one-off manual sync.
 - `projections=1` — Include projected stats (default off).
 - `espn=0` — Skip ESPN boxscore merge (default on for live/final games).
 - `nflverse=1` — Force nflverse official stats even during live games (default: auto after slate completes; auto skipped in preseason).
 - `nflverse=0` — Skip nflverse official stats entirely.
 
 **Preseason:** Sync follows Sleeper `season_type=pre` and ESPN’s current preseason window (same as NFL Scores). Hall of Fame is ESPN week 1; Preseason Week 1 is ESPN week 2. Rows are stored with `season_type=pre`.
+
+**Egress guard:** Scheduled requests check ESPN before touching Postgres. They run only from 30 minutes before kickoff through 8 hours after kickoff (or whenever a game is live), and fail closed if the scoreboard is unavailable. Keep cron-job.org restricted to game days; the guard is a safety net, not a replacement for a narrow schedule.
 
 **Expected response (200):**
 ```json
@@ -51,9 +54,9 @@ Syncs player scores from Sleeper, ESPN boxscores, and nflverse. Finalizes matchu
 - **finalize skipped** — When `upserted === 0`, finalize step is skipped. This can happen if scoreboard data is empty (see plan 005 for outage gates).
 - **nflverse empty board** — If ESPN scoreboard fetch fails, nflverse may not run even when games are complete (addressed by plan 005).
 
-**Manual trigger:**
+**Manual trigger (bypass the game-window guard):**
 ```bash
-curl -X POST "https://<your-app>/api/cron/sync-scores" \
+curl -X POST "https://<your-app>/api/cron/sync-scores?force=1" \
   -H "Authorization: Bearer $CRON_SECRET"
 ```
 
@@ -218,6 +221,8 @@ Recommended schedule for game days (all times UTC):
 - First kickoff: 6:00 PM UTC (1 PM ET)
 - Last game ends: ~11:30 PM UTC (6:30 PM ET)
 - Run `sync-scores` every 15 minutes from 5:30 PM UTC to midnight UTC.
+
+Do not run `sync-scores` continuously outside game-day windows. A continuous 2–5 minute schedule repeatedly loads the full player ID map and can exhaust the Supabase Free egress allowance.
 
 **Force nflverse after slate:**
 Once all games are final (typically Monday morning), manually trigger with `nflverse=1` to replace Sleeper/ESPN with official stats:

@@ -5,6 +5,7 @@ import { getNflScoreboard } from "@/lib/espn/scoreboard";
 import { espnSeasonTypeForNfl } from "@/lib/leagues/schedule/fantasy-week-map";
 import { finalizeDueMatchupsAfterScoreSync } from "@/lib/leagues/matchups/finalize";
 import { shouldFinalizeAfterSync } from "@/lib/leagues/matchups/finalize-gates";
+import { isAutomatedScoreSyncRequest } from "@/lib/scores/automated-sync-gate";
 import { syncEspnLiveScores } from "@/lib/scores/sync-espn-scores";
 import { shouldAutoRunNflverse } from "@/lib/scores/nflverse-run-gate";
 import { syncNflverseWeekScores } from "@/lib/scores/sync-nflverse-scores";
@@ -49,6 +50,10 @@ async function handle(request: Request) {
     url.searchParams.get("projections") === "1" ||
     url.searchParams.get("projections") === "true";
 
+  const forceParam = url.searchParams.get("force");
+  const forceSync =
+    forceParam === "1" || forceParam === "true" || forceParam === "on";
+
   // Default on: merge ESPN boxscores after Sleeper for live/final games.
   const espnParam = url.searchParams.get("espn");
   const includeEspn =
@@ -73,6 +78,10 @@ async function handle(request: Request) {
       week,
       season,
       kinds: includeProjections ? ["stats", "projection"] : ["stats"],
+      automated: isAutomatedScoreSyncRequest({
+        forceSync,
+        forceNflverse,
+      }),
     });
 
     const espn =

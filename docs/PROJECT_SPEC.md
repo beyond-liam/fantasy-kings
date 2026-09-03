@@ -1,7 +1,7 @@
 # Fantasy Kings — Project Specification
 
 > Living document. Update this file as requirements, decisions, and scope change.
-> Last updated: 2026-08-18
+> Last updated: 2026-09-03
 
 ---
 
@@ -656,7 +656,7 @@ lib/
 - [x] Roster Add / Claim / Cut mutations
 - [x] Trade mutations + processing pipeline
 - [x] In-app notifications (bell dropdown; trade + waiver + matchup producers)
-- [x] Near-live Sleeper week stats sync (`/api/cron/sync-scores`)
+- [x] Near-live Sleeper week stats sync (`/api/cron/sync-scores`; automatic game-window egress guard)
 - [x] ESPN live athlete + team DEF boxscores merge on `sync-scores`
 - [x] nflverse post-week official replace + `applyOfficialStatChanges`
 - [x] Matchup result lock + standings from final H2H (`home_pts`/`away_pts`/`status`)
@@ -965,3 +965,4 @@ lib/
 | 2026-08-18 | Manager presence badges only on standings + draft board; seed from server so the status circle is immediate |
 | 2026-08-18 | Daily pause window freezes the pick clock only; teams can still pick; clock resumes when the window ends |
 | 2026-08-18 | Future-week roster lineups: slot edits unlock after current games start, save as a plan, and apply when that week becomes current |
+| 2026-09-03 | Supabase egress incident: automatic score sync now checks ESPN before Postgres and skips outside live/recent game windows; manual operations require `force=1` |

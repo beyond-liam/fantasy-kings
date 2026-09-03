@@ -2,7 +2,10 @@ import { and, eq, inArray, max, sql } from "drizzle-orm";
 
 import { playerExternalIds, playerScores } from "@/db/schema";
 import { db } from "@/lib/db";
+import { getNflScoreboard } from "@/lib/espn/scoreboard";
+import { espnSeasonTypeForNfl } from "@/lib/leagues/schedule/fantasy-week-map";
 import { clearScoreRowsCache } from "@/lib/queries/players";
+import { shouldRunAutomatedScoreSync } from "@/lib/scores/automated-sync-gate";
 import {
   isScoreSyncSkip,
   resolveScoreSyncTarget,
@@ -195,6 +198,8 @@ export async function syncCurrentWeekScores(options?: {
   week?: number;
   /** Override season string (e.g. "2025"). */
   season?: string;
+  /** Unattended scheduler call: skip database work outside NFL game windows. */
+  automated?: boolean;
 }): Promise<SyncCurrentWeekScoresResult> {
   const started = Date.now();
   const state = await getNflState({ fresh: true });
@@ -224,6 +229,42 @@ export async function syncCurrentWeekScores(options?: {
   }
 
   const { season, week, seasonType } = target;
+
+  if (options?.automated) {
+    const seasonYear = Number.parseInt(season, 10);
+    const espnSeasonType = espnSeasonTypeForNfl(seasonType);
+    const board = Number.isFinite(seasonYear)
+      ? await getNflScoreboard({
+          season: seasonYear,
+          week,
+          seasonType: espnSeasonType,
+          calendarSeasonTypes: [espnSeasonType],
+        }).catch(() => null)
+      : null;
+
+    if (
+      !shouldRunAutomatedScoreSync({
+        scoreboardOk: board !== null,
+        games: board?.games ?? [],
+      })
+    ) {
+      return {
+        ok: true,
+        skipped: true,
+        reason:
+          "Automated score sync skipped outside the active NFL game window.",
+        season,
+        week,
+        seasonType,
+        kinds,
+        upserted: 0,
+        sleeperRows: 0,
+        matchedPlayers: 0,
+        maxUpdatedAt: null,
+        durationMs: Date.now() - started,
+      };
+    }
+  }
 
   const sleeperIdToPlayerId = await loadSleeperPlayerIdMap();
   let upserted = 0;
